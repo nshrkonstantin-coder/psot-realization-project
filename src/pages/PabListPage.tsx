@@ -247,7 +247,7 @@ export default function PabListPage() {
           </div>
         </div>
 
-        <Card className="p-6 mb-6">
+        <Card className="p-6 mb-6 sticky top-0 z-10 bg-white shadow-md">
           <div className="flex items-center gap-4">
             {filteredRecords.length > 0 && (
               <div className="flex items-center gap-2">

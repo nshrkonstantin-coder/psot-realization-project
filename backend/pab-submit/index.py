@@ -104,8 +104,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cur.execute(
             """INSERT INTO pab_observations 
             (pab_record_id, observation_number, description, category, 
-            conditions_actions, hazard_factors, measures, responsible_person, deadline) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            conditions_actions, hazard_factors, measures, responsible_person, deadline, photo_url) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (
                 pab_id,
                 obs['observation_number'],
@@ -115,7 +115,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 obs.get('hazard_factors'),
                 obs['measures'],
                 obs.get('responsible_person'),
-                obs.get('deadline')
+                obs.get('deadline'),
+                obs.get('photo_url')
             )
         )
     

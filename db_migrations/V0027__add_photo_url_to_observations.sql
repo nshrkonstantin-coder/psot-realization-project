@@ -1,0 +1,1 @@
+ALTER TABLE pab_observations ADD COLUMN IF NOT EXISTS photo_url TEXT;

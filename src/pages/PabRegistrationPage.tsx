@@ -176,6 +176,27 @@ export default function PabRegistrationPage() {
     return true;
   };
 
+  const uploadPhotoToStorage = async (file: File): Promise<string> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder_id', '1');
+
+      const response = await fetch('https://functions.poehali.dev/02f4ee55-2a57-4a53-b04e-3e1dcb43b37a', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Ошибка загрузки фото');
+
+      const data = await response.json();
+      return data.file?.url || '';
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      return '';
+    }
+  };
+
   const handleSubmit = async () => {
     if (!docDate || !inspectorFio || !inspectorPosition || !location || !checkedObject || !department) {
       toast.error('Заполните все обязательные поля');
@@ -215,6 +236,33 @@ export default function PabRegistrationPage() {
 
       const adminEmail = 'nshrkonstantin@gmail.com';
 
+      let headerPhotoUrl = '';
+      if (headerPhotoFile) {
+        toast.info('Загрузка фото шапки...');
+        headerPhotoUrl = await uploadPhotoToStorage(headerPhotoFile);
+      }
+
+      const observationsWithPhotos = await Promise.all(
+        observations.map(async (obs) => {
+          let photoUrl = '';
+          if (obs.photo_file) {
+            toast.info(`Загрузка фото наблюдения №${obs.observation_number}...`);
+            photoUrl = await uploadPhotoToStorage(obs.photo_file);
+          }
+          return {
+            observation_number: obs.observation_number,
+            description: obs.description,
+            category: obs.category,
+            conditions_actions: obs.conditions_actions,
+            hazard_factors: obs.hazard_factors,
+            measures: obs.measures,
+            responsible_person: obs.responsible_person,
+            deadline: obs.deadline,
+            photo_url: photoUrl
+          };
+        })
+      );
+
       const response = await fetch('https://functions.poehali.dev/5054985e-ff94-4512-8302-c02f01b09d66', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -226,11 +274,11 @@ export default function PabRegistrationPage() {
           department,
           location,
           checked_object: checkedObject,
-          photo_url: '',
+          photo_url: headerPhotoUrl,
           sender_email: senderEmail,
           responsible_email: responsibleEmail,
           admin_email: adminEmail,
-          observations
+          observations: observationsWithPhotos
         })
       });
 
