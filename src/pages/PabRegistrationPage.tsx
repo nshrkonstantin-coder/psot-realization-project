@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { generatePabHtml } from '@/utils/generatePabHtml';
+import { uploadDocumentToStorage } from '@/utils/documentUpload';
 
 interface Observation {
   observation_number: number;
@@ -45,6 +47,7 @@ export default function PabRegistrationPage() {
     hazards: []
   });
   const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
+  const [subdivisionFilter, setSubdivisionFilter] = useState<string>('');
   
   const [docNumber, setDocNumber] = useState('');
   const [docDate, setDocDate] = useState(new Date().toISOString().split('T')[0]);
@@ -182,12 +185,22 @@ export default function PabRegistrationPage() {
         setLoading(false);
         return;
       }
+      
+      const numberResponse = await fetch('https://functions.poehali.dev/c04242d9-b386-407e-bb84-10d219a16e97');
+      const numberData = await numberResponse.json();
+      const newDocNumber = numberData.doc_number;
+
+      const userResponse = await fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`);
+      const userData = await userResponse.json();
+      const responsibleEmail = userData.user?.email || '';
+
+      const adminEmail = 'nshrkonstantin@gmail.com';
 
       const response = await fetch('https://functions.poehali.dev/5054985e-ff94-4512-8302-c02f01b09d66', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          doc_number: docNumber,
+          doc_number: newDocNumber,
           doc_date: docDate,
           inspector_fio: inspectorFio,
           inspector_position: inspectorPosition,
@@ -195,13 +208,56 @@ export default function PabRegistrationPage() {
           location,
           checked_object: checkedObject,
           photo_url: '',
-          responsible_email: '',
-          admin_email: 'nshrkonstantin@gmail.com',
+          responsible_email: responsibleEmail,
+          admin_email: adminEmail,
           observations
         })
       });
 
       if (!response.ok) throw new Error('Ошибка сохранения');
+
+      const organizationId = localStorage.getItem('organizationId');
+      if (organizationId) {
+        try {
+          await fetch('https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4acdd', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: userId,
+              organization_id: organizationId,
+              action: 'create_pab',
+              points: 10
+            })
+          });
+        } catch (pointsError) {
+          console.error('Error awarding points:', pointsError);
+        }
+      }
+
+      const htmlContent = generatePabHtml({
+        doc_number: newDocNumber,
+        doc_date: docDate,
+        inspector_fio: inspectorFio,
+        inspector_position: inspectorPosition,
+        department,
+        location,
+        checked_object: checkedObject,
+        observations,
+        company: userCompany
+      });
+
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+
+      if (organizationId) {
+        await uploadDocumentToStorage({
+          file: blob,
+          fileName: `ПАБ_${newDocNumber}_${docDate}.html`,
+          organizationId: organizationId,
+          docNumber: newDocNumber,
+          docType: 'pab',
+          docDate: docDate
+        });
+      }
 
       toast.success('ПАБ успешно сохранен');
       navigate('/dashboard');
@@ -211,6 +267,14 @@ export default function PabRegistrationPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDownloadPdf = () => {
+    toast.info('Функция экспорта в PDF в разработке');
+  };
+
+  const handleDownloadWord = () => {
+    toast.info('Функция экспорта в Word в разработке');
   };
 
   return (
@@ -410,27 +474,58 @@ export default function PabRegistrationPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <Label className="text-gray-700 mb-2 block">Ответственный за выполнение *</Label>
-                  <Select
-                    value={obs.responsible_person}
-                    onValueChange={(value) => updateObservation(index, 'responsible_person', value)}
-                  >
-                    <SelectTrigger className="border-gray-300 text-gray-900">
-                      <SelectValue placeholder="Выберите из списка" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {orgUsers.map((user) => (
-                        <SelectItem key={user.id} value={user.fio}>
-                          {user.fio}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    value={obs.responsible_person}
-                    onChange={(e) => updateObservation(index, 'responsible_person', e.target.value)}
-                    className="border-gray-300 text-gray-900 mt-2"
-                    placeholder="Ф.И.О. или оставьте пустым"
-                  />
+                  
+                  {(() => {
+                    const uniqueSubdivisions = Array.from(new Set(orgUsers.map(u => u.subdivision)));
+                    const filteredUsers = subdivisionFilter
+                      ? orgUsers.filter(u => u.subdivision === subdivisionFilter)
+                      : orgUsers;
+                    
+                    return (
+                      <>
+                        {uniqueSubdivisions.length > 1 && (
+                          <Select
+                            value={subdivisionFilter}
+                            onValueChange={setSubdivisionFilter}
+                          >
+                            <SelectTrigger className="border-gray-300 text-gray-900 mb-2">
+                              <SelectValue placeholder="Фильтр по подразделению" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">Все подразделения</SelectItem>
+                              {uniqueSubdivisions.map((subdivision) => (
+                                <SelectItem key={subdivision} value={subdivision}>
+                                  {subdivision}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        
+                        <Select
+                          value={obs.responsible_person}
+                          onValueChange={(value) => updateObservation(index, 'responsible_person', value)}
+                        >
+                          <SelectTrigger className="border-gray-300 text-gray-900">
+                            <SelectValue placeholder="Выберите из списка" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredUsers.map((user) => (
+                              <SelectItem key={user.id} value={user.fio}>
+                                {user.fio} - {user.position}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          value={obs.responsible_person}
+                          onChange={(e) => updateObservation(index, 'responsible_person', e.target.value)}
+                          className="border-gray-300 text-gray-900 mt-2"
+                          placeholder="Ф.И.О. или оставьте пустым"
+                        />
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div>
@@ -472,10 +567,10 @@ export default function PabRegistrationPage() {
           >
             {loading ? 'Отправка...' : 'Отправить'}
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleDownloadPdf}>
             Скачать в PDF
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleDownloadWord}>
             <Icon name="FileText" size={20} className="mr-2" />
             Скачать в Word
           </Button>
