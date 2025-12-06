@@ -1,0 +1,18 @@
+{
+  "tests": [
+    {
+      "name": "Update PAB status",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "id": 1,
+        "status": "completed"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

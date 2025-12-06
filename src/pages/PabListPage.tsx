@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
@@ -15,7 +17,7 @@ interface PabRecord {
   location: string;
   checked_object: string;
   created_at: string;
-  status: 'new' | 'completed' | 'overdue';
+  status: 'new' | 'completed' | 'overdue' | 'in_progress';
   photo_url?: string;
   max_deadline?: string;
 }
@@ -24,9 +26,12 @@ export default function PabListPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<PabRecord[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [userRole, setUserRole] = useState('');
 
   useEffect(() => {
     loadRecords();
+    setUserRole(localStorage.getItem('userRole') || '');
   }, []);
 
   const loadRecords = async () => {
@@ -42,6 +47,26 @@ export default function PabListPage() {
     }
   };
 
+  const updateStatus = async (id: number, newStatus: string) => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/a4284e02-284d-408c-9cee-d71a36d6fa09', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus })
+      });
+      
+      if (response.ok) {
+        toast.success('Статус обновлён');
+        loadRecords();
+      } else {
+        toast.error('Ошибка обновления статуса');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Ошибка обновления статуса');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU');
   };
@@ -50,6 +75,8 @@ export default function PabListPage() {
     switch (status) {
       case 'new':
         return { label: 'Новый', color: 'bg-blue-100 text-blue-800' };
+      case 'in_progress':
+        return { label: 'В работе', color: 'bg-yellow-100 text-yellow-800' };
       case 'completed':
         return { label: 'Выполнен', color: 'bg-green-100 text-green-800' };
       case 'overdue':
@@ -58,6 +85,34 @@ export default function PabListPage() {
         return { label: 'Новый', color: 'bg-gray-100 text-gray-800' };
     }
   };
+
+  const getStatusIndicator = (record: PabRecord) => {
+    const isOverdue = record.max_deadline && new Date(record.max_deadline) < new Date();
+    
+    if (record.status === 'completed') {
+      return <div className="w-4 h-4 rounded-full bg-green-500 shadow-lg" />;
+    }
+    
+    if (isOverdue || record.status === 'overdue') {
+      return (
+        <div className="w-4 h-4 rounded-full bg-red-600 shadow-lg animate-pulse" 
+             style={{ animation: 'pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
+      );
+    }
+    
+    return <div className="w-4 h-4 rounded-full bg-red-500 shadow-lg" />;
+  };
+
+  const filteredRecords = records.filter((record) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      record.doc_number.toLowerCase().includes(query) ||
+      record.inspector_fio.toLowerCase().includes(query) ||
+      record.department.toLowerCase().includes(query)
+    );
+  });
+
+  const isAdmin = userRole === 'admin' || userRole === 'superadmin';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4">
@@ -81,60 +136,98 @@ export default function PabListPage() {
           </Button>
         </div>
 
+        <Card className="p-6 mb-6">
+          <div className="flex items-center gap-4">
+            <Icon name="Search" size={20} className="text-gray-400" />
+            <Input
+              placeholder="Поиск по номеру ПАБ, проверяющему или подразделению..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1"
+            />
+          </div>
+        </Card>
+
         {loading ? (
           <div className="text-center py-12">
             <p className="text-gray-600">Загрузка...</p>
           </div>
-        ) : records.length === 0 ? (
+        ) : filteredRecords.length === 0 ? (
           <Card className="p-12 text-center">
             <Icon name="FileText" size={48} className="mx-auto mb-4 text-gray-400" />
-            <p className="text-gray-600 text-lg mb-4">Нет сохранённых записей ПАБ</p>
-            <Button onClick={() => navigate('/pab-registration')}>
-              Создать первый ПАБ
-            </Button>
+            <p className="text-gray-600 text-lg mb-4">
+              {searchQuery ? 'Ничего не найдено' : 'Нет сохранённых записей ПАБ'}
+            </p>
+            {!searchQuery && (
+              <Button onClick={() => navigate('/pab-registration')}>
+                Создать первый ПАБ
+              </Button>
+            )}
           </Card>
         ) : (
           <div className="grid gap-4">
-            {records.map((record) => (
+            {filteredRecords.map((record) => (
               <Card key={record.id} className="p-6 hover:shadow-lg transition-shadow">
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <h3 className="text-xl font-bold text-gray-900">
-                        {record.doc_number}
-                      </h3>
-                      <span className="text-sm text-gray-500">
-                        {formatDate(record.doc_date)}
-                      </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusLabel(record.status).color}`}>
-                        {getStatusLabel(record.status).label}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-700">
-                      <div>
-                        <span className="font-semibold">Проверяющий:</span> {record.inspector_fio}
-                      </div>
-                      <div>
-                        <span className="font-semibold">Должность:</span> {record.inspector_position}
-                      </div>
-                      <div>
-                        <span className="font-semibold">Подразделение:</span> {record.department}
-                      </div>
-                      <div>
-                        <span className="font-semibold">Участок:</span> {record.location}
-                      </div>
-                      {record.checked_object && (
-                        <div className="md:col-span-2">
-                          <span className="font-semibold">Объект:</span> {record.checked_object}
-                        </div>
-                      )}
-                    </div>
-                    <div className="mt-3 text-xs text-gray-500">
-                      Создано: {formatDate(record.created_at)}
-                      {record.max_deadline && (
-                        <span className="ml-4">
-                          Срок выполнения: {formatDate(record.max_deadline)}
+                  <div className="flex items-start gap-4 flex-1">
+                    {getStatusIndicator(record)}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <h3 className="text-xl font-bold text-gray-900">
+                          {record.doc_number}
+                        </h3>
+                        <span className="text-sm text-gray-500">
+                          {formatDate(record.doc_date)}
                         </span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusLabel(record.status).color}`}>
+                          {getStatusLabel(record.status).label}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-700">
+                        <div>
+                          <span className="font-semibold">Проверяющий:</span> {record.inspector_fio}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Должность:</span> {record.inspector_position}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Подразделение:</span> {record.department}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Участок:</span> {record.location}
+                        </div>
+                        {record.checked_object && (
+                          <div className="md:col-span-2">
+                            <span className="font-semibold">Объект:</span> {record.checked_object}
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-3 text-xs text-gray-500">
+                        Создано: {formatDate(record.created_at)}
+                        {record.max_deadline && (
+                          <span className="ml-4">
+                            Срок выполнения: {formatDate(record.max_deadline)}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {isAdmin && (
+                        <div className="mt-4">
+                          <Select
+                            value={record.status}
+                            onValueChange={(value) => updateStatus(record.id, value)}
+                          >
+                            <SelectTrigger className="w-48">
+                              <SelectValue placeholder="Изменить статус" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="new">Новый</SelectItem>
+                              <SelectItem value="in_progress">В работе</SelectItem>
+                              <SelectItem value="completed">Выполнен</SelectItem>
+                              <SelectItem value="overdue">Просрочен</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       )}
                     </div>
                   </div>

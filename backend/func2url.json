@@ -1,4 +1,6 @@
 {
+  "pab-update-status": "https://functions.poehali.dev/a4284e02-284d-408c-9cee-d71a36d6fa09",
+  "pab-view": "https://functions.poehali.dev/ec299a8d-481e-470f-8487-4a1ca230b284",
   "pab-list": "https://functions.poehali.dev/bb1de74c-2e60-4e49-838e-7c640186dc5c",
   "send-pab-email": "https://functions.poehali.dev/963fb84a-6c11-4009-a2f8-e46804543809",
   "support-email": "https://functions.poehali.dev/e519c776-33cc-4cea-bdaa-1d10b684b777",

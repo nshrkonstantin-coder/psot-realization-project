@@ -19,6 +19,7 @@ import FolderViewPage from "./pages/FolderViewPage";
 import PabRegistrationPage from "./pages/PabRegistrationPage";
 import PabDictionariesPage from "./pages/PabDictionariesPage";
 import PabListPage from "./pages/PabListPage";
+import PabViewPage from "./pages/PabViewPage";
 import ProductionControlPage from "./pages/ProductionControlPage";
 import OrganizationsManagementPage from "./pages/OrganizationsManagementPage";
 import CreateOrganizationPage from "./pages/CreateOrganizationPage";
@@ -61,6 +62,7 @@ const App = () => (
           <Route path="/pab-registration" element={<PabRegistrationPage />} />
           <Route path="/pab-dictionaries" element={<PabDictionariesPage />} />
           <Route path="/pab-list" element={<PabListPage />} />
+          <Route path="/pab-view/:id" element={<PabViewPage />} />
           <Route path="/production-control" element={<ProductionControlPage />} />
           <Route path="/organizations-management" element={<OrganizationsManagementPage />} />
           <Route path="/create-organization" element={<CreateOrganizationPage />} />

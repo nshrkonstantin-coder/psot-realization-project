@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "Get PAB details",
+      "method": "GET",
+      "path": "/?id=1",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "pab": "object"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
