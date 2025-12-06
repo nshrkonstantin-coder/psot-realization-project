@@ -370,11 +370,19 @@ export default function PabRegistrationPage() {
           </button>
         </div>
 
-        {!docNumber && (
-          <div className="bg-yellow-600/20 border border-yellow-600/50 rounded-lg p-4 mb-6">
-            <p className="text-yellow-300 text-center">⚠️ Если форма не отображается, проверьте консоль браузера (F12) или обратитесь к администратору</p>
+        <div className="bg-red-600/20 border border-red-600/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300 text-center font-bold">⚠️ ДИАГНОСТИКА ФОРМЫ</p>
+          <div className="text-white mt-2 space-y-1">
+            <p>• Номер документа: {docNumber || '❌ не загружен'}</p>
+            <p>• Наблюдений: {observations.length}</p>
+            <p>• Категорий в справочнике: {dictionaries.categories.length}</p>
+            <p>• Компания: {userCompany || 'не указана'}</p>
+            <p>• ФИО: {inspectorFio || 'не указано'}</p>
           </div>
-        )}
+          <p className="text-yellow-300 mt-3 text-sm text-center">
+            👉 Откройте консоль браузера (F12) и скопируйте КРАСНЫЕ ошибки!
+          </p>
+        </div>
 
         <div className="space-y-6">
           <PabFormHeader
