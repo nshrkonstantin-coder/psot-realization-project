@@ -35,10 +35,12 @@ interface OrgUser {
 }
 
 export default function PabRegistrationPage() {
+  console.log('[PAB] Component rendering...');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [userCompany, setUserCompany] = useState('');
+  const [debugInfo, setDebugInfo] = useState('');
   const [dictionaries, setDictionaries] = useState<Dictionaries>({
     categories: [],
     conditions: [],
@@ -72,17 +74,21 @@ export default function PabRegistrationPage() {
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
+    console.log('[PAB] useEffect running, userId:', userId);
+    setDebugInfo(`userId: ${userId}, loading...`);
     
     // Разрешаем доступ только авторизованным пользователям
     if (!userId) {
       console.log('[PAB] Access denied: no user ID');
+      setDebugInfo('Нет авторизации - перенаправление на главную');
       toast.error('Доступ запрещен. Войдите в систему.');
       setInitialLoading(false);
-      navigate('/');
+      setTimeout(() => navigate('/'), 1000);
       return;
     }
     
     setUserCompany(localStorage.getItem('userCompany') || '');
+    setDebugInfo('Загрузка данных...');
     loadData();
   }, [navigate]);
 
@@ -334,6 +340,7 @@ export default function PabRegistrationPage() {
         <div className="text-center">
           <Icon name="Loader2" size={48} className="text-yellow-500 animate-spin mx-auto mb-4" />
           <p className="text-white text-xl">Загрузка формы регистрации ПАБ...</p>
+          <p className="text-slate-400 mt-4">Debug: {debugInfo}</p>
         </div>
       </div>
     );
