@@ -153,8 +153,13 @@ export default function PabRegistrationPage() {
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]) as Response;
         const usersData = await usersResponse.json();
-        console.log('[PAB] Organization users loaded:', usersData.length);
-        setOrgUsers(usersData);
+        console.log('[PAB] Organization users loaded:', usersData);
+        if (Array.isArray(usersData)) {
+          setOrgUsers(usersData);
+        } else {
+          console.warn('[PAB] Organization users response is not array:', usersData);
+          setOrgUsers([]);
+        }
       } catch (error) {
         console.error('[PAB] Error loading organization users:', error);
       }

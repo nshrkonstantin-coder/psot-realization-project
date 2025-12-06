@@ -51,10 +51,11 @@ export const PabObservationForm = ({
   onUpdate,
   isFieldFilled,
 }: PabObservationFormProps) => {
-  const uniqueSubdivisions = Array.from(new Set(orgUsers.map(u => u.subdivision)));
+  const safeOrgUsers = orgUsers || [];
+  const uniqueSubdivisions = Array.from(new Set(safeOrgUsers.map(u => u.subdivision)));
   const filteredUsers = subdivisionFilter
-    ? orgUsers.filter(u => u.subdivision === subdivisionFilter)
-    : orgUsers;
+    ? safeOrgUsers.filter(u => u.subdivision === subdivisionFilter)
+    : safeOrgUsers;
 
   return (
     <Card className="bg-slate-800/50 border-yellow-600/30 p-6">
