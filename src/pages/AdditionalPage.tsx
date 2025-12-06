@@ -43,6 +43,20 @@ const AdditionalPage = () => {
       route: '/reports',
       description: 'Создание отчётных документов'
     },
+    { 
+      label: 'АСУБТ', 
+      icon: 'Mountain', 
+      color: 'from-blue-500 to-blue-600', 
+      route: '/asubt',
+      description: 'Автоматизированная система управления безопасностью труда'
+    },
+    { 
+      label: 'КБТ', 
+      icon: 'Briefcase', 
+      color: 'from-amber-700 to-amber-800', 
+      route: '/kbt',
+      description: 'Корпоративная безопасность труда'
+    },
   ];
 
   return (

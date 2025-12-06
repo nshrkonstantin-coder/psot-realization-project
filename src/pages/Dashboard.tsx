@@ -32,9 +32,7 @@ const Dashboard = () => {
     { label: 'Мои показатели', icon: 'TrendingUp', color: 'from-blue-500 to-blue-600', route: '/my-metrics' },
     { label: 'Производственный контроль', icon: 'Shield', color: 'from-red-600 to-red-700', route: '/production-control' },
     { label: 'Реестр предписаний', icon: 'ClipboardList', color: 'from-blue-600 to-cyan-600', route: '/prescriptions' },
-    { label: 'АСУБТ', icon: 'Mountain', color: 'from-blue-500 to-blue-600', route: '/asubt' },
     { label: 'Статистика нарушений', icon: 'BarChart3', color: 'from-blue-600 to-cyan-600', route: '/violations-stats' },
-    { label: 'КБТ', icon: 'Briefcase', color: 'from-amber-700 to-amber-800', route: '/kbt' },
     { label: 'Дополнительно', icon: 'Plus', color: 'from-yellow-500 to-yellow-600', route: '/additional' },
     { label: 'Журнал поручений', icon: 'BookOpen', color: 'from-red-500 to-red-600', route: '/orders' },
   ];
