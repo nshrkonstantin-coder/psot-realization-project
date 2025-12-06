@@ -72,22 +72,13 @@ export default function PabRegistrationPage() {
   ]);
 
   useEffect(() => {
-    console.log('[PAB] Component mounted, checking authentication...');
     const userId = localStorage.getItem('userId');
-    console.log('[PAB] localStorage userId:', userId);
-    console.log('[PAB] All localStorage keys:', Object.keys(localStorage));
     
     if (!userId) {
-      console.log('[PAB] No userId found - showing error and redirecting');
-      toast.error('Доступ запрещен. Войдите в систему.');
-      setTimeout(() => {
-        console.log('[PAB] Redirecting to home...');
-        navigate('/');
-      }, 2000);
+      setAuthChecked(false);
       return;
     }
     
-    console.log('[PAB] User authenticated, userId:', userId);
     setUserCompany(localStorage.getItem('userCompany') || '');
     setAuthChecked(true);
     loadData();
@@ -329,10 +320,30 @@ export default function PabRegistrationPage() {
 
   if (!authChecked) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-gray-600 text-lg">
-          <Icon name="Loader2" size={40} className="animate-spin mx-auto mb-4" />
-          Проверка доступа...
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-slate-800 rounded-2xl p-8 border-2 border-red-600/30">
+          <div className="text-center">
+            <Icon name="ShieldAlert" size={60} className="text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-4">Доступ запрещен</h2>
+            <p className="text-gray-300 mb-6">
+              Для доступа к форме регистрации ПАБ необходимо войти в систему.
+            </p>
+            <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
+              <p className="text-sm text-gray-400">
+                userId: <span className="text-red-400 font-mono">не найден</span>
+              </p>
+              <p className="text-xs text-gray-500 mt-2">
+                localStorage: {Object.keys(localStorage).join(', ') || 'пусто'}
+              </p>
+            </div>
+            <Button
+              onClick={() => navigate('/')}
+              className="w-full bg-gradient-to-r from-yellow-600 to-orange-700 hover:from-yellow-700 hover:to-orange-800"
+            >
+              <Icon name="LogIn" size={20} className="mr-2" />
+              Перейти к входу
+            </Button>
+          </div>
         </div>
       </div>
     );
