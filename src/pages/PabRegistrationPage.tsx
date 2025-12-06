@@ -74,14 +74,13 @@ export default function PabRegistrationPage() {
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     
-    if (!userId) {
-      setAuthChecked(false);
-      return;
-    }
-    
+    // Временно показываем форму всегда для диагностики
     setUserCompany(localStorage.getItem('userCompany') || '');
     setAuthChecked(true);
-    loadData();
+    
+    if (userId) {
+      loadData();
+    }
   }, [navigate]);
 
   const loadData = async () => {
