@@ -310,6 +310,36 @@ export default function PabViewPage() {
             </div>
           </Card>
         ))}
+
+        <Card className="p-8 mt-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Подписи</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">Проверяющий:</span>
+                <span className="ml-2 text-gray-900">{pab.inspector_fio}</span>
+              </div>
+              <div className="border-t-2 border-gray-400 pt-1 mt-8">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Подпись</span>
+                  <span className="text-sm text-gray-600">Дата: {formatDate(pab.doc_date)}</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">Ответственный за выполнение:</span>
+                <span className="ml-2 text-gray-900">{pab.observations[0]?.responsible_person || '—'}</span>
+              </div>
+              <div className="border-t-2 border-gray-400 pt-1 mt-8">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Подпись</span>
+                  <span className="text-sm text-gray-600">Дата: __________</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );

@@ -177,6 +177,50 @@ export const generatePabPDF = (pabs: PabData[]) => {
       border-left: 2px solid #ccc;
     }
     
+    .signatures-section {
+      margin-top: 30px;
+      padding: 15px;
+      border: 1px solid #000;
+      page-break-inside: avoid;
+    }
+    
+    .signatures-title {
+      font-size: 12pt;
+      font-weight: bold;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    
+    .signatures-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+    }
+    
+    .signature-block {
+      min-height: 80px;
+    }
+    
+    .signature-label {
+      font-weight: bold;
+      font-size: 10pt;
+      margin-bottom: 5px;
+    }
+    
+    .signature-name {
+      font-size: 10pt;
+      margin-bottom: 20px;
+    }
+    
+    .signature-line {
+      border-top: 2px solid #000;
+      padding-top: 5px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 9pt;
+      color: #666;
+    }
+    
     @media print {
       body {
         margin: 0;
@@ -278,6 +322,28 @@ export const generatePabPDF = (pabs: PabData[]) => {
           </div>
         </div>
       `).join('')}
+      
+      <div class="signatures-section">
+        <div class="signatures-title">ПОДПИСИ</div>
+        <div class="signatures-grid">
+          <div class="signature-block">
+            <div class="signature-label">Проверяющий:</div>
+            <div class="signature-name">${pab.inspector_fio}</div>
+            <div class="signature-line">
+              <span>Подпись ______________</span>
+              <span>Дата: ${formatDate(pab.doc_date)}</span>
+            </div>
+          </div>
+          <div class="signature-block">
+            <div class="signature-label">Ответственный за выполнение:</div>
+            <div class="signature-name">${pab.observations[0]?.responsible_person || '—'}</div>
+            <div class="signature-line">
+              <span>Подпись ______________</span>
+              <span>Дата: __________</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     ${pabIndex < pabs.length - 1 ? '<div class="page-break"></div>' : ''}
   `).join('')}
