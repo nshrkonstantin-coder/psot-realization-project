@@ -169,12 +169,20 @@ export const generatePabPDF = (pabs: PabData[]) => {
     .field-value {
       display: inline;
       word-wrap: break-word;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      max-width: 100%;
     }
     
     .text-block {
       margin-top: 3px;
       padding-left: 10px;
       border-left: 2px solid #ccc;
+      word-wrap: break-word;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      max-width: 100%;
+      white-space: pre-wrap;
     }
     
     .signatures-section {
