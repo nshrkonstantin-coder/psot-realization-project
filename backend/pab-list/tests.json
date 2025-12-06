@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "Get PAB records list",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "records": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

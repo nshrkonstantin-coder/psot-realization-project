@@ -29,6 +29,7 @@ const Dashboard = () => {
     { label: 'Личный кабинет', icon: 'User', color: 'from-purple-500 to-purple-600', route: '/user-cabinet' },
     { label: 'Профиль', icon: 'Settings', color: 'from-slate-500 to-slate-600', route: '/profile' },
     { label: 'Регистрация ПАБ', icon: 'FileText', color: 'from-red-500 to-red-600', route: '/pab-registration' },
+    { label: 'Список ПАБ', icon: 'List', color: 'from-green-500 to-green-600', route: '/pab-list' },
     { label: 'Мои показатели', icon: 'TrendingUp', color: 'from-blue-500 to-blue-600', route: '/my-metrics' },
     { label: 'Производственный контроль', icon: 'Shield', color: 'from-red-600 to-red-700', route: '/production-control' },
     { label: 'Реестр предписаний', icon: 'ClipboardList', color: 'from-blue-600 to-cyan-600', route: '/prescriptions' },
