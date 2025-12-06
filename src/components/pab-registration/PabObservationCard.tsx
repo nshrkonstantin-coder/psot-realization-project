@@ -145,7 +145,7 @@ export const PabObservationCard = ({
             
             {(() => {
               const uniqueSubdivisions = Array.from(new Set(orgUsers.map(u => u.subdivision)));
-              const filteredUsers = subdivisionFilter
+              const filteredUsers = subdivisionFilter && subdivisionFilter !== 'all'
                 ? orgUsers.filter(u => u.subdivision === subdivisionFilter)
                 : orgUsers;
               
@@ -160,7 +160,7 @@ export const PabObservationCard = ({
                         <SelectValue placeholder="Фильтр по подразделению" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Все подразделения</SelectItem>
+                        <SelectItem value="all">Все подразделения</SelectItem>
                         {uniqueSubdivisions.map((subdivision) => (
                           <SelectItem key={subdivision} value={subdivision}>
                             {subdivision}
