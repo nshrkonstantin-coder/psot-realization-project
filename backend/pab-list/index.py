@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Dict, Any
+from datetime import datetime, date
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
@@ -28,10 +29,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     cur.execute("""
         SELECT 
-            id, doc_number, doc_date, inspector_fio, inspector_position,
-            department, location, checked_object, created_at
-        FROM pab_records
-        ORDER BY created_at DESC
+            pr.id, pr.doc_number, pr.doc_date, pr.inspector_fio, pr.inspector_position,
+            pr.department, pr.location, pr.checked_object, pr.created_at, pr.status,
+            pr.photo_url,
+            MAX(po.deadline) as max_deadline
+        FROM pab_records pr
+        LEFT JOIN pab_observations po ON pr.id = po.pab_record_id
+        GROUP BY pr.id, pr.doc_number, pr.doc_date, pr.inspector_fio, pr.inspector_position,
+                 pr.department, pr.location, pr.checked_object, pr.created_at, pr.status, pr.photo_url
+        ORDER BY pr.created_at DESC
     """)
     
     records = cur.fetchall()
@@ -39,13 +45,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     cur.close()
     conn.close()
     
+    today = date.today()
+    
     records_list = []
     for record in records:
         record_dict = dict(record)
+        
+        max_deadline = record_dict.get('max_deadline')
+        current_status = record_dict.get('status', 'new')
+        
+        if current_status != 'completed':
+            if max_deadline and max_deadline < today:
+                record_dict['status'] = 'overdue'
+            else:
+                record_dict['status'] = 'new'
+        
         if record_dict.get('doc_date'):
             record_dict['doc_date'] = record_dict['doc_date'].isoformat()
         if record_dict.get('created_at'):
             record_dict['created_at'] = record_dict['created_at'].isoformat()
+        if record_dict.get('max_deadline'):
+            record_dict['max_deadline'] = record_dict['max_deadline'].isoformat()
+        
         records_list.append(record_dict)
     
     return {

@@ -15,6 +15,9 @@ interface PabRecord {
   location: string;
   checked_object: string;
   created_at: string;
+  status: 'new' | 'completed' | 'overdue';
+  photo_url?: string;
+  max_deadline?: string;
 }
 
 export default function PabListPage() {
@@ -41,6 +44,19 @@ export default function PabListPage() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU');
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'new':
+        return { label: 'Новый', color: 'bg-blue-100 text-blue-800' };
+      case 'completed':
+        return { label: 'Выполнен', color: 'bg-green-100 text-green-800' };
+      case 'overdue':
+        return { label: 'Просрочен', color: 'bg-red-100 text-red-800' };
+      default:
+        return { label: 'Новый', color: 'bg-gray-100 text-gray-800' };
+    }
   };
 
   return (
@@ -90,6 +106,9 @@ export default function PabListPage() {
                       <span className="text-sm text-gray-500">
                         {formatDate(record.doc_date)}
                       </span>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusLabel(record.status).color}`}>
+                        {getStatusLabel(record.status).label}
+                      </span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-700">
                       <div>
@@ -112,17 +131,33 @@ export default function PabListPage() {
                     </div>
                     <div className="mt-3 text-xs text-gray-500">
                       Создано: {formatDate(record.created_at)}
+                      {record.max_deadline && (
+                        <span className="ml-4">
+                          Срок выполнения: {formatDate(record.max_deadline)}
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(`/pab-view/${record.id}`)}
-                    className="ml-4"
-                  >
-                    <Icon name="Eye" size={16} className="mr-2" />
-                    Просмотр
-                  </Button>
+                  <div className="flex flex-col gap-2 ml-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/pab-view/${record.id}`)}
+                    >
+                      <Icon name="Eye" size={16} className="mr-2" />
+                      Просмотр
+                    </Button>
+                    {record.photo_url && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(record.photo_url, '_blank')}
+                      >
+                        <Icon name="Download" size={16} className="mr-2" />
+                        Документ
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </Card>
             ))}
