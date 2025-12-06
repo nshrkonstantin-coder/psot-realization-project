@@ -56,6 +56,7 @@ export default function PabRegistrationPage() {
   const [location, setLocation] = useState('');
   const [checkedObject, setCheckedObject] = useState('');
   const [department, setDepartment] = useState('');
+  const [headerPhotoFile, setHeaderPhotoFile] = useState<File | null>(null);
   
   const [observations, setObservations] = useState<Observation[]>([
     {
@@ -371,12 +372,14 @@ export default function PabRegistrationPage() {
           location={location}
           checkedObject={checkedObject}
           department={department}
+          headerPhotoFile={headerPhotoFile}
           onDocDateChange={setDocDate}
           onInspectorFioChange={setInspectorFio}
           onInspectorPositionChange={setInspectorPosition}
           onLocationChange={setLocation}
           onCheckedObjectChange={setCheckedObject}
           onDepartmentChange={setDepartment}
+          onHeaderPhotoChange={setHeaderPhotoFile}
         />
 
         {observations.map((obs, index) => (
