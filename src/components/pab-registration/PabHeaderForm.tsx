@@ -63,7 +63,7 @@ export const PabHeaderForm = ({
             type="date"
             value={docDate}
             onChange={(e) => onDocDateChange(e.target.value)}
-            className="border-gray-300 text-gray-900"
+            className={`border-gray-300 text-gray-900 ${docDate ? 'bg-green-50' : ''}`}
           />
         </div>
         <div>
@@ -71,7 +71,7 @@ export const PabHeaderForm = ({
           <Input
             value={inspectorFio}
             onChange={(e) => onInspectorFioChange(e.target.value)}
-            className="border-gray-300 text-gray-900"
+            className={`border-gray-300 text-gray-900 ${inspectorFio ? 'bg-green-50' : ''}`}
             placeholder="УЧЕБНЫЙ"
           />
         </div>
@@ -80,7 +80,7 @@ export const PabHeaderForm = ({
           <Input
             value={inspectorPosition}
             onChange={(e) => onInspectorPositionChange(e.target.value)}
-            className="border-gray-300 text-gray-900"
+            className={`border-gray-300 text-gray-900 ${inspectorPosition ? 'bg-green-50' : ''}`}
             placeholder="Обучение"
           />
         </div>
@@ -89,7 +89,7 @@ export const PabHeaderForm = ({
           <Input
             value={location}
             onChange={(e) => onLocationChange(e.target.value)}
-            className="border-gray-300 text-gray-900"
+            className={`border-gray-300 text-gray-900 ${location ? 'bg-green-50' : ''}`}
             placeholder="Участок"
           />
         </div>
@@ -98,7 +98,7 @@ export const PabHeaderForm = ({
           <Input
             value={checkedObject}
             onChange={(e) => onCheckedObjectChange(e.target.value)}
-            className="border-gray-300 text-gray-900"
+            className={`border-gray-300 text-gray-900 ${checkedObject ? 'bg-green-50' : ''}`}
           />
         </div>
         <div className="md:col-span-2">
@@ -106,7 +106,7 @@ export const PabHeaderForm = ({
           <Input
             value={department}
             onChange={(e) => onDepartmentChange(e.target.value)}
-            className="border-gray-300 text-gray-900"
+            className={`border-gray-300 text-gray-900 ${department ? 'bg-green-50' : ''}`}
             placeholder="Напр. З/ИО"
           />
         </div>

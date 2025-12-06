@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "Test send email endpoint",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "doc_number": "ПАБ-123",
+        "responsible_email": "test@example.com",
+        "admin_email": "admin@example.com",
+        "html_url": "https://example.com/pab-123.html"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

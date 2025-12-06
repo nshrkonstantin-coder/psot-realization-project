@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Icon from '@/components/ui/icon';
 
 interface Observation {
   observation_number: number;
@@ -27,6 +28,7 @@ interface OrgUser {
   fio: string;
   position: string;
   subdivision: string;
+  email: string;
 }
 
 interface PabObservationCardProps {
@@ -37,6 +39,7 @@ interface PabObservationCardProps {
   subdivisionFilter: string;
   onSubdivisionFilterChange: (value: string) => void;
   onUpdate: (index: number, field: keyof Observation, value: string) => void;
+  onPhotoChange: (index: number, file: File | null) => void;
 }
 
 export const PabObservationCard = ({
@@ -47,6 +50,7 @@ export const PabObservationCard = ({
   subdivisionFilter,
   onSubdivisionFilterChange,
   onUpdate,
+  onPhotoChange,
 }: PabObservationCardProps) => {
   return (
     <Card className="bg-white border border-gray-200 p-8 mb-6">
@@ -61,7 +65,7 @@ export const PabObservationCard = ({
           <Textarea
             value={observation.description}
             onChange={(e) => onUpdate(index, 'description', e.target.value)}
-            className="border-gray-300 text-gray-900 min-h-[100px]"
+            className={`border-gray-300 text-gray-900 min-h-[100px] ${observation.description ? 'bg-green-50' : ''}`}
             placeholder="Кратко опишите ситуацию..."
           />
         </div>
@@ -73,7 +77,7 @@ export const PabObservationCard = ({
               value={observation.category}
               onValueChange={(value) => onUpdate(index, 'category', value)}
             >
-              <SelectTrigger className="border-gray-300 text-gray-900">
+              <SelectTrigger className={`border-gray-300 text-gray-900 ${observation.category ? 'bg-green-50' : ''}`}>
                 <SelectValue placeholder="-Не выбрано-" />
               </SelectTrigger>
               <SelectContent>
@@ -92,7 +96,7 @@ export const PabObservationCard = ({
               value={observation.conditions_actions}
               onValueChange={(value) => onUpdate(index, 'conditions_actions', value)}
             >
-              <SelectTrigger className="border-gray-300 text-gray-900">
+              <SelectTrigger className={`border-gray-300 text-gray-900 ${observation.conditions_actions ? 'bg-green-50' : ''}`}>
                 <SelectValue placeholder="-Не выбрано-" />
               </SelectTrigger>
               <SelectContent>
@@ -112,7 +116,7 @@ export const PabObservationCard = ({
             value={observation.hazard_factors}
             onValueChange={(value) => onUpdate(index, 'hazard_factors', value)}
           >
-            <SelectTrigger className="border-gray-300 text-gray-900">
+            <SelectTrigger className={`border-gray-300 text-gray-900 ${observation.hazard_factors ? 'bg-green-50' : ''}`}>
               <SelectValue placeholder="-Не выбрано-" />
             </SelectTrigger>
             <SelectContent>
@@ -130,7 +134,7 @@ export const PabObservationCard = ({
           <Textarea
             value={observation.measures}
             onChange={(e) => onUpdate(index, 'measures', e.target.value)}
-            className="border-gray-300 text-gray-900 min-h-[100px]"
+            className={`border-gray-300 text-gray-900 min-h-[100px] ${observation.measures ? 'bg-green-50' : ''}`}
             placeholder="Что нужно сделать..."
           />
         </div>
@@ -170,7 +174,7 @@ export const PabObservationCard = ({
                     value={observation.responsible_person}
                     onValueChange={(value) => onUpdate(index, 'responsible_person', value)}
                   >
-                    <SelectTrigger className="border-gray-300 text-gray-900">
+                    <SelectTrigger className={`border-gray-300 text-gray-900 ${observation.responsible_person ? 'bg-green-50' : ''}`}>
                       <SelectValue placeholder="Выберите из списка" />
                     </SelectTrigger>
                     <SelectContent>
@@ -181,12 +185,6 @@ export const PabObservationCard = ({
                       ))}
                     </SelectContent>
                   </Select>
-                  <Input
-                    value={observation.responsible_person}
-                    onChange={(e) => onUpdate(index, 'responsible_person', e.target.value)}
-                    className="border-gray-300 text-gray-900 mt-2"
-                    placeholder="Ф.И.О. или оставьте пустым"
-                  />
                 </>
               );
             })()}
@@ -198,8 +196,31 @@ export const PabObservationCard = ({
               type="date"
               value={observation.deadline}
               onChange={(e) => onUpdate(index, 'deadline', e.target.value)}
-              className="border-gray-300 text-gray-900"
+              className={`border-gray-300 text-gray-900 ${observation.deadline ? 'bg-green-50' : ''}`}
             />
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-gray-700 mb-2 block">Фотография нарушения</Label>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+              <Icon name="Image" size={20} className="text-gray-600" />
+              <span className="text-gray-700">Выберите файл</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    onPhotoChange(index, e.target.files[0]);
+                  }
+                }}
+                className="hidden"
+              />
+            </label>
+            {observation.photo_file && (
+              <span className="text-sm text-gray-600">{observation.photo_file.name}</span>
+            )}
           </div>
         </div>
       </div>

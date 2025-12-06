@@ -32,6 +32,7 @@ interface OrgUser {
   fio: string;
   position: string;
   subdivision: string;
+  email: string;
 }
 
 export default function PabRegistrationPage() {
@@ -156,10 +157,28 @@ export default function PabRegistrationPage() {
     setObservations(updated);
   };
 
+  const handleObservationPhotoChange = (index: number, file: File | null) => {
+    const updated = [...observations];
+    updated[index] = { ...updated[index], photo_file: file };
+    setObservations(updated);
+  };
+
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setViolationPhoto(e.target.files[0]);
     }
+  };
+
+  const areAllObservationsFilled = () => {
+    if (observations.length < 3) return false;
+    
+    for (const obs of observations) {
+      if (!obs.description || !obs.category || !obs.conditions_actions || 
+          !obs.hazard_factors || !obs.measures || !obs.responsible_person || !obs.deadline) {
+        return false;
+      }
+    }
+    return true;
   };
 
   const handleSubmit = async () => {
@@ -193,7 +212,11 @@ export default function PabRegistrationPage() {
 
       const userResponse = await fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`);
       const userData = await userResponse.json();
-      const responsibleEmail = userData.user?.email || '';
+      const senderEmail = userData.user?.email || '';
+
+      const firstObservationResponsible = observations[0].responsible_person;
+      const responsibleUser = orgUsers.find(u => u.fio === firstObservationResponsible);
+      const responsibleEmail = responsibleUser?.email || '';
 
       const adminEmail = 'nshrkonstantin@gmail.com';
 
@@ -209,6 +232,7 @@ export default function PabRegistrationPage() {
           location,
           checked_object: checkedObject,
           photo_url: '',
+          sender_email: senderEmail,
           responsible_email: responsibleEmail,
           admin_email: adminEmail,
           observations
@@ -248,19 +272,40 @@ export default function PabRegistrationPage() {
       });
 
       const blob = new Blob([htmlContent], { type: 'text/html' });
+      const htmlFile = new File([blob], `ПАБ_${newDocNumber}_${docDate}.html`, { type: 'text/html' });
 
-      if (organizationId) {
-        await uploadDocumentToStorage({
-          file: blob,
-          fileName: `ПАБ_${newDocNumber}_${docDate}.html`,
-          organizationId: organizationId,
-          docNumber: newDocNumber,
-          docType: 'pab',
-          docDate: docDate
-        });
+      let htmlUrl = '';
+      if (organizationId && userId) {
+        try {
+          htmlUrl = await uploadDocumentToStorage({
+            userId: userId,
+            department: department,
+            documentType: 'ПАБ',
+            file: htmlFile
+          });
+        } catch (uploadError) {
+          console.error('Error uploading to storage:', uploadError);
+        }
       }
 
-      toast.success('ПАБ успешно сохранен');
+      if (htmlUrl && (responsibleEmail || adminEmail)) {
+        try {
+          await fetch('https://functions.poehali.dev/963fb84a-6c11-4009-a2f8-e46804543809', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              doc_number: newDocNumber,
+              responsible_email: responsibleEmail,
+              admin_email: adminEmail,
+              html_url: htmlUrl
+            })
+          });
+        } catch (emailError) {
+          console.error('Error sending email:', emailError);
+        }
+      }
+
+      toast.success('ПАБ успешно сохранен и отправлен на почту');
       navigate('/dashboard');
     } catch (error) {
       console.error('Error:', error);
@@ -321,12 +366,14 @@ export default function PabRegistrationPage() {
             subdivisionFilter={subdivisionFilter}
             onSubdivisionFilterChange={setSubdivisionFilter}
             onUpdate={updateObservation}
+            onPhotoChange={handleObservationPhotoChange}
           />
         ))}
 
         <PabActionButtons
           loading={loading}
           canAddObservation={observations.length < 3}
+          allObservationsFilled={areAllObservationsFilled()}
           onBack={() => navigate('/dashboard')}
           onAddObservation={addObservation}
           onSubmit={handleSubmit}
