@@ -87,28 +87,46 @@ export default function PabRegistrationPage() {
   }, [navigate]);
 
   const loadData = async () => {
+    console.log('[PAB] Starting data load...');
+    
+    const userId = localStorage.getItem('userId');
+    const organizationId = localStorage.getItem('organizationId');
+    console.log('[PAB] User ID:', userId, 'Org ID:', organizationId);
+    
+    // Загрузка справочников (с таймаутом)
     try {
-      console.log('[PAB] Starting data load...');
-      
-      // Загрузка справочников
-      const dictResponse = await fetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960');
+      const dictResponse = await Promise.race([
+        fetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960'),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+      ]) as Response;
       const dictData = await dictResponse.json();
       console.log('[PAB] Dictionaries loaded:', dictData);
       setDictionaries(dictData);
+    } catch (error) {
+      console.error('[PAB] Error loading dictionaries:', error);
+    }
 
-      // Генерация номера ПАБ
-      const numberResponse = await fetch('https://functions.poehali.dev/c04242d9-b386-407e-bb84-10d219a16e97');
+    // Генерация номера ПАБ (с таймаутом)
+    try {
+      const numberResponse = await Promise.race([
+        fetch('https://functions.poehali.dev/c04242d9-b386-407e-bb84-10d219a16e97'),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+      ]) as Response;
       const numberData = await numberResponse.json();
       console.log('[PAB] Document number generated:', numberData.doc_number);
       setDocNumber(numberData.doc_number);
+    } catch (error) {
+      console.error('[PAB] Error generating doc number:', error);
+      setDocNumber('ПАБ-' + Date.now());
+    }
 
-      // Загрузка данных пользователя
-      const userId = localStorage.getItem('userId');
-      const organizationId = localStorage.getItem('organizationId');
-      console.log('[PAB] User ID:', userId, 'Org ID:', organizationId);
-      
-      if (userId) {
-        const userResponse = await fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`);
+    // Загрузка данных пользователя (с таймаутом)
+    if (userId) {
+      try {
+        const userResponse = await Promise.race([
+          fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]) as Response;
         const userData = await userResponse.json();
         console.log('[PAB] User data loaded:', userData);
         if (userData.success && userData.user) {
@@ -116,23 +134,28 @@ export default function PabRegistrationPage() {
           setInspectorPosition(userData.user.position || '');
           setDepartment(userData.user.subdivision || '');
         }
+      } catch (error) {
+        console.error('[PAB] Error loading user data:', error);
       }
+    }
 
-      // Загрузка пользователей организации для выбора ответственного
-      if (organizationId) {
-        const usersResponse = await fetch(`https://functions.poehali.dev/7f32d60e-dee5-4b28-901a-10984045d99e?organization_id=${organizationId}`);
+    // Загрузка пользователей организации (с таймаутом)
+    if (organizationId) {
+      try {
+        const usersResponse = await Promise.race([
+          fetch(`https://functions.poehali.dev/7f32d60e-dee5-4b28-901a-10984045d99e?organization_id=${organizationId}`),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]) as Response;
         const usersData = await usersResponse.json();
         console.log('[PAB] Organization users loaded:', usersData.length);
         setOrgUsers(usersData);
+      } catch (error) {
+        console.error('[PAB] Error loading organization users:', error);
       }
-      
-      console.log('[PAB] Data load complete!');
-    } catch (error) {
-      console.error('[PAB] Error loading data:', error);
-      toast.error('Ошибка загрузки данных');
-    } finally {
-      setInitialLoading(false);
     }
+    
+    console.log('[PAB] Data load complete!');
+    setInitialLoading(false);
   };
 
   const addObservation = () => {
