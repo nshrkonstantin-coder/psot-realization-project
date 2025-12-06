@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
-import { generatePabHtml } from '@/utils/generatePabHtml';
-import { uploadDocumentToStorage } from '@/utils/documentUpload';
-import { PabFormHeader } from '@/components/pab/PabFormHeader';
-import { PabObservationForm } from '@/components/pab/PabObservationForm';
-import { PabPhotoGallery } from '@/components/pab/PabPhotoGallery';
-import { PabFormActions } from '@/components/pab/PabFormActions';
 
 interface Observation {
   observation_number: number;
@@ -35,19 +35,16 @@ interface OrgUser {
 }
 
 export default function PabRegistrationPage() {
-  console.log('[PAB] Component rendering...');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
   const [userCompany, setUserCompany] = useState('');
-  const [debugInfo, setDebugInfo] = useState('');
+  
   const [dictionaries, setDictionaries] = useState<Dictionaries>({
     categories: [],
     conditions: [],
     hazards: []
   });
   const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
-  const [subdivisionFilter, setSubdivisionFilter] = useState<string>('');
   
   const [docNumber, setDocNumber] = useState('');
   const [docDate, setDocDate] = useState(new Date().toISOString().split('T')[0]);
@@ -56,7 +53,7 @@ export default function PabRegistrationPage() {
   const [location, setLocation] = useState('');
   const [checkedObject, setCheckedObject] = useState('');
   const [department, setDepartment] = useState('');
-  const [photoFiles, setPhotoFiles] = useState<(File | null)[]>([null, null, null]);
+  const [violationPhoto, setViolationPhoto] = useState<File | null>(null);
   
   const [observations, setObservations] = useState<Observation[]>([
     {
@@ -74,99 +71,63 @@ export default function PabRegistrationPage() {
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
-    console.log('[PAB] useEffect running, userId:', userId);
-    setDebugInfo(`userId: ${userId}, loading...`);
     
-    // Разрешаем доступ только авторизованным пользователям
     if (!userId) {
-      console.log('[PAB] Access denied: no user ID');
-      setDebugInfo('Нет авторизации - перенаправление на главную');
       toast.error('Доступ запрещен. Войдите в систему.');
-      setInitialLoading(false);
-      setTimeout(() => navigate('/'), 1000);
+      navigate('/');
       return;
     }
     
     setUserCompany(localStorage.getItem('userCompany') || '');
-    setDebugInfo('Загрузка данных...');
     loadData();
   }, [navigate]);
 
   const loadData = async () => {
-    console.log('[PAB] Starting data load...');
-    
     const userId = localStorage.getItem('userId');
     const organizationId = localStorage.getItem('organizationId');
-    console.log('[PAB] User ID:', userId, 'Org ID:', organizationId);
     
-    // Загрузка справочников (с таймаутом)
     try {
-      const dictResponse = await Promise.race([
-        fetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960'),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-      ]) as Response;
+      const dictResponse = await fetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960');
       const dictData = await dictResponse.json();
-      console.log('[PAB] Dictionaries loaded:', dictData);
       setDictionaries(dictData);
     } catch (error) {
-      console.error('[PAB] Error loading dictionaries:', error);
+      console.error('Error loading dictionaries:', error);
     }
 
-    // Генерация номера ПАБ (с таймаутом)
     try {
-      const numberResponse = await Promise.race([
-        fetch('https://functions.poehali.dev/c04242d9-b386-407e-bb84-10d219a16e97'),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-      ]) as Response;
+      const numberResponse = await fetch('https://functions.poehali.dev/c04242d9-b386-407e-bb84-10d219a16e97');
       const numberData = await numberResponse.json();
-      console.log('[PAB] Document number generated:', numberData.doc_number);
       setDocNumber(numberData.doc_number);
     } catch (error) {
-      console.error('[PAB] Error generating doc number:', error);
+      console.error('Error generating doc number:', error);
       setDocNumber('ПАБ-' + Date.now());
     }
 
-    // Загрузка данных пользователя (с таймаутом)
     if (userId) {
       try {
-        const userResponse = await Promise.race([
-          fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ]) as Response;
+        const userResponse = await fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`);
         const userData = await userResponse.json();
-        console.log('[PAB] User data loaded:', userData);
         if (userData.success && userData.user) {
           setInspectorFio(userData.user.fio || '');
           setInspectorPosition(userData.user.position || '');
           setDepartment(userData.user.subdivision || '');
         }
       } catch (error) {
-        console.error('[PAB] Error loading user data:', error);
+        console.error('Error loading user data:', error);
       }
     }
 
-    // Загрузка пользователей организации (с таймаутом)
     if (organizationId) {
       try {
-        const usersResponse = await Promise.race([
-          fetch(`https://functions.poehali.dev/7f32d60e-dee5-4b28-901a-10984045d99e?organization_id=${organizationId}`),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ]) as Response;
+        const usersResponse = await fetch(`https://functions.poehali.dev/7f32d60e-dee5-4b28-901a-10984045d99e?organization_id=${organizationId}`);
         const usersData = await usersResponse.json();
-        console.log('[PAB] Organization users loaded:', usersData);
         if (Array.isArray(usersData)) {
           setOrgUsers(usersData);
-        } else {
-          console.warn('[PAB] Organization users response is not array:', usersData);
-          setOrgUsers([]);
         }
       } catch (error) {
-        console.error('[PAB] Error loading organization users:', error);
+        console.error('Error loading organization users:', error);
       }
     }
-    
-    console.log('[PAB] Data load complete!');
-    setInitialLoading(false);
   };
 
   const addObservation = () => {
@@ -185,16 +146,16 @@ export default function PabRegistrationPage() {
     }
   };
 
-  const updateObservation = (index: number, field: keyof Observation, value: string | File | null) => {
+  const updateObservation = (index: number, field: keyof Observation, value: string) => {
     const updated = [...observations];
     updated[index] = { ...updated[index], [field]: value };
     setObservations(updated);
   };
 
-  const isFieldFilled = (value: any): boolean => {
-    if (typeof value === 'string') return value.trim() !== '';
-    if (value instanceof File) return true;
-    return false;
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setViolationPhoto(e.target.files[0]);
+    }
   };
 
   const handleSubmit = async () => {
@@ -221,36 +182,12 @@ export default function PabRegistrationPage() {
         setLoading(false);
         return;
       }
-      
-      const numberResponse = await fetch('https://functions.poehali.dev/c04242d9-b386-407e-bb84-10d219a16e97');
-      const numberData = await numberResponse.json();
-      const newDocNumber = numberData.doc_number;
-      
-      const photoBase64Array = await Promise.all(
-        observations.map(async (obs) => {
-          if (obs.photo_file) {
-            return new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(obs.photo_file as File);
-            });
-          }
-          return '';
-        })
-      );
 
-      const userResponse = await fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`);
-      const userData = await userResponse.json();
-      const responsibleEmail = userData.user?.email || '';
-
-      const adminEmail = 'admin@example.com';
-
-      // Отправка ПАБ
       const response = await fetch('https://functions.poehali.dev/5054985e-ff94-4512-8302-c02f01b09d66', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          doc_number: newDocNumber,
+          doc_number: docNumber,
           doc_date: docDate,
           inspector_fio: inspectorFio,
           inspector_position: inspectorPosition,
@@ -258,70 +195,13 @@ export default function PabRegistrationPage() {
           location,
           checked_object: checkedObject,
           photo_url: '',
-          responsible_email: responsibleEmail,
-          admin_email: adminEmail,
+          responsible_email: '',
+          admin_email: 'nshrkonstantin@gmail.com',
           observations
         })
       });
 
       if (!response.ok) throw new Error('Ошибка сохранения');
-
-      const organizationId = localStorage.getItem('organizationId');
-      if (organizationId) {
-        try {
-          await fetch('https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4f6ca', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              org_id: organizationId,
-              action_type: 'pab_create',
-              user_id: localStorage.getItem('userId')
-            })
-          });
-        } catch (error) {
-          console.log('Points award failed:', error);
-        }
-      }
-
-      const observationsWithPhotos = observations.map((obs, index) => ({
-        ...obs,
-        photo_base64: photoBase64Array[index]
-      }));
-
-      const pabData = {
-        doc_number: newDocNumber,
-        doc_date: docDate,
-        inspector_fio: inspectorFio,
-        inspector_position: inspectorPosition,
-        department,
-        location,
-        checked_object: checkedObject,
-        photo_base64: photoBase64Array[0] || '',
-        observations: observationsWithPhotos
-      };
-      
-      const htmlContent = generatePabHtml(pabData);
-      
-      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `ПАБ_${newDocNumber}_${docDate}.html`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      if (organizationId) {
-        await uploadDocumentToStorage({
-          file: blob,
-          fileName: `ПАБ_${newDocNumber}_${docDate}.html`,
-          organizationId: organizationId,
-          docNumber: newDocNumber,
-          docType: 'pab',
-          docDate: docDate
-        });
-      }
 
       toast.success('ПАБ успешно сохранен');
       navigate('/dashboard');
@@ -333,106 +213,272 @@ export default function PabRegistrationPage() {
     }
   };
 
-  const handlePhotoChange = (index: number, file: File | null) => {
-    const updated = [...photoFiles];
-    updated[index] = file;
-    setPhotoFiles(updated);
-  };
-
-  if (initialLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <Icon name="Loader2" size={48} className="text-yellow-500 animate-spin mx-auto mb-4" />
-          <p className="text-white text-xl">Загрузка формы регистрации ПАБ...</p>
-          <p className="text-slate-400 mt-4">Debug: {debugInfo}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+    <div className="min-h-screen bg-white p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 p-3 rounded-xl shadow-lg">
-              <Icon name="FileText" size={32} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-white">Регистрация ПАБ</h1>
-              {userCompany && (
-                <p className="text-blue-400 font-semibold text-lg">{userCompany}</p>
-              )}
-            </div>
-          </div>
-          <button
+          <h1 className="text-3xl font-bold text-gray-900">Регистрация ПАБ</h1>
+          <Button
             onClick={() => navigate('/dashboard')}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg flex items-center gap-2 transition-colors"
+            variant="outline"
+            className="flex items-center gap-2"
           >
             <Icon name="ArrowLeft" size={20} />
-            Назад
-          </button>
+            Назад на главную
+          </Button>
         </div>
 
-        <div className="bg-red-600/20 border border-red-600/50 rounded-lg p-4 mb-6">
-          <p className="text-red-300 text-center font-bold">⚠️ ДИАГНОСТИКА ФОРМЫ</p>
-          <div className="text-white mt-2 space-y-1">
-            <p>• Номер документа: {docNumber || '❌ не загружен'}</p>
-            <p>• Наблюдений: {observations.length}</p>
-            <p>• Категорий в справочнике: {dictionaries.categories.length}</p>
-            <p>• Компания: {userCompany || 'не указана'}</p>
-            <p>• ФИО: {inspectorFio || 'не указано'}</p>
+        <Card className="bg-white border border-gray-200 p-8 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label className="text-gray-700 mb-2 block">Название листа</Label>
+              <Input
+                value={docNumber}
+                disabled
+                className="bg-gray-50 border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <Label className="text-gray-700 mb-2 block">Номер документа</Label>
+              <Input
+                value={docNumber}
+                disabled
+                className="bg-gray-50 border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <Label className="text-gray-700 mb-2 block">Дата *</Label>
+              <Input
+                type="date"
+                value={docDate}
+                onChange={(e) => setDocDate(e.target.value)}
+                className="border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <Label className="text-gray-700 mb-2 block">ФИО проверяющего *</Label>
+              <Input
+                value={inspectorFio}
+                onChange={(e) => setInspectorFio(e.target.value)}
+                className="border-gray-300 text-gray-900"
+                placeholder="УЧЕБНЫЙ"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-gray-700 mb-2 block">Должность проверяющего *</Label>
+              <Input
+                value={inspectorPosition}
+                onChange={(e) => setInspectorPosition(e.target.value)}
+                className="border-gray-300 text-gray-900"
+                placeholder="Обучение"
+              />
+            </div>
+            <div>
+              <Label className="text-gray-700 mb-2 block">Участок *</Label>
+              <Input
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="border-gray-300 text-gray-900"
+                placeholder="Участок"
+              />
+            </div>
+            <div>
+              <Label className="text-gray-700 mb-2 block">Проверяемый объект *</Label>
+              <Input
+                value={checkedObject}
+                onChange={(e) => setCheckedObject(e.target.value)}
+                className="border-gray-300 text-gray-900"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-gray-700 mb-2 block">Подразделение *</Label>
+              <Input
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="border-gray-300 text-gray-900"
+                placeholder="Напр. З/ИО"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-gray-700 mb-2 block">Фотография нарушения</Label>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+                  <Icon name="Image" size={20} className="text-gray-600" />
+                  <span className="text-gray-700">Выберите файл</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
+                    className="hidden"
+                  />
+                </label>
+                {violationPhoto && (
+                  <span className="text-sm text-gray-600">{violationPhoto.name}</span>
+                )}
+              </div>
+            </div>
           </div>
-          <p className="text-yellow-300 mt-3 text-sm text-center">
-            👉 Откройте консоль браузера (F12) и скопируйте КРАСНЫЕ ошибки!
-          </p>
-        </div>
+        </Card>
 
-        <div className="space-y-6">
-          <PabFormHeader
-            docNumber={docNumber}
-            docDate={docDate}
-            inspectorFio={inspectorFio}
-            inspectorPosition={inspectorPosition}
-            location={location}
-            checkedObject={checkedObject}
-            department={department}
-            onDocDateChange={setDocDate}
-            onInspectorFioChange={setInspectorFio}
-            onInspectorPositionChange={setInspectorPosition}
-            onLocationChange={setLocation}
-            onCheckedObjectChange={setCheckedObject}
-            onDepartmentChange={setDepartment}
-            isFieldFilled={isFieldFilled}
-          />
+        {observations.map((obs, index) => (
+          <Card key={index} className="bg-white border border-gray-200 p-8 mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Наблюдение №{obs.observation_number} *
+            </h2>
+            <div className="space-y-6">
+              <div>
+                <Label className="text-gray-700 mb-2 block">
+                  Наблюдение №{obs.observation_number} *
+                </Label>
+                <Textarea
+                  value={obs.description}
+                  onChange={(e) => updateObservation(index, 'description', e.target.value)}
+                  className="border-gray-300 text-gray-900 min-h-[100px]"
+                  placeholder="Кратко опишите ситуацию..."
+                />
+              </div>
 
-          {observations.map((obs, index) => (
-            <PabObservationForm
-              key={index}
-              observation={obs}
-              index={index}
-              dictionaries={dictionaries}
-              orgUsers={orgUsers}
-              subdivisionFilter={subdivisionFilter}
-              onSubdivisionFilterChange={setSubdivisionFilter}
-              onUpdate={updateObservation}
-              isFieldFilled={isFieldFilled}
-            />
-          ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label className="text-red-600 mb-2 block">Категория наблюдений *</Label>
+                  <Select
+                    value={obs.category}
+                    onValueChange={(value) => updateObservation(index, 'category', value)}
+                  >
+                    <SelectTrigger className="border-gray-300 text-gray-900">
+                      <SelectValue placeholder="-Не выбрано-" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {dictionaries.categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          <PabPhotoGallery
-            photoFiles={photoFiles}
-            onPhotoChange={handlePhotoChange}
-          />
+                <div>
+                  <Label className="text-gray-700 mb-2 block">Вид условий и действий *</Label>
+                  <Select
+                    value={obs.conditions_actions}
+                    onValueChange={(value) => updateObservation(index, 'conditions_actions', value)}
+                  >
+                    <SelectTrigger className="border-gray-300 text-gray-900">
+                      <SelectValue placeholder="-Не выбрано-" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {dictionaries.conditions.map((cond) => (
+                        <SelectItem key={cond.id} value={cond.name}>
+                          {cond.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <PabFormActions
-            onBack={() => navigate('/dashboard')}
-            onAddObservation={addObservation}
-            onSubmit={handleSubmit}
-            loading={loading}
-            canAddObservation={observations.length < 3}
-          />
+              <div>
+                <Label className="text-red-600 mb-2 block">Опасные факторы *</Label>
+                <Select
+                  value={obs.hazard_factors}
+                  onValueChange={(value) => updateObservation(index, 'hazard_factors', value)}
+                >
+                  <SelectTrigger className="border-gray-300 text-gray-900">
+                    <SelectValue placeholder="-Не выбрано-" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dictionaries.hazards.map((hazard) => (
+                      <SelectItem key={hazard.id} value={hazard.name}>
+                        {hazard.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-gray-700 mb-2 block">Мероприятия *</Label>
+                <Textarea
+                  value={obs.measures}
+                  onChange={(e) => updateObservation(index, 'measures', e.target.value)}
+                  className="border-gray-300 text-gray-900 min-h-[100px]"
+                  placeholder="Что нужно сделать..."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label className="text-gray-700 mb-2 block">Ответственный за выполнение *</Label>
+                  <Select
+                    value={obs.responsible_person}
+                    onValueChange={(value) => updateObservation(index, 'responsible_person', value)}
+                  >
+                    <SelectTrigger className="border-gray-300 text-gray-900">
+                      <SelectValue placeholder="Выберите из списка" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {orgUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.fio}>
+                          {user.fio}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={obs.responsible_person}
+                    onChange={(e) => updateObservation(index, 'responsible_person', e.target.value)}
+                    className="border-gray-300 text-gray-900 mt-2"
+                    placeholder="Ф.И.О. или оставьте пустым"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-gray-700 mb-2 block">Срок *</Label>
+                  <Input
+                    type="date"
+                    value={obs.deadline}
+                    onChange={(e) => updateObservation(index, 'deadline', e.target.value)}
+                    className="border-gray-300 text-gray-900"
+                  />
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))}
+
+        {observations.length < 3 && (
+          <Button
+            onClick={addObservation}
+            variant="outline"
+            className="mb-6 w-full md:w-auto"
+          >
+            <Icon name="Plus" size={20} className="mr-2" />
+            Добавить наблюдение {observations.length + 1}
+          </Button>
+        )}
+
+        <div className="flex flex-wrap gap-4">
+          <Button
+            onClick={() => navigate('/dashboard')}
+            variant="outline"
+          >
+            Назад на главную
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {loading ? 'Отправка...' : 'Отправить'}
+          </Button>
+          <Button variant="outline">
+            Скачать в PDF
+          </Button>
+          <Button variant="outline">
+            <Icon name="FileText" size={20} className="mr-2" />
+            Скачать в Word
+          </Button>
         </div>
       </div>
     </div>
