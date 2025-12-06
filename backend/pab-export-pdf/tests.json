@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "Export PAB data",
+      "method": "GET",
+      "path": "/?ids=1",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "pabs": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

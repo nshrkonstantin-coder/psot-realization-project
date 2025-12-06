@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "Delete PAB records",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "pab_ids": [999]
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { generatePabPDF } from '@/utils/pabPdfExport';
 
 interface PabRecord {
   id: number;
@@ -30,6 +32,8 @@ export default function PabListPage() {
   const [records, setRecords] = useState<PabRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [userRole, setUserRole] = useState('');
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     loadRecords();
@@ -67,6 +71,75 @@ export default function PabListPage() {
       console.error('Error updating status:', error);
       toast.error('Ошибка обновления статуса');
     }
+  };
+
+  const handleExportPDF = async () => {
+    if (selectedIds.length === 0) {
+      toast.error('Выберите хотя бы один ПАБ для экспорта');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const response = await fetch(`https://functions.poehali.dev/88fb8fbf-2935-49ae-8371-424562046173?ids=${selectedIds.join(',')}`);
+      const data = await response.json();
+      
+      if (data.pabs && data.pabs.length > 0) {
+        generatePabPDF(data.pabs);
+        toast.success('Документ отправлен на печать');
+      } else {
+        toast.error('Не удалось загрузить данные');
+      }
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast.error('Ошибка экспорта');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (selectedIds.length === 0) {
+      toast.error('Выберите хотя бы один ПАБ для удаления');
+      return;
+    }
+
+    if (!confirm(`Удалить выбранные ПАБ (${selectedIds.length} шт.)? Это действие нельзя отменить.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('https://functions.poehali.dev/b7991444-b3cb-4160-8fed-6d25fe399a0c', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pab_ids: selectedIds })
+      });
+      
+      if (response.ok) {
+        toast.success('ПАБ удалены');
+        setSelectedIds([]);
+        loadRecords();
+      } else {
+        toast.error('Ошибка удаления');
+      }
+    } catch (error) {
+      console.error('Error deleting:', error);
+      toast.error('Ошибка удаления');
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredRecords.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredRecords.map(r => r.id));
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
   };
 
   const formatDate = (dateString: string) => {
@@ -140,17 +213,51 @@ export default function PabListPage() {
             Назад
           </Button>
           <h1 className="text-3xl font-bold text-gray-900">Список ПАБ</h1>
-          <Button
-            onClick={() => navigate('/pab-registration')}
-            className="flex items-center gap-2"
-          >
-            <Icon name="Plus" size={20} />
-            Создать ПАБ
-          </Button>
+          <div className="flex items-center gap-2">
+            {selectedIds.length > 0 && (
+              <>
+                <Button
+                  onClick={handleExportPDF}
+                  disabled={isExporting}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Icon name="Printer" size={20} />
+                  Печать ({selectedIds.length})
+                </Button>
+                {isAdmin && (
+                  <Button
+                    onClick={handleDelete}
+                    variant="outline"
+                    className="flex items-center gap-2 text-red-600 hover:text-red-700"
+                  >
+                    <Icon name="Trash2" size={20} />
+                    Удалить ({selectedIds.length})
+                  </Button>
+                )}
+              </>
+            )}
+            <Button
+              onClick={() => navigate('/pab-registration')}
+              className="flex items-center gap-2"
+            >
+              <Icon name="Plus" size={20} />
+              Создать ПАБ
+            </Button>
+          </div>
         </div>
 
         <Card className="p-6 mb-6">
           <div className="flex items-center gap-4">
+            {filteredRecords.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={selectedIds.length === filteredRecords.length && filteredRecords.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <span className="text-sm text-gray-600">Выбрать все</span>
+              </div>
+            )}
             <Icon name="Search" size={20} className="text-gray-400" />
             <Input
               placeholder="Поиск по номеру ПАБ, проверяющему или подразделению..."
@@ -183,6 +290,11 @@ export default function PabListPage() {
               <Card key={record.id} className="p-6 hover:shadow-lg transition-shadow">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3 flex-1">
+                    <Checkbox
+                      checked={selectedIds.includes(record.id)}
+                      onCheckedChange={() => toggleSelect(record.id)}
+                      className="mt-1"
+                    />
                     <div className="flex flex-col gap-1 pt-1">
                       {getStatusIndicator(record)}
                     </div>

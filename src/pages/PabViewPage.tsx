@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { generatePabPDF } from '@/utils/pabPdfExport';
 
 interface Observation {
   id: number;
@@ -38,6 +39,7 @@ export default function PabViewPage() {
   const [loading, setLoading] = useState(true);
   const [pab, setPab] = useState<PabDetail | null>(null);
   const [userRole, setUserRole] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -76,6 +78,47 @@ export default function PabViewPage() {
     } catch (error) {
       console.error('Error updating status:', error);
       toast.error('Ошибка обновления статуса');
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!pab) return;
+    
+    setIsExporting(true);
+    try {
+      generatePabPDF([pab]);
+      toast.success('Документ отправлен на печать');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast.error('Ошибка экспорта');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!pab || !isAdmin) return;
+
+    if (!confirm(`Удалить ПАБ ${pab.doc_number}? Это действие нельзя отменить.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('https://functions.poehali.dev/b7991444-b3cb-4160-8fed-6d25fe399a0c', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pab_ids: [pab.id] })
+      });
+      
+      if (response.ok) {
+        toast.success('ПАБ удалён');
+        navigate('/pab-list');
+      } else {
+        toast.error('Ошибка удаления');
+      }
+    } catch (error) {
+      console.error('Error deleting:', error);
+      toast.error('Ошибка удаления');
     }
   };
 
@@ -163,7 +206,27 @@ export default function PabViewPage() {
             <h1 className="text-3xl font-bold text-gray-900">{pab.doc_number}</h1>
             <span className="text-sm text-gray-600">({completedCount}/{totalCount})</span>
           </div>
-          <div className="w-24" />
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Icon name="Printer" size={20} />
+              Печать
+            </Button>
+            {isAdmin && (
+              <Button
+                onClick={handleDelete}
+                variant="outline"
+                className="flex items-center gap-2 text-red-600 hover:text-red-700"
+              >
+                <Icon name="Trash2" size={20} />
+                Удалить
+              </Button>
+            )}
+          </div>
         </div>
 
         <Card className="p-8 mb-6">

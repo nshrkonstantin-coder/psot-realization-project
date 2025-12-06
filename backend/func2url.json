@@ -1,4 +1,6 @@
 {
+  "pab-export-pdf": "https://functions.poehali.dev/88fb8fbf-2935-49ae-8371-424562046173",
+  "pab-delete": "https://functions.poehali.dev/b7991444-b3cb-4160-8fed-6d25fe399a0c",
   "pab-observation-update-status": "https://functions.poehali.dev/226be57f-c09b-4429-9cc3-7def6c7317a0",
   "pab-update-status": "https://functions.poehali.dev/a4284e02-284d-408c-9cee-d71a36d6fa09",
   "pab-view": "https://functions.poehali.dev/ec299a8d-481e-470f-8487-4a1ca230b284",
