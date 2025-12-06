@@ -11,14 +11,12 @@ interface PabHeaderFormProps {
   location: string;
   checkedObject: string;
   department: string;
-  violationPhoto: File | null;
   onDocDateChange: (value: string) => void;
   onInspectorFioChange: (value: string) => void;
   onInspectorPositionChange: (value: string) => void;
   onLocationChange: (value: string) => void;
   onCheckedObjectChange: (value: string) => void;
   onDepartmentChange: (value: string) => void;
-  onPhotoChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export const PabHeaderForm = ({
@@ -29,14 +27,12 @@ export const PabHeaderForm = ({
   location,
   checkedObject,
   department,
-  violationPhoto,
   onDocDateChange,
   onInspectorFioChange,
   onInspectorPositionChange,
   onLocationChange,
   onCheckedObjectChange,
   onDepartmentChange,
-  onPhotoChange,
 }: PabHeaderFormProps) => {
   return (
     <Card className="bg-white border border-gray-200 p-8 mb-6">
@@ -109,24 +105,6 @@ export const PabHeaderForm = ({
             className={`border-gray-300 text-gray-900 ${department ? 'bg-green-50' : ''}`}
             placeholder="Напр. З/ИО"
           />
-        </div>
-        <div className="md:col-span-2">
-          <Label className="text-gray-700 mb-2 block">Фотография нарушения</Label>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
-              <Icon name="Image" size={20} className="text-gray-600" />
-              <span className="text-gray-700">Выберите файл</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={onPhotoChange}
-                className="hidden"
-              />
-            </label>
-            {violationPhoto && (
-              <span className="text-sm text-gray-600">{violationPhoto.name}</span>
-            )}
-          </div>
         </div>
       </div>
     </Card>

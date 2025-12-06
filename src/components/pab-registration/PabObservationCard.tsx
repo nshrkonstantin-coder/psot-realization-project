@@ -204,7 +204,7 @@ export const PabObservationCard = ({
         <div>
           <Label className="text-gray-700 mb-2 block">Фотография нарушения</Label>
           <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+            <label className={`flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 ${observation.photo_file ? 'bg-green-50' : ''}`}>
               <Icon name="Image" size={20} className="text-gray-600" />
               <span className="text-gray-700">Выберите файл</span>
               <input

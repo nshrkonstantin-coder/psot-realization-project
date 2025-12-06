@@ -55,7 +55,6 @@ export default function PabRegistrationPage() {
   const [location, setLocation] = useState('');
   const [checkedObject, setCheckedObject] = useState('');
   const [department, setDepartment] = useState('');
-  const [violationPhoto, setViolationPhoto] = useState<File | null>(null);
   
   const [observations, setObservations] = useState<Observation[]>([
     {
@@ -121,8 +120,9 @@ export default function PabRegistrationPage() {
 
     if (organizationId) {
       try {
-        const usersResponse = await fetch(`https://functions.poehali.dev/7f32d60e-dee5-4b28-901a-10984045d99e?organization_id=${organizationId}`);
+        const usersResponse = await fetch(`https://functions.poehali.dev/bceeaee7-5cfa-418c-9c0d-0a61668ab1a4?organization_id=${organizationId}`);
         const usersData = await usersResponse.json();
+        console.log('[PAB] Loaded organization users:', usersData);
         if (Array.isArray(usersData)) {
           setOrgUsers(usersData);
         } else {
@@ -161,12 +161,6 @@ export default function PabRegistrationPage() {
     const updated = [...observations];
     updated[index] = { ...updated[index], photo_file: file };
     setObservations(updated);
-  };
-
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setViolationPhoto(e.target.files[0]);
-    }
   };
 
   const areAllObservationsFilled = () => {
@@ -346,14 +340,12 @@ export default function PabRegistrationPage() {
           location={location}
           checkedObject={checkedObject}
           department={department}
-          violationPhoto={violationPhoto}
           onDocDateChange={setDocDate}
           onInspectorFioChange={setInspectorFio}
           onInspectorPositionChange={setInspectorPosition}
           onLocationChange={setLocation}
           onCheckedObjectChange={setCheckedObject}
           onDepartmentChange={setDepartment}
-          onPhotoChange={handlePhotoChange}
         />
 
         {observations.map((obs, index) => (
