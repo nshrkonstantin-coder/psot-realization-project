@@ -110,28 +110,6 @@ export const PabHeaderForm = ({
             placeholder="Напр. З/ИО"
           />
         </div>
-        <div className="md:col-span-2">
-          <Label className="text-gray-700 mb-2 block">Фотография (необязательно)</Label>
-          <div className="flex items-center gap-4">
-            <label className={`flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 ${headerPhotoFile ? 'bg-green-50' : ''}`}>
-              <Icon name="Image" size={20} className="text-gray-600" />
-              <span className="text-gray-700">Выберите файл</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    onHeaderPhotoChange(e.target.files[0]);
-                  }
-                }}
-                className="hidden"
-              />
-            </label>
-            {headerPhotoFile && (
-              <span className="text-sm text-gray-600">{headerPhotoFile.name}</span>
-            )}
-          </div>
-        </div>
       </div>
     </Card>
   );
