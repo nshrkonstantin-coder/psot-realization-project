@@ -39,6 +39,7 @@ export default function PabRegistrationPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [userCompany, setUserCompany] = useState('');
+  const [authChecked, setAuthChecked] = useState(false);
   
   const [dictionaries, setDictionaries] = useState<Dictionaries>({
     categories: [],
@@ -71,15 +72,24 @@ export default function PabRegistrationPage() {
   ]);
 
   useEffect(() => {
+    console.log('[PAB] Component mounted, checking authentication...');
     const userId = localStorage.getItem('userId');
+    console.log('[PAB] localStorage userId:', userId);
+    console.log('[PAB] All localStorage keys:', Object.keys(localStorage));
     
     if (!userId) {
+      console.log('[PAB] No userId found - showing error and redirecting');
       toast.error('Доступ запрещен. Войдите в систему.');
-      navigate('/');
+      setTimeout(() => {
+        console.log('[PAB] Redirecting to home...');
+        navigate('/');
+      }, 2000);
       return;
     }
     
+    console.log('[PAB] User authenticated, userId:', userId);
     setUserCompany(localStorage.getItem('userCompany') || '');
+    setAuthChecked(true);
     loadData();
   }, [navigate]);
 
@@ -316,6 +326,17 @@ export default function PabRegistrationPage() {
   const handleDownloadWord = () => {
     toast.info('Функция экспорта в Word в разработке');
   };
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-gray-600 text-lg">
+          <Icon name="Loader2" size={40} className="animate-spin mx-auto mb-4" />
+          Проверка доступа...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white p-6">
