@@ -65,8 +65,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     cur.execute("""
         SELECT 
-            observation_number, description, category, conditions_actions,
-            hazard_factors, measures, responsible_person, deadline
+            id, observation_number, description, category, conditions_actions,
+            hazard_factors, measures, responsible_person, deadline, status
         FROM pab_observations
         WHERE pab_record_id = %s
         ORDER BY observation_number

@@ -20,6 +20,8 @@ interface PabRecord {
   status: 'new' | 'completed' | 'overdue' | 'in_progress';
   photo_url?: string;
   max_deadline?: string;
+  total_observations?: number;
+  completed_observations?: number;
 }
 
 export default function PabListPage() {
@@ -87,20 +89,31 @@ export default function PabListPage() {
   };
 
   const getStatusIndicator = (record: PabRecord) => {
-    const isOverdue = record.max_deadline && new Date(record.max_deadline) < new Date();
+    const total = record.total_observations || 0;
+    const completed = record.completed_observations || 0;
     
-    if (record.status === 'completed') {
-      return <div className="w-4 h-4 rounded-full bg-green-500 shadow-lg" />;
+    const indicators = [];
+    for (let i = 0; i < total; i++) {
+      if (i < completed) {
+        indicators.push(
+          <div key={i} className="w-3 h-3 rounded-full bg-green-500 shadow-lg" />
+        );
+      } else {
+        const isOverdue = record.max_deadline && new Date(record.max_deadline) < new Date();
+        if (isOverdue) {
+          indicators.push(
+            <div key={i} className="w-3 h-3 rounded-full bg-red-600 shadow-lg animate-pulse" 
+                 style={{ animation: 'pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
+          );
+        } else {
+          indicators.push(
+            <div key={i} className="w-3 h-3 rounded-full bg-red-500 shadow-lg" />
+          );
+        }
+      }
     }
     
-    if (isOverdue || record.status === 'overdue') {
-      return (
-        <div className="w-4 h-4 rounded-full bg-red-600 shadow-lg animate-pulse" 
-             style={{ animation: 'pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
-      );
-    }
-    
-    return <div className="w-4 h-4 rounded-full bg-red-500 shadow-lg" />;
+    return <div className="flex items-center gap-1">{indicators}</div>;
   };
 
   const filteredRecords = records.filter((record) => {
@@ -169,8 +182,10 @@ export default function PabListPage() {
             {filteredRecords.map((record) => (
               <Card key={record.id} className="p-6 hover:shadow-lg transition-shadow">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
-                    {getStatusIndicator(record)}
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="flex flex-col gap-1 pt-1">
+                      {getStatusIndicator(record)}
+                    </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
                         <h3 className="text-xl font-bold text-gray-900">

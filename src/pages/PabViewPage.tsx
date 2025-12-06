@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
 interface Observation {
+  id: number;
   observation_number: number;
   description: string;
   category: string;
@@ -14,6 +16,7 @@ interface Observation {
   measures: string;
   responsible_person: string;
   deadline: string;
+  status: 'new' | 'in_progress' | 'completed' | 'overdue';
 }
 
 interface PabDetail {
@@ -34,11 +37,13 @@ export default function PabViewPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [pab, setPab] = useState<PabDetail | null>(null);
+  const [userRole, setUserRole] = useState('');
 
   useEffect(() => {
     if (id) {
       loadPab(id);
     }
+    setUserRole(localStorage.getItem('userRole') || '');
   }, [id]);
 
   const loadPab = async (pabId: string) => {
@@ -54,8 +59,60 @@ export default function PabViewPage() {
     }
   };
 
+  const updateObservationStatus = async (observationId: number, newStatus: string) => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/226be57f-c09b-4429-9cc3-7def6c7317a0', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ observation_id: observationId, status: newStatus })
+      });
+      
+      if (response.ok) {
+        toast.success('Статус обновлён');
+        if (id) loadPab(id);
+      } else {
+        toast.error('Ошибка обновления статуса');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Ошибка обновления статуса');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU');
+  };
+
+  const getObservationStatusIndicator = (obs: Observation) => {
+    const isOverdue = obs.deadline && new Date(obs.deadline) < new Date();
+    
+    if (obs.status === 'completed') {
+      return <div className="w-3 h-3 rounded-full bg-green-500 shadow-lg" />;
+    }
+    
+    if (isOverdue || obs.status === 'overdue') {
+      return (
+        <div className="w-3 h-3 rounded-full bg-red-600 shadow-lg animate-pulse" 
+             style={{ animation: 'pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
+      );
+    }
+    
+    return <div className="w-3 h-3 rounded-full bg-red-500 shadow-lg" />;
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'new':
+        return { label: 'Новый', color: 'bg-blue-100 text-blue-800' };
+      case 'in_progress':
+        return { label: 'В работе', color: 'bg-yellow-100 text-yellow-800' };
+      case 'completed':
+        return { label: 'Выполнен', color: 'bg-green-100 text-green-800' };
+      case 'overdue':
+        return { label: 'Просрочен', color: 'bg-red-100 text-red-800' };
+      default:
+        return { label: 'Новый', color: 'bg-gray-100 text-gray-800' };
+    }
   };
 
   if (loading) {
@@ -79,6 +136,10 @@ export default function PabViewPage() {
     );
   }
 
+  const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+  const completedCount = pab.observations.filter(o => o.status === 'completed').length;
+  const totalCount = pab.observations.length;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4">
       <div className="max-w-5xl mx-auto">
@@ -91,7 +152,17 @@ export default function PabViewPage() {
             <Icon name="ArrowLeft" size={20} />
             Назад к списку
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900">{pab.doc_number}</h1>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {pab.observations.map((obs, idx) => (
+                <div key={idx} title={`Наблюдение ${obs.observation_number}`}>
+                  {getObservationStatusIndicator(obs)}
+                </div>
+              ))}
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900">{pab.doc_number}</h1>
+            <span className="text-sm text-gray-600">({completedCount}/{totalCount})</span>
+          </div>
           <div className="w-24" />
         </div>
 
@@ -122,9 +193,33 @@ export default function PabViewPage() {
         <h2 className="text-2xl font-bold text-gray-900 mb-4">Наблюдения</h2>
         {pab.observations.map((obs) => (
           <Card key={obs.observation_number} className="p-6 mb-4">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">
-              Наблюдение №{obs.observation_number}
-            </h3>
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                {getObservationStatusIndicator(obs)}
+                <h3 className="text-xl font-bold text-gray-900">
+                  Наблюдение №{obs.observation_number}
+                </h3>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusLabel(obs.status).color}`}>
+                  {getStatusLabel(obs.status).label}
+                </span>
+              </div>
+              {isAdmin && (
+                <Select
+                  value={obs.status}
+                  onValueChange={(value) => updateObservationStatus(obs.id, value)}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Изменить статус" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">Новый</SelectItem>
+                    <SelectItem value="in_progress">В работе</SelectItem>
+                    <SelectItem value="completed">Выполнен</SelectItem>
+                    <SelectItem value="overdue">Просрочен</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
             <div className="space-y-3 text-gray-700">
               <div>
                 <span className="font-semibold">Описание:</span>

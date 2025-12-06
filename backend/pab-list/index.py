@@ -32,7 +32,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             pr.id, pr.doc_number, pr.doc_date, pr.inspector_fio, pr.inspector_position,
             pr.department, pr.location, pr.checked_object, pr.created_at, pr.status,
             pr.photo_url,
-            MAX(po.deadline) as max_deadline
+            MAX(po.deadline) as max_deadline,
+            COUNT(po.id) as total_observations,
+            COUNT(CASE WHEN po.status = 'completed' THEN 1 END) as completed_observations
         FROM pab_records pr
         LEFT JOIN pab_observations po ON pr.id = po.pab_record_id
         GROUP BY pr.id, pr.doc_number, pr.doc_date, pr.inspector_fio, pr.inspector_position,
