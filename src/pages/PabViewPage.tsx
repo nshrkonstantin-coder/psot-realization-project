@@ -18,6 +18,7 @@ interface Observation {
   responsible_person: string;
   deadline: string;
   status: 'new' | 'in_progress' | 'completed' | 'overdue';
+  photo_url?: string;
 }
 
 interface PabDetail {
@@ -307,6 +308,18 @@ export default function PabViewPage() {
               <div>
                 <span className="font-semibold">Срок:</span> {formatDate(obs.deadline)}
               </div>
+              {obs.photo_url && (
+                <div className="mt-4">
+                  <span className="font-semibold">Фотография нарушения:</span>
+                  <div className="mt-2">
+                    <img 
+                      src={obs.photo_url} 
+                      alt={`Фото наблюдения №${obs.observation_number}`}
+                      className="max-w-md rounded-lg shadow-md border border-gray-200"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         ))}
