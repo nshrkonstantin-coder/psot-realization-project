@@ -36,6 +36,7 @@ import SystemSettings from "./pages/SystemSettings";
 import UserCabinet from "./pages/UserCabinet";
 import OrgMiniAdmin from "./pages/OrgMiniAdmin";
 import AssignMiniAdmin from "./pages/AssignMiniAdmin";
+import HashCalculator from "./pages/HashCalculator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -79,6 +80,7 @@ const App = () => (
           <Route path="/user-cabinet" element={<UserCabinet />} />
           <Route path="/miniadmin" element={<OrgMiniAdmin />} />
           <Route path="/assign-miniadmin" element={<AssignMiniAdmin />} />
+          <Route path="/hash-calculator" element={<HashCalculator />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
