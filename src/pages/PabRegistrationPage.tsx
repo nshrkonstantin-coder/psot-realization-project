@@ -71,13 +71,20 @@ export default function PabRegistrationPage() {
       photo_file: null
     }
   ]);
+  const [allowSingleObservation, setAllowSingleObservation] = useState(false);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
+    const userFio = localStorage.getItem('userFio') || '';
     
     // Временно показываем форму всегда для диагностики
     setUserCompany(localStorage.getItem('userCompany') || '');
     setAuthChecked(true);
+    
+    // Разрешить одно наблюдение для Сергеева Дем Демовича
+    if (userFio === 'Сергеев Дем Демович') {
+      setAllowSingleObservation(true);
+    }
     
     if (userId) {
       loadData();
@@ -165,6 +172,20 @@ export default function PabRegistrationPage() {
   };
 
   const areAllObservationsFilled = () => {
+    // Для пользователей с разрешением одного наблюдения
+    if (allowSingleObservation) {
+      if (observations.length < 1) return false;
+      
+      for (const obs of observations) {
+        if (!obs.description || !obs.category || !obs.conditions_actions || 
+            !obs.hazard_factors || !obs.measures || !obs.responsible_person || !obs.deadline) {
+          return false;
+        }
+      }
+      return true;
+    }
+    
+    // Стандартная проверка: минимум 3 наблюдения
     if (observations.length < 3) return false;
     
     for (const obs of observations) {
