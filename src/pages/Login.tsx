@@ -42,7 +42,8 @@ const Login = () => {
 
       if (data.success) {
         // Если пользователь принадлежит организации и вошёл НЕ через её страницу
-        if (data.registrationCode && !isRegister) {
+        // НО главные администраторы (admin, superadmin) всегда остаются на основной странице
+        if (data.registrationCode && !isRegister && data.role !== 'admin' && data.role !== 'superadmin') {
           toast({ 
             title: 'Неверная страница входа', 
             description: 'Перенаправляем на страницу вашего предприятия...',
