@@ -283,7 +283,7 @@ const UsersManagement = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
-      <div className="max-w-[1600px] mx-auto">
+      <div className="max-w-full mx-auto px-4">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-3 rounded-xl shadow-lg">
@@ -317,20 +317,20 @@ const UsersManagement = () => {
             isSuperAdmin={isSuperAdmin}
           />
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="w-full">
+            <table className="w-full table-fixed">
               <thead>
                 <tr className="border-b border-slate-700">
-                  <th className="px-4 py-3 text-left text-slate-300 font-semibold">ID</th>
-                  <th className="px-4 py-3 text-left text-slate-300 font-semibold">ФИО</th>
-                  <th className="px-4 py-3 text-left text-slate-300 font-semibold">Email</th>
-                  <th className="px-4 py-3 text-left text-slate-300 font-semibold">Компания</th>
-                  <th className="px-4 py-3 text-left text-slate-300 font-semibold">Подразделение</th>
-                  <th className="px-4 py-3 text-left text-slate-300 font-semibold">Должность</th>
-                  <th className="px-4 py-3 text-left text-slate-300 font-semibold">Роль</th>
-                  <th className="px-4 py-3 text-left text-slate-300 font-semibold">Дата регистрации</th>
-                  <th className="px-4 py-3 text-left text-slate-300 font-semibold">Статистика</th>
-                  <th className="px-4 py-3 text-left text-slate-300 font-semibold">Действия</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[6%]">ID</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[12%]">ФИО</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[12%]">Email</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[12%]">Компания</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[11%]">Подразделение</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[11%]">Должность</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[8%]">Роль</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[9%]">Дата регистрации</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[9%]">Статистика</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[10%]">Действия</th>
                 </tr>
               </thead>
               <tbody>

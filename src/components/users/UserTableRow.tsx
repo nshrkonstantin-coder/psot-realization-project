@@ -42,47 +42,47 @@ export const UserTableRow = ({
 }: UserTableRowProps) => {
   return (
     <tr className="border-b border-slate-700 hover:bg-slate-700/30">
-      <td className="px-4 py-3 text-slate-300">
+      <td className="px-2 py-3 text-slate-300 text-sm truncate">
         {user.display_name || `ID№${String(user.id).padStart(5, '0')}`}
       </td>
-      <td className="px-4 py-3 text-slate-300">{user.fio}</td>
-      <td className="px-4 py-3 text-slate-300">{user.email}</td>
-      <td className="px-4 py-3 text-slate-300">{user.company}</td>
-      <td className="px-4 py-3 text-slate-300">{user.subdivision}</td>
-      <td className="px-4 py-3 text-slate-300">{user.position}</td>
-      <td className="px-4 py-3">
-        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getRoleBadgeColor(user.role)}`}>
+      <td className="px-2 py-3 text-slate-300 text-sm truncate" title={user.fio}>{user.fio}</td>
+      <td className="px-2 py-3 text-slate-300 text-sm truncate" title={user.email}>{user.email}</td>
+      <td className="px-2 py-3 text-slate-300 text-sm truncate" title={user.company}>{user.company}</td>
+      <td className="px-2 py-3 text-slate-300 text-sm truncate" title={user.subdivision}>{user.subdivision}</td>
+      <td className="px-2 py-3 text-slate-300 text-sm truncate" title={user.position}>{user.position}</td>
+      <td className="px-2 py-3">
+        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getRoleBadgeColor(user.role)}`}>
           {getRoleLabel(user.role)}
         </span>
       </td>
-      <td className="px-4 py-3 text-slate-300">
+      <td className="px-2 py-3 text-slate-300 text-sm">
         {new Date(user.created_at).toLocaleDateString('ru-RU')}
       </td>
-      <td className="px-4 py-3">
-        <div className="text-sm text-slate-400">
+      <td className="px-2 py-3">
+        <div className="text-xs text-slate-400">
           <div>ПАБ: {user.stats.registered_count}</div>
-          <div>Онлайн: {user.stats.online_count}</div>
-          <div>Офлайн: {user.stats.offline_count}</div>
+          <div>Он: {user.stats.online_count}</div>
+          <div>Оф: {user.stats.offline_count}</div>
         </div>
       </td>
-      <td className="px-4 py-3">
-        <div className="flex flex-col gap-2 min-w-[180px]">
+      <td className="px-2 py-3">
+        <div className="flex flex-col gap-1.5">
           {isSuperAdmin && (
             <Select
               value={user.role}
               onValueChange={(value) => onUpdateRole(user.id, value)}
             >
-              <SelectTrigger className="bg-slate-700 border-slate-600 text-white text-xs h-8">
+              <SelectTrigger className="bg-slate-700 border-slate-600 text-white text-xs h-7 px-2">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-700 border-slate-600">
-                <SelectItem value="user" className="text-white hover:bg-slate-600">
+                <SelectItem value="user" className="text-white hover:bg-slate-600 text-xs">
                   Пользователь
                 </SelectItem>
-                <SelectItem value="admin" className="text-white hover:bg-slate-600">
+                <SelectItem value="admin" className="text-white hover:bg-slate-600 text-xs">
                   Администратор
                 </SelectItem>
-                <SelectItem value="superadmin" className="text-white hover:bg-slate-600">
+                <SelectItem value="superadmin" className="text-white hover:bg-slate-600 text-xs">
                   Суперадмин
                 </SelectItem>
               </SelectContent>
@@ -92,9 +92,9 @@ export const UserTableRow = ({
             onClick={() => onEditProfile(user)}
             variant="outline"
             size="sm"
-            className="border-blue-600/50 text-blue-500 hover:bg-blue-600/10 text-xs h-8"
+            className="border-blue-600/50 text-blue-500 hover:bg-blue-600/10 text-xs h-7 px-2"
           >
-            <Icon name="Edit" size={14} className="mr-1" />
+            <Icon name="Edit" size={12} className="mr-1" />
             Профиль
           </Button>
           {isSuperAdmin && (
@@ -103,18 +103,18 @@ export const UserTableRow = ({
                 onClick={() => onEditCredentials(user)}
                 variant="outline"
                 size="sm"
-                className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10 text-xs h-8"
+                className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10 text-xs h-7 px-2"
               >
-                <Icon name="Key" size={14} className="mr-1" />
+                <Icon name="Key" size={12} className="mr-1" />
                 Учётка
               </Button>
               <Button
                 onClick={() => onDelete(user.id)}
                 variant="outline"
                 size="sm"
-                className="border-red-600/50 text-red-500 hover:bg-red-600/10 text-xs h-8"
+                className="border-red-600/50 text-red-500 hover:bg-red-600/10 text-xs h-7 px-2"
               >
-                <Icon name="Trash2" size={14} className="mr-1" />
+                <Icon name="Trash2" size={12} className="mr-1" />
                 Удалить
               </Button>
             </>
