@@ -1,0 +1,15 @@
+{
+  "tests": [{
+    "name": "Calculate password hash",
+    "method": "POST",
+    "body": {
+      "password": "test123"
+    },
+    "expectedStatus": 200,
+    "expectedBody": {
+      "password": "test123",
+      "hash": "string"
+    },
+    "bodyMatcher": "partial"
+  }]
+}
