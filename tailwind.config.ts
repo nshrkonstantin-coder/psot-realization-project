@@ -19,8 +19,8 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				heading: ['Montserrat', 'sans-serif'],
-				body: ['Open Sans', 'sans-serif'],
+				heading: ['Montserrat', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+				body: ['Open Sans', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',

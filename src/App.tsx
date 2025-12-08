@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import OfflineNotification from "@/components/OfflineNotification";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import OrganizationLogin from "./pages/OrganizationLogin";
@@ -44,15 +45,16 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <OfflineNotification />
-      <div className="fixed top-4 right-4 z-50">
-        <OnlineStatusIndicator />
-      </div>
-      <BrowserRouter>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <OfflineNotification />
+        <div className="fixed top-4 right-4 z-50">
+          <OnlineStatusIndicator />
+        </div>
+        <BrowserRouter>
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -93,6 +95,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

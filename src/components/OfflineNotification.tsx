@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { WifiOff, Wifi, RefreshCw } from 'lucide-react';
+import { WifiOff, Wifi } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 
 export default function OfflineNotification() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
