@@ -433,6 +433,23 @@ export default function PabRegistrationPage() {
           </Button>
         </div>
 
+        {allowSingleObservation && (
+          <div className="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+            <div className="flex items-start gap-3">
+              <Icon name="Info" size={20} className="text-blue-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="text-sm font-semibold text-blue-900 mb-1">
+                  Упрощённый режим регистрации
+                </h3>
+                <p className="text-sm text-blue-800">
+                  Для вашего профиля разрешена отправка ПАБ с одним наблюдением. 
+                  Вы можете добавить до 3 наблюдений при необходимости.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <PabHeaderForm
           docNumber={docNumber}
           docDate={docDate}
