@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import OfflineNotification from "@/components/OfflineNotification";
+import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import OrganizationLogin from "./pages/OrganizationLogin";
@@ -48,6 +49,9 @@ const App = () => (
       <Toaster />
       <Sonner />
       <OfflineNotification />
+      <div className="fixed top-4 right-4 z-50">
+        <OnlineStatusIndicator />
+      </div>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Login />} />
