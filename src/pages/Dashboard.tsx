@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { TechnicalSupport } from '@/components/TechnicalSupport';
+import OnlineStatusIndicator from '@/components/OnlineStatusIndicator';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -55,7 +56,8 @@ const Dashboard = () => {
               <p className="text-yellow-500">Добро пожаловать, {userFio}</p>
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
+            <OnlineStatusIndicator />
             <TechnicalSupport />
             <Button
               onClick={handleLogout}
