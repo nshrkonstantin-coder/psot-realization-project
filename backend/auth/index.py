@@ -265,14 +265,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             conn = psycopg2.connect(os.environ['DATABASE_URL'])
             cur = conn.cursor()
             
-            cur.execute("SELECT email, password_hash FROM users WHERE email = %s", (email,))
-            db_result = cur.fetchone()
-            if db_result:
-                print(f"[AUTH DEBUG] User found in DB. DB hash: {db_result[1]}")
-                print(f"[AUTH DEBUG] Hashes match: {db_result[1] == password_hash}")
-            else:
-                print(f"[AUTH DEBUG] User NOT found in DB")
-            
             email_escaped = email.replace("'", "''")
             password_hash_escaped = password_hash.replace("'", "''")
             cur.execute(f"""
