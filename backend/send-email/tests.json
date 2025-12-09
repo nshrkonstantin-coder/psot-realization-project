@@ -1,0 +1,38 @@
+{
+  "tests": [
+    {
+      "name": "Отправка тестового письма",
+      "method": "POST",
+      "body": {
+        "recipients": ["test@example.com"],
+        "subject": "Тест",
+        "html_content": "<h1>Тестовое письмо</h1>"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "total": 1
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Проверка валидации email",
+      "method": "POST",
+      "body": {
+        "recipients": ["invalid-email"],
+        "subject": "Тест",
+        "html_content": "<p>Тест</p>"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "failed": 1
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Проверка OPTIONS",
+      "method": "OPTIONS",
+      "expectedStatus": 200
+    }
+  ]
+}

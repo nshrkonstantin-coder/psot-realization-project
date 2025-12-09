@@ -8,6 +8,8 @@ import { uploadDocumentToStorage } from '@/utils/documentUpload';
 import { PabHeaderForm } from '@/components/pab-registration/PabHeaderForm';
 import { PabObservationCard } from '@/components/pab-registration/PabObservationCard';
 import { PabActionButtons } from '@/components/pab-registration/PabActionButtons';
+import { useEmailSender } from '@/hooks/useEmailSender';
+import EmailStatusDialog from '@/components/EmailStatusDialog';
 
 interface Observation {
   observation_number: number;
@@ -40,6 +42,8 @@ export default function PabRegistrationPage() {
   const [loading, setLoading] = useState(false);
   const [userCompany, setUserCompany] = useState('');
   const [authChecked, setAuthChecked] = useState(false);
+  const { sendEmail, sending: emailSending, lastResult: emailResult } = useEmailSender();
+  const [showEmailStatus, setShowEmailStatus] = useState(false);
   
   const [dictionaries, setDictionaries] = useState<Dictionaries>({
     categories: [],
@@ -352,25 +356,51 @@ export default function PabRegistrationPage() {
         }
       }
 
-      if (htmlUrl && (responsibleEmail || adminEmail)) {
-        try {
-          await fetch('https://functions.poehali.dev/963fb84a-6c11-4009-a2f8-e46804543809', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              doc_number: newDocNumber,
-              responsible_email: responsibleEmail,
-              admin_email: adminEmail,
-              html_url: htmlUrl
-            })
+      // Отправка email с детальной отчетностью
+      if (htmlUrl) {
+        const recipients: string[] = [];
+        if (responsibleEmail) recipients.push(responsibleEmail);
+        if (adminEmail) recipients.push(adminEmail);
+        
+        if (recipients.length > 0) {
+          const emailContent = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #1e40af;">Новый ПАБ зарегистрирован</h2>
+              <p><strong>Номер документа:</strong> ${newDocNumber}</p>
+              <p><strong>Дата:</strong> ${docDate}</p>
+              <p><strong>Инспектор:</strong> ${inspectorFio}</p>
+              <p><strong>Должность:</strong> ${inspectorPosition}</p>
+              <p><strong>Место проведения:</strong> ${location}</p>
+              <p><strong>Проверяемый объект:</strong> ${checkedObject}</p>
+              <div style="margin: 20px 0; padding: 15px; background: #f3f4f6; border-radius: 8px;">
+                <p style="margin: 0;"><strong>Ответственный:</strong> ${firstObservationResponsible}</p>
+                <p style="margin: 5px 0 0 0;"><strong>Срок выполнения:</strong> ${observations[0].deadline}</p>
+              </div>
+              <a href="${htmlUrl}" style="display: inline-block; padding: 12px 24px; background: #1e40af; color: white; text-decoration: none; border-radius: 8px; margin-top: 10px;">
+                Посмотреть ПАБ
+              </a>
+            </div>
+          `;
+          
+          const result = await sendEmail({
+            recipients,
+            subject: `Новый ПАБ №${newDocNumber} от ${docDate}`,
+            html_content: emailContent,
+            sender_name: 'АСУБТ - Система управления безопасностью труда'
           });
-        } catch (emailError) {
-          console.error('Error sending email:', emailError);
+          
+          if (result) {
+            setShowEmailStatus(true);
+          }
         }
       }
 
-      toast.success('ПАБ успешно сохранен и отправлен на почту');
-      navigate('/dashboard');
+      toast.success('ПАБ успешно сохранен');
+      
+      // Показываем статус email если были отправки
+      if (!showEmailStatus) {
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Error:', error);
       toast.error('Ошибка при сохранении');
@@ -483,7 +513,7 @@ export default function PabRegistrationPage() {
         ))}
 
         <PabActionButtons
-          loading={loading}
+          loading={loading || emailSending}
           canAddObservation={observations.length < 3}
           allObservationsFilled={areAllObservationsFilled()}
           onBack={() => navigate('/dashboard')}
@@ -493,6 +523,24 @@ export default function PabRegistrationPage() {
           onDownloadWord={handleDownloadWord}
         />
       </div>
+
+      {/* Диалог статуса отправки email */}
+      {emailResult && (
+        <EmailStatusDialog
+          open={showEmailStatus}
+          onOpenChange={(open) => {
+            setShowEmailStatus(open);
+            if (!open) {
+              navigate('/dashboard');
+            }
+          }}
+          results={emailResult.results}
+          summary={emailResult.summary}
+          total={emailResult.total}
+          sent={emailResult.sent}
+          failed={emailResult.failed}
+        />
+      )}
     </div>
   );
 }

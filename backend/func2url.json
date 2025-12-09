@@ -1,4 +1,5 @@
 {
+  "send-email": "https://functions.poehali.dev/ca9e0986-48d7-46a1-b0be-7a98ddf4c429",
   "hash-calculator": "https://functions.poehali.dev/c077a61b-25a3-46e9-b0aa-0f7b55512d2e",
   "pab-export-pdf": "https://functions.poehali.dev/88fb8fbf-2935-49ae-8371-424562046173",
   "pab-delete": "https://functions.poehali.dev/b7991444-b3cb-4160-8fed-6d25fe399a0c",
