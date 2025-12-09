@@ -1,0 +1,37 @@
+{
+  "tests": [
+    {
+      "name": "Получение конфигурации почты",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "smtp_configured": true,
+        "smtp": {
+          "host": "string",
+          "port": "number",
+          "user": "string"
+        },
+        "imap": {
+          "host": "string",
+          "port": "number"
+        }
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Тест IMAP подключения",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "test_imap"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": "boolean"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

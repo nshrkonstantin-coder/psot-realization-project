@@ -41,6 +41,7 @@ import OrgMiniAdmin from "./pages/OrgMiniAdmin";
 import AssignMiniAdmin from "./pages/AssignMiniAdmin";
 import HashCalculator from "./pages/HashCalculator";
 import EmailTestPage from "./pages/EmailTestPage";
+import EmailConfigPage from "./pages/EmailConfigPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -91,6 +92,7 @@ const App = () => (
           <Route path="/assign-miniadmin" element={<AssignMiniAdmin />} />
           <Route path="/hash-calculator" element={<HashCalculator />} />
           <Route path="/email-test" element={<EmailTestPage />} />
+          <Route path="/email-config" element={<EmailConfigPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
