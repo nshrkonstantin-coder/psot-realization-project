@@ -62,6 +62,19 @@ const MessagingPage = () => {
     loadUsers(parseInt(id));
   }, [navigate]);
 
+  useEffect(() => {
+    if (!userId) return;
+
+    const interval = setInterval(() => {
+      loadChats(userId);
+      if (selectedChat) {
+        loadMessages(selectedChat.id);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [userId, selectedChat]);
+
   const loadChats = async (uid: number) => {
     try {
       const response = await fetch(`${MESSAGING_API}?action=list_chats`, {
@@ -133,11 +146,18 @@ const MessagingPage = () => {
       const data = await response.json();
       if (data.success) {
         setNewMessage('');
-        loadMessages(selectedChat.id);
-        loadChats(userId);
+        await loadMessages(selectedChat.id);
+        await loadChats(userId);
       }
     } catch (error) {
       toast({ title: 'Ошибка отправки сообщения', variant: 'destructive' });
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
@@ -379,8 +399,8 @@ const MessagingPage = () => {
                     <Input
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                      placeholder="Введите сообщение..."
+                      onKeyPress={handleKeyPress}
+                      placeholder="Введите сообщение... (Enter для отправки)"
                       className="bg-slate-700 border-slate-600 text-white"
                     />
                     <Button
