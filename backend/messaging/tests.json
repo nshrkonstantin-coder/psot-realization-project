@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "List chats without auth",
+      "method": "GET",
+      "path": "/?action=list_chats",
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "Требуется авторизация"
+      }
+    },
+    {
+      "name": "OPTIONS request for CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
