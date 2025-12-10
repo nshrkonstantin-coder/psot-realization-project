@@ -50,6 +50,7 @@ const MessagingPage = () => {
   const [newChatName, setNewChatName] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [lastMessageCount, setLastMessageCount] = useState<number>(0);
 
   useEffect(() => {
     const id = localStorage.getItem('userId');
@@ -103,6 +104,12 @@ const MessagingPage = () => {
     }
   };
 
+  const playNotificationSound = () => {
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUKni8LVkGwU5kdnyz3osBSV4yPDckEELFF+05+uoVRQKR6Hf8r5sIAUrgs/y2Ik2CBlpu/DlnU4NEFCq4vC0YxwGOZLX8s98KwUleMnw3I9CCRVftubqqFYVC0eh4PK/ayEGLILP8tmJNQgaabzw5J1PDRBQquPwtGIcBjiS2PLOfCsFJnjJ8NyPQgsUX7jm6qhWFQtIoeHyv2wgBiyBy/LaiTgIG2i88OWcTQ0PUavk8LRjGwU5kdnyz30rBSZ4yfDcj0MLFFy46OuoVRYLSKHh8sBsIQYrgs7y2Yk3CBtovfDlnU4MDVG05vCzYhwGOZLZ8s59KwUmecnw3Y9DCxRfu+brqFYWC0mi4fK+ayIGLILP8tmJNwgaab3w5Z1ODAxRq+TwtGMcBTiS2PLPfSwFJnnJ8NyPQwsUX7vm66hWFgtKouDywGshBiyCz/LYiTcIGmm98OSdzgwMUavk8LNiHAY4ktnyz30sBSZ5yfDcj0MLF1+75+uoVhYLSqPg8sFrIQYsg8/y2Ik3CBppvvDknc4MDFGr5PCzYhsGOJLZ8s99LAUmecnw3I9DCxdfvOfrqFYWC0qk4fLBayEGK4PP8tiJNwgaab7w5J3ODAxRq+TwsmIcBjiS2fLPfSwFJnrJ8NyPQwsXX7vn66hWFgtKpOHywWsgBiyDz/LYiTcIGmm+8OSdzw0MUavk8LJiHAU4ktnyz30sBSZ6yfDcj0MLF1+75+uoVhYLSqTh8sFrIQYsg8/y14k3CBppvvDknc8NDFGr5PCyYhwFOJLZ8s99LAUmesjw3I9DCxdfvOfrqFYWC0ql4fLBayEGLIPP8teJNwgaab7w5J3PDQxRq+TwsmIcBTiS2fLPfSwFJnrI8NyPQwsXX7zn66hWFgtKpeLywWshBiyDz/LXiTcIGmm+8OSdzw0MUavk8LJiHAU4ktnyz30sBSZ6yPDcj0MLF1+85+uoVhYLSqXi8sFrIQYsg8/y14k3CBppvvDknc8NDFGr5PCyYhwFOJLZ8s99LAUmesjw3I9DCxdfvOfrqFYWC0ql4vLBayEGLIPP8teJNwgaab7w5J3PDQxRq+TwsmIcBTiS2fLPfSwFJnrI8NyPQwsXX7zn66hWFgtKpeLywWshBiyDz/LXiTcIGmm+8OSdzw0MUavk8LJiHAU4ktnyz30sBSZ6yPDcj0MLF1+85+uoVhYLSqXi8sFrIQYsg8/y14k3CBppvvDknc8NDFGr5PCyYhwFOJLZ8s99LAUmesjw3I9DCxdfvOfrqFYWC0ql4vLBayEGLIPP8teJNwgaab7w5J3PDQxRq+TwsmIcBTiS2fLPfSwFJnrI8NyPQwsXX7zn66hWFgtKpeLywWshBiyDz/LXiTcIGmm+8OSdzw0MUavk8LJiHAU4ktnyz30sBSZ6yPDcj0MLF1+85+uoVhYLSqXi8sFrIQYsg8/y14k3CBppvvDknc8NDFGr5PCyYhwFOJLZ8s99LAUmesjw3I9DCxdfvOfrqFYWC0ql4vLBayEGLIPP8teJNwgaab7w5J3PDQxRq+TwsmIcBTiS2fLPfSwFJnrI8NyPQwsXX7zn66hWFgtKpeLywWshBiyDz/LXiTcIGmm+8OSdzw0MUavk8LJiHAU4ktnyz30sBSZ6yPDcj0MLF1+85+uoVhYLSqXi8sFrIQYsg8/y14k3CBppvvDknc8NDFGr5PCyYhwFOJLZ8s99LAUmesjw3I9DCxdfvOfrqFYWC0ql4... [truncated]
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+  };
+
   const loadMessages = async (chatId: number) => {
     if (!userId) return;
     
@@ -113,7 +120,15 @@ const MessagingPage = () => {
       });
       const data = await response.json();
       if (data.messages) {
-        setMessages(data.messages);
+        const newMessages = data.messages;
+        if (lastMessageCount > 0 && newMessages.length > lastMessageCount) {
+          const lastMsg = newMessages[newMessages.length - 1];
+          if (lastMsg.sender_id !== userId) {
+            playNotificationSound();
+          }
+        }
+        setLastMessageCount(newMessages.length);
+        setMessages(newMessages);
       }
     } catch (error) {
       toast({ title: 'Ошибка загрузки сообщений', variant: 'destructive' });
@@ -124,6 +139,7 @@ const MessagingPage = () => {
 
   const handleSelectChat = (chat: Chat) => {
     setSelectedChat(chat);
+    setLastMessageCount(0);
     loadMessages(chat.id);
   };
 
