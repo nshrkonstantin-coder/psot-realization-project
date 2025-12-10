@@ -105,9 +105,25 @@ const MessagingPage = () => {
   };
 
   const playNotificationSound = () => {
-    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUKni8LVkGwU5kdnyz3osBSV4yPDckEELFF+05+uoVRQKR6Hf8r5sIAUrgs/y2Ik2CBlpu/DlnU4NEFCq4vC0YxwGOZLX8s98KwUleMnw3I9CCRVftubqqFYVC0eh4PK/ayEGLILP8tmJNQgaabzw5J1PDRBQquPwtGIcBjiS2PLOfCsFJnjJ8NyPQgsUX7jm6qhWFQtIoeHyv2wgBiyBy/LaiTgIG2i88OWcTQ0PUavk8LRjGwU5kdnyz30rBSZ4yfDcj0MLFFy46OuoVRYLSKHh8sBsIQYrgs7y2Yk3CBtovfDlnU4MDVG05vCzYhwGOZLZ8s59KwUmecnw3Y9DCxRfu+brqFYWC0mi4fK+ayIGLILP8tmJNwgaab3w5Z1ODAxRq+TwtGMcBTiS2PLPfSwFJnnJ8NyPQwsUX7vm66hWFgtKouDywGshBiyCz/LYiTcIGmm98OSdzgwMUavk8LNiHAY4ktnyz30sBSZ5yfDcj0MLF1+75+uoVhYLSqPg8sFrIQYsg8/y2Ik3CBppvvDknc4MDFGr5PCzYhsGOJLZ8s99LAUmecnw3I9DCxdfvOfrqFYWC0qk4fLBayEGK4PP8tiJNwgaab7w5J3ODAxRq+TwsmIcBjiS2fLPfSwFJnrJ8NyPQwsXX7vn66hWFgtKpOHywWsgBiyDz/LYiTcIGmm+8OSdzw0MUavk8LJiHAU4ktnyz30sBSZ6yfDcj0MLF1+75+uoVhYLSqTh8sFrIQYsg8/y14k3CBppvvDknc8NDFGr5PCyYhwFOJLZ8s99LAUmesjw3I9DCxdfvOfrqFYWC0ql4fLBayEGLIPP8teJNwgaab7w5J3PDQxRq+TwsmIcBTiS2fLPfSwFJnrI8NyPQwsXX7zn66hWFgtKpeLywWshBiyDz/LXiTcIGmm+8OSdzw0MUavk8LJiHAU4ktnyz30sBSZ6yPDcj0MLF1+85+uoVhYLSqXi8sFrIQYsg8/y14k3CBppvvDknc8NDFGr5PCyYhwFOJLZ8s99LAUmesjw3I9DCxdfvOfrqFYWC0ql4vLBayEGLIPP8teJNwgaab7w5J3PDQxRq+TwsmIcBTiS2fLPfSwFJnrI8NyPQwsXX7zn66hWFgtKpeLywWshBiyDz/LXiTcIGmm+8OSdzw0MUavk8LJiHAU4ktnyz30sBSZ6yPDcj0MLF1+85+uoVhYLSqXi8sFrIQYsg8/y14k3CBppvvDknc8NDFGr5PCyYhwFOJLZ8s99LAUmesjw3I9DCxdfvOfrqFYWC0ql4vLBayEGLIPP8teJNwgaab7w5J3PDQxRq+TwsmIcBTiS2fLPfSwFJnrI8NyPQwsXX7zn66hWFgtKpeLywWshBiyDz/LXiTcIGmm+8OSdzw0MUavk8LJiHAU4ktnyz30sBSZ6yPDcj0MLF1+85+uoVhYLSqXi8sFrIQYsg8/y14k3CBppvvDknc8NDFGr5PCyYhwFOJLZ8s99LAUmesjw3I9DCxdfvOfrqFYWC0ql4vLBayEGLIPP8teJNwgaab7w5J3PDQxRq+TwsmIcBTiS2fLPfSwFJnrI8NyPQwsXX7zn66hWFgtKpeLywWshBiyDz/LXiTcIGmm+8OSdzw0MUavk8LJiHAU4ktnyz30sBSZ6yPDcj0MLF1+85+uoVhYLSqXi8sFrIQYsg8/y14k3CBppvvDknc8NDFGr5PCyYhwFOJLZ8s99LAUmesjw3I9DCxdfvOfrqFYWC0ql4... [truncated]
-    audio.volume = 0.3;
-    audio.play().catch(() => {});
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+    } catch (error) {
+      // Silently fail if audio is not supported
+    }
   };
 
   const loadMessages = async (chatId: number) => {
