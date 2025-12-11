@@ -190,8 +190,32 @@ export default function KBTReportPage() {
       existingReports.push(reportData);
       localStorage.setItem(reportsKey, JSON.stringify(existingReports));
 
-      toast.success('Отчет успешно сохранен!');
-      navigate('/dashboard');
+      toast.success(
+        <div className="flex flex-col gap-2">
+          <div className="font-bold">✅ Отчёт КБТ успешно сохранён!</div>
+          <div className="text-sm text-gray-600">
+            <strong>Подразделение:</strong> {formData.department}<br/>
+            <strong>Руководитель:</strong> {formData.head_name}<br/>
+            <strong>Период:</strong> {formData.period_from} - {formData.period_to}<br/>
+            <strong>Место хранения:</strong> localStorage (ключ: kbt_reports)
+          </div>
+          <button 
+            onClick={() => {
+              console.log('Saved KBT reports:', existingReports);
+              toast.info('Данные сохранены локально в браузере. Для просмотра всех отчётов вернитесь в Dashboard.');
+            }}
+            className="text-blue-600 hover:text-blue-800 text-sm underline text-left mt-1"
+          >
+            📋 Показать все сохранённые отчёты в консоли
+          </button>
+        </div>,
+        {
+          duration: Infinity,
+          closeButton: true
+        }
+      );
+      
+      setTimeout(() => navigate('/dashboard'), 2000);
     } catch (error) {
       console.error('Error saving report:', error);
       toast.error('Ошибка при сохранении отчета');

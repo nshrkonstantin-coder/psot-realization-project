@@ -236,13 +236,35 @@ export default function ProductionControlPage() {
       existingReports.push(reportData);
       localStorage.setItem(reportsKey, JSON.stringify(existingReports));
 
-      toast.success('Предписание успешно сохранено!');
-      
       // Имитация отправки уведомления
       const recipientName = orgUsers.find(u => String(u.id) === recipientUserId)?.fio || 'получателю';
       console.log(`Уведомление отправлено: ${recipientName} - Предписание ${docNumber} от ${currentDate}`);
       
-      navigate('/dashboard');
+      toast.success(
+        <div className="flex flex-col gap-2">
+          <div className="font-bold">✅ Предписание успешно сохранено!</div>
+          <div className="text-sm text-gray-600">
+            <strong>Номер:</strong> {docNumber}<br/>
+            <strong>Кому:</strong> {recipientName}<br/>
+            <strong>Место хранения:</strong> localStorage (ключ: production_control_reports)
+          </div>
+          <button 
+            onClick={() => {
+              console.log('Saved reports:', existingReports);
+              toast.info('Данные сохранены локально в браузере. Для просмотра всех отчётов вернитесь в Dashboard.');
+            }}
+            className="text-blue-600 hover:text-blue-800 text-sm underline text-left mt-1"
+          >
+            📋 Показать все сохранённые отчёты в консоли
+          </button>
+        </div>,
+        {
+          duration: Infinity,
+          closeButton: true
+        }
+      );
+      
+      setTimeout(() => navigate('/dashboard'), 2000);
     } catch (error) {
       console.error('Error saving report:', error);
       toast.error('Ошибка при сохранении');

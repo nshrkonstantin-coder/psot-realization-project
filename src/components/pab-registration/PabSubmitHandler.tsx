@@ -216,10 +216,40 @@ export async function handlePabSubmit({
         }
       }
 
-      toast.success('Карта ПАБ успешно сохранена');
+      toast.success(
+        <div className="flex flex-col gap-2">
+          <div className="font-bold">✅ Карта ПАБ успешно сохранена!</div>
+          <div className="text-sm text-gray-600">
+            <strong>Номер:</strong> {docNumber}<br/>
+            <strong>Дата:</strong> {docDate}<br/>
+            <strong>ID в базе:</strong> {result.pab_id}<br/>
+            <strong>Место хранения:</strong> База данных (таблица: pab_records)
+          </div>
+          {cdnUrl && (
+            <a 
+              href={cdnUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 text-sm underline text-left mt-1"
+            >
+              📄 Открыть сохранённую карту ПАБ
+            </a>
+          )}
+          <button 
+            onClick={() => navigate('/pab-list')}
+            className="text-blue-600 hover:text-blue-800 text-sm underline text-left"
+          >
+            📋 Перейти к списку всех карт ПАБ
+          </button>
+        </div>,
+        {
+          duration: Infinity,
+          closeButton: true
+        }
+      );
       setTimeout(() => {
-        navigate('/pab');
-      }, 1500);
+        navigate('/pab-list');
+      }, 3000);
     } else {
       toast.error(result.error || 'Ошибка сохранения карты ПАБ');
     }
