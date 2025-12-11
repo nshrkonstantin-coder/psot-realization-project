@@ -26,6 +26,7 @@ interface SignatureLine {
 }
 
 export default function ProductionControlPage() {
+  console.log('[ProductionControlPage] Component rendering');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [orgUsers, setOrgUsers] = useState<Array<{ id: number; fio: string; position: string; subdivision: string }>>([]);
@@ -396,7 +397,7 @@ export default function ProductionControlPage() {
     }
   };
 
-  const uniqueSubdivisions = Array.from(new Set(orgUsers.map(u => u.subdivision)));
+  const uniqueSubdivisions = Array.from(new Set(orgUsers.map(u => u.subdivision).filter(Boolean)));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 print:bg-white">
