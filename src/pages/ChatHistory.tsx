@@ -33,6 +33,15 @@ interface Message {
   senderName: string;
 }
 
+interface OrganizationUser {
+  id: number;
+  fio: string;
+  position: string;
+  subdivision: string;
+  company: string;
+  email: string;
+}
+
 const ChatHistory = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -43,6 +52,10 @@ const ChatHistory = () => {
   const [showChatDialog, setShowChatDialog] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showNewChatDialog, setShowNewChatDialog] = useState(false);
+  const [organizationUsers, setOrganizationUsers] = useState<OrganizationUser[]>([]);
+  const [selectedNewUser, setSelectedNewUser] = useState<OrganizationUser | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -75,6 +88,47 @@ const ChatHistory = () => {
       toast({ title: 'Ошибка сервера', variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadOrganizationUsers = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=registered_users&userId=${userId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setOrganizationUsers(data.users);
+        setShowNewChatDialog(true);
+      } else {
+        toast({ title: 'Ошибка загрузки пользователей', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Ошибка сервера', variant: 'destructive' });
+    }
+  };
+
+  const handleStartNewChat = (user: OrganizationUser) => {
+    const existingChat = chats.find(chat => chat.userId === user.id);
+    
+    if (existingChat) {
+      setShowNewChatDialog(false);
+      loadMessages(existingChat);
+    } else {
+      setSelectedNewUser(user);
+      setShowNewChatDialog(false);
+      setSelectedChat({
+        chatId: 0,
+        userId: user.id,
+        userName: user.fio,
+        position: user.position,
+        subdivision: user.subdivision,
+        lastMessage: '',
+        lastMessageTime: null,
+        unreadCount: 0
+      });
+      setMessages([]);
+      setShowChatDialog(true);
     }
   };
 
@@ -137,7 +191,9 @@ const ChatHistory = () => {
         toast({ title: 'Сообщение отправлено' });
         setNewMessage('');
         setShowEmojiPicker(false);
+        loadChats();
         loadMessages(selectedChat);
+        setSelectedNewUser(null);
       } else {
         toast({ title: 'Ошибка отправки', description: data.error, variant: 'destructive' });
       }
@@ -190,6 +246,13 @@ const ChatHistory = () => {
           </div>
           <div className="flex gap-3">
             <Button
+              onClick={loadOrganizationUsers}
+              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white"
+            >
+              <Icon name="Plus" size={20} className="mr-2" />
+              Новый чат
+            </Button>
+            <Button
               onClick={() => navigate('/user-cabinet')}
               variant="outline"
               className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
@@ -205,7 +268,14 @@ const ChatHistory = () => {
             <div className="text-center">
               <Icon name="MessageCircle" size={64} className="text-slate-600 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-white mb-2">Нет сообщений</h2>
-              <p className="text-slate-400">Начните общение, отправив первое сообщение из личного кабинета</p>
+              <p className="text-slate-400 mb-4">Начните общение, создав новый чат</p>
+              <Button
+                onClick={loadOrganizationUsers}
+                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white"
+              >
+                <Icon name="Plus" size={20} className="mr-2" />
+                Создать первый чат
+              </Button>
             </div>
           </Card>
         ) : (
@@ -338,6 +408,85 @@ const ChatHistory = () => {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Chat Dialog - Select Participant */}
+      <Dialog open={showNewChatDialog} onOpenChange={setShowNewChatDialog}>
+        <DialogContent className="bg-slate-800 border-yellow-600/30 text-white max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-green-500 flex items-center gap-2">
+              <Icon name="UserPlus" size={28} />
+              Создать новый чат
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Выберите участника из АО "ГРК "Западная"
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4">
+            <div className="mb-4">
+              <div className="relative">
+                <Icon name="Search" size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Поиск по ФИО, должности или подразделению..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {organizationUsers
+                .filter(user => {
+                  const query = searchQuery.toLowerCase();
+                  return (
+                    user.fio.toLowerCase().includes(query) ||
+                    user.position.toLowerCase().includes(query) ||
+                    user.subdivision.toLowerCase().includes(query)
+                  );
+                })
+                .map((user) => (
+                  <Card
+                    key={user.id}
+                    className="bg-slate-700/50 border-slate-600/50 p-4 cursor-pointer hover:bg-slate-600/50 transition-colors"
+                    onClick={() => handleStartNewChat(user)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-2 rounded-full">
+                          <Icon name="User" size={20} className="text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-white mb-1">{user.fio}</h3>
+                          <div className="text-sm text-slate-400 space-y-1">
+                            <p><strong>Должность:</strong> {user.position}</p>
+                            <p><strong>Подразделение:</strong> {user.subdivision}</p>
+                            <p><strong>Предприятие:</strong> {user.company}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <Icon name="MessageCircle" size={24} className="text-green-500 flex-shrink-0 ml-4" />
+                    </div>
+                  </Card>
+                ))}
+            </div>
+
+            {organizationUsers.filter(user => {
+              const query = searchQuery.toLowerCase();
+              return (
+                user.fio.toLowerCase().includes(query) ||
+                user.position.toLowerCase().includes(query) ||
+                user.subdivision.toLowerCase().includes(query)
+              );
+            }).length === 0 && (
+              <div className="text-center py-8 text-slate-400">
+                {searchQuery ? 'Пользователи не найдены' : 'Нет доступных пользователей'}
               </div>
             )}
           </div>
