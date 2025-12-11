@@ -58,8 +58,12 @@ const Login = () => {
         localStorage.setItem('userId', data.userId);
         localStorage.setItem('userFio', data.fio || fio);
         localStorage.setItem('userRole', data.role || 'user');
-        if (data.organizationId) {
+        // Для superadmin и admin НЕ сохраняем organizationId при входе через основную страницу
+        if (data.organizationId && data.role !== 'superadmin' && data.role !== 'admin') {
           localStorage.setItem('organizationId', data.organizationId);
+        }
+        if (data.company) {
+          localStorage.setItem('userCompany', data.company);
         }
         
         if (isRegister && data.organizationId) {

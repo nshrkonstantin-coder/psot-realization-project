@@ -30,16 +30,12 @@ const OrganizationsManagementPage = () => {
     const role = localStorage.getItem('userRole');
     const userId = localStorage.getItem('userId');
     
-    console.log('[OrganizationsManagement] Проверка доступа:', { userId, role });
-    
     if (!userId) {
-      console.log('[OrganizationsManagement] Нет userId, редирект на /');
       navigate('/');
       return;
     }
     
     if (role !== 'superadmin') {
-      console.log('[OrganizationsManagement] Роль не superadmin, редирект. Роль:', role);
       if (role === 'admin') {
         navigate('/admin');
       } else if (role === 'user') {
@@ -50,7 +46,6 @@ const OrganizationsManagementPage = () => {
       return;
     }
     
-    console.log('[OrganizationsManagement] Доступ разрешен, загружаем организации');
     loadOrganizations();
   }, [navigate]);
 
