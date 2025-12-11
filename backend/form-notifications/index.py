@@ -144,11 +144,35 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 </html>
 """
             
-            # 1. Отправляем уведомления в чат ответственным
+            # 1. Находим главного администратора (superadmin)
+            cur.execute("""
+                SELECT id FROM t_p80499285_psot_realization_pro.users 
+                WHERE role = 'superadmin' 
+                LIMIT 1
+            """)
+            superadmin_result = cur.fetchone()
+            superadmin_id = superadmin_result[0] if superadmin_result else None
+            
+            # 2. Отправляем уведомления в чат ответственным + главному администратору
             chat_notifications_sent = 0
+            notification_escaped = notification_text.replace("'", "''")
+            
+            # Отправляем главному администратору
+            if superadmin_id:
+                try:
+                    cur.execute(f"""
+                        INSERT INTO t_p80499285_psot_realization_pro.system_notifications 
+                        (user_id, notification_type, title, message, created_at)
+                        VALUES ({superadmin_id}, 'form_saved', 'Новое уведомление', '{notification_escaped}', NOW())
+                    """)
+                    chat_notifications_sent += 1
+                    print(f"Notification sent to superadmin (ID: {superadmin_id})")
+                except Exception as e:
+                    print(f"Error sending notification to superadmin: {str(e)}")
+            
+            # Отправляем ответственным
             for user_id in responsible_user_ids:
                 try:
-                    notification_escaped = notification_text.replace("'", "''")
                     cur.execute(f"""
                         INSERT INTO t_p80499285_psot_realization_pro.system_notifications 
                         (user_id, notification_type, title, message, created_at)
