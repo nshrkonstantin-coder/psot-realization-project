@@ -146,9 +146,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'success': False, 'error': 'User ID required'})
                 }
             
+            # Получаем данные пользователя и автоматически считаем зарегистрированных пользователей из организации
             cur.execute(f"""
                 SELECT u.id, u.display_name, u.fio, u.email, u.company, u.subdivision, u.position,
-                       COALESCE(s.registered_count, 0) as registered_count,
+                       u.organization_id,
                        COALESCE(s.online_count, 0) as online_count,
                        COALESCE(s.offline_count, 0) as offline_count,
                        COALESCE(s.pab_total, 0) as pab_total,
@@ -184,6 +185,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'success': False, 'error': 'User not found'})
                 }
             
+            # Подсчитываем всех зарегистрированных пользователей из организации (кроме администраторов)
+            organization_id = row[7]
+            registered_count = 0
+            
+            if organization_id:
+                cur.execute(f"""
+                    SELECT COUNT(*) 
+                    FROM t_p80499285_psot_realization_pro.users 
+                    WHERE organization_id = {organization_id} 
+                    AND role NOT IN ('admin', 'superadmin', 'miniadmin')
+                """)
+                count_row = cur.fetchone()
+                registered_count = count_row[0] if count_row else 0
+            
             stats = {
                 'user_id': row[0],
                 'display_name': row[1] or f"ID№{str(row[0]).zfill(5)}",
@@ -192,7 +207,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'company': row[4] or '',
                 'subdivision': row[5] or '',
                 'position': row[6] or '',
-                'registered_count': row[7],
+                'registered_count': registered_count,
                 'online_count': row[8],
                 'offline_count': row[9],
                 'pab_total': row[10],
