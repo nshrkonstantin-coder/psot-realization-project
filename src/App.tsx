@@ -44,6 +44,7 @@ import EmailTestPage from "./pages/EmailTestPage";
 import EmailConfigPage from "./pages/EmailConfigPage";
 import MessagingPage from "./pages/MessagingPage";
 import IntercorpManagementPage from "./pages/IntercorpManagementPage";
+import SystemNotificationsPage from "./pages/SystemNotificationsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -97,6 +98,7 @@ const App = () => (
           <Route path="/email-config" element={<EmailConfigPage />} />
           <Route path="/messaging" element={<MessagingPage />} />
           <Route path="/intercorp-management" element={<IntercorpManagementPage />} />
+          <Route path="/system-notifications" element={<SystemNotificationsPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

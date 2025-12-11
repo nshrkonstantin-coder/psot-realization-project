@@ -1,0 +1,33 @@
+{
+  "tests": [
+    {
+      "name": "Get notifications list",
+      "method": "GET",
+      "path": "/?limit=10",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "notifications": "array",
+        "stats": "object"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Create notification",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "create",
+        "type": "info",
+        "severity": "low",
+        "title": "Test notification",
+        "message": "Test message"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "notificationId": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

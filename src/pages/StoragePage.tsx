@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { logError } from '@/utils/notificationLogger';
 
 interface Folder {
   id: number;
@@ -42,9 +43,10 @@ const StoragePage = () => {
       
       const data = await response.json();
       setFolders(data.folders || []);
-    } catch (error) {
+    } catch (error: any) {
       toast.error('Не удалось загрузить папки');
       console.error(error);
+      logError(error, 'Хранилище - загрузка папок', 'folder_load_error', 'medium');
     } finally {
       setLoading(false);
     }

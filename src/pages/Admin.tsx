@@ -47,7 +47,7 @@ const Admin = () => {
     { label: 'Управление аудитами', icon: 'Search', color: 'from-yellow-500 to-yellow-600', route: '/audits-management' },
     { label: 'Нарушения ПБ', icon: 'AlertTriangle', color: 'from-red-500 to-red-600', route: '/violations-management' },
     { label: 'Настройки раздела', icon: 'Settings', color: 'from-slate-500 to-slate-600', route: '/section-settings' },
-    { label: 'Уведомления', icon: 'Bell', color: 'from-purple-500 to-purple-600', route: '/admin-notifications' },
+    { label: 'Уведомления', icon: 'Bell', color: 'from-purple-500 to-purple-600', route: '/system-notifications' },
     { label: 'Журнал действий', icon: 'BookOpen', color: 'from-indigo-500 to-indigo-600', route: '/action-log' },
   ];
 

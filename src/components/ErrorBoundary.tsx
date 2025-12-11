@@ -1,4 +1,5 @@
 import React, { Component, ReactNode } from 'react';
+import { logError } from '@/utils/notificationLogger';
 
 interface Props {
   children: ReactNode;
@@ -21,6 +22,11 @@ class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught error:', error, errorInfo);
+    
+    // Отправляем уведомление о критической ошибке
+    logError(error, 'Application Crash (ErrorBoundary)', 'app_crash', 'critical').catch(err => {
+      console.error('Failed to log error to notification system:', err);
+    });
   }
 
   render() {
