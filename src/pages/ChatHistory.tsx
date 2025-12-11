@@ -94,16 +94,21 @@ const ChatHistory = () => {
   const loadOrganizationUsers = async () => {
     try {
       const userId = localStorage.getItem('userId');
+      console.log('Загрузка пользователей организации для userId:', userId);
       const response = await fetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=registered_users&userId=${userId}`);
       const data = await response.json();
+      console.log('Ответ от сервера:', data);
       
       if (data.success) {
+        console.log('Загружено пользователей:', data.users.length);
         setOrganizationUsers(data.users);
         setShowNewChatDialog(true);
       } else {
+        console.error('Ошибка в ответе:', data);
         toast({ title: 'Ошибка загрузки пользователей', variant: 'destructive' });
       }
     } catch (error) {
+      console.error('Ошибка при загрузке пользователей:', error);
       toast({ title: 'Ошибка сервера', variant: 'destructive' });
     }
   };
