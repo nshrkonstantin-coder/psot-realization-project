@@ -162,23 +162,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 try:
                     cur.execute(f"""
                         INSERT INTO t_p80499285_psot_realization_pro.system_notifications 
-                        (user_id, notification_type, title, message, created_at)
-                        VALUES ({superadmin_id}, 'form_saved', 'Новое уведомление', '{notification_escaped}', NOW())
+                        (user_id, notification_type, severity, title, message, created_at, is_read)
+                        VALUES ({superadmin_id}, 'form_saved', 'info', 'Новое уведомление', '{notification_escaped}', NOW(), false)
                     """)
                     chat_notifications_sent += 1
                     print(f"Notification sent to superadmin (ID: {superadmin_id})")
                 except Exception as e:
                     print(f"Error sending notification to superadmin: {str(e)}")
             
-            # Отправляем ответственным
+            # Отправляем ответственным (проверяем, что user_id существует)
             for user_id in responsible_user_ids:
                 try:
-                    cur.execute(f"""
-                        INSERT INTO t_p80499285_psot_realization_pro.system_notifications 
-                        (user_id, notification_type, title, message, created_at)
-                        VALUES ({user_id}, 'form_saved', 'Новое уведомление', '{notification_escaped}', NOW())
-                    """)
-                    chat_notifications_sent += 1
+                    # Проверяем существование пользователя
+                    cur.execute(f"SELECT id FROM t_p80499285_psot_realization_pro.users WHERE id = {user_id}")
+                    user_exists = cur.fetchone()
+                    
+                    if user_exists:
+                        cur.execute(f"""
+                            INSERT INTO t_p80499285_psot_realization_pro.system_notifications 
+                            (user_id, notification_type, severity, title, message, created_at, is_read)
+                            VALUES ({user_id}, 'form_saved', 'info', 'Новое уведомление', '{notification_escaped}', NOW(), false)
+                        """)
+                        chat_notifications_sent += 1
+                        print(f"Notification sent to user {user_id}")
+                    else:
+                        print(f"User {user_id} does not exist, skipping notification")
                 except Exception as e:
                     print(f"Error sending chat notification to user {user_id}: {str(e)}")
             
@@ -193,6 +201,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 smtp_port = int(os.environ.get('SMTP_PORT', '587'))
                 smtp_user = os.environ.get('SMTP_USER')
                 smtp_password = os.environ.get('SMTP_PASSWORD')
+                
+                print(f"SMTP Config: host={smtp_host}, port={smtp_port}, user={smtp_user}, has_password={bool(smtp_password)}")
                 
                 if all([smtp_host, smtp_user, smtp_password]):
                     msg = MIMEMultipart('alternative')
@@ -211,7 +221,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     email_sent = True
                     print(f"Email sent to admin: {admin_email}")
                 else:
-                    print("SMTP credentials not configured")
+                    print("SMTP credentials not configured (one or more missing)")
+            except smtplib.SMTPAuthenticationError as e:
+                print(f"SMTP Authentication Error: {str(e)}")
+                print(f"Please check SMTP_USER and SMTP_PASSWORD in project secrets")
             except Exception as e:
                 print(f"Error sending email: {str(e)}")
             
