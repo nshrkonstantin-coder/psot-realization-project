@@ -8,9 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
-import { Packer } from 'docx';
-import { uploadDocumentToStorage } from '@/utils/documentUpload';
-import { generateProductionControlDocument } from '@/utils/generateProductionControlDocument';
+import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, BorderStyle } from 'docx';
 
 interface ControlItem {
   item_number: number;
@@ -32,7 +30,6 @@ export default function ProductionControlPage() {
   const [inspectorFio, setInspectorFio] = useState('');
   const [inspectorPosition, setInspectorPosition] = useState('');
   const [department, setDepartment] = useState('');
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
   
   const [controlItems, setControlItems] = useState<ControlItem[]>([
     {
@@ -112,7 +109,13 @@ export default function ProductionControlPage() {
     setControlItems(updated);
   };
 
-  const handleSubmit = async () => {
+  const handleTextareaChange = (index: number, field: keyof ControlItem, value: string, event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    updateControlItem(index, field, value);
+    event.target.style.height = 'auto';
+    event.target.style.height = event.target.scrollHeight + 'px';
+  };
+
+  const handleSave = async () => {
     if (!docNumber || !inspectorFio || controlItems.some(item => !item.control_area || !item.findings)) {
       toast.error('Заполните все обязательные поля');
       return;
@@ -121,236 +124,305 @@ export default function ProductionControlPage() {
     setLoading(true);
 
     try {
-      const userId = localStorage.getItem('userId');
-      let photoUrl = '';
-
-      if (photoFile && userId) {
-        photoUrl = await uploadDocumentToStorage({
-          userId,
-          department,
-          documentType: 'Производственный Контроль',
-          file: photoFile
-        });
-      }
-
-      const controlData = {
+      const reportData = {
         doc_number: docNumber,
         doc_date: docDate,
         inspector_fio: inspectorFio,
         inspector_position: inspectorPosition,
         department,
-        control_items: controlItems
+        control_items: controlItems,
+        user_id: localStorage.getItem('userId'),
+        organization_id: localStorage.getItem('organizationId'),
+        created_at: new Date().toISOString()
       };
 
-      const doc = generateProductionControlDocument(controlData);
-      const blob = await Packer.toBlob(doc);
-      const wordFile = new File(
-        [blob],
-        `ПроизводственныйКонтроль_${docNumber}_${new Date().toISOString().split('T')[0]}.docx`,
-        {
-          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        }
-      );
+      const reportsKey = 'production_control_reports';
+      const existingReports = JSON.parse(localStorage.getItem(reportsKey) || '[]');
+      existingReports.push(reportData);
+      localStorage.setItem(reportsKey, JSON.stringify(existingReports));
 
-      if (userId) {
-        await uploadDocumentToStorage({
-          userId,
-          department,
-          documentType: 'Производственный Контроль',
-          file: wordFile
-        });
-      }
-
-      const organizationId = localStorage.getItem('organizationId');
-      if (organizationId) {
-        try {
-          await fetch('https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4f6ca', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              org_id: organizationId,
-              action_type: 'production_control_create',
-              user_id: userId
-            })
-          });
-        } catch (error) {
-          console.log('Points award failed:', error);
-        }
-      }
-
-      toast.success('Производственный контроль успешно зарегистрирован');
-      navigate('/');
+      toast.success('Производственный контроль успешно сохранен!');
+      navigate('/dashboard');
     } catch (error) {
-      toast.error('Не удалось сохранить документ');
-      console.error(error);
+      console.error('Error saving report:', error);
+      toast.error('Ошибка при сохранении');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleExportWord = async () => {
+    try {
+      const tableRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: '№', bold: true })], width: { size: 5, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ text: 'Область контроля', bold: true })], width: { size: 20, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ text: 'Дата проверки', bold: true })], width: { size: 12, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ text: 'Выявленные нарушения', bold: true })], width: { size: 23, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ text: 'Рекомендации', bold: true })], width: { size: 20, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ text: 'Ответственный', bold: true })], width: { size: 15, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ text: 'Срок устранения', bold: true })], width: { size: 12, type: WidthType.PERCENTAGE } })
+          ]
+        })
+      ];
+
+      controlItems.forEach(item => {
+        tableRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph(String(item.item_number))] }),
+              new TableCell({ children: [new Paragraph(item.control_area)] }),
+              new TableCell({ children: [new Paragraph(item.inspection_date)] }),
+              new TableCell({ children: [new Paragraph(item.findings)] }),
+              new TableCell({ children: [new Paragraph(item.recommendations)] }),
+              new TableCell({ children: [new Paragraph(item.responsible_person)] }),
+              new TableCell({ children: [new Paragraph(item.deadline)] })
+            ]
+          })
+        );
+      });
+
+      const doc = new Document({
+        sections: [
+          {
+            properties: {},
+            children: [
+              new Paragraph({
+                text: 'АО «ГРК «Западная» Рудник «Бадран»',
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 200 },
+                style: 'Heading1'
+              }),
+              new Paragraph({
+                text: 'Производственный контроль',
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 400 },
+                style: 'Heading2'
+              }),
+              new Paragraph({ text: `Номер документа: ${docNumber}`, spacing: { after: 100 } }),
+              new Paragraph({ text: `Дата: ${docDate}`, spacing: { after: 100 } }),
+              new Paragraph({ text: `Проверяющий: ${inspectorFio}${inspectorPosition ? ', ' + inspectorPosition : ''}`, spacing: { after: 100 } }),
+              new Paragraph({ text: `Подразделение: ${department}`, spacing: { after: 300 } }),
+              new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: tableRows
+              })
+            ]
+          }
+        ]
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Производственный_контроль_${docNumber}_${new Date().toISOString().slice(0, 10)}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Документ Word успешно скачан!');
+    } catch (error) {
+      console.error('Error exporting to Word:', error);
+      toast.error('Ошибка при экспорте в Word');
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   const uniqueSubdivisions = Array.from(new Set(orgUsers.map(u => u.subdivision)));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <Card className="max-w-5xl mx-auto p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Производственный Контроль</h1>
-          <Button variant="ghost" onClick={() => navigate('/')}>
-            <Icon name="X" size={20} />
-          </Button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 print:bg-white">
+      <Card className="max-w-6xl mx-auto p-8 print:shadow-none">
+        <div className="header text-center mb-6 border-b-2 border-slate-300 pb-4 print:border-black">
+          <h1 className="text-3xl font-bold text-slate-900">АО «ГРК «Западная» Рудник «Бадран»</h1>
+          <h2 className="text-2xl font-semibold text-slate-700 mt-2">Производственный контроль</h2>
         </div>
 
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Номер документа *</Label>
-              <Input value={docNumber} onChange={(e) => setDocNumber(e.target.value)} />
+          {/* Основная информация */}
+          <div className="section border border-slate-300 p-4 print:border-black">
+            <h3 className="text-lg font-bold bg-slate-100 p-2 mb-4 print:bg-transparent">Информация о документе</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="font-semibold">Номер документа *</Label>
+                <Input
+                  value={docNumber}
+                  onChange={(e) => setDocNumber(e.target.value)}
+                  className={`print:border-none print:bg-transparent transition-colors ${docNumber.trim() ? 'bg-green-100 border-green-400' : ''}`}
+                />
+              </div>
+              <div>
+                <Label className="font-semibold">Дата *</Label>
+                <Input
+                  type="date"
+                  value={docDate}
+                  onChange={(e) => setDocDate(e.target.value)}
+                  className="print:border-none print:bg-transparent"
+                />
+              </div>
             </div>
-            <div>
-              <Label>Дата *</Label>
-              <Input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} />
+
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div>
+                <Label className="font-semibold">ФИО проверяющего *</Label>
+                <Input
+                  value={inspectorFio}
+                  onChange={(e) => setInspectorFio(e.target.value)}
+                  className={`print:border-none print:bg-transparent transition-colors ${inspectorFio.trim() ? 'bg-green-100 border-green-400' : ''}`}
+                />
+              </div>
+              <div>
+                <Label className="font-semibold">Должность проверяющего</Label>
+                <Input
+                  value={inspectorPosition}
+                  onChange={(e) => setInspectorPosition(e.target.value)}
+                  className={`print:border-none print:bg-transparent transition-colors ${inspectorPosition.trim() ? 'bg-green-100 border-green-400' : ''}`}
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <Label className="font-semibold">Подразделение *</Label>
+              <Select value={department} onValueChange={setDepartment}>
+                <SelectTrigger className={`transition-colors ${department.trim() ? 'bg-green-100 border-green-400' : ''}`}>
+                  <SelectValue placeholder="Выберите подразделение" />
+                </SelectTrigger>
+                <SelectContent>
+                  {uniqueSubdivisions.map((sub) => (
+                    <SelectItem key={sub} value={sub}>
+                      {sub}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>ФИО проверяющего *</Label>
-              <Input value={inspectorFio} onChange={(e) => setInspectorFio(e.target.value)} />
-            </div>
-            <div>
-              <Label>Должность проверяющего</Label>
-              <Input value={inspectorPosition} onChange={(e) => setInspectorPosition(e.target.value)} />
-            </div>
-          </div>
-
-          <div>
-            <Label>Подразделение *</Label>
-            <Select value={department} onValueChange={setDepartment}>
-              <SelectTrigger>
-                <SelectValue placeholder="Выберите подразделение" />
-              </SelectTrigger>
-              <SelectContent>
-                {uniqueSubdivisions.map((sub) => (
-                  <SelectItem key={sub} value={sub}>
-                    {sub}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label>Фото (необязательно)</Label>
-            <Input
-              type="file"
-              accept="*/*"
-              onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
-            />
-          </div>
-
-          <div className="border-t pt-6">
+          {/* Пункты контроля */}
+          <div className="section border border-slate-300 p-4 print:border-black">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Пункты контроля</h2>
-              <Button onClick={addControlItem} size="sm">
+              <h3 className="text-lg font-bold">Пункты контроля</h3>
+              <Button
+                onClick={addControlItem}
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 print:hidden"
+              >
                 <Icon name="Plus" size={16} className="mr-2" />
                 Добавить пункт
               </Button>
             </div>
 
-            {controlItems.map((item, index) => (
-              <Card key={index} className="p-4 mb-4">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="font-semibold">Пункт #{item.item_number}</span>
-                  {controlItems.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeControlItem(index)}
-                    >
-                      <Icon name="Trash2" size={16} />
-                    </Button>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Область контроля *</Label>
-                      <Input
-                        value={item.control_area}
-                        onChange={(e) => updateControlItem(index, 'control_area', e.target.value)}
-                        placeholder="Например: Охрана труда"
-                      />
-                    </div>
-                    <div>
-                      <Label>Дата проверки *</Label>
-                      <Input
-                        type="date"
-                        value={item.inspection_date}
-                        onChange={(e) => updateControlItem(index, 'inspection_date', e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Выявленные факты *</Label>
-                    <Textarea
-                      value={item.findings}
-                      onChange={(e) => updateControlItem(index, 'findings', e.target.value)}
-                      placeholder="Опишите выявленные нарушения или замечания"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Рекомендации</Label>
-                    <Textarea
-                      value={item.recommendations}
-                      onChange={(e) => updateControlItem(index, 'recommendations', e.target.value)}
-                      placeholder="Рекомендации по устранению"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Ответственный</Label>
-                      <Select
-                        value={item.responsible_person}
-                        onValueChange={(value) => updateControlItem(index, 'responsible_person', value)}
+            <div className="space-y-6">
+              {controlItems.map((item, index) => (
+                <Card key={index} className="p-4 bg-slate-50 border-2 print:bg-white">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-semibold text-slate-700">Пункт #{item.item_number}</h4>
+                    {controlItems.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeControlItem(index)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 print:hidden"
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Выберите сотрудника" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {orgUsers.map((user) => (
-                            <SelectItem key={user.id} value={user.fio}>
-                              {user.fio} - {user.position}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        <Icon name="Trash2" size={16} />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="font-semibold">Область контроля *</Label>
+                        <Input
+                          value={item.control_area}
+                          onChange={(e) => updateControlItem(index, 'control_area', e.target.value)}
+                          className={`print:border-none print:bg-transparent transition-colors ${item.control_area.trim() ? 'bg-green-100 border-green-400' : ''}`}
+                          placeholder="Например: Рабочее место оператора"
+                        />
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Дата проверки *</Label>
+                        <Input
+                          type="date"
+                          value={item.inspection_date}
+                          onChange={(e) => updateControlItem(index, 'inspection_date', e.target.value)}
+                          className="print:border-none print:bg-transparent"
+                        />
+                      </div>
                     </div>
+
                     <div>
-                      <Label>Срок устранения</Label>
-                      <Input
-                        type="date"
-                        value={item.deadline}
-                        onChange={(e) => updateControlItem(index, 'deadline', e.target.value)}
+                      <Label className="font-semibold">Выявленные нарушения *</Label>
+                      <Textarea
+                        value={item.findings}
+                        onChange={(e) => handleTextareaChange(index, 'findings', e.target.value, e)}
+                        className={`print:border-none print:bg-transparent transition-colors resize-none ${item.findings.trim() ? 'bg-green-100 border-green-400' : ''}`}
+                        placeholder="Опишите выявленные нарушения"
+                        rows={3}
                       />
                     </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
 
-          <div className="flex gap-4 pt-4">
-            <Button onClick={handleSubmit} disabled={loading} className="flex-1">
-              {loading ? 'Сохранение...' : 'Сохранить и отправить'}
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/')}>
-              Отмена
-            </Button>
+                    <div>
+                      <Label className="font-semibold">Рекомендации</Label>
+                      <Textarea
+                        value={item.recommendations}
+                        onChange={(e) => handleTextareaChange(index, 'recommendations', e.target.value, e)}
+                        className={`print:border-none print:bg-transparent transition-colors resize-none ${item.recommendations.trim() ? 'bg-green-100 border-green-400' : ''}`}
+                        placeholder="Рекомендации по устранению"
+                        rows={2}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="font-semibold">Ответственный за устранение</Label>
+                        <Input
+                          value={item.responsible_person}
+                          onChange={(e) => updateControlItem(index, 'responsible_person', e.target.value)}
+                          className={`print:border-none print:bg-transparent transition-colors ${item.responsible_person.trim() ? 'bg-green-100 border-green-400' : ''}`}
+                          placeholder="ФИО ответственного"
+                        />
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Срок устранения</Label>
+                        <Input
+                          type="date"
+                          value={item.deadline}
+                          onChange={(e) => updateControlItem(index, 'deadline', e.target.value)}
+                          className="print:border-none print:bg-transparent"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
           </div>
+        </div>
+
+        <div className="buttons mt-8 flex gap-3 justify-center print:hidden">
+          <Button variant="outline" onClick={() => navigate('/dashboard')} className="border-red-500 text-red-500 hover:bg-red-50">
+            <Icon name="ArrowLeft" size={20} className="mr-2" />
+            Назад
+          </Button>
+          <Button onClick={handleSave} disabled={loading} className="bg-green-600 hover:bg-green-700">
+            <Icon name="Save" size={20} className="mr-2" />
+            {loading ? 'Сохранение...' : 'Сохранить'}
+          </Button>
+          <Button onClick={handleExportWord} variant="outline" className="border-blue-700 text-blue-700 hover:bg-blue-50">
+            <Icon name="FileText" size={20} className="mr-2" />
+            Скачать в Word
+          </Button>
+          <Button onClick={handlePrint} variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-50">
+            <Icon name="Printer" size={20} className="mr-2" />
+            Распечатать
+          </Button>
         </div>
       </Card>
     </div>
