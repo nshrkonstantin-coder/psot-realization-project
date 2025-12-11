@@ -224,12 +224,13 @@ def create_chat(cursor, conn, body: Dict[str, Any], user_id: int, company_id: in
     return {'success': True, 'chat_id': chat_id}
 
 def list_company_users(cursor, company_id: int) -> Dict[str, Any]:
-    '''Получить список пользователей компании'''
+    '''Получить список всех пользователей системы'''
     cursor.execute('''
-        SELECT id, fio, email, position FROM users 
-        WHERE company_id = %s
-        ORDER BY fio
-    ''', (company_id,))
+        SELECT u.id, u.fio, u.email, u.position, c.name as company_name
+        FROM users u
+        LEFT JOIN companies c ON u.company_id = c.id
+        ORDER BY u.fio
+    ''')
     
     users = [dict(row) for row in cursor.fetchall()]
     return {'users': users}
