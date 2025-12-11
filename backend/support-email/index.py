@@ -78,7 +78,7 @@ ID пользователя: {user_id}
             smtp_port = int(os.environ.get('SMTP_PORT', 465))
             smtp_user = os.environ.get('SMTP_USER')
             smtp_password = os.environ.get('SMTP_PASSWORD')
-            admin_email = os.environ.get('ADMIN_EMAIL', 'nshrkonstantin@gmail.com')
+            admin_email = 'ACYBT@yandex.ru'
             
             if not all([smtp_host, smtp_user, smtp_password]):
                 return {

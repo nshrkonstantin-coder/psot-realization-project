@@ -144,31 +144,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 </html>
 """
             
-            # 1. Находим главного администратора (superadmin)
-            cur.execute("""
-                SELECT id FROM t_p80499285_psot_realization_pro.users 
-                WHERE role = 'superadmin' 
-                LIMIT 1
-            """)
-            superadmin_result = cur.fetchone()
-            superadmin_id = superadmin_result[0] if superadmin_result else None
+            # 1. Получаем ID администратора (ID=1)
+            admin_id = 1
             
-            # 2. Отправляем уведомления в чат ответственным + главному администратору
+            # 2. Отправляем уведомления в чат ответственным + администратору
             chat_notifications_sent = 0
             notification_escaped = notification_text.replace("'", "''")
             
-            # Отправляем главному администратору
-            if superadmin_id:
-                try:
-                    cur.execute(f"""
-                        INSERT INTO t_p80499285_psot_realization_pro.system_notifications 
-                        (user_id, notification_type, severity, title, message, created_at, is_read)
-                        VALUES ({superadmin_id}, 'form_saved', 'info', 'Новое уведомление', '{notification_escaped}', NOW(), false)
-                    """)
-                    chat_notifications_sent += 1
-                    print(f"Notification sent to superadmin (ID: {superadmin_id})")
-                except Exception as e:
-                    print(f"Error sending notification to superadmin: {str(e)}")
+            # Отправляем администратору (ID=1)
+            try:
+                cur.execute(f"""
+                    INSERT INTO t_p80499285_psot_realization_pro.system_notifications 
+                    (user_id, notification_type, severity, title, message, created_at, is_read)
+                    VALUES ({admin_id}, 'form_saved', 'info', 'Новое уведомление', '{notification_escaped}', NOW(), false)
+                """)
+                chat_notifications_sent += 1
+                print(f"Notification sent to admin (ID: {admin_id})")
+            except Exception as e:
+                print(f"Error sending notification to admin: {str(e)}")
             
             # Отправляем ответственным (проверяем, что user_id существует)
             for user_id in responsible_user_ids:
@@ -192,9 +185,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             conn.commit()
             
-            # 2. Отправляем email главному администратору
+            # 2. Отправляем email администратору
             email_sent = False
-            admin_email = os.environ.get('ADMIN_EMAIL', 'nshrkonstantin@gmail.com')
+            admin_email = 'ACYBT@yandex.ru'
             
             try:
                 smtp_host = os.environ.get('SMTP_HOST')
