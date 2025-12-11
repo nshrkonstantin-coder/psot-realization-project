@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
-import { generatePabHtml } from '@/utils/generatePabHtml';
-import { uploadDocumentToStorage } from '@/utils/documentUpload';
 import { PabHeaderForm } from '@/components/pab-registration/PabHeaderForm';
 import { PabObservationCard } from '@/components/pab-registration/PabObservationCard';
 import { PabActionButtons } from '@/components/pab-registration/PabActionButtons';
 import { useEmailSender } from '@/hooks/useEmailSender';
 import EmailStatusDialog from '@/components/EmailStatusDialog';
+import { PabDataLoader } from '@/components/pab-registration/PabDataLoader';
+import { usePabObservationManager } from '@/components/pab-registration/PabObservationManager';
+import { handlePabSubmit } from '@/components/pab-registration/PabSubmitHandler';
 
 interface Observation {
   observation_number: number;
@@ -77,468 +78,145 @@ export default function PabRegistrationPage() {
   ]);
   const [allowSingleObservation, setAllowSingleObservation] = useState(false);
 
-  useEffect(() => {
-    const userId = localStorage.getItem('userId');
-    const userFio = localStorage.getItem('userFio') || '';
-    
-    // Временно показываем форму всегда для диагностики
-    setUserCompany(localStorage.getItem('userCompany') || '');
-    setAuthChecked(true);
-    
-    // Разрешить одно наблюдение для Сергеева Дем Демовича
-    if (userFio === 'Сергеев Дем Демович') {
-      setAllowSingleObservation(true);
-    }
-    
-    if (userId) {
-      loadData();
-    }
-  }, [navigate]);
-
-  const loadData = async () => {
-    const userId = localStorage.getItem('userId');
-    const organizationId = localStorage.getItem('organizationId');
-    
-    try {
-      const dictResponse = await fetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960');
-      const dictData = await dictResponse.json();
-      setDictionaries(dictData);
-    } catch (error) {
-      console.error('Error loading dictionaries:', error);
-    }
-
-    try {
-      const numberResponse = await fetch('https://functions.poehali.dev/c04242d9-b386-407e-bb84-10d219a16e97');
-      const numberData = await numberResponse.json();
-      setDocNumber(numberData.doc_number);
-    } catch (error) {
-      console.error('Error generating doc number:', error);
-      setDocNumber('ПАБ-' + Date.now());
-    }
-
-    if (userId) {
-      try {
-        const userResponse = await fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`);
-        const userData = await userResponse.json();
-        if (userData.success && userData.user) {
-          setInspectorFio(userData.user.fio || '');
-          setInspectorPosition(userData.user.position || '');
-          setDepartment(userData.user.subdivision || '');
-        }
-      } catch (error) {
-        console.error('Error loading user data:', error);
-      }
-    }
-
-    if (organizationId) {
-      try {
-        const usersResponse = await fetch(`https://functions.poehali.dev/bceeaee7-5cfa-418c-9c0d-0a61668ab1a4?organization_id=${organizationId}`);
-        const usersData = await usersResponse.json();
-        console.log('[PAB] Loaded organization users:', usersData);
-        if (Array.isArray(usersData)) {
-          setOrgUsers(usersData);
-        } else {
-          setOrgUsers([]);
-        }
-      } catch (error) {
-        console.error('Error loading organization users:', error);
-        setOrgUsers([]);
-      }
-    }
-  };
-
-  const addObservation = () => {
-    if (observations.length < 3) {
-      setObservations([...observations, {
-        observation_number: observations.length + 1,
-        description: '',
-        category: '',
-        conditions_actions: '',
-        hazard_factors: '',
-        measures: '',
-        responsible_person: '',
-        deadline: '',
-        photo_file: null
-      }]);
-    }
-  };
-
-  const updateObservation = (index: number, field: keyof Observation, value: string) => {
-    const updated = [...observations];
-    updated[index] = { ...updated[index], [field]: value };
-    setObservations(updated);
-  };
-
-  const handleObservationPhotoChange = (index: number, file: File | null) => {
-    const updated = [...observations];
-    updated[index] = { ...updated[index], photo_file: file };
-    setObservations(updated);
-  };
-
-  const areAllObservationsFilled = () => {
-    // Для пользователей с разрешением одного наблюдения
-    if (allowSingleObservation) {
-      if (observations.length < 1) return false;
-      
-      for (const obs of observations) {
-        if (!obs.description || !obs.category || !obs.conditions_actions || 
-            !obs.hazard_factors || !obs.measures || !obs.responsible_person || !obs.deadline) {
-          return false;
-        }
-      }
-      return true;
-    }
-    
-    // Стандартная проверка: минимум 3 наблюдения
-    if (observations.length < 3) return false;
-    
-    for (const obs of observations) {
-      if (!obs.description || !obs.category || !obs.conditions_actions || 
-          !obs.hazard_factors || !obs.measures || !obs.responsible_person || !obs.deadline) {
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const uploadPhotoToStorage = async (file: File): Promise<string> => {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder_id', '1');
-
-      const response = await fetch('https://functions.poehali.dev/02f4ee55-2a57-4a53-b04e-3e1dcb43b37a', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) throw new Error('Ошибка загрузки фото');
-
-      const data = await response.json();
-      return data.file?.url || '';
-    } catch (error) {
-      console.error('Error uploading photo:', error);
-      return '';
-    }
-  };
+  const {
+    addObservation,
+    updateObservation,
+    handleObservationPhotoChange,
+    areAllObservationsFilled
+  } = usePabObservationManager({
+    observations,
+    setObservations,
+    allowSingleObservation
+  });
 
   const handleSubmit = async () => {
-    if (!docDate || !inspectorFio || !inspectorPosition || !location || !checkedObject || !department) {
-      toast.error('Заполните все обязательные поля');
-      return;
-    }
-
-    for (const obs of observations) {
-      if (!obs.description || !obs.category || !obs.conditions_actions || 
-          !obs.hazard_factors || !obs.measures || !obs.responsible_person || !obs.deadline) {
-        toast.error('Заполните все обязательные поля в наблюдениях');
-        return;
-      }
-    }
-
-    setLoading(true);
-
-    try {
-      const userId = localStorage.getItem('userId');
-      
-      if (!userId) {
-        toast.error('Пользователь не авторизован');
-        setLoading(false);
-        return;
-      }
-      
-      const numberResponse = await fetch('https://functions.poehali.dev/c04242d9-b386-407e-bb84-10d219a16e97');
-      const numberData = await numberResponse.json();
-      const newDocNumber = numberData.doc_number;
-
-      const userResponse = await fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`);
-      const userData = await userResponse.json();
-      const senderEmail = userData.user?.email || '';
-
-      const firstObservationResponsible = observations[0].responsible_person;
-      const responsibleUser = orgUsers.find(u => u.fio === firstObservationResponsible);
-      const responsibleEmail = responsibleUser?.email || '';
-
-      const adminEmail = 'nshrkonstantin@gmail.com';
-
-      let headerPhotoUrl = '';
-      if (headerPhotoFile) {
-        toast.info('Загрузка фото шапки...');
-        headerPhotoUrl = await uploadPhotoToStorage(headerPhotoFile);
-      }
-
-      const observationsWithPhotos = await Promise.all(
-        observations.map(async (obs) => {
-          let photoUrl = '';
-          if (obs.photo_file) {
-            toast.info(`Загрузка фото наблюдения №${obs.observation_number}...`);
-            photoUrl = await uploadPhotoToStorage(obs.photo_file);
-          }
-          return {
-            observation_number: obs.observation_number,
-            description: obs.description,
-            category: obs.category,
-            conditions_actions: obs.conditions_actions,
-            hazard_factors: obs.hazard_factors,
-            measures: obs.measures,
-            responsible_person: obs.responsible_person,
-            deadline: obs.deadline,
-            photo_url: photoUrl
-          };
-        })
-      );
-
-      const response = await fetch('https://functions.poehali.dev/5054985e-ff94-4512-8302-c02f01b09d66', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          doc_number: newDocNumber,
-          doc_date: docDate,
-          inspector_fio: inspectorFio,
-          inspector_position: inspectorPosition,
-          department,
-          location,
-          checked_object: checkedObject,
-          photo_url: headerPhotoUrl,
-          sender_email: senderEmail,
-          responsible_email: responsibleEmail,
-          admin_email: adminEmail,
-          observations: observationsWithPhotos
-        })
-      });
-
-      if (!response.ok) throw new Error('Ошибка сохранения');
-
-      const organizationId = localStorage.getItem('organizationId');
-      if (organizationId) {
-        try {
-          await fetch('https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4acdd', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: userId,
-              organization_id: organizationId,
-              action: 'create_pab',
-              points: 10
-            })
-          });
-        } catch (pointsError) {
-          console.error('Error awarding points:', pointsError);
-        }
-      }
-
-      const htmlContent = generatePabHtml({
-        doc_number: newDocNumber,
-        doc_date: docDate,
-        inspector_fio: inspectorFio,
-        inspector_position: inspectorPosition,
-        department,
-        location,
-        checked_object: checkedObject,
-        observations,
-        company: userCompany
-      });
-
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const htmlFile = new File([blob], `ПАБ_${newDocNumber}_${docDate}.html`, { type: 'text/html' });
-
-      let htmlUrl = '';
-      if (organizationId && userId) {
-        try {
-          htmlUrl = await uploadDocumentToStorage({
-            userId: userId,
-            department: department,
-            documentType: 'ПАБ',
-            file: htmlFile
-          });
-        } catch (uploadError) {
-          console.error('Error uploading to storage:', uploadError);
-        }
-      }
-
-      // Отправка email с детальной отчетностью
-      if (htmlUrl) {
-        const recipients: string[] = [];
-        if (responsibleEmail) recipients.push(responsibleEmail);
-        if (adminEmail) recipients.push(adminEmail);
-        
-        if (recipients.length > 0) {
-          const emailContent = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #1e40af;">Новый ПАБ зарегистрирован</h2>
-              <p><strong>Номер документа:</strong> ${newDocNumber}</p>
-              <p><strong>Дата:</strong> ${docDate}</p>
-              <p><strong>Инспектор:</strong> ${inspectorFio}</p>
-              <p><strong>Должность:</strong> ${inspectorPosition}</p>
-              <p><strong>Место проведения:</strong> ${location}</p>
-              <p><strong>Проверяемый объект:</strong> ${checkedObject}</p>
-              <div style="margin: 20px 0; padding: 15px; background: #f3f4f6; border-radius: 8px;">
-                <p style="margin: 0;"><strong>Ответственный:</strong> ${firstObservationResponsible}</p>
-                <p style="margin: 5px 0 0 0;"><strong>Срок выполнения:</strong> ${observations[0].deadline}</p>
-              </div>
-              <a href="${htmlUrl}" style="display: inline-block; padding: 12px 24px; background: #1e40af; color: white; text-decoration: none; border-radius: 8px; margin-top: 10px;">
-                Посмотреть ПАБ
-              </a>
-            </div>
-          `;
-          
-          const result = await sendEmail({
-            recipients,
-            subject: `Новый ПАБ №${newDocNumber} от ${docDate}`,
-            html_content: emailContent,
-            sender_name: 'АСУБТ - Система управления безопасностью труда'
-          });
-          
-          if (result) {
-            setShowEmailStatus(true);
-          }
-        }
-      }
-
-      toast.success('ПАБ успешно сохранен');
-      
-      // Показываем статус email если были отправки
-      if (!showEmailStatus) {
-        navigate('/dashboard');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Ошибка при сохранении');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDownloadPdf = () => {
-    toast.info('Функция экспорта в PDF в разработке');
-  };
-
-  const handleDownloadWord = () => {
-    toast.info('Функция экспорта в Word в разработке');
+    await handlePabSubmit({
+      docNumber,
+      docDate,
+      inspectorFio,
+      inspectorPosition,
+      location,
+      checkedObject,
+      department,
+      headerPhotoFile,
+      observations,
+      userCompany,
+      sendEmail,
+      setLoading,
+      setShowEmailStatus,
+      navigate
+    });
   };
 
   if (!authChecked) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-slate-800 rounded-2xl p-8 border-2 border-red-600/30">
-          <div className="text-center">
-            <Icon name="ShieldAlert" size={60} className="text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-4">Доступ запрещен</h2>
-            <p className="text-gray-300 mb-6">
-              Для доступа к форме регистрации ПАБ необходимо войти в систему.
-            </p>
-            <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
-              <p className="text-sm text-gray-400">
-                userId: <span className="text-red-400 font-mono">не найден</span>
-              </p>
-              <p className="text-xs text-gray-500 mt-2">
-                localStorage: {Object.keys(localStorage).join(', ') || 'пусто'}
-              </p>
-            </div>
-            <Button
-              onClick={() => navigate('/')}
-              className="w-full bg-gradient-to-r from-yellow-600 to-orange-700 hover:from-yellow-700 hover:to-orange-800"
-            >
-              <Icon name="LogIn" size={20} className="mr-2" />
-              Перейти к входу
-            </Button>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Загрузка...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Регистрация ПАБ</h1>
-          <Button
-            onClick={() => navigate('/dashboard')}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <Icon name="ArrowLeft" size={20} />
-            Назад на главную
+    <div className="min-h-screen bg-gray-50 py-8">
+      <PabDataLoader
+        onDictionariesLoaded={setDictionaries}
+        onDocNumberLoaded={setDocNumber}
+        onUserDataLoaded={(fio, position, subdivision) => {
+          setInspectorFio(fio);
+          setInspectorPosition(position);
+          setDepartment(subdivision);
+          setUserCompany(localStorage.getItem('userCompany') || '');
+          setAuthChecked(true);
+        }}
+        onOrgUsersLoaded={setOrgUsers}
+        onAllowSingleObservation={setAllowSingleObservation}
+      />
+
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="mb-6">
+          <Button variant="ghost" onClick={() => navigate('/pab')} className="mb-4">
+            <Icon name="ArrowLeft" className="mr-2 h-4 w-4" />
+            Назад к списку ПАБ
           </Button>
+          <h1 className="text-3xl font-bold text-gray-900">Создание карты ПАБ</h1>
+          <p className="text-gray-600 mt-2">Заполните информацию о проведенном наблюдении</p>
         </div>
 
-        {allowSingleObservation && (
-          <div className="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
-            <div className="flex items-start gap-3">
-              <Icon name="Info" size={20} className="text-blue-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <h3 className="text-sm font-semibold text-blue-900 mb-1">
-                  Упрощённый режим регистрации
-                </h3>
-                <p className="text-sm text-blue-800">
-                  Для вашего профиля разрешена отправка ПАБ с одним наблюдением. 
-                  Вы можете добавить до 3 наблюдений при необходимости.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <PabHeaderForm
-          docNumber={docNumber}
-          docDate={docDate}
-          inspectorFio={inspectorFio}
-          inspectorPosition={inspectorPosition}
-          location={location}
-          checkedObject={checkedObject}
-          department={department}
-          headerPhotoFile={headerPhotoFile}
-          onDocDateChange={setDocDate}
-          onInspectorFioChange={setInspectorFio}
-          onInspectorPositionChange={setInspectorPosition}
-          onLocationChange={setLocation}
-          onCheckedObjectChange={setCheckedObject}
-          onDepartmentChange={setDepartment}
-          onHeaderPhotoChange={setHeaderPhotoFile}
-        />
-
-        {observations.map((obs, index) => (
-          <PabObservationCard
-            key={index}
-            observation={obs}
-            index={index}
-            dictionaries={dictionaries}
-            orgUsers={orgUsers}
-            subdivisionFilter={subdivisionFilter}
-            onSubdivisionFilterChange={setSubdivisionFilter}
-            onUpdate={updateObservation}
-            onPhotoChange={handleObservationPhotoChange}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <PabHeaderForm
+            docNumber={docNumber}
+            docDate={docDate}
+            inspectorFio={inspectorFio}
+            inspectorPosition={inspectorPosition}
+            location={location}
+            checkedObject={checkedObject}
+            department={department}
+            headerPhotoFile={headerPhotoFile}
+            onDocDateChange={setDocDate}
+            onInspectorFioChange={setInspectorFio}
+            onInspectorPositionChange={setInspectorPosition}
+            onLocationChange={setLocation}
+            onCheckedObjectChange={setCheckedObject}
+            onDepartmentChange={setDepartment}
+            onHeaderPhotoChange={setHeaderPhotoFile}
           />
-        ))}
+        </div>
+
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">Наблюдения</h2>
+            {observations.length < 3 && (
+              <Button onClick={addObservation} variant="outline">
+                <Icon name="Plus" className="mr-2 h-4 w-4" />
+                Добавить наблюдение
+              </Button>
+            )}
+          </div>
+
+          {!areAllObservationsFilled() && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800">
+                {allowSingleObservation 
+                  ? 'Заполните все поля хотя бы в одном наблюдении'
+                  : 'Необходимо заполнить минимум 3 наблюдения'}
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {observations.map((obs, index) => (
+              <PabObservationCard
+                key={index}
+                observation={obs}
+                index={index}
+                dictionaries={dictionaries}
+                orgUsers={orgUsers}
+                subdivisionFilter={subdivisionFilter}
+                onSubdivisionFilterChange={setSubdivisionFilter}
+                onUpdate={(field, value) => updateObservation(index, field, value)}
+                onPhotoChange={(file) => handleObservationPhotoChange(index, file)}
+              />
+            ))}
+          </div>
+        </div>
 
         <PabActionButtons
-          loading={loading || emailSending}
-          canAddObservation={observations.length < 3}
-          allObservationsFilled={areAllObservationsFilled()}
-          onBack={() => navigate('/dashboard')}
-          onAddObservation={addObservation}
+          loading={loading}
+          areAllObservationsFilled={areAllObservationsFilled()}
           onSubmit={handleSubmit}
-          onDownloadPdf={handleDownloadPdf}
-          onDownloadWord={handleDownloadWord}
+          onCancel={() => navigate('/pab')}
         />
       </div>
 
-      {/* Диалог статуса отправки email */}
-      {emailResult && (
+      {showEmailStatus && (
         <EmailStatusDialog
           open={showEmailStatus}
-          onOpenChange={(open) => {
-            setShowEmailStatus(open);
-            if (!open) {
-              navigate('/dashboard');
-            }
-          }}
-          results={emailResult.results}
-          summary={emailResult.summary}
-          total={emailResult.total}
-          sent={emailResult.sent}
-          failed={emailResult.failed}
+          onClose={() => setShowEmailStatus(false)}
+          sending={emailSending}
+          result={emailResult}
         />
       )}
     </div>
