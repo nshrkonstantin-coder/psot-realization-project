@@ -436,7 +436,7 @@ export default function ProductionControlPage() {
               </SelectTrigger>
               <SelectContent>
                 {orgUsers.length === 0 ? (
-                  <SelectItem value="no-users" disabled>Пользователи не найдены</SelectItem>
+                  <div className="px-2 py-1.5 text-sm text-gray-500">Пользователи не найдены</div>
                 ) : (
                   orgUsers.map((user) => (
                     <SelectItem key={user.id} value={String(user.id)}>
@@ -589,7 +589,7 @@ export default function ProductionControlPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {orgUsers.length === 0 ? (
-                      <SelectItem value="no-users" disabled>Пользователи не найдены</SelectItem>
+                      <div className="px-2 py-1.5 text-sm text-gray-500">Пользователи не найдены</div>
                     ) : (
                       orgUsers.map((user) => (
                         <SelectItem key={user.id} value={String(user.id)}>
