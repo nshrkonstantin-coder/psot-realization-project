@@ -446,6 +446,12 @@ const ChatHistory = () => {
               </div>
             </div>
 
+            {/* Отладочная информация */}
+            <div className="mb-4 p-3 bg-blue-900/30 border border-blue-600/30 rounded-lg text-sm text-blue-300">
+              <p>Всего пользователей загружено: {organizationUsers.length}</p>
+              <p>Поисковый запрос: {searchQuery || '(пусто)'}</p>
+            </div>
+
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {organizationUsers
                 .filter(user => {
