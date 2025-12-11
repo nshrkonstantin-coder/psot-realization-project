@@ -43,6 +43,7 @@ const SystemNotificationsPage = () => {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterRead, setFilterRead] = useState<string>('all');
+  const [translatedTexts, setTranslatedTexts] = useState<Map<number, { title: string; message: string; errorDetails?: string }>>(new Map());
 
   useEffect(() => {
     const userRole = localStorage.getItem('userRole');
@@ -69,14 +70,59 @@ const SystemNotificationsPage = () => {
       if (!response.ok) throw new Error('Ошибка загрузки уведомлений');
 
       const data = await response.json();
-      setNotifications(data.notifications || []);
+      const fetchedNotifications = data.notifications || [];
+      setNotifications(fetchedNotifications);
       setStats(data.stats || { total: 0, unread: 0, errors: 0, warnings: 0 });
+      
+      // Автоматически переводим текст уведомлений
+      translateNotifications(fetchedNotifications);
     } catch (error) {
       toast.error('Не удалось загрузить уведомления');
       console.error(error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const isRussianText = (text: string): boolean => {
+    const russianChars = text.match(/[а-яА-ЯёЁ]/g);
+    const totalChars = text.replace(/[^a-zA-Zа-яА-ЯёЁ]/g, '').length;
+    return russianChars ? (russianChars.length / totalChars) > 0.5 : false;
+  };
+
+  const translateText = async (text: string): Promise<string> => {
+    if (!text || isRussianText(text)) return text;
+    
+    try {
+      const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ru&dt=t&q=${encodeURIComponent(text)}`);
+      const data = await response.json();
+      return data[0]?.map((item: any) => item[0]).join('') || text;
+    } catch (error) {
+      console.error('Translation error:', error);
+      return text;
+    }
+  };
+
+  const translateNotifications = async (notifs: Notification[]) => {
+    const newTranslations = new Map(translatedTexts);
+    
+    for (const notif of notifs) {
+      if (!newTranslations.has(notif.id)) {
+        const [translatedTitle, translatedMessage, translatedError] = await Promise.all([
+          translateText(notif.title),
+          translateText(notif.message),
+          notif.errorDetails ? translateText(notif.errorDetails) : Promise.resolve(undefined)
+        ]);
+        
+        newTranslations.set(notif.id, {
+          title: translatedTitle,
+          message: translatedMessage,
+          errorDetails: translatedError
+        });
+      }
+    }
+    
+    setTranslatedTexts(newTranslations);
   };
 
   const handleSelectAll = () => {
@@ -365,7 +411,15 @@ const SystemNotificationsPage = () => {
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-lg font-bold text-white">{notification.title}</h3>
+                          <h3 className="text-lg font-bold text-white">
+                            {translatedTexts.get(notification.id)?.title || notification.title}
+                          </h3>
+                          {!isRussianText(notification.title) && translatedTexts.has(notification.id) && (
+                            <Badge className="bg-blue-500/20 text-blue-400 text-xs border border-blue-500/50">
+                              <Icon name="Languages" size={12} className="mr-1" />
+                              Переведено
+                            </Badge>
+                          )}
                           <Badge className={`${getSeverityBadge(notification.severity)} text-white text-xs`}>
                             {notification.severity}
                           </Badge>
@@ -378,7 +432,9 @@ const SystemNotificationsPage = () => {
                         </span>
                       </div>
 
-                      <p className="text-slate-300 mb-3">{notification.message}</p>
+                      <p className="text-slate-300 mb-3">
+                        {translatedTexts.get(notification.id)?.message || notification.message}
+                      </p>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                         {notification.userFio && (
@@ -419,7 +475,7 @@ const SystemNotificationsPage = () => {
                             Детали ошибки
                           </summary>
                           <pre className="mt-2 p-3 bg-slate-900/50 rounded text-xs text-red-300 overflow-x-auto">
-                            {notification.errorDetails}
+                            {translatedTexts.get(notification.id)?.errorDetails || notification.errorDetails}
                           </pre>
                         </details>
                       )}
