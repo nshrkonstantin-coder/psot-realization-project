@@ -60,9 +60,9 @@ export const UserTableRow = ({
       </td>
       <td className="px-2 py-3">
         <div className="text-xs text-slate-400">
-          <div>ПАБ: {user.stats.registered_count}</div>
-          <div>Он: {user.stats.online_count}</div>
-          <div>Оф: {user.stats.offline_count}</div>
+          <div>ПАБ: {user.stats?.registered_count || 0}</div>
+          <div>Он: {user.stats?.online_count || 0}</div>
+          <div>Оф: {user.stats?.offline_count || 0}</div>
         </div>
       </td>
       <td className="px-2 py-3">
