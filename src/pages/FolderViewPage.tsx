@@ -30,6 +30,7 @@ const FolderViewPage = () => {
   const [selectedFile, setSelectedFile] = useState<StorageFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewFile, setPreviewFile] = useState<StorageFile | null>(null);
+  const userRole = localStorage.getItem('userRole') || 'user';
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -341,17 +342,19 @@ const FolderViewPage = () => {
                       >
                         <Icon name="Download" size={20} />
                       </Button>
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openDeleteDialog(file);
-                        }}
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-500 hover:text-white hover:bg-red-600 bg-red-500/20"
-                      >
-                        <Icon name="Trash2" size={20} />
-                      </Button>
+                      {(userRole === 'admin' || userRole === 'superadmin') && (
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDeleteDialog(file);
+                          }}
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 hover:text-white hover:bg-red-600 bg-red-500/20"
+                        >
+                          <Icon name="Trash2" size={20} />
+                        </Button>
+                      )}
                     </div>
                   </div>
                   <h3 className="text-sm font-bold text-white mb-2 truncate" title={file.file_name}>

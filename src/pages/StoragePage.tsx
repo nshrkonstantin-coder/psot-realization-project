@@ -21,6 +21,7 @@ const StoragePage = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null);
+  const userRole = localStorage.getItem('userRole') || 'user';
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -194,17 +195,19 @@ const StoragePage = () => {
                     <div className="bg-gradient-to-br from-purple-600 to-purple-700 p-4 rounded-xl shadow-lg">
                       <Icon name="Folder" size={32} className="text-white" />
                     </div>
-                    <Button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openDeleteDialog(folder);
-                      }}
-                      variant="ghost"
-                      size="icon"
-                      className="text-red-500 hover:text-white hover:bg-red-600 bg-red-500/20"
-                    >
-                      <Icon name="Trash2" size={20} />
-                    </Button>
+                    {(userRole === 'admin' || userRole === 'superadmin') && (
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDeleteDialog(folder);
+                        }}
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:text-white hover:bg-red-600 bg-red-500/20"
+                      >
+                        <Icon name="Trash2" size={20} />
+                      </Button>
+                    )}
                   </div>
                   <h3 className="text-lg font-bold text-white mb-1 truncate" title={folder.folder_name}>
                     {folder.folder_name}
