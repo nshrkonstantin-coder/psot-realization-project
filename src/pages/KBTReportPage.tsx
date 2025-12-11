@@ -322,7 +322,11 @@ export default function KBTReportPage() {
           }
         ]
       });
+  };
 
+  const handleExportWord = async () => {
+    try {
+      const doc = generateWordDocument();
       const blob = await Packer.toBlob(doc);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
