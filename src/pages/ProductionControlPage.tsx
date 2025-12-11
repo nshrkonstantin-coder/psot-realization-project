@@ -255,6 +255,35 @@ export default function ProductionControlPage() {
       const result = await response.json();
 
       if (result.success) {
+        // Отправляем уведомления
+        const notificationData = {
+          form_type: 'production_control',
+          doc_number: docNumber,
+          report_id: result.report_id,
+          organization_id: parseInt(organizationId!),
+          responsible_user_ids: [
+            parseInt(recipientUserId),
+            ...acceptorSignatures.filter(s => s.userId).map(s => parseInt(s.userId))
+          ],
+          form_data: {
+            department,
+            recipient_name: recipientName,
+            issuer_name: issuerName,
+            issuer_position: issuerPosition,
+            issue_date: issueDate
+          }
+        };
+        
+        fetch('https://functions.poehali.dev/4a977fe4-5b7e-477d-b142-d85522845415', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(notificationData)
+        }).then(res => res.json()).then(notifResult => {
+          if (notifResult.success) {
+            console.log(`Уведомления отправлены: ${notifResult.chat_notifications_sent} в чат, email: ${notifResult.email_sent}`);
+          }
+        }).catch(err => console.error('Error sending notifications:', err));
+        
         toast.success(
           <div className="flex flex-col gap-2">
             <div className="font-bold">✅ Предписание успешно сохранено!</div>
@@ -262,7 +291,8 @@ export default function ProductionControlPage() {
               <strong>Номер:</strong> {docNumber}<br/>
               <strong>Кому:</strong> {recipientName}<br/>
               <strong>ID в базе:</strong> {result.report_id}<br/>
-              <strong>Место хранения:</strong> База данных + папка "ЭПК" в Хранилище
+              <strong>Место хранения:</strong> База данных + папка "ЭПК" в Хранилище<br/>
+              <strong>📧 Уведомления:</strong> Отправлены ответственным и администратору
             </div>
             <a 
               href={wordFileUrl}

@@ -1,0 +1,230 @@
+import json
+import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from typing import Dict, Any
+
+def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    '''
+    Отправка уведомлений при сохранении форм: в чат ответственным + на email администратору
+    '''
+    method: str = event.get('httpMethod', 'POST')
+    
+    if method == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Max-Age': '86400'
+            },
+            'body': ''
+        }
+    
+    if method == 'POST':
+        try:
+            import psycopg2
+            
+            body_data = json.loads(event.get('body', '{}'))
+            
+            form_type = body_data.get('form_type')  # 'production_control', 'kbt', 'pab'
+            form_data = body_data.get('form_data', {})
+            responsible_user_ids = body_data.get('responsible_user_ids', [])
+            report_id = body_data.get('report_id')
+            doc_number = body_data.get('doc_number', '')
+            organization_id = body_data.get('organization_id')
+            
+            conn = psycopg2.connect(os.environ['DATABASE_URL'])
+            cur = conn.cursor()
+            
+            # Получаем информацию об организации
+            org_name = ''
+            if organization_id:
+                cur.execute(f"SELECT name FROM t_p80499285_psot_realization_pro.organizations WHERE id = {organization_id}")
+                org_result = cur.fetchone()
+                if org_result:
+                    org_name = org_result[0]
+            
+            # Формируем текст уведомления в зависимости от типа формы
+            notification_text = ''
+            email_subject = ''
+            email_body = ''
+            
+            if form_type == 'production_control':
+                notification_text = f"📋 Новое Предписание ЭПК №{doc_number}\n\n"
+                notification_text += f"Подразделение: {form_data.get('department', 'Не указано')}\n"
+                notification_text += f"Кому: {form_data.get('recipient_name', 'Не указано')}\n"
+                notification_text += f"Выдал: {form_data.get('issuer_name', 'Не указано')}\n"
+                notification_text += f"\n✅ Сохранено в базе данных (ID: {report_id})\n"
+                notification_text += f"📁 Документ в папке ЭПК\n"
+                
+                email_subject = f"Новое Предписание ЭПК №{doc_number} - {org_name}"
+                email_body = f"""
+<html>
+<body style="font-family: Arial, sans-serif;">
+    <h2 style="color: #d97706;">📋 Новое Предписание производственного контроля</h2>
+    <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p><strong>Номер документа:</strong> {doc_number}</p>
+        <p><strong>Организация:</strong> {org_name}</p>
+        <p><strong>Подразделение:</strong> {form_data.get('department', 'Не указано')}</p>
+        <p><strong>Получатель:</strong> {form_data.get('recipient_name', 'Не указано')}</p>
+        <p><strong>Выдал:</strong> {form_data.get('issuer_name', 'Не указано')}, {form_data.get('issuer_position', '')}</p>
+        <p><strong>Дата выдачи:</strong> {form_data.get('issue_date', '')}</p>
+    </div>
+    <p><strong>ID записи в базе данных:</strong> {report_id}</p>
+    <p><strong>Место хранения:</strong> База данных + папка "ЭПК" в Хранилище</p>
+    <hr style="margin: 20px 0;">
+    <p style="color: #6b7280; font-size: 12px;">Автоматическое уведомление из системы АСУБТ</p>
+</body>
+</html>
+"""
+            
+            elif form_type == 'kbt':
+                notification_text = f"📊 Новый отчёт КБТ\n\n"
+                notification_text += f"Подразделение: {form_data.get('department', 'Не указано')}\n"
+                notification_text += f"Руководитель: {form_data.get('head_name', 'Не указано')}\n"
+                notification_text += f"Период: {form_data.get('period_from', '')} - {form_data.get('period_to', '')}\n"
+                notification_text += f"\n✅ Сохранено в базе данных (ID: {report_id})\n"
+                notification_text += f"📁 Документ в папке КБТ\n"
+                
+                email_subject = f"Новый отчёт КБТ - {form_data.get('department', 'Не указано')} - {org_name}"
+                email_body = f"""
+<html>
+<body style="font-family: Arial, sans-serif;">
+    <h2 style="color: #059669;">📊 Новый отчёт КБТ</h2>
+    <div style="background-color: #d1fae5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p><strong>Организация:</strong> {org_name}</p>
+        <p><strong>Подразделение:</strong> {form_data.get('department', 'Не указано')}</p>
+        <p><strong>Руководитель:</strong> {form_data.get('head_name', 'Не указано')}</p>
+        <p><strong>Отчётный период:</strong> {form_data.get('period_from', '')} - {form_data.get('period_to', '')}</p>
+    </div>
+    <div style="margin: 20px 0;">
+        <h3>Краткая статистика:</h3>
+        <ul>
+            <li>Заболевших: {form_data.get('sick_count', '0')} чел.</li>
+            <li>Травм: {form_data.get('injuries', 'Не указано')}</li>
+            <li>Выдано АКТов: {form_data.get('acts_count', '0')}</li>
+            <li>Выдано нарушений: {form_data.get('violations_count', '0')}</li>
+        </ul>
+    </div>
+    <p><strong>ID записи в базе данных:</strong> {report_id}</p>
+    <p><strong>Место хранения:</strong> База данных + папка "КБТ" в Хранилище</p>
+    <hr style="margin: 20px 0;">
+    <p style="color: #6b7280; font-size: 12px;">Автоматическое уведомление из системы АСУБТ</p>
+</body>
+</html>
+"""
+            
+            elif form_type == 'pab':
+                notification_text = f"🔍 Новая карта ПАБ №{doc_number}\n\n"
+                notification_text += f"Наблюдатель: {form_data.get('observer_name', 'Не указано')}\n"
+                notification_text += f"Подразделение: {form_data.get('department', 'Не указано')}\n"
+                notification_text += f"Наблюдаемый: {form_data.get('observed_name', 'Не указано')}\n"
+                notification_text += f"\n✅ Сохранено в базе данных (ID: {report_id})\n"
+                
+                email_subject = f"Новая карта ПАБ №{doc_number} - {org_name}"
+                email_body = f"""
+<html>
+<body style="font-family: Arial, sans-serif;">
+    <h2 style="color: #2563eb;">🔍 Новая карта Поведенческого Аудита Безопасности</h2>
+    <div style="background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p><strong>Номер карты:</strong> {doc_number}</p>
+        <p><strong>Организация:</strong> {org_name}</p>
+        <p><strong>Наблюдатель:</strong> {form_data.get('observer_name', 'Не указано')}</p>
+        <p><strong>Подразделение:</strong> {form_data.get('department', 'Не указано')}</p>
+        <p><strong>Наблюдаемый работник:</strong> {form_data.get('observed_name', 'Не указано')}</p>
+        <p><strong>Дата наблюдения:</strong> {form_data.get('observation_date', '')}</p>
+    </div>
+    <p><strong>ID записи в базе данных:</strong> {report_id}</p>
+    <hr style="margin: 20px 0;">
+    <p style="color: #6b7280; font-size: 12px;">Автоматическое уведомление из системы АСУБТ</p>
+</body>
+</html>
+"""
+            
+            # 1. Отправляем уведомления в чат ответственным
+            chat_notifications_sent = 0
+            for user_id in responsible_user_ids:
+                try:
+                    notification_escaped = notification_text.replace("'", "''")
+                    cur.execute(f"""
+                        INSERT INTO t_p80499285_psot_realization_pro.system_notifications 
+                        (user_id, notification_type, title, message, created_at)
+                        VALUES ({user_id}, 'form_saved', 'Новое уведомление', '{notification_escaped}', NOW())
+                    """)
+                    chat_notifications_sent += 1
+                except Exception as e:
+                    print(f"Error sending chat notification to user {user_id}: {str(e)}")
+            
+            conn.commit()
+            
+            # 2. Отправляем email главному администратору
+            email_sent = False
+            admin_email = os.environ.get('ADMIN_EMAIL', 'nshrkonstantin@gmail.com')
+            
+            try:
+                smtp_host = os.environ.get('SMTP_HOST')
+                smtp_port = int(os.environ.get('SMTP_PORT', '587'))
+                smtp_user = os.environ.get('SMTP_USER')
+                smtp_password = os.environ.get('SMTP_PASSWORD')
+                
+                if all([smtp_host, smtp_user, smtp_password]):
+                    msg = MIMEMultipart('alternative')
+                    msg['From'] = smtp_user
+                    msg['To'] = admin_email
+                    msg['Subject'] = email_subject
+                    
+                    html_part = MIMEText(email_body, 'html')
+                    msg.attach(html_part)
+                    
+                    with smtplib.SMTP(smtp_host, smtp_port) as server:
+                        server.starttls()
+                        server.login(smtp_user, smtp_password)
+                        server.send_message(msg)
+                    
+                    email_sent = True
+                    print(f"Email sent to admin: {admin_email}")
+                else:
+                    print("SMTP credentials not configured")
+            except Exception as e:
+                print(f"Error sending email: {str(e)}")
+            
+            cur.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({
+                    'success': True,
+                    'chat_notifications_sent': chat_notifications_sent,
+                    'email_sent': email_sent,
+                    'admin_email': admin_email
+                })
+            }
+            
+        except Exception as e:
+            print(f"Error in form-notifications: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'statusCode': 500,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({'success': False, 'error': str(e)})
+            }
+    
+    return {
+        'statusCode': 405,
+        'headers': {'Access-Control-Allow-Origin': '*'},
+        'body': json.dumps({'error': 'Method not allowed'})
+    }

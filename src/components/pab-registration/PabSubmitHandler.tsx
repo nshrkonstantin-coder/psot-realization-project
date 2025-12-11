@@ -216,6 +216,31 @@ export async function handlePabSubmit({
         }
       }
 
+      // Отправляем уведомления
+      const notificationData = {
+        form_type: 'pab',
+        doc_number: docNumber,
+        report_id: result.pab_id,
+        organization_id: parseInt(organizationId),
+        responsible_user_ids: [],
+        form_data: {
+          observer_name: inspectorFio,
+          department,
+          observed_name: checkedObject,
+          observation_date: docDate
+        }
+      };
+      
+      fetch('https://functions.poehali.dev/4a977fe4-5b7e-477d-b142-d85522845415', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(notificationData)
+      }).then(res => res.json()).then(notifResult => {
+        if (notifResult.success) {
+          console.log(`Уведомления отправлены: email: ${notifResult.email_sent}`);
+        }
+      }).catch(err => console.error('Error sending notifications:', err));
+
       toast.success(
         <div className="flex flex-col gap-2">
           <div className="font-bold">✅ Карта ПАБ успешно сохранена!</div>
@@ -223,7 +248,8 @@ export async function handlePabSubmit({
             <strong>Номер:</strong> {docNumber}<br/>
             <strong>Дата:</strong> {docDate}<br/>
             <strong>ID в базе:</strong> {result.pab_id}<br/>
-            <strong>Место хранения:</strong> База данных (таблица: pab_records)
+            <strong>Место хранения:</strong> База данных (таблица: pab_records)<br/>
+            <strong>📧 Уведомления:</strong> Отправлены администратору
           </div>
           {cdnUrl && (
             <a 

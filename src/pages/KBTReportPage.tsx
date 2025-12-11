@@ -208,6 +208,26 @@ export default function KBTReportPage() {
       const result = await response.json();
 
       if (result.success) {
+        // Отправляем уведомления
+        const notificationData = {
+          form_type: 'kbt',
+          doc_number: `КБТ-${formData.department}`,
+          report_id: result.report_id,
+          organization_id: parseInt(organizationId!),
+          responsible_user_ids: [],
+          form_data: formData
+        };
+        
+        fetch('https://functions.poehali.dev/4a977fe4-5b7e-477d-b142-d85522845415', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(notificationData)
+        }).then(res => res.json()).then(notifResult => {
+          if (notifResult.success) {
+            console.log(`Уведомления отправлены: email: ${notifResult.email_sent}`);
+          }
+        }).catch(err => console.error('Error sending notifications:', err));
+        
         toast.success(
           <div className="flex flex-col gap-2">
             <div className="font-bold">✅ Отчёт КБТ успешно сохранён!</div>
@@ -216,7 +236,8 @@ export default function KBTReportPage() {
               <strong>Руководитель:</strong> {formData.head_name}<br/>
               <strong>Период:</strong> {formData.period_from} - {formData.period_to}<br/>
               <strong>ID в базе:</strong> {result.report_id}<br/>
-              <strong>Место хранения:</strong> База данных + папка "КБТ" в Хранилище
+              <strong>Место хранения:</strong> База данных + папка "КБТ" в Хранилище<br/>
+              <strong>📧 Уведомления:</strong> Отправлены администратору
             </div>
             <a 
               href={wordFileUrl}

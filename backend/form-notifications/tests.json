@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "Send production control notification",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "form_type": "production_control",
+        "doc_number": "ЭПК-1-25",
+        "report_id": 1,
+        "organization_id": 1,
+        "responsible_user_ids": [1, 2],
+        "form_data": {
+          "department": "Участок №1",
+          "recipient_name": "Иванов И.И.",
+          "issuer_name": "Петров П.П.",
+          "issuer_position": "Инженер по ОТ",
+          "issue_date": "2025-12-11"
+        }
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
