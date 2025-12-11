@@ -1,0 +1,42 @@
+{
+  "tests": [
+    {
+      "name": "Test production control report submission",
+      "method": "POST",
+      "body": {
+        "doc_number": "ЭПК-1-25",
+        "doc_date": "2025-01-15",
+        "recipient_user_id": 1,
+        "recipient_name": "Иванов Иван Иванович",
+        "department": "Отдел безопасности",
+        "witness": "Петров П.П.",
+        "issuer_name": "Сидоров С.С.",
+        "issuer_position": "Инженер по ОТ",
+        "issue_date": "2025-01-15",
+        "violations": [
+          {
+            "item_number": 1,
+            "description": "Тестовое нарушение",
+            "measures": "Тестовые меры",
+            "photos": []
+          }
+        ],
+        "acceptor_signatures": [
+          {
+            "userId": "1",
+            "userName": "Иванов И.И., Начальник",
+            "date": "2025-01-15"
+          }
+        ],
+        "user_id": 1,
+        "organization_id": 1
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "report_id": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

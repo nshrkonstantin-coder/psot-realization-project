@@ -214,57 +214,65 @@ export default function ProductionControlPage() {
     setLoading(true);
 
     try {
-      const reportData = {
-        current_date: currentDate,
-        doc_number: docNumber,
-        recipient_user_id: recipientUserId,
-        recipient_name: orgUsers.find(u => String(u.id) === recipientUserId)?.fio || '',
-        department,
-        witness,
-        violations,
-        issuer_name: issuerName,
-        issuer_position: issuerPosition,
-        issue_date: issueDate,
-        acceptor_signatures: acceptorSignatures,
-        user_id: localStorage.getItem('userId'),
-        organization_id: localStorage.getItem('organizationId'),
-        created_at: new Date().toISOString()
-      };
-
-      const reportsKey = 'production_control_reports';
-      const existingReports = JSON.parse(localStorage.getItem(reportsKey) || '[]');
-      existingReports.push(reportData);
-      localStorage.setItem(reportsKey, JSON.stringify(existingReports));
-
-      // Имитация отправки уведомления
-      const recipientName = orgUsers.find(u => String(u.id) === recipientUserId)?.fio || 'получателю';
-      console.log(`Уведомление отправлено: ${recipientName} - Предписание ${docNumber} от ${currentDate}`);
+      const userId = localStorage.getItem('userId');
+      const organizationId = localStorage.getItem('organizationId');
+      const recipientName = orgUsers.find(u => String(u.id) === recipientUserId)?.fio || '';
       
-      toast.success(
-        <div className="flex flex-col gap-2">
-          <div className="font-bold">✅ Предписание успешно сохранено!</div>
-          <div className="text-sm text-gray-600">
-            <strong>Номер:</strong> {docNumber}<br/>
-            <strong>Кому:</strong> {recipientName}<br/>
-            <strong>Место хранения:</strong> localStorage (ключ: production_control_reports)
-          </div>
-          <button 
-            onClick={() => {
-              console.log('Saved reports:', existingReports);
-              toast.info('Данные сохранены локально в браузере. Для просмотра всех отчётов вернитесь в Dashboard.');
-            }}
-            className="text-blue-600 hover:text-blue-800 text-sm underline text-left mt-1"
-          >
-            📋 Показать все сохранённые отчёты в консоли
-          </button>
-        </div>,
-        {
-          duration: Infinity,
-          closeButton: true
-        }
-      );
+      // Сначала генерируем Word документ
+      toast.info('Генерация Word документа...');
+      await handleExportWord();
       
-      setTimeout(() => navigate('/dashboard'), 2000);
+      // Отправляем данные в базу
+      toast.info('Сохранение в базу данных...');
+      const response = await fetch('https://functions.poehali.dev/2babe7b8-1f0b-464f-8aae-3e623cf3a795', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doc_number: docNumber,
+          doc_date: currentDate,
+          recipient_user_id: parseInt(recipientUserId),
+          recipient_name: recipientName,
+          department,
+          witness,
+          issuer_name: issuerName,
+          issuer_position: issuerPosition,
+          issue_date: issueDate,
+          violations,
+          acceptor_signatures: acceptorSignatures,
+          user_id: parseInt(userId!),
+          organization_id: parseInt(organizationId!)
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(
+          <div className="flex flex-col gap-2">
+            <div className="font-bold">✅ Предписание успешно сохранено!</div>
+            <div className="text-sm text-gray-600">
+              <strong>Номер:</strong> {docNumber}<br/>
+              <strong>Кому:</strong> {recipientName}<br/>
+              <strong>ID в базе:</strong> {result.report_id}<br/>
+              <strong>Место хранения:</strong> База данных (таблица: production_control_reports)
+            </div>
+            <button 
+              onClick={() => navigate('/storage')}
+              className="text-blue-600 hover:text-blue-800 text-sm underline text-left mt-1"
+            >
+              📁 Перейти в Хранилище
+            </button>
+          </div>,
+          {
+            duration: Infinity,
+            closeButton: true
+          }
+        );
+        
+        setTimeout(() => navigate('/dashboard'), 2000);
+      } else {
+        toast.error(result.error || 'Ошибка сохранения');
+      }
     } catch (error) {
       console.error('Error saving report:', error);
       toast.error('Ошибка при сохранении');

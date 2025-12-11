@@ -178,44 +178,55 @@ export default function KBTReportPage() {
     setLoading(true);
     
     try {
-      const reportData = {
-        ...formData,
-        user_id: localStorage.getItem('userId'),
-        organization_id: localStorage.getItem('organizationId'),
-        created_at: new Date().toISOString()
-      };
-
-      const reportsKey = 'kbt_reports';
-      const existingReports = JSON.parse(localStorage.getItem(reportsKey) || '[]');
-      existingReports.push(reportData);
-      localStorage.setItem(reportsKey, JSON.stringify(existingReports));
-
-      toast.success(
-        <div className="flex flex-col gap-2">
-          <div className="font-bold">✅ Отчёт КБТ успешно сохранён!</div>
-          <div className="text-sm text-gray-600">
-            <strong>Подразделение:</strong> {formData.department}<br/>
-            <strong>Руководитель:</strong> {formData.head_name}<br/>
-            <strong>Период:</strong> {formData.period_from} - {formData.period_to}<br/>
-            <strong>Место хранения:</strong> localStorage (ключ: kbt_reports)
-          </div>
-          <button 
-            onClick={() => {
-              console.log('Saved KBT reports:', existingReports);
-              toast.info('Данные сохранены локально в браузере. Для просмотра всех отчётов вернитесь в Dashboard.');
-            }}
-            className="text-blue-600 hover:text-blue-800 text-sm underline text-left mt-1"
-          >
-            📋 Показать все сохранённые отчёты в консоли
-          </button>
-        </div>,
-        {
-          duration: Infinity,
-          closeButton: true
-        }
-      );
+      const userId = localStorage.getItem('userId');
+      const organizationId = localStorage.getItem('organizationId');
       
-      setTimeout(() => navigate('/dashboard'), 2000);
+      // Сначала генерируем Word документ
+      toast.info('Генерация Word документа...');
+      await handleExportWord();
+      
+      // Отправляем данные в базу
+      toast.info('Сохранение в базу данных...');
+      const response = await fetch('https://functions.poehali.dev/7abe1e4c-3790-4bcd-9d37-4967f7dfb8ca', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          user_id: parseInt(userId!),
+          organization_id: parseInt(organizationId!)
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(
+          <div className="flex flex-col gap-2">
+            <div className="font-bold">✅ Отчёт КБТ успешно сохранён!</div>
+            <div className="text-sm text-gray-600">
+              <strong>Подразделение:</strong> {formData.department}<br/>
+              <strong>Руководитель:</strong> {formData.head_name}<br/>
+              <strong>Период:</strong> {formData.period_from} - {formData.period_to}<br/>
+              <strong>ID в базе:</strong> {result.report_id}<br/>
+              <strong>Место хранения:</strong> База данных (таблица: kbt_reports)
+            </div>
+            <button 
+              onClick={() => navigate('/storage')}
+              className="text-blue-600 hover:text-blue-800 text-sm underline text-left mt-1"
+            >
+              📁 Перейти в Хранилище
+            </button>
+          </div>,
+          {
+            duration: Infinity,
+            closeButton: true
+          }
+        );
+        
+        setTimeout(() => navigate('/dashboard'), 2000);
+      } else {
+        toast.error(result.error || 'Ошибка сохранения');
+      }
     } catch (error) {
       console.error('Error saving report:', error);
       toast.error('Ошибка при сохранении отчета');

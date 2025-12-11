@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "name": "Test KBT report submission",
+      "method": "POST",
+      "body": {
+        "department": "Тестовое подразделение",
+        "head_name": "Иванов И.И.",
+        "period_from": "2025-01-01",
+        "period_to": "2025-01-31",
+        "sick_count": "5",
+        "user_id": 1,
+        "organization_id": 1
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "report_id": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
