@@ -430,20 +430,16 @@ export default function ProductionControlPage() {
         <div className="space-y-4 mb-6">
           <div>
             <Label className="font-semibold">Кому: *</Label>
-            <Select value={recipientUserId} onValueChange={setRecipientUserId}>
+            <Select value={recipientUserId} onValueChange={setRecipientUserId} disabled={orgUsers.length === 0}>
               <SelectTrigger className={`transition-colors ${recipientUserId ? 'bg-green-100 border-green-400' : ''}`}>
                 <SelectValue placeholder={orgUsers.length > 0 ? "Выберите получателя" : "Загрузка пользователей..."} />
               </SelectTrigger>
               <SelectContent>
-                {orgUsers.length === 0 ? (
-                  <div className="px-2 py-1.5 text-sm text-gray-500">Пользователи не найдены</div>
-                ) : (
-                  orgUsers.map((user) => (
-                    <SelectItem key={user.id} value={String(user.id)}>
-                      {user.fio}, {user.position}
-                    </SelectItem>
-                  ))
-                )}
+                {orgUsers.map((user) => (
+                  <SelectItem key={user.id} value={String(user.id)}>
+                    {user.fio}, {user.position}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -583,20 +579,16 @@ export default function ProductionControlPage() {
             <strong className="block mb-3">Предписание принял:</strong>
             {acceptorSignatures.map((sig, index) => (
               <div key={index} className="flex justify-between items-center gap-4 mb-3">
-                <Select value={sig.userId} onValueChange={(value) => updateSignature(index, value)}>
+                <Select value={sig.userId} onValueChange={(value) => updateSignature(index, value)} disabled={orgUsers.length === 0}>
                   <SelectTrigger className={`flex-grow transition-colors ${sig.userId ? 'bg-green-100 border-green-400' : ''}`}>
                     <SelectValue placeholder={orgUsers.length > 0 ? "Выберите подписавшего" : "Загрузка пользователей..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {orgUsers.length === 0 ? (
-                      <div className="px-2 py-1.5 text-sm text-gray-500">Пользователи не найдены</div>
-                    ) : (
-                      orgUsers.map((user) => (
-                        <SelectItem key={user.id} value={String(user.id)}>
-                          {user.fio}, {user.position}
-                        </SelectItem>
-                      ))
-                    )}
+                    {orgUsers.map((user) => (
+                      <SelectItem key={user.id} value={String(user.id)}>
+                        {user.fio}, {user.position}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <div className="flex items-center gap-2">
