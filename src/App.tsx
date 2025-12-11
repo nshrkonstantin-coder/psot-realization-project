@@ -46,6 +46,7 @@ import HashCalculator from "./pages/HashCalculator";
 import EmailTestPage from "./pages/EmailTestPage";
 import EmailConfigPage from "./pages/EmailConfigPage";
 import SystemNotificationsPage from "./pages/SystemNotificationsPage";
+import DatabasePage from "./pages/DatabasePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -101,6 +102,7 @@ const App = () => (
           <Route path="/email-test" element={<EmailTestPage />} />
           <Route path="/email-config" element={<EmailConfigPage />} />
           <Route path="/system-notifications" element={<SystemNotificationsPage />} />
+          <Route path="/database" element={<DatabasePage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

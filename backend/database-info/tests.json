@@ -1,0 +1,16 @@
+{
+  "tests": [
+    {
+      "name": "Test list tables",
+      "method": "POST",
+      "body": {
+        "action": "list_tables"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "tables": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
