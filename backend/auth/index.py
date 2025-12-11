@@ -268,7 +268,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             email_escaped = email.replace("'", "''")
             password_hash_escaped = password_hash.replace("'", "''")
             cur.execute(f"""
-                SELECT u.id, u.fio, u.company, u.position, u.role, u.organization_id, 
+                SELECT u.id, u.fio, u.subdivision, u.position, u.role, u.organization_id, 
                        u.is_blocked, u.blocked_until, o.is_blocked, o.blocked_until, o.registration_code
                 FROM t_p80499285_psot_realization_pro.users u 
                 LEFT JOIN t_p80499285_psot_realization_pro.organizations o ON u.organization_id = o.id 

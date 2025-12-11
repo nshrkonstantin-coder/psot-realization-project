@@ -67,6 +67,9 @@ export default function ProductionControlPage() {
     
     const userFio = localStorage.getItem('userFio') || '';
     const userPosition = localStorage.getItem('userPosition') || '';
+    const orgId = localStorage.getItem('organizationId');
+    
+    console.log('ProductionControlPage mounted:', { userId, userFio, orgId });
     
     setIssuerName(userFio);
     setIssuerPosition(userPosition);
@@ -93,18 +96,32 @@ export default function ProductionControlPage() {
 
   const loadOrgUsers = async () => {
     const organizationId = localStorage.getItem('organizationId');
-    if (!organizationId) return;
+    if (!organizationId) {
+      console.error('No organizationId found in localStorage');
+      return;
+    }
 
     try {
       const response = await fetch(
-        `https://functions.poehali.dev/80de0ea1-b0e8-4b68-b93a-0d5aae40fd40?organization_id=${organizationId}`
+        `https://functions.poehali.dev/bceeaee7-5cfa-418c-9c0d-0a61668ab1a4?organization_id=${organizationId}`
       );
+      
+      if (!response.ok) {
+        console.error('Failed to fetch users:', response.status, response.statusText);
+        return;
+      }
+      
       const data = await response.json();
-      if (data.users) {
-        setOrgUsers(data.users);
+      console.log('Loaded users:', data);
+      
+      if (Array.isArray(data)) {
+        setOrgUsers(data);
+      } else {
+        console.error('Unexpected data format:', data);
       }
     } catch (error) {
       console.error('Failed to load users:', error);
+      toast.error('Ошибка загрузки пользователей');
     }
   };
 
@@ -415,14 +432,18 @@ export default function ProductionControlPage() {
             <Label className="font-semibold">Кому: *</Label>
             <Select value={recipientUserId} onValueChange={setRecipientUserId}>
               <SelectTrigger className={`transition-colors ${recipientUserId ? 'bg-green-100 border-green-400' : ''}`}>
-                <SelectValue placeholder="Выберите получателя" />
+                <SelectValue placeholder={orgUsers.length > 0 ? "Выберите получателя" : "Загрузка пользователей..."} />
               </SelectTrigger>
               <SelectContent>
-                {orgUsers.map((user) => (
-                  <SelectItem key={user.id} value={String(user.id)}>
-                    {user.fio}, {user.position}
-                  </SelectItem>
-                ))}
+                {orgUsers.length === 0 ? (
+                  <SelectItem value="no-users" disabled>Пользователи не найдены</SelectItem>
+                ) : (
+                  orgUsers.map((user) => (
+                    <SelectItem key={user.id} value={String(user.id)}>
+                      {user.fio}, {user.position}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -564,14 +585,18 @@ export default function ProductionControlPage() {
               <div key={index} className="flex justify-between items-center gap-4 mb-3">
                 <Select value={sig.userId} onValueChange={(value) => updateSignature(index, value)}>
                   <SelectTrigger className={`flex-grow transition-colors ${sig.userId ? 'bg-green-100 border-green-400' : ''}`}>
-                    <SelectValue placeholder="Выберите подписавшего" />
+                    <SelectValue placeholder={orgUsers.length > 0 ? "Выберите подписавшего" : "Загрузка пользователей..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {orgUsers.map((user) => (
-                      <SelectItem key={user.id} value={String(user.id)}>
-                        {user.fio}, {user.position}
-                      </SelectItem>
-                    ))}
+                    {orgUsers.length === 0 ? (
+                      <SelectItem value="no-users" disabled>Пользователи не найдены</SelectItem>
+                    ) : (
+                      orgUsers.map((user) => (
+                        <SelectItem key={user.id} value={String(user.id)}>
+                          {user.fio}, {user.position}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 <div className="flex items-center gap-2">
