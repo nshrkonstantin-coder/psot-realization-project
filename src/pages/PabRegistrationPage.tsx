@@ -110,7 +110,7 @@ export default function PabRegistrationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <>
       <PabDataLoader
         onDictionariesLoaded={setDictionaries}
         onDocNumberLoaded={setDocNumber}
@@ -133,7 +133,7 @@ export default function PabRegistrationPage() {
           </div>
         </div>
       ) : (
-        <>
+        <div className="min-h-screen bg-gray-50 py-8">
 
       <div className="max-w-6xl mx-auto px-4">
         <div className="mb-6">
@@ -219,8 +219,8 @@ export default function PabRegistrationPage() {
           result={emailResult}
         />
       )}
-      </>
+        </div>
       )}
-    </div>
+    </>
   );
 }
