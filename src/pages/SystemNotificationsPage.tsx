@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
@@ -255,29 +254,46 @@ const SystemNotificationsPage = () => {
               <span className="text-white text-sm">Выбрать все</span>
             </div>
 
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[180px] bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Тип" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все типы</SelectItem>
-                <SelectItem value="error">Ошибки</SelectItem>
-                <SelectItem value="warning">Предупреждения</SelectItem>
-                <SelectItem value="info">Информация</SelectItem>
-                <SelectItem value="success">Успех</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Button
+                variant={filterType === 'all' ? 'default' : 'outline'}
+                onClick={() => setFilterType('all')}
+                size="sm"
+              >
+                Все
+              </Button>
+              <Button
+                variant={filterType === 'error' ? 'default' : 'outline'}
+                onClick={() => setFilterType('error')}
+                size="sm"
+              >
+                Ошибки
+              </Button>
+              <Button
+                variant={filterType === 'warning' ? 'default' : 'outline'}
+                onClick={() => setFilterType('warning')}
+                size="sm"
+              >
+                Предупреждения
+              </Button>
+            </div>
 
-            <Select value={filterRead} onValueChange={setFilterRead}>
-              <SelectTrigger className="w-[180px] bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Статус" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все</SelectItem>
-                <SelectItem value="false">Непрочитанные</SelectItem>
-                <SelectItem value="true">Прочитанные</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Button
+                variant={filterRead === 'all' ? 'default' : 'outline'}
+                onClick={() => setFilterRead('all')}
+                size="sm"
+              >
+                Все
+              </Button>
+              <Button
+                variant={filterRead === 'false' ? 'default' : 'outline'}
+                onClick={() => setFilterRead('false')}
+                size="sm"
+              >
+                Непрочитанные
+              </Button>
+            </div>
 
             <div className="flex-1" />
 
@@ -287,16 +303,18 @@ const SystemNotificationsPage = () => {
                   onClick={handleMarkRead}
                   variant="outline"
                   className="border-green-600/50 text-green-500 hover:bg-green-600/10"
+                  size="sm"
                 >
-                  <Icon name="Check" size={20} className="mr-2" />
+                  <Icon name="Check" size={16} className="mr-2" />
                   Прочитано ({selectedIds.length})
                 </Button>
                 <Button
                   onClick={handleDelete}
                   variant="outline"
                   className="border-red-600/50 text-red-500 hover:bg-red-600/10"
+                  size="sm"
                 >
-                  <Icon name="Trash2" size={20} className="mr-2" />
+                  <Icon name="Trash2" size={16} className="mr-2" />
                   Удалить ({selectedIds.length})
                 </Button>
               </>
@@ -306,8 +324,9 @@ const SystemNotificationsPage = () => {
               onClick={loadNotifications}
               variant="outline"
               className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
+              size="sm"
             >
-              <Icon name="RefreshCw" size={20} />
+              <Icon name="RefreshCw" size={16} />
             </Button>
           </div>
         </Card>
@@ -345,16 +364,16 @@ const SystemNotificationsPage = () => {
 
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-lg font-bold text-white">{notification.title}</h3>
-                          <Badge className={`${getSeverityBadge(notification.severity)} text-white`}>
+                          <Badge className={`${getSeverityBadge(notification.severity)} text-white text-xs`}>
                             {notification.severity}
                           </Badge>
                           {!notification.isRead && (
-                            <Badge className="bg-yellow-500 text-black">Новое</Badge>
+                            <Badge className="bg-yellow-500 text-black text-xs">Новое</Badge>
                           )}
                         </div>
-                        <span className="text-sm text-slate-400">
+                        <span className="text-sm text-slate-400 whitespace-nowrap ml-2">
                           {new Date(notification.createdAt).toLocaleString('ru-RU')}
                         </span>
                       </div>
