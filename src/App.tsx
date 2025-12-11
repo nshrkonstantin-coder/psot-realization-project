@@ -79,7 +79,8 @@ const App = () => (
           <Route path="/pab-dictionaries" element={<PabDictionariesPage />} />
           <Route path="/pab-list" element={<PabListPage />} />
           <Route path="/pab-view/:id" element={<PabViewPage />} />
-          <Route path="/production-control" element={<KBTReportPage />} />
+          <Route path="/kbt-report" element={<KBTReportPage />} />
+          <Route path="/production-control" element={<ProductionControlPage />} />
           <Route path="/organizations-management" element={<OrganizationsManagementPage />} />
           <Route path="/create-organization" element={<CreateOrganizationPage />} />
           <Route path="/organization-settings/:id" element={<OrganizationSettingsPage />} />
