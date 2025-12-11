@@ -4,6 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 interface UserStats {
   user_id: number;
@@ -31,11 +39,29 @@ interface UserStats {
   audits_conducted: number;
 }
 
+interface OrganizationUser {
+  id: number;
+  fio: string;
+  position: string;
+  subdivision: string;
+  company: string;
+  email: string;
+  last_activity?: string;
+}
+
 const UserCabinet = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<UserStats | null>(null);
+  const [showRegisteredUsers, setShowRegisteredUsers] = useState(false);
+  const [showOnlineUsers, setShowOnlineUsers] = useState(false);
+  const [registeredUsers, setRegisteredUsers] = useState<OrganizationUser[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<OrganizationUser[]>([]);
+  const [showChatForm, setShowChatForm] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<OrganizationUser | null>(null);
+  const [chatMessage, setChatMessage] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -70,6 +96,69 @@ const UserCabinet = () => {
       setLoading(false);
     }
   };
+
+  const loadRegisteredUsers = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=registered_users&userId=${userId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setRegisteredUsers(data.users);
+        setShowRegisteredUsers(true);
+      } else {
+        toast({ title: 'Ошибка загрузки списка пользователей', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Ошибка сервера', variant: 'destructive' });
+    }
+  };
+
+  const loadOnlineUsers = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=online_users&userId=${userId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setOnlineUsers(data.users);
+        setShowOnlineUsers(true);
+      } else {
+        toast({ title: 'Ошибка загрузки онлайн пользователей', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Ошибка сервера', variant: 'destructive' });
+    }
+  };
+
+  const handleUserClick = (user: OrganizationUser) => {
+    setSelectedUser(user);
+    setShowRegisteredUsers(false);
+    setShowOnlineUsers(false);
+    setShowChatForm(true);
+  };
+
+  const handleSendChat = async () => {
+    if (!chatMessage.trim() || !selectedUser) {
+      toast({ title: 'Введите сообщение', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      toast({ title: 'Сообщение отправлено', description: `Сообщение для ${selectedUser.fio} отправлено` });
+      setChatMessage('');
+      setShowChatForm(false);
+      setSelectedUser(null);
+    } catch (error) {
+      toast({ title: 'Ошибка отправки', variant: 'destructive' });
+    }
+  };
+
+  const insertEmoji = (emoji: string) => {
+    setChatMessage(prev => prev + emoji);
+  };
+
+  const commonEmojis = ['😊', '😂', '❤️', '👍', '🔥', '✅', '⚠️', '📌', '💼', '🎯', '👋', '🙏', '💪', '🚀', '⭐', '✨'];
 
   const handleLogout = () => {
     localStorage.clear();
@@ -167,7 +256,10 @@ const UserCabinet = () => {
 
         {/* Activity Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <Card className="bg-slate-800/50 border-yellow-600/30 p-6">
+          <Card 
+            className="bg-slate-800/50 border-yellow-600/30 p-6 cursor-pointer hover:bg-slate-700/50 transition-colors"
+            onClick={loadRegisteredUsers}
+          >
             <div className="flex items-center gap-4">
               <div className="bg-gradient-to-br from-green-600 to-green-700 p-4 rounded-xl">
                 <Icon name="CheckCircle" size={32} className="text-white" />
@@ -179,7 +271,10 @@ const UserCabinet = () => {
             </div>
           </Card>
 
-          <Card className="bg-slate-800/50 border-yellow-600/30 p-6">
+          <Card 
+            className="bg-slate-800/50 border-yellow-600/30 p-6 cursor-pointer hover:bg-slate-700/50 transition-colors"
+            onClick={loadOnlineUsers}
+          >
             <div className="flex items-center gap-4">
               <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-4 rounded-xl">
                 <Icon name="Wifi" size={32} className="text-white" />
@@ -282,6 +377,164 @@ const UserCabinet = () => {
           </div>
         </Card>
       </div>
+
+      {/* Registered Users Dialog */}
+      <Dialog open={showRegisteredUsers} onOpenChange={setShowRegisteredUsers}>
+        <DialogContent className="bg-slate-800 border-yellow-600/30 text-white max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-yellow-500">Зарегистрированные пользователи</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Список пользователей предприятия АО "ГРК "Западная"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 mt-4">
+            {registeredUsers.map((user) => (
+              <Card
+                key={user.id}
+                className="bg-slate-700/50 border-slate-600/50 p-4 cursor-pointer hover:bg-slate-600/50 transition-colors"
+                onClick={() => handleUserClick(user)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-white mb-1">{user.fio}</h3>
+                    <div className="text-sm text-slate-400 space-y-1">
+                      <p><strong>Должность:</strong> {user.position}</p>
+                      <p><strong>Подразделение:</strong> {user.subdivision}</p>
+                      <p><strong>Предприятие:</strong> {user.company}</p>
+                    </div>
+                  </div>
+                  <Icon name="MessageCircle" size={24} className="text-blue-500 flex-shrink-0 ml-4" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Online Users Dialog */}
+      <Dialog open={showOnlineUsers} onOpenChange={setShowOnlineUsers}>
+        <DialogContent className="bg-slate-800 border-yellow-600/30 text-white max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-blue-500 flex items-center gap-2">
+              <Icon name="Wifi" size={28} />
+              Онлайн пользователи
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Пользователи онлайн из АО "ГРК "Западная"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 mt-4">
+            {onlineUsers.length === 0 ? (
+              <p className="text-slate-400 text-center py-8">Нет пользователей онлайн</p>
+            ) : (
+              onlineUsers.map((user) => (
+                <Card
+                  key={user.id}
+                  className="bg-slate-700/50 border-blue-600/50 p-4 cursor-pointer hover:bg-slate-600/50 transition-colors"
+                  onClick={() => handleUserClick(user)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        <h3 className="text-lg font-semibold text-white">{user.fio}</h3>
+                      </div>
+                      <div className="text-sm text-slate-400 space-y-1">
+                        <p><strong>Должность:</strong> {user.position}</p>
+                        <p><strong>Подразделение:</strong> {user.subdivision}</p>
+                        <p><strong>Предприятие:</strong> {user.company}</p>
+                      </div>
+                    </div>
+                    <Icon name="MessageCircle" size={24} className="text-blue-500 flex-shrink-0 ml-4" />
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Chat Form Dialog */}
+      <Dialog open={showChatForm} onOpenChange={setShowChatForm}>
+        <DialogContent className="bg-slate-800 border-yellow-600/30 text-white max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-yellow-500 flex items-center gap-2">
+              <Icon name="MessageSquare" size={28} />
+              Отправить сообщение
+            </DialogTitle>
+            {selectedUser && (
+              <DialogDescription className="text-slate-300 text-base">
+                Получатель: <strong>{selectedUser.fio}</strong>
+                <br />
+                {selectedUser.position} • {selectedUser.subdivision}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">Сообщение</label>
+              <Textarea
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                placeholder="Введите ваше сообщение..."
+                className="bg-slate-700 border-slate-600 text-white min-h-[150px]"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm text-slate-400">Добавить эмоджи</label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="text-yellow-500 hover:text-yellow-400"
+                >
+                  {showEmojiPicker ? 'Скрыть' : 'Показать'} эмоджи
+                </Button>
+              </div>
+              
+              {showEmojiPicker && (
+                <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-600">
+                  <div className="flex flex-wrap gap-2">
+                    {commonEmojis.map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => insertEmoji(emoji)}
+                        className="text-2xl hover:scale-125 transition-transform bg-slate-600/50 w-12 h-12 rounded-lg flex items-center justify-center hover:bg-slate-500/50"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                onClick={handleSendChat}
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white flex-1"
+              >
+                <Icon name="Send" size={20} className="mr-2" />
+                Отправить
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowChatForm(false);
+                  setChatMessage('');
+                  setSelectedUser(null);
+                  setShowEmojiPicker(false);
+                }}
+                variant="outline"
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              >
+                Отмена
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

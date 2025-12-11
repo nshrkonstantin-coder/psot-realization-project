@@ -237,6 +237,151 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False,
                 'body': json.dumps({'success': True, 'stats': stats})
             }
+        
+        elif action == 'registered_users':
+            user_id = params.get('userId')
+            
+            if not user_id:
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'User ID required'})
+                }
+            
+            # Получаем organization_id текущего пользователя
+            cur.execute(f"""
+                SELECT organization_id 
+                FROM t_p80499285_psot_realization_pro.users 
+                WHERE id = {user_id}
+            """)
+            
+            row = cur.fetchone()
+            
+            if not row or not row[0]:
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({'success': True, 'users': []})
+                }
+            
+            organization_id = row[0]
+            
+            # Получаем всех пользователей из той же организации
+            cur.execute(f"""
+                SELECT id, fio, display_name, position, subdivision, company, email
+                FROM t_p80499285_psot_realization_pro.users
+                WHERE organization_id = {organization_id}
+                AND role NOT IN ('admin', 'superadmin', 'miniadmin')
+                ORDER BY fio
+            """)
+            
+            users = []
+            for user_row in cur.fetchall():
+                users.append({
+                    'id': user_row[0],
+                    'fio': user_row[1] or user_row[2] or f"ID№{str(user_row[0]).zfill(5)}",
+                    'position': user_row[3] or '',
+                    'subdivision': user_row[4] or '',
+                    'company': user_row[5] or '',
+                    'email': user_row[6] or ''
+                })
+            
+            cur.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({'success': True, 'users': users})
+            }
+        
+        elif action == 'online_users':
+            user_id = params.get('userId')
+            
+            if not user_id:
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'User ID required'})
+                }
+            
+            # Получаем organization_id текущего пользователя
+            cur.execute(f"""
+                SELECT organization_id 
+                FROM t_p80499285_psot_realization_pro.users 
+                WHERE id = {user_id}
+            """)
+            
+            row = cur.fetchone()
+            
+            if not row or not row[0]:
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({'success': True, 'users': []})
+                }
+            
+            organization_id = row[0]
+            
+            # Получаем онлайн пользователей из той же организации (последняя активность < 5 минут)
+            cur.execute(f"""
+                SELECT u.id, u.fio, u.display_name, u.position, u.subdivision, u.company, u.email, u.last_activity
+                FROM t_p80499285_psot_realization_pro.users u
+                WHERE u.organization_id = {organization_id}
+                AND u.role NOT IN ('admin', 'superadmin', 'miniadmin')
+                AND u.last_activity IS NOT NULL
+                AND u.last_activity > NOW() - INTERVAL '5 minutes'
+                ORDER BY u.last_activity DESC
+            """)
+            
+            users = []
+            for user_row in cur.fetchall():
+                users.append({
+                    'id': user_row[0],
+                    'fio': user_row[1] or user_row[2] or f"ID№{str(user_row[0]).zfill(5)}",
+                    'position': user_row[3] or '',
+                    'subdivision': user_row[4] or '',
+                    'company': user_row[5] or '',
+                    'email': user_row[6] or '',
+                    'last_activity': user_row[7].isoformat() if user_row[7] else None
+                })
+            
+            cur.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({'success': True, 'users': users})
+            }
     
     if method == 'PUT':
         import psycopg2
