@@ -201,7 +201,7 @@ const StoragePage = () => {
                       }}
                       variant="ghost"
                       size="icon"
-                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      className="text-red-500 hover:text-white hover:bg-red-600 bg-red-500/20"
                     >
                       <Icon name="Trash2" size={20} />
                     </Button>
