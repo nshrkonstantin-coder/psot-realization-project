@@ -109,17 +109,6 @@ export default function PabRegistrationPage() {
     });
   };
 
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Загрузка...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <PabDataLoader
@@ -135,6 +124,16 @@ export default function PabRegistrationPage() {
         onOrgUsersLoaded={setOrgUsers}
         onAllowSingleObservation={setAllowSingleObservation}
       />
+
+      {!authChecked ? (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Загрузка...</p>
+          </div>
+        </div>
+      ) : (
+        <>
 
       <div className="max-w-6xl mx-auto px-4">
         <div className="mb-6">
@@ -219,6 +218,8 @@ export default function PabRegistrationPage() {
           sending={emailSending}
           result={emailResult}
         />
+      )}
+      </>
       )}
     </div>
   );
