@@ -62,6 +62,7 @@ const UserCabinet = () => {
   const [selectedUser, setSelectedUser] = useState<OrganizationUser | null>(null);
   const [chatMessage, setChatMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -70,13 +71,22 @@ const UserCabinet = () => {
       return;
     }
     loadUserStats();
+    checkUnreadMessages();
     
-    // Автоматическое обновление каждые 30 секунд
-    const interval = setInterval(() => {
+    // Автоматическое обновление статистики каждые 30 секунд
+    const statsInterval = setInterval(() => {
       loadUserStats();
     }, 30000);
     
-    return () => clearInterval(interval);
+    // Проверка новых сообщений каждые 10 секунд
+    const messagesInterval = setInterval(() => {
+      checkUnreadMessages();
+    }, 10000);
+    
+    return () => {
+      clearInterval(statsInterval);
+      clearInterval(messagesInterval);
+    };
   }, [navigate]);
 
   const loadUserStats = async () => {
@@ -94,6 +104,31 @@ const UserCabinet = () => {
       toast({ title: 'Ошибка сервера', variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkUnreadMessages = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(`https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389?userId=${userId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const totalUnread = data.chats.reduce((sum: number, chat: { unreadCount: number }) => sum + chat.unreadCount, 0);
+        
+        // Показываем уведомление только если количество новых сообщений увеличилось
+        if (totalUnread > unreadCount && unreadCount > 0) {
+          toast({ 
+            title: '📬 Новые сообщения', 
+            description: `У вас ${totalUnread} непрочитанных сообщений`,
+            duration: 5000
+          });
+        }
+        
+        setUnreadCount(totalUnread);
+      }
+    } catch (error) {
+      // Тихо игнорируем ошибки проверки сообщений
     }
   };
 
@@ -224,10 +259,15 @@ const UserCabinet = () => {
             <Button
               onClick={() => navigate('/chat-history')}
               variant="outline"
-              className="border-blue-600/50 text-blue-500 hover:bg-blue-600/10"
+              className="border-blue-600/50 text-blue-500 hover:bg-blue-600/10 relative"
             >
               <Icon name="MessageSquare" size={20} className="mr-2" />
               Сообщения
+              {unreadCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full font-semibold min-w-[20px] text-center animate-pulse">
+                  {unreadCount}
+                </span>
+              )}
             </Button>
             <Button
               onClick={() => navigate('/dashboard')}

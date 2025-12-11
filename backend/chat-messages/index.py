@@ -171,6 +171,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cur = conn.cursor()
         
         if receiver_id:
+            # Отмечаем все непрочитанные сообщения как прочитанные
+            cur.execute(f"""
+                UPDATE t_p80499285_psot_realization_pro.messages m
+                SET is_read = true
+                WHERE m.is_read = false
+                AND m.sender_id = {receiver_id}
+                AND m.chat_id IN (
+                    SELECT c.id FROM t_p80499285_psot_realization_pro.chats c
+                    WHERE c.type = 'private'
+                    AND EXISTS (
+                        SELECT 1 FROM t_p80499285_psot_realization_pro.chat_participants cp1
+                        WHERE cp1.chat_id = c.id AND cp1.user_id = {user_id}
+                    )
+                    AND EXISTS (
+                        SELECT 1 FROM t_p80499285_psot_realization_pro.chat_participants cp2
+                        WHERE cp2.chat_id = c.id AND cp2.user_id = {receiver_id}
+                    )
+                )
+            """)
+            conn.commit()
+            
             # Получаем историю сообщений с конкретным пользователем
             cur.execute(f"""
                 SELECT m.id, m.sender_id, m.message_text, m.created_at, m.is_read,

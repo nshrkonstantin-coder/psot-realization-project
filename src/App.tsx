@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import OfflineNotification from "@/components/OfflineNotification";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
+import MessageNotifications from "@/components/MessageNotifications";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -61,6 +62,7 @@ const App = () => (
           <OnlineStatusIndicator />
         </div>
         <BrowserRouter>
+          <MessageNotifications />
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/register" element={<Register />} />
