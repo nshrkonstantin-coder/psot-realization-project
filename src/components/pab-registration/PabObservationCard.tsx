@@ -209,7 +209,7 @@ export const PabObservationCard = ({
               <span className="text-gray-700">Выберите файл</span>
               <input
                 type="file"
-                accept="image/*"
+                accept="*/*"
                 onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
                     onPhotoChange(index, e.target.files[0]);

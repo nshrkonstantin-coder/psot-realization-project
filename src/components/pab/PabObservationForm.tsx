@@ -195,7 +195,7 @@ export const PabObservationForm = ({
           <Label className="text-slate-300">Фото наблюдения</Label>
           <Input
             type="file"
-            accept="image/*"
+            accept="*/*"
             onChange={(e) => {
               const file = e.target.files?.[0] || null;
               onUpdate(index, 'photo_file', file);

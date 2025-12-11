@@ -333,7 +333,7 @@ const CreateOrganizationPage = () => {
                         <div>
                           <input
                             type="file"
-                            accept="image/*"
+                            accept="*/*"
                             onChange={handleLogoUpload}
                             disabled={uploadingLogo}
                             className="hidden"
@@ -356,7 +356,7 @@ const CreateOrganizationPage = () => {
                     <div>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="*/*"
                         onChange={handleLogoUpload}
                         disabled={uploadingLogo}
                         className="hidden"

@@ -17,7 +17,7 @@ export const PabPhotoGallery = ({ photoFiles, onPhotoChange }: PabPhotoGalleryPr
             <Label className="text-slate-300">Фото {index + 1}</Label>
             <input
               type="file"
-              accept="image/*"
+              accept="*/*"
               onChange={(e) => {
                 const file = e.target.files?.[0] || null;
                 onPhotoChange(index, file);

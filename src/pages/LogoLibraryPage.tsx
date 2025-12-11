@@ -318,7 +318,7 @@ const LogoLibraryPage = () => {
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="*/*"
                         onChange={handleLogoUpload}
                         disabled={uploadingLogo}
                         className="hidden"
@@ -341,7 +341,7 @@ const LogoLibraryPage = () => {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="*/*"
                     onChange={handleLogoUpload}
                     disabled={uploadingLogo}
                     className="hidden"

@@ -188,7 +188,7 @@ export const OrganizationInfoSection = ({ organization, onLogoChange }: Organiza
                 <div>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="*/*"
                     onChange={handleLogoUpload}
                     disabled={uploadingLogo}
                     className="hidden"

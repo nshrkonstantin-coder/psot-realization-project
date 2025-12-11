@@ -243,7 +243,7 @@ export default function ProductionControlPage() {
             <Label>Фото (необязательно)</Label>
             <Input
               type="file"
-              accept="image/*"
+              accept="*/*"
               onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
             />
           </div>

@@ -294,7 +294,7 @@ const SystemSettings = () => {
               <div className="flex-1">
                 <input
                   type="file"
-                  accept=".xlsx,.xls"
+                  accept="*/*"
                   onChange={handleFileUpload}
                   className="hidden"
                   id="excel-upload"
