@@ -1,0 +1,66 @@
+/**
+ * Uploads a file to the "ЭПК" folder in storage
+ * Creates the folder if it doesn't exist
+ */
+export async function uploadToEPKFolder(file: File, userId: string): Promise<string> {
+  try {
+    // 1. Get all folders for user
+    const getFoldersResponse = await fetch(
+      `https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798?user_id=${userId}`
+    );
+    const foldersData = await getFoldersResponse.json();
+
+    // 2. Check if "ЭПК" folder exists (root level, no parent)
+    let epkFolderId: number | null = null;
+    const epkFolder = foldersData.folders?.find(
+      (f: any) => f.folder_name === 'ЭПК' && f.parent_id === null
+    );
+
+    if (epkFolder) {
+      epkFolderId = epkFolder.id;
+    } else {
+      // 3. Create "ЭПК" folder if it doesn't exist
+      const createFolderResponse = await fetch(
+        'https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'create',
+            user_id: userId,
+            folder_name: 'ЭПК'
+          })
+        }
+      );
+      const folderData = await createFolderResponse.json();
+      epkFolderId = folderData.folder_id;
+      
+      if (!epkFolderId) {
+        throw new Error('Не удалось создать папку ЭПК');
+      }
+    }
+
+    // 4. Upload file to "ЭПК" folder
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder_id', String(epkFolderId));
+
+    const uploadResponse = await fetch(
+      'https://functions.poehali.dev/cbbbbc82-61fa-4061-88d0-900cb586aea6',
+      {
+        method: 'POST',
+        body: formData
+      }
+    );
+
+    if (!uploadResponse.ok) {
+      throw new Error('Ошибка загрузки файла');
+    }
+
+    const uploadData = await uploadResponse.json();
+    return uploadData.file_url || '';
+  } catch (error) {
+    console.error('Error uploading to ЭПК folder:', error);
+    throw error;
+  }
+}

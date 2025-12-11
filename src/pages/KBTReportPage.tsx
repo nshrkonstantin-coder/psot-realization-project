@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, BorderStyle } from 'docx';
+import { uploadToKBTFolder } from '@/utils/uploadToKBTFolder';
 
 interface KBTFormData {
   department: string;
@@ -181,11 +182,17 @@ export default function KBTReportPage() {
       const userId = localStorage.getItem('userId');
       const organizationId = localStorage.getItem('organizationId');
       
-      // Сначала генерируем Word документ
-      toast.info('Генерация Word документа...');
-      await handleExportWord();
+      // Генерируем Word документ и загружаем в папку КБТ
+      toast.info('Генерация и загрузка Word документа в папку КБТ...');
+      const wordFileUrl = await generateAndUploadWord();
       
-      // Отправляем данные в базу
+      if (!wordFileUrl) {
+        toast.error('Ошибка загрузки Word файла');
+        setLoading(false);
+        return;
+      }
+      
+      // Отправляем данные в базу с URL на Word файл
       toast.info('Сохранение в базу данных...');
       const response = await fetch('https://functions.poehali.dev/7abe1e4c-3790-4bcd-9d37-4967f7dfb8ca', {
         method: 'POST',
@@ -193,7 +200,8 @@ export default function KBTReportPage() {
         body: JSON.stringify({
           ...formData,
           user_id: parseInt(userId!),
-          organization_id: parseInt(organizationId!)
+          organization_id: parseInt(organizationId!),
+          word_file_url: wordFileUrl
         })
       });
 
@@ -208,13 +216,21 @@ export default function KBTReportPage() {
               <strong>Руководитель:</strong> {formData.head_name}<br/>
               <strong>Период:</strong> {formData.period_from} - {formData.period_to}<br/>
               <strong>ID в базе:</strong> {result.report_id}<br/>
-              <strong>Место хранения:</strong> База данных (таблица: kbt_reports)
+              <strong>Место хранения:</strong> База данных + папка "КБТ" в Хранилище
             </div>
-            <button 
-              onClick={() => navigate('/storage')}
+            <a 
+              href={wordFileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-800 text-sm underline text-left mt-1"
             >
-              📁 Перейти в Хранилище
+              📄 Открыть Word документ
+            </a>
+            <button 
+              onClick={() => navigate('/storage')}
+              className="text-blue-600 hover:text-blue-800 text-sm underline text-left"
+            >
+              📁 Перейти в Хранилище → КБТ
             </button>
           </div>,
           {
@@ -235,9 +251,27 @@ export default function KBTReportPage() {
     }
   };
 
-  const handleExportWord = async () => {
+  const generateAndUploadWord = async (): Promise<string> => {
     try {
-      const doc = new Document({
+      const doc = generateWordDocument();
+      const blob = await Packer.toBlob(doc);
+      const file = new File([blob], `КБТ_${formData.department}_${formData.period_from}_${formData.period_to}.docx`, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+      
+      const fileUrl = await uploadToKBTFolder(file, userId);
+      return fileUrl;
+    } catch (error) {
+      console.error('Error generating and uploading KBT Word:', error);
+      return '';
+    }
+  };
+
+  const generateWordDocument = (): Document => {
+    return new Document({
         sections: [
           {
             properties: {},

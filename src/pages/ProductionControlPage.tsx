@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, ImageRun } from 'docx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { uploadToEPKFolder } from '@/utils/uploadToEPKFolder';
 
 interface ViolationItem {
   item_number: number;
@@ -218,11 +219,17 @@ export default function ProductionControlPage() {
       const organizationId = localStorage.getItem('organizationId');
       const recipientName = orgUsers.find(u => String(u.id) === recipientUserId)?.fio || '';
       
-      // Сначала генерируем Word документ
-      toast.info('Генерация Word документа...');
-      await handleExportWord();
+      // Генерируем Word документ и загружаем в папку ЭПК
+      toast.info('Генерация и загрузка Word документа в папку ЭПК...');
+      const wordFileUrl = await generateAndUploadWord();
       
-      // Отправляем данные в базу
+      if (!wordFileUrl) {
+        toast.error('Ошибка загрузки Word файла');
+        setLoading(false);
+        return;
+      }
+      
+      // Отправляем данные в базу с URL на Word файл
       toast.info('Сохранение в базу данных...');
       const response = await fetch('https://functions.poehali.dev/2babe7b8-1f0b-464f-8aae-3e623cf3a795', {
         method: 'POST',
@@ -240,7 +247,8 @@ export default function ProductionControlPage() {
           violations,
           acceptor_signatures: acceptorSignatures,
           user_id: parseInt(userId!),
-          organization_id: parseInt(organizationId!)
+          organization_id: parseInt(organizationId!),
+          word_file_url: wordFileUrl
         })
       });
 
@@ -254,13 +262,21 @@ export default function ProductionControlPage() {
               <strong>Номер:</strong> {docNumber}<br/>
               <strong>Кому:</strong> {recipientName}<br/>
               <strong>ID в базе:</strong> {result.report_id}<br/>
-              <strong>Место хранения:</strong> База данных (таблица: production_control_reports)
+              <strong>Место хранения:</strong> База данных + папка "ЭПК" в Хранилище
             </div>
-            <button 
-              onClick={() => navigate('/storage')}
+            <a 
+              href={wordFileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-800 text-sm underline text-left mt-1"
             >
-              📁 Перейти в Хранилище
+              📄 Открыть Word документ
+            </a>
+            <button 
+              onClick={() => navigate('/storage')}
+              className="text-blue-600 hover:text-blue-800 text-sm underline text-left"
+            >
+              📁 Перейти в Хранилище → ЭПК
             </button>
           </div>,
           {
@@ -278,6 +294,108 @@ export default function ProductionControlPage() {
       toast.error('Ошибка при сохранении');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateAndUploadWord = async (): Promise<string> => {
+    try {
+      const tableRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'п/п', bold: true })], width: { size: 5, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ text: 'Краткое изложение выявленных нарушений с указанием места обнаружения (при необходимости вкладывать фото)', bold: true })], width: { size: 45, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ text: 'Предлагаемые меры, ответственные за выполнение и срок устранения нарушений', bold: true })], width: { size: 50, type: WidthType.PERCENTAGE } })
+          ]
+        })
+      ];
+
+      for (const item of violations) {
+        const descriptionParts: (Paragraph | Table)[] = [new Paragraph(item.description || '')];
+        
+        for (const photo of item.photos) {
+          try {
+            const base64Data = photo.data.split(',')[1];
+            const imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+            
+            descriptionParts.push(
+              new Paragraph({
+                children: [
+                  new ImageRun({
+                    data: imageBuffer,
+                    transformation: {
+                      width: 300,
+                      height: 225
+                    }
+                  })
+                ],
+                spacing: { before: 200, after: 200 }
+              })
+            );
+          } catch (error) {
+            console.error('Error adding image to Word:', error);
+          }
+        }
+
+        tableRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph(String(item.item_number) + '.')] }),
+              new TableCell({ children: descriptionParts }),
+              new TableCell({ children: [new Paragraph(item.measures || '')] })
+            ]
+          })
+        );
+      }
+
+      const recipientUser = orgUsers.find(u => String(u.id) === recipientUserId);
+      const recipientText = recipientUser ? `${recipientUser.fio}, ${recipientUser.position}` : '';
+
+      const doc = new Document({
+        sections: [
+          {
+            properties: {},
+            children: [
+              new Paragraph({ text: 'Электронная выдача АКТа производственного контроля', alignment: AlignmentType.CENTER, bold: true, spacing: { after: 200 } }),
+              new Paragraph({ text: 'РОССИЙСКАЯ ФЕДЕРАЦИЯ (РОССИЯ)', alignment: AlignmentType.CENTER, spacing: { after: 100 } }),
+              new Paragraph({ text: 'РЕСПУБЛИКА САХА (ЯКУТИЯ)', alignment: AlignmentType.CENTER, spacing: { after: 300 } }),
+              new Paragraph({ text: 'Акционерное Общество «Горно-рудная компания «Западная»', alignment: AlignmentType.CENTER, bold: true, spacing: { after: 100 } }),
+              new Paragraph({ text: '678730, Республика Саха (Якутия), Оймяконский район, п. г. т. Усть-Нера, проезд Северный, д.12.', alignment: AlignmentType.CENTER, spacing: { after: 100 } }),
+              new Paragraph({ text: 'тел. 8 (395) 225-52-88, доб.*1502', alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
+              new Paragraph({ text: `${currentDate}                    Рудник «Бадран»`, spacing: { after: 300 } }),
+              new Paragraph({ text: `ПРЕДПИСАНИЕ (АКТ) №${docNumber}`, alignment: AlignmentType.CENTER, bold: true, spacing: { after: 200 } }),
+              new Paragraph({ text: 'Проверки по производственному контролю за состоянием ОТ и ПБ', alignment: AlignmentType.CENTER, spacing: { after: 300 } }),
+              new Paragraph({ text: `Кому: ${recipientText}`, spacing: { after: 100 } }),
+              new Paragraph({ text: department, spacing: { after: 100 } }),
+              new Paragraph({ text: `Проверка проведена в присутствии: ${witness}`, spacing: { after: 200 } }),
+              new Paragraph({ text: 'Необходимо устранить следующие нарушения в указанные сроки:', spacing: { after: 200 } }),
+              new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: tableRows
+              }),
+              new Paragraph({ text: 'О выполнении настоящего предписания прошу предоставить письменное уведомление в отдел ОТ и ПБ согласно дат, указанных в пунктах.', spacing: { before: 300, after: 300 } }),
+              new Paragraph({ text: `Предписание выдал: ${issuerName}, ${issuerPosition}       Дата: ${issueDate}`, spacing: { after: 200 } }),
+              ...acceptorSignatures.map(sig => 
+                new Paragraph({ text: `Предписание принял: ${sig.userName}       Дата: ${sig.date}`, spacing: { after: 100 } })
+              )
+            ]
+          }
+        ]
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const file = new File([blob], `Предписание_${docNumber}_${new Date().toISOString().slice(0, 10)}.docx`, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      
+      // Загружаем в папку ЭПК
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+      
+      const fileUrl = await uploadToEPKFolder(file, userId);
+      return fileUrl;
+    } catch (error) {
+      console.error('Error generating and uploading Word:', error);
+      return '';
     }
   };
 
