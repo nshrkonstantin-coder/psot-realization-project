@@ -37,6 +37,7 @@ import OrganizationModulesPage from "./pages/OrganizationModulesPage";
 import MyMetricsPage from "./pages/MyMetricsPage";
 import SystemSettings from "./pages/SystemSettings";
 import UserCabinet from "./pages/UserCabinet";
+import ChatHistory from "./pages/ChatHistory";
 import OrgMiniAdmin from "./pages/OrgMiniAdmin";
 import AssignMiniAdmin from "./pages/AssignMiniAdmin";
 import HashCalculator from "./pages/HashCalculator";
@@ -91,6 +92,7 @@ const App = () => (
           <Route path="/my-metrics" element={<MyMetricsPage />} />
           <Route path="/system-settings" element={<SystemSettings />} />
           <Route path="/user-cabinet" element={<UserCabinet />} />
+          <Route path="/chat-history" element={<ChatHistory />} />
           <Route path="/miniadmin" element={<OrgMiniAdmin />} />
           <Route path="/assign-miniadmin" element={<AssignMiniAdmin />} />
           <Route path="/hash-calculator" element={<HashCalculator />} />

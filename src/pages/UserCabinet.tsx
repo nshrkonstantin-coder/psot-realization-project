@@ -145,10 +145,30 @@ const UserCabinet = () => {
     }
 
     try {
-      toast({ title: 'Сообщение отправлено', description: `Сообщение для ${selectedUser.fio} отправлено` });
-      setChatMessage('');
-      setShowChatForm(false);
-      setSelectedUser(null);
+      const userId = localStorage.getItem('userId');
+      const response = await fetch('https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          senderId: userId,
+          receiverId: selectedUser.id,
+          message: chatMessage
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast({ title: 'Сообщение отправлено', description: `Сообщение для ${selectedUser.fio} отправлено` });
+        setChatMessage('');
+        setShowChatForm(false);
+        setSelectedUser(null);
+        setShowEmojiPicker(false);
+      } else {
+        toast({ title: 'Ошибка отправки', description: data.error, variant: 'destructive' });
+      }
     } catch (error) {
       toast({ title: 'Ошибка отправки', variant: 'destructive' });
     }
@@ -201,6 +221,14 @@ const UserCabinet = () => {
             </div>
           </div>
           <div className="flex gap-3">
+            <Button
+              onClick={() => navigate('/chat-history')}
+              variant="outline"
+              className="border-blue-600/50 text-blue-500 hover:bg-blue-600/10"
+            >
+              <Icon name="MessageSquare" size={20} className="mr-2" />
+              Сообщения
+            </Button>
             <Button
               onClick={() => navigate('/dashboard')}
               variant="outline"
