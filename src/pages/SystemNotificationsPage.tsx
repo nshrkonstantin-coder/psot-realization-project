@@ -44,6 +44,9 @@ const SystemNotificationsPage = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterRead, setFilterRead] = useState<string>('all');
   const [translatedTexts, setTranslatedTexts] = useState<Map<number, { title: string; message: string; errorDetails?: string }>>(new Map());
+  const [isFixDialogOpen, setIsFixDialogOpen] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [fixNotes, setFixNotes] = useState('');
 
   useEffect(() => {
     const userRole = localStorage.getItem('userRole');
@@ -220,6 +223,86 @@ const SystemNotificationsPage = () => {
     return colors[severity] || 'bg-slate-500';
   };
 
+  const openFixDialog = (notification: Notification) => {
+    setSelectedNotification(notification);
+    setFixNotes('');
+    setIsFixDialogOpen(true);
+  };
+
+  const handleFixError = async () => {
+    if (!selectedNotification || !fixNotes.trim()) {
+      toast.error('Опишите способ исправления ошибки');
+      return;
+    }
+
+    try {
+      // Создаём новое уведомление об исправлении
+      await fetch('https://functions.poehali.dev/93aa0398-4cd1-4a05-956b-50984ea3e98e', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          type: 'success',
+          severity: 'medium',
+          title: `Ошибка исправлена: ${selectedNotification.title}`,
+          message: `Способ исправления: ${fixNotes}`,
+          pageUrl: selectedNotification.pageUrl,
+          pageName: selectedNotification.pageName,
+          userId: selectedNotification.userId,
+          userFio: selectedNotification.userFio,
+          userPosition: selectedNotification.userPosition,
+          organizationId: selectedNotification.organizationId,
+          organizationName: selectedNotification.organizationName,
+          actionType: 'error_fixed',
+          metadata: {
+            originalErrorId: selectedNotification.id,
+            fixedBy: localStorage.getItem('userFio'),
+            fixedAt: new Date().toISOString()
+          }
+        })
+      });
+
+      // Помечаем исходную ошибку как прочитанную
+      await fetch('https://functions.poehali.dev/93aa0398-4cd1-4a05-956b-50984ea3e98e', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'mark_read',
+          ids: [selectedNotification.id]
+        })
+      });
+
+      toast.success('Ошибка отмечена как исправленная');
+      setIsFixDialogOpen(false);
+      setSelectedNotification(null);
+      setFixNotes('');
+      loadNotifications();
+    } catch (error) {
+      toast.error('Ошибка при сохранении исправления');
+      console.error(error);
+    }
+  };
+
+  const handleResolveError = async (notificationId: number) => {
+    try {
+      // Помечаем как прочитанное и создаём запись об исправлении
+      await fetch('https://functions.poehali.dev/93aa0398-4cd1-4a05-956b-50984ea3e98e', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'mark_read',
+          ids: [notificationId]
+        })
+      });
+
+      toast.success('Ошибка отмечена как решённая');
+      loadNotifications();
+    } catch (error) {
+      toast.error('Ошибка при обработке');
+      console.error(error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -312,15 +395,28 @@ const SystemNotificationsPage = () => {
                 variant={filterType === 'error' ? 'default' : 'outline'}
                 onClick={() => setFilterType('error')}
                 size="sm"
+                className={filterType === 'error' ? 'bg-red-600 hover:bg-red-700' : ''}
               >
+                <Icon name="AlertCircle" size={14} className="mr-1" />
                 Ошибки
               </Button>
               <Button
                 variant={filterType === 'warning' ? 'default' : 'outline'}
                 onClick={() => setFilterType('warning')}
                 size="sm"
+                className={filterType === 'warning' ? 'bg-orange-600 hover:bg-orange-700' : ''}
               >
+                <Icon name="AlertTriangle" size={14} className="mr-1" />
                 Предупреждения
+              </Button>
+              <Button
+                variant={filterType === 'success' ? 'default' : 'outline'}
+                onClick={() => setFilterType('success')}
+                size="sm"
+                className={filterType === 'success' ? 'bg-green-600 hover:bg-green-700' : ''}
+              >
+                <Icon name="CheckCircle" size={14} className="mr-1" />
+                Исправлено
               </Button>
             </div>
 
@@ -493,11 +589,130 @@ const SystemNotificationsPage = () => {
                           </a>
                         </div>
                       )}
+
+                      {/* Кнопки управления ошибками */}
+                      {(notification.type === 'error' || notification.type === 'warning') && !notification.isRead && (
+                        <div className="mt-4 flex gap-2 flex-wrap">
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openFixDialog(notification);
+                            }}
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            <Icon name="Wrench" size={16} className="mr-2" />
+                            Исправить
+                          </Button>
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleResolveError(notification.id);
+                            }}
+                            size="sm"
+                            variant="outline"
+                            className="border-green-600/50 text-green-500 hover:bg-green-600/10"
+                          >
+                            <Icon name="CheckCircle" size={16} className="mr-2" />
+                            Отметить решённой
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               </Card>
             ))}
+          </div>
+        )}
+
+        {/* Диалог исправления ошибки */}
+        {isFixDialogOpen && selectedNotification && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <Card className="bg-slate-800 border-yellow-600/30 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Исправление ошибки</h2>
+                    <p className="text-slate-400">{selectedNotification.title}</p>
+                  </div>
+                  <Button
+                    onClick={() => setIsFixDialogOpen(false)}
+                    variant="ghost"
+                    size="icon"
+                    className="text-slate-400 hover:text-white"
+                  >
+                    <Icon name="X" size={24} />
+                  </Button>
+                </div>
+
+                <div className="mb-4 p-4 bg-slate-900/50 rounded-lg">
+                  <p className="text-sm text-slate-300 mb-2">
+                    <strong>Сообщение:</strong> {selectedNotification.message}
+                  </p>
+                  {selectedNotification.organizationName && (
+                    <p className="text-sm text-slate-400 mb-1">
+                      <strong>Предприятие:</strong> {selectedNotification.organizationName}
+                    </p>
+                  )}
+                  {selectedNotification.userFio && (
+                    <p className="text-sm text-slate-400 mb-1">
+                      <strong>Пользователь:</strong> {selectedNotification.userFio}
+                    </p>
+                  )}
+                  {selectedNotification.pageName && (
+                    <p className="text-sm text-slate-400">
+                      <strong>Страница:</strong> {selectedNotification.pageName}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-white font-semibold mb-2">
+                    Опишите способ исправления и выполненные действия:
+                  </label>
+                  <textarea
+                    value={fixNotes}
+                    onChange={(e) => setFixNotes(e.target.value)}
+                    placeholder="Например: Исправлена ошибка в коде функции auth/index.py, обновлена валидация входных данных. Перезапущен сервер."
+                    rows={6}
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:border-yellow-600 focus:outline-none"
+                  />
+                </div>
+
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
+                  <div className="flex items-start gap-3">
+                    <Icon name="Info" size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-slate-300">
+                      <p className="font-semibold text-blue-400 mb-1">Информация:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>Будет создано уведомление об успешном исправлении</li>
+                        <li>Исходная ошибка будет помечена как прочитанная</li>
+                        <li>Информация сохранится для истории исправлений</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    onClick={() => setIsFixDialogOpen(false)}
+                    variant="outline"
+                    className="border-slate-600 text-slate-400 hover:bg-slate-700"
+                  >
+                    Отмена
+                  </Button>
+                  <Button
+                    onClick={handleFixError}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    disabled={!fixNotes.trim()}
+                  >
+                    <Icon name="Check" size={20} className="mr-2" />
+                    Подтвердить исправление
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
         )}
       </div>
