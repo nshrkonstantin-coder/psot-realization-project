@@ -37,9 +37,7 @@ export function PabDataLoader({
       onAllowSingleObservation(true);
     }
     
-    if (userId) {
-      loadData();
-    }
+    loadData();
   }, []);
 
   const loadData = async () => {
@@ -73,10 +71,15 @@ export function PabDataLoader({
             userData.user.position || '',
             userData.user.subdivision || ''
           );
+        } else {
+          onUserDataLoaded('', '', '');
         }
       } catch (error) {
         console.error('Error loading user data:', error);
+        onUserDataLoaded('', '', '');
       }
+    } else {
+      onUserDataLoaded('', '', '');
     }
 
     if (organizationId) {
