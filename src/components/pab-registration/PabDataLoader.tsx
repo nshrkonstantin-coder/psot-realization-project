@@ -30,8 +30,10 @@ export function PabDataLoader({
   onAllowSingleObservation
 }: PabDataLoaderProps) {
   useEffect(() => {
+    console.log('[PabDataLoader] Component mounted');
     const userId = localStorage.getItem('userId');
     const userFio = localStorage.getItem('userFio') || '';
+    console.log('[PabDataLoader] userId:', userId, 'userFio:', userFio);
     
     if (userFio === 'Сергеев Дем Демович') {
       onAllowSingleObservation(true);
@@ -41,8 +43,10 @@ export function PabDataLoader({
   }, []);
 
   const loadData = async () => {
+    console.log('[PabDataLoader] loadData started');
     const userId = localStorage.getItem('userId');
     const organizationId = localStorage.getItem('organizationId');
+    console.log('[PabDataLoader] userId:', userId, 'organizationId:', organizationId);
     
     try {
       const dictResponse = await fetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960');
@@ -63,22 +67,27 @@ export function PabDataLoader({
 
     if (userId) {
       try {
+        console.log('[PabDataLoader] Fetching user data...');
         const userResponse = await fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`);
         const userData = await userResponse.json();
+        console.log('[PabDataLoader] User data received:', userData);
         if (userData.success && userData.user) {
+          console.log('[PabDataLoader] Calling onUserDataLoaded with:', userData.user);
           onUserDataLoaded(
             userData.user.fio || '',
             userData.user.position || '',
             userData.user.subdivision || ''
           );
         } else {
+          console.log('[PabDataLoader] User data not valid, calling onUserDataLoaded with empty values');
           onUserDataLoaded('', '', '');
         }
       } catch (error) {
-        console.error('Error loading user data:', error);
+        console.error('[PabDataLoader] Error loading user data:', error);
         onUserDataLoaded('', '', '');
       }
     } else {
+      console.log('[PabDataLoader] No userId, calling onUserDataLoaded with empty values');
       onUserDataLoaded('', '', '');
     }
 
