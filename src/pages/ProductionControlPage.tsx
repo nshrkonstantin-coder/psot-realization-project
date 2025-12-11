@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, ImageRun } from 'docx';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface ViolationItem {
   item_number: number;
   description: string;
-  photos: Array<{ data: string; description: string }>;
+  photos: Array<{ data: string }>;
   measures: string;
 }
 
@@ -29,7 +31,7 @@ export default function ProductionControlPage() {
   const [orgUsers, setOrgUsers] = useState<Array<{ id: number; fio: string; position: string; subdivision: string }>>([]);
   
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
-  const [docNumber, setDocNumber] = useState('ПК 24-25');
+  const [docNumber, setDocNumber] = useState('');
   const [recipientUserId, setRecipientUserId] = useState('');
   const [department, setDepartment] = useState('');
   const [witness, setWitness] = useState('');
@@ -70,7 +72,24 @@ export default function ProductionControlPage() {
     setIssuerPosition(userPosition);
     
     loadOrgUsers();
+    generateDocNumber();
   }, [navigate]);
+
+  const generateDocNumber = () => {
+    const currentYear = new Date().getFullYear();
+    const shortYear = currentYear.toString().slice(-2);
+    const reportsKey = 'production_control_reports';
+    const existingReports = JSON.parse(localStorage.getItem(reportsKey) || '[]');
+    
+    const currentYearReports = existingReports.filter((report: any) => {
+      const reportYear = new Date(report.created_at).getFullYear();
+      return reportYear === currentYear;
+    });
+    
+    const nextNumber = currentYearReports.length + 1;
+    const docNum = `ЭПК-${nextNumber}-${shortYear}`;
+    setDocNumber(docNum);
+  };
 
   const loadOrgUsers = async () => {
     const organizationId = localStorage.getItem('organizationId');
@@ -126,20 +145,13 @@ export default function ProductionControlPage() {
     reader.onload = (e) => {
       const updated = [...violations];
       updated[index].photos.push({
-        data: e.target?.result as string,
-        description: ''
+        data: e.target?.result as string
       });
       setViolations(updated);
       toast.success('Фото добавлено');
     };
     
     reader.readAsDataURL(file);
-  };
-
-  const updatePhotoDescription = (violationIndex: number, photoIndex: number, description: string) => {
-    const updated = [...violations];
-    updated[violationIndex].photos[photoIndex].description = description;
-    setViolations(updated);
   };
 
   const removePhoto = (violationIndex: number, photoIndex: number) => {
@@ -233,14 +245,32 @@ export default function ProductionControlPage() {
         })
       ];
 
-      violations.forEach(item => {
-        const descriptionParts: (Paragraph)[] = [new Paragraph(item.description || '')];
+      for (const item of violations) {
+        const descriptionParts: (Paragraph | Table)[] = [new Paragraph(item.description || '')];
         
-        item.photos.forEach(photo => {
-          if (photo.description) {
-            descriptionParts.push(new Paragraph({ text: photo.description, spacing: { before: 100 } }));
+        for (const photo of item.photos) {
+          try {
+            const base64Data = photo.data.split(',')[1];
+            const imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+            
+            descriptionParts.push(
+              new Paragraph({
+                children: [
+                  new ImageRun({
+                    data: imageBuffer,
+                    transformation: {
+                      width: 300,
+                      height: 225
+                    }
+                  })
+                ],
+                spacing: { before: 200, after: 200 }
+              })
+            );
+          } catch (error) {
+            console.error('Error adding image to Word:', error);
           }
-        });
+        }
 
         tableRows.push(
           new TableRow({
@@ -251,7 +281,7 @@ export default function ProductionControlPage() {
             ]
           })
         );
-      });
+      }
 
       const recipientUser = orgUsers.find(u => String(u.id) === recipientUserId);
       const recipientText = recipientUser ? `${recipientUser.fio}, ${recipientUser.position}` : '';
@@ -305,15 +335,55 @@ export default function ProductionControlPage() {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    try {
+      const element = document.getElementById('print-container');
+      if (!element) {
+        toast.error('Ошибка: контейнер не найден');
+        return;
+      }
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth - 30;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 15;
+
+      pdf.addImage(imgData, 'PNG', 15, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight - 30;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight + 15;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 15, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight - 30;
+      }
+
+      pdf.save(`Предписание_${docNumber}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success('PDF успешно сохранен!');
+    } catch (error) {
+      console.error('Error creating PDF:', error);
+      toast.error('Ошибка при создании PDF');
+    }
   };
 
   const uniqueSubdivisions = Array.from(new Set(orgUsers.map(u => u.subdivision)));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 print:bg-white">
-      <Card className="max-w-7xl mx-auto p-8 print:shadow-none">
+      <Card id="print-container" className="max-w-7xl mx-auto p-8 print:shadow-none bg-white">
         <div className="header text-center mb-6 border-b-2 border-slate-300 pb-4 print:border-black">
           <h3 className="text-xl font-bold text-slate-900">Электронная выдача АКТа производственного контроля</h3>
           <h4 className="text-lg font-semibold text-slate-700 mt-2">РОССИЙСКАЯ ФЕДЕРАЦИЯ (РОССИЯ)</h4>
@@ -336,7 +406,7 @@ export default function ProductionControlPage() {
         </div>
 
         <div className="document-title text-center mb-4">
-          <h2 className="text-2xl font-bold text-slate-900 underline">ПРЕДПИСАНИЕ (АКТ) №{docNumber}</h2>
+          <h2 className="text-2xl font-bold text-slate-900 underline">ПРЕДПИСАНИЕ (АКТ) {docNumber ? `№${docNumber}` : ''}</h2>
           <p className="text-slate-700 mt-2">Проверки по производственному контролю за состоянием ОТ и ПБ</p>
         </div>
 
@@ -408,19 +478,13 @@ export default function ProductionControlPage() {
                     />
                     
                     {item.photos.map((photo, photoIndex) => (
-                      <div key={photoIndex} className="mt-3 p-2 border border-slate-200 rounded print:hidden">
+                      <div key={photoIndex} className="mt-3 p-2 border border-slate-200 rounded">
                         <img src={photo.data} alt="Фото нарушения" className="max-w-xs h-auto mb-2" />
-                        <Input
-                          value={photo.description}
-                          onChange={(e) => updatePhotoDescription(index, photoIndex, e.target.value)}
-                          placeholder="Описание фото"
-                          className="mb-2"
-                        />
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => removePhoto(index, photoIndex)}
-                          className="text-red-600"
+                          className="text-red-600 print:hidden"
                         >
                           <Icon name="Trash2" size={16} className="mr-1" />
                           Удалить фото
@@ -540,11 +604,11 @@ export default function ProductionControlPage() {
           </Button>
           <Button onClick={handleExportWord} variant="outline" className="border-blue-700 text-blue-700 hover:bg-blue-50">
             <Icon name="FileText" size={20} className="mr-2" />
-            Скачать в Word
+            Скачать Word
           </Button>
           <Button onClick={handlePrint} variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-50">
-            <Icon name="Printer" size={20} className="mr-2" />
-            Распечатать
+            <Icon name="FileDown" size={20} className="mr-2" />
+            Скачать PDF
           </Button>
         </div>
       </Card>
