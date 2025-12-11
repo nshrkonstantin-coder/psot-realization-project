@@ -44,6 +44,13 @@ const UserCabinet = () => {
       return;
     }
     loadUserStats();
+    
+    // Автоматическое обновление каждые 30 секунд
+    const interval = setInterval(() => {
+      loadUserStats();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, [navigate]);
 
   const loadUserStats = async () => {
