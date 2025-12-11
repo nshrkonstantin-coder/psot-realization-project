@@ -44,8 +44,6 @@ import AssignMiniAdmin from "./pages/AssignMiniAdmin";
 import HashCalculator from "./pages/HashCalculator";
 import EmailTestPage from "./pages/EmailTestPage";
 import EmailConfigPage from "./pages/EmailConfigPage";
-import MessagingPage from "./pages/MessagingPage";
-import IntercorpManagementPage from "./pages/IntercorpManagementPage";
 import SystemNotificationsPage from "./pages/SystemNotificationsPage";
 import NotFound from "./pages/NotFound";
 
@@ -100,8 +98,6 @@ const App = () => (
           <Route path="/hash-calculator" element={<HashCalculator />} />
           <Route path="/email-test" element={<EmailTestPage />} />
           <Route path="/email-config" element={<EmailConfigPage />} />
-          <Route path="/messaging" element={<MessagingPage />} />
-          <Route path="/intercorp-management" element={<IntercorpManagementPage />} />
           <Route path="/system-notifications" element={<SystemNotificationsPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

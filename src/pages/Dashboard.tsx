@@ -28,7 +28,7 @@ const Dashboard = () => {
   const navigationButtons = [
     { label: 'Личный кабинет', icon: 'User', color: 'from-purple-500 to-purple-600', route: '/user-cabinet' },
     { label: 'Профиль', icon: 'Settings', color: 'from-slate-500 to-slate-600', route: '/profile' },
-    { label: 'Сообщения', icon: 'MessageCircle', color: 'from-cyan-500 to-blue-600', route: '/messaging' },
+    { label: 'Сообщения', icon: 'MessageCircle', color: 'from-cyan-500 to-blue-600', route: '/chat-history' },
     { label: 'Регистрация ПАБ', icon: 'FileText', color: 'from-red-500 to-red-600', route: '/pab-registration' },
     { label: 'Список ПАБ', icon: 'List', color: 'from-green-500 to-green-600', route: '/pab-list' },
     { label: 'Мои показатели', icon: 'TrendingUp', color: 'from-blue-500 to-blue-600', route: '/my-metrics' },

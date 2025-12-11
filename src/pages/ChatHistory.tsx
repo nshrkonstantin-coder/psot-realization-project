@@ -94,21 +94,16 @@ const ChatHistory = () => {
   const loadOrganizationUsers = async () => {
     try {
       const userId = localStorage.getItem('userId');
-      console.log('Загрузка пользователей организации для userId:', userId);
       const response = await fetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=registered_users&userId=${userId}`);
       const data = await response.json();
-      console.log('Ответ от сервера:', data);
       
       if (data.success) {
-        console.log('Загружено пользователей:', data.users.length);
         setOrganizationUsers(data.users);
         setShowNewChatDialog(true);
       } else {
-        console.error('Ошибка в ответе:', data);
         toast({ title: 'Ошибка загрузки пользователей', variant: 'destructive' });
       }
     } catch (error) {
-      console.error('Ошибка при загрузке пользователей:', error);
       toast({ title: 'Ошибка сервера', variant: 'destructive' });
     }
   };
@@ -444,12 +439,6 @@ const ChatHistory = () => {
                   className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-            </div>
-
-            {/* Отладочная информация */}
-            <div className="mb-4 p-3 bg-blue-900/30 border border-blue-600/30 rounded-lg text-sm text-blue-300">
-              <p>Всего пользователей загружено: {organizationUsers.length}</p>
-              <p>Поисковый запрос: {searchQuery || '(пусто)'}</p>
             </div>
 
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
