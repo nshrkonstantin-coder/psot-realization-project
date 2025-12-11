@@ -39,6 +39,7 @@ interface OrgUser {
 }
 
 export default function PabRegistrationPage() {
+  console.log('PabRegistrationPage: component rendering');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [userCompany, setUserCompany] = useState('');
@@ -137,7 +138,7 @@ export default function PabRegistrationPage() {
 
       <div className="max-w-6xl mx-auto px-4">
         <div className="mb-6">
-          <Button variant="ghost" onClick={() => navigate('/pab')} className="mb-4">
+          <Button variant="ghost" onClick={() => navigate('/pab-list')} className="mb-4">
             <Icon name="ArrowLeft" className="mr-2 h-4 w-4" />
             Назад к списку ПАБ
           </Button>
