@@ -194,7 +194,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 smtp_host = 'smtp.yandex.ru'
                 smtp_port = 587
                 smtp_user = 'bezop.truda@yandex.ru'
-                smtp_password = 'xmjulctzszmavdyw'
+                smtp_password = 'yposmisntfvbuemf'
                 
                 print(f"SMTP Config: host={smtp_host}, port={smtp_port}, user={smtp_user}, has_password={bool(smtp_password)}")
                 
