@@ -96,7 +96,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     pab_id = cur.fetchone()[0]
     
-    observations_data = json.loads(body.get('observations', '[]'))
+    observations_data = body.get('observations', [])
     
     for idx, obs in enumerate(observations_data, 1):
         cur.execute(

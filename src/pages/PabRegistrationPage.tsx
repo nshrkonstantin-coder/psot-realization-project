@@ -181,8 +181,12 @@ export default function PabRegistrationPage() {
     
     setLoading(true);
     try {
+      const numberResponse = await fetch('https://functions.poehali.dev/74d22125-c73a-42f1-9ad2-542f5186d614');
+      const numberData = await numberResponse.json();
+      const finalPabNumber = numberData.pabNumber;
+      
       const payload = {
-        pabNumber,
+        pabNumber: finalPabNumber,
         date: currentDate,
         inspectorName,
         inspectorPosition,
