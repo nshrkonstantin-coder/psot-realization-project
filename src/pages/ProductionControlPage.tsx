@@ -2,16 +2,15 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, ImageRun } from 'docx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { uploadToEPKFolder } from '@/utils/uploadToEPKFolder';
+import ProductionControlForm from '@/components/production-control/ProductionControlForm';
+import ViolationsTable from '@/components/production-control/ViolationsTable';
+import SignatureSection from '@/components/production-control/SignatureSection';
 
 interface ViolationItem {
   item_number: number;
@@ -127,85 +126,6 @@ export default function ProductionControlPage() {
     }
   };
 
-  const addViolationRow = () => {
-    setViolations([
-      ...violations,
-      {
-        item_number: violations.length + 1,
-        description: '',
-        photos: [],
-        measures: ''
-      }
-    ]);
-  };
-
-  const deleteViolationRow = () => {
-    if (violations.length > 2) {
-      const updated = violations.slice(0, -1);
-      setViolations(updated);
-    } else {
-      toast.error('Таблица должна содержать минимум две строки');
-    }
-  };
-
-  const updateViolation = (index: number, field: 'description' | 'measures', value: string) => {
-    const updated = [...violations];
-    updated[index][field] = value;
-    setViolations(updated);
-  };
-
-  const handlePhotoUpload = (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    const file = files[0];
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      const updated = [...violations];
-      updated[index].photos.push({
-        data: e.target?.result as string
-      });
-      setViolations(updated);
-      toast.success('Фото добавлено');
-    };
-    
-    reader.readAsDataURL(file);
-  };
-
-  const removePhoto = (violationIndex: number, photoIndex: number) => {
-    const updated = [...violations];
-    updated[violationIndex].photos.splice(photoIndex, 1);
-    setViolations(updated);
-  };
-
-  const handleTextareaChange = (index: number, field: 'description' | 'measures', value: string, event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    updateViolation(index, field, value);
-    event.target.style.height = 'auto';
-    event.target.style.height = event.target.scrollHeight + 'px';
-  };
-
-  const addSignatureLine = () => {
-    setAcceptorSignatures([
-      ...acceptorSignatures,
-      { userId: '', userName: '', date: new Date().toISOString().split('T')[0] }
-    ]);
-  };
-
-  const updateSignature = (index: number, userId: string) => {
-    const user = orgUsers.find(u => String(u.id) === userId);
-    const updated = [...acceptorSignatures];
-    updated[index].userId = userId;
-    updated[index].userName = user ? `${user.fio}, ${user.position}` : '';
-    setAcceptorSignatures(updated);
-  };
-
-  const updateSignatureDate = (index: number, date: string) => {
-    const updated = [...acceptorSignatures];
-    updated[index].date = date;
-    setAcceptorSignatures(updated);
-  };
-
   const handleSave = async () => {
     if (!docNumber || !recipientUserId || !department) {
       toast.error('Заполните обязательные поля: Номер документа, Кому, Подразделение');
@@ -219,7 +139,6 @@ export default function ProductionControlPage() {
       const organizationId = localStorage.getItem('organizationId');
       const recipientName = orgUsers.find(u => String(u.id) === recipientUserId)?.fio || '';
       
-      // Генерируем Word документ и загружаем в папку ЭПК
       toast.info('Генерация и загрузка Word документа в папку ЭПК...');
       const wordFileUrl = await generateAndUploadWord();
       
@@ -229,7 +148,6 @@ export default function ProductionControlPage() {
         return;
       }
       
-      // Отправляем данные в базу с URL на Word файл
       toast.info('Сохранение в базу данных...');
       const response = await fetch('https://functions.poehali.dev/2babe7b8-1f0b-464f-8aae-3e623cf3a795', {
         method: 'POST',
@@ -255,7 +173,6 @@ export default function ProductionControlPage() {
       const result = await response.json();
 
       if (result.success) {
-        // Отправляем уведомления
         const notificationData = {
           form_type: 'production_control',
           doc_number: docNumber,
@@ -415,7 +332,6 @@ export default function ProductionControlPage() {
       const blob = await Packer.toBlob(doc);
       const file = new File([blob], `Предписание_${docNumber}_${new Date().toISOString().slice(0, 10)}.docx`, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       
-      // Загружаем в папку ЭПК
       const userId = localStorage.getItem('userId');
       if (!userId) {
         throw new Error('User ID not found');
@@ -580,214 +496,34 @@ export default function ProductionControlPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 print:bg-white">
       <Card id="print-container" className="max-w-7xl mx-auto p-8 print:shadow-none bg-white">
-        <div className="header text-center mb-6 border-b-2 border-slate-300 pb-4 print:border-black">
-          <h3 className="text-xl font-bold text-slate-900">Электронная выдача АКТа производственного контроля</h3>
-          <h4 className="text-lg font-semibold text-slate-700 mt-2">РОССИЙСКАЯ ФЕДЕРАЦИЯ (РОССИЯ)</h4>
-          <h4 className="text-lg font-semibold text-slate-700">РЕСПУБЛИКА САХА (ЯКУТИЯ)</h4>
-        </div>
+        <ProductionControlForm
+          currentDate={currentDate}
+          setCurrentDate={setCurrentDate}
+          docNumber={docNumber}
+          recipientUserId={recipientUserId}
+          setRecipientUserId={setRecipientUserId}
+          department={department}
+          setDepartment={setDepartment}
+          witness={witness}
+          setWitness={setWitness}
+          orgUsers={orgUsers}
+          uniqueSubdivisions={uniqueSubdivisions}
+        />
 
-        <div className="company-info text-center mb-6">
-          <p className="font-bold text-slate-900">Акционерное Общество «Горно-рудная компания «Западная»</p>
-          <p className="text-slate-700">678730, Республика Саха (Якутия), Оймяконский район, п. г. т. Усть-Нера, проезд Северный, д.12.</p>
-          <p className="text-slate-700">тел. 8 (395) 225-52-88, доб.*1502</p>
-          <div className="flex justify-between items-center mt-4">
-            <Input
-              type="date"
-              value={currentDate}
-              onChange={(e) => setCurrentDate(e.target.value)}
-              className="w-40 print:border-none print:bg-transparent"
-            />
-            <span className="font-semibold text-slate-700">Рудник «Бадран»</span>
-          </div>
-        </div>
+        <ViolationsTable
+          violations={violations}
+          setViolations={setViolations}
+        />
 
-        <div className="document-title text-center mb-4">
-          <h2 className="text-2xl font-bold text-slate-900 underline">ПРЕДПИСАНИЕ (АКТ) {docNumber ? `№${docNumber}` : ''}</h2>
-          <p className="text-slate-700 mt-2">Проверки по производственному контролю за состоянием ОТ и ПБ</p>
-        </div>
-
-        <div className="space-y-4 mb-6">
-          <div>
-            <Label className="font-semibold">Кому: *</Label>
-            <Select value={recipientUserId} onValueChange={setRecipientUserId} disabled={orgUsers.length === 0}>
-              <SelectTrigger className={`transition-colors ${recipientUserId ? 'bg-green-100 border-green-400' : ''}`}>
-                <SelectValue placeholder={orgUsers.length > 0 ? "Выберите получателя" : "Загрузка пользователей..."} />
-              </SelectTrigger>
-              <SelectContent>
-                {orgUsers.map((user) => (
-                  <SelectItem key={user.id} value={String(user.id)}>
-                    {user.fio}, {user.position}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="font-semibold">Наименование обследуемого подразделения общества *</Label>
-            <Select value={department} onValueChange={setDepartment}>
-              <SelectTrigger className={`transition-colors ${department ? 'bg-green-100 border-green-400' : ''}`}>
-                <SelectValue placeholder="Выберите подразделение" />
-              </SelectTrigger>
-              <SelectContent>
-                {uniqueSubdivisions.map((sub) => (
-                  <SelectItem key={sub} value={sub}>
-                    {sub}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="font-semibold">Проверка проведена в присутствии (должность, Ф.И.О.)</Label>
-            <Input
-              value={witness}
-              onChange={(e) => setWitness(e.target.value)}
-              className={`print:border-none print:bg-transparent transition-colors ${witness.trim() ? 'bg-green-100 border-green-400' : ''}`}
-              placeholder="Должность, Ф.И.О."
-            />
-          </div>
-        </div>
-
-        <p className="font-semibold text-slate-900 mb-4">Необходимо устранить следующие нарушения в указанные сроки:</p>
-
-        <div className="mb-6">
-          <table className="w-full border-collapse border border-slate-300">
-            <thead>
-              <tr className="bg-slate-100">
-                <th className="border border-slate-300 p-2 w-12">п/п</th>
-                <th className="border border-slate-300 p-2 w-1/2">Краткое изложение выявленных нарушений с указанием места обнаружения<br/>(при необходимости вкладывать фото)</th>
-                <th className="border border-slate-300 p-2 w-1/2">Предлагаемые меры, ответственные за выполнение и срок устранения нарушений</th>
-              </tr>
-            </thead>
-            <tbody>
-              {violations.map((item, index) => (
-                <tr key={index}>
-                  <td className="border border-slate-300 p-2 text-center font-semibold">{item.item_number}.</td>
-                  <td className={`border border-slate-300 p-2 transition-colors ${item.description.trim() || item.photos.length > 0 ? 'bg-green-100' : ''}`}>
-                    <Textarea
-                      value={item.description}
-                      onChange={(e) => handleTextareaChange(index, 'description', e.target.value, e)}
-                      className="w-full min-h-[80px] resize-none border-none bg-transparent print:border-none"
-                      placeholder="Описание нарушения"
-                    />
-                    
-                    {item.photos.map((photo, photoIndex) => (
-                      <div key={photoIndex} className="mt-3 p-2 border border-slate-200 rounded">
-                        <img src={photo.data} alt="Фото нарушения" className="max-w-xs h-auto mb-2" />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removePhoto(index, photoIndex)}
-                          className="text-red-600 print:hidden"
-                        >
-                          <Icon name="Trash2" size={16} className="mr-1" />
-                          Удалить фото
-                        </Button>
-                      </div>
-                    ))}
-                    
-                    <div className="mt-2 print:hidden">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => document.getElementById(`photo-input-${index}`)?.click()}
-                        className="border-dashed"
-                      >
-                        <Icon name="ImagePlus" size={16} className="mr-2" />
-                        Вставить фото
-                      </Button>
-                      <input
-                        id={`photo-input-${index}`}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handlePhotoUpload(index, e)}
-                      />
-                    </div>
-                  </td>
-                  <td className={`border border-slate-300 p-2 transition-colors ${item.measures.trim() ? 'bg-green-100' : ''}`}>
-                    <Textarea
-                      value={item.measures}
-                      onChange={(e) => handleTextareaChange(index, 'measures', e.target.value, e)}
-                      className="w-full min-h-[80px] resize-none border-none bg-transparent print:border-none"
-                      placeholder="Меры и сроки устранения"
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          
-          <div className="flex gap-3 mt-4 print:hidden">
-            <Button onClick={addViolationRow} size="sm" className="bg-green-600 hover:bg-green-700">
-              <Icon name="Plus" size={16} className="mr-2" />
-              Добавить строку
-            </Button>
-            <Button onClick={deleteViolationRow} size="sm" variant="outline" className="border-red-500 text-red-500 hover:bg-red-50">
-              <Icon name="Minus" size={16} className="mr-2" />
-              Удалить строку
-            </Button>
-          </div>
-        </div>
-
-        <p className="text-slate-900 mb-6">
-          О выполнении настоящего предписания прошу предоставить письменное
-          уведомление в отдел ОТ и ПБ <strong>согласно дат, указанных в пунктах.</strong>
-        </p>
-
-        <div className="signature-area space-y-4 mb-6">
-          <div className="flex justify-between items-center border-t border-slate-300 pt-4">
-            <div>
-              <strong>Предписание выдал:</strong>
-              <p className="text-slate-700">{issuerName}, {issuerPosition}</p>
-            </div>
-            <div>
-              <Label className="font-semibold">Дата:</Label>
-              <Input
-                type="date"
-                value={issueDate}
-                onChange={(e) => setIssueDate(e.target.value)}
-                className="w-40 print:border-none print:bg-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="border-t border-slate-300 pt-4">
-            <strong className="block mb-3">Предписание принял:</strong>
-            {acceptorSignatures.map((sig, index) => (
-              <div key={index} className="flex justify-between items-center gap-4 mb-3">
-                <Select value={sig.userId} onValueChange={(value) => updateSignature(index, value)} disabled={orgUsers.length === 0}>
-                  <SelectTrigger className={`flex-grow transition-colors ${sig.userId ? 'bg-green-100 border-green-400' : ''}`}>
-                    <SelectValue placeholder={orgUsers.length > 0 ? "Выберите подписавшего" : "Загрузка пользователей..."} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {orgUsers.map((user) => (
-                      <SelectItem key={user.id} value={String(user.id)}>
-                        {user.fio}, {user.position}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex items-center gap-2">
-                  <Label className="font-semibold whitespace-nowrap">Дата:</Label>
-                  <Input
-                    type="date"
-                    value={sig.date}
-                    onChange={(e) => updateSignatureDate(index, e.target.value)}
-                    className="w-40 print:border-none print:bg-transparent"
-                  />
-                </div>
-              </div>
-            ))}
-            
-            <Button onClick={addSignatureLine} size="sm" variant="outline" className="mt-2 print:hidden">
-              <Icon name="Plus" size={16} className="mr-2" />
-              Добавить подпись
-            </Button>
-          </div>
-        </div>
+        <SignatureSection
+          issuerName={issuerName}
+          issuerPosition={issuerPosition}
+          issueDate={issueDate}
+          setIssueDate={setIssueDate}
+          acceptorSignatures={acceptorSignatures}
+          setAcceptorSignatures={setAcceptorSignatures}
+          orgUsers={orgUsers}
+        />
 
         <div className="buttons flex gap-3 justify-center print:hidden">
           <Button variant="outline" onClick={() => navigate('/dashboard')} className="border-red-500 text-red-500 hover:bg-red-50">
