@@ -62,8 +62,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'internal_actions_taken', 'gov_agency', 'act_number', 'gov_violations',
                 'gov_responsible', 'gov_fixed_count', 'gov_in_progress_count', 
                 'gov_overdue_count', 'gov_reasons', 'pab_plan_department', 
-                'pab_fact_department', 'pab_diff_department', 'pab_plan_personal',
-                'pab_fact_personal', 'pab_diff_personal'
+                'pab_fact_department', 'pab_diff_department', 'pab_reason_department',
+                'pab_plan_personal', 'pab_fact_personal', 'pab_diff_personal', 'pab_reason_personal',
+                'tools_condition', 'workplaces_condition', 'improvement_measures',
+                'involved_workers_count', 'involved_workers_list', 'not_involved_workers_count',
+                'involved_engineers_count', 'involved_engineers_list', 'not_involved_engineers_count',
+                'involvement_work'
             ]
             
             escaped_values = {}
@@ -83,8 +87,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                  internal_fixed_count, internal_in_progress_count, internal_overdue_count, internal_reasons,
                  internal_actions_taken, gov_agency, act_number, gov_violations, gov_responsible,
                  gov_fixed_count, gov_in_progress_count, gov_overdue_count, gov_reasons,
-                 pab_plan_department, pab_fact_department, pab_diff_department, pab_plan_personal,
-                 pab_fact_personal, pab_diff_personal, user_id, organization_id, word_file_url)
+                 pab_plan_department, pab_fact_department, pab_diff_department, pab_reason_department,
+                 pab_plan_personal, pab_fact_personal, pab_diff_personal, pab_reason_personal,
+                 tools_condition, workplaces_condition, improvement_measures,
+                 involved_workers_count, involved_workers_list, not_involved_workers_count,
+                 involved_engineers_count, involved_engineers_list, not_involved_engineers_count,
+                 involvement_work, user_id, organization_id, word_file_url)
                 VALUES ('{escaped_values['department']}', '{escaped_values['head_name']}', '{period_from}', '{period_to}',
                         '{escaped_values['sick_count']}', '{escaped_values['suspended']}', '{escaped_values['injuries']}',
                         '{escaped_values['micro_injuries']}', '{escaped_values['sick_leave']}', '{escaped_values['accidents']}',
@@ -97,8 +105,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         '{escaped_values['act_number']}', '{escaped_values['gov_violations']}', '{escaped_values['gov_responsible']}',
                         '{escaped_values['gov_fixed_count']}', '{escaped_values['gov_in_progress_count']}', '{escaped_values['gov_overdue_count']}',
                         '{escaped_values['gov_reasons']}', '{escaped_values['pab_plan_department']}', '{escaped_values['pab_fact_department']}',
-                        '{escaped_values['pab_diff_department']}', '{escaped_values['pab_plan_personal']}', '{escaped_values['pab_fact_personal']}',
-                        '{escaped_values['pab_diff_personal']}', {user_id}, {organization_id}, '{word_file_url_esc}')
+                        '{escaped_values['pab_diff_department']}', '{escaped_values['pab_reason_department']}',
+                        '{escaped_values['pab_plan_personal']}', '{escaped_values['pab_fact_personal']}',
+                        '{escaped_values['pab_diff_personal']}', '{escaped_values['pab_reason_personal']}',
+                        '{escaped_values['tools_condition']}', '{escaped_values['workplaces_condition']}', '{escaped_values['improvement_measures']}',
+                        '{escaped_values['involved_workers_count']}', '{escaped_values['involved_workers_list']}', '{escaped_values['not_involved_workers_count']}',
+                        '{escaped_values['involved_engineers_count']}', '{escaped_values['involved_engineers_list']}', '{escaped_values['not_involved_engineers_count']}',
+                        '{escaped_values['involvement_work']}', {user_id}, {organization_id}, '{word_file_url_esc}')
                 RETURNING id
             """)
             report_id = cur.fetchone()[0]
