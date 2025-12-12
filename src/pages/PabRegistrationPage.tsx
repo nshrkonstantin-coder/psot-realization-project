@@ -241,6 +241,7 @@ export default function PabRegistrationPage() {
                 value={area} 
                 onChange={(e) => setArea(e.target.value)}
                 placeholder="Участок"
+                className={area ? 'bg-green-50 border-green-300' : ''}
               />
             </div>
             <div>
@@ -250,6 +251,7 @@ export default function PabRegistrationPage() {
                 value={inspectedObject} 
                 onChange={(e) => setInspectedObject(e.target.value)}
                 placeholder="Проверяемый объект"
+                className={inspectedObject ? 'bg-green-50 border-green-300' : ''}
               />
             </div>
             <div>
@@ -259,6 +261,7 @@ export default function PabRegistrationPage() {
                 value={subdivision} 
                 onChange={(e) => setSubdivision(e.target.value)}
                 placeholder="Напр. 3л/5"
+                className={subdivision ? 'bg-green-50 border-green-300' : ''}
               />
             </div>
           </div>
@@ -276,6 +279,7 @@ export default function PabRegistrationPage() {
                     onChange={(e) => handleObservationChange(index, 'description', e.target.value)}
                     placeholder="Кратко опишите ситуацию..."
                     rows={4}
+                    className={obs.description ? 'bg-green-50 border-green-300' : ''}
                   />
                 </div>
 
@@ -286,7 +290,7 @@ export default function PabRegistrationPage() {
                       value={obs.category} 
                       onValueChange={(value) => handleObservationChange(index, 'category', value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={obs.category ? 'bg-green-50 border-green-300' : ''}>
                         <SelectValue placeholder="-Не выбрано-" />
                       </SelectTrigger>
                       <SelectContent>
@@ -303,7 +307,7 @@ export default function PabRegistrationPage() {
                       value={obs.conditions} 
                       onValueChange={(value) => handleObservationChange(index, 'conditions', value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={obs.conditions ? 'bg-green-50 border-green-300' : ''}>
                         <SelectValue placeholder="-Не выбрано-" />
                       </SelectTrigger>
                       <SelectContent>
@@ -321,7 +325,7 @@ export default function PabRegistrationPage() {
                     value={obs.hazards} 
                     onValueChange={(value) => handleObservationChange(index, 'hazards', value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={obs.hazards ? 'bg-green-50 border-green-300' : ''}>
                       <SelectValue placeholder="-Не выбрано-" />
                     </SelectTrigger>
                     <SelectContent>
@@ -340,6 +344,7 @@ export default function PabRegistrationPage() {
                     onChange={(e) => handleObservationChange(index, 'measures', e.target.value)}
                     placeholder="Что нужно сделать..."
                     rows={4}
+                    className={obs.measures ? 'bg-green-50 border-green-300' : ''}
                   />
                 </div>
 
@@ -364,6 +369,7 @@ export default function PabRegistrationPage() {
                       type="date"
                       value={obs.deadline}
                       onChange={(e) => handleObservationChange(index, 'deadline', e.target.value)}
+                      className={obs.deadline ? 'bg-green-50 border-green-300' : ''}
                     />
                   </div>
                 </div>
@@ -374,7 +380,7 @@ export default function PabRegistrationPage() {
                     value={obs.responsible} 
                     onValueChange={(value) => handleObservationChange(index, 'responsible', value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={obs.responsible ? 'bg-green-50 border-green-300' : ''}>
                       <SelectValue placeholder="Выберите из списка" />
                     </SelectTrigger>
                     <SelectContent>
@@ -392,8 +398,7 @@ export default function PabRegistrationPage() {
               {index === observations.length - 1 && observations.length < 3 && (
                 <Button 
                   onClick={handleAddObservation} 
-                  className="w-full mt-6"
-                  variant="outline"
+                  className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   Заполнить наблюдение №{observations.length + 1}
                 </Button>
@@ -403,7 +408,7 @@ export default function PabRegistrationPage() {
 
           <div className="flex flex-col md:flex-row gap-3 pt-6">
             <Button 
-              onClick={() => navigate('/pab-list')} 
+              onClick={() => navigate('/user-cabinet')} 
               variant="outline"
               className="flex-1"
             >
@@ -412,7 +417,7 @@ export default function PabRegistrationPage() {
             <Button 
               onClick={handleSubmit}
               disabled={loading}
-              className="flex-1"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
             >
               {loading ? 'Отправка...' : 'Отправить'}
             </Button>
