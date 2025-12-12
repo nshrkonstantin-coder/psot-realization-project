@@ -78,13 +78,30 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     cur = conn.cursor()
     schema = 't_p80499285_psot_realization_pro'
     
+    # Генерируем номер ПАБ внутри транзакции
+    current_year = datetime.now().year
+    year_short = str(current_year)[2:]
+    
+    cur.execute("SELECT counter FROM pab_counter WHERE year = %s FOR UPDATE", (current_year,))
+    result = cur.fetchone()
+    
+    if result:
+        counter = result[0] + 1
+        cur.execute("UPDATE pab_counter SET counter = %s WHERE year = %s", (counter, current_year))
+    else:
+        counter = 1
+        cur.execute("INSERT INTO pab_counter (year, counter) VALUES (%s, %s)", (current_year, counter))
+    
+    doc_number = f"ПАБ-{counter}-{year_short}"
+    
+    # Создаём запись ПАБ с новым номером
     cur.execute(
         f"""INSERT INTO {schema}.pab_records 
         (doc_number, doc_date, inspector_fio, inspector_position, location, checked_object, department, created_at) 
         VALUES (%s, %s, %s, %s, %s, %s, %s, NOW()) 
         RETURNING id""",
         (
-            body['pabNumber'],
+            doc_number,
             body['date'],
             body['inspectorName'],
             body['inspectorPosition'],
@@ -120,7 +137,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     conn.commit()
     
     word_doc = create_word_document({
-        'doc_number': body['pabNumber'],
+        'doc_number': doc_number,
         'doc_date': body['date'],
         'inspector_fio': body['inspectorName'],
         'inspector_position': body['inspectorPosition'],
@@ -130,7 +147,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'observations': observations_data
     })
     
-    doc_filename = f"{body['pabNumber']}.docx"
+    doc_filename = f"{doc_number}.docx"
     
     s3 = boto3.client('s3',
         endpoint_url='https://bucket.poehali.dev',
@@ -174,51 +191,58 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     conn.commit()
     
     # Отправка email
-    try:
-        smtp_host = os.environ.get('SMTP_HOST')
-        smtp_port = int(os.environ.get('SMTP_PORT', 587))
-        smtp_user = os.environ.get('SMTP_USER')
-        smtp_password = os.environ.get('SMTP_PASSWORD')
-        admin_email = os.environ.get('ADMIN_EMAIL')
-        
-        msg = MIMEMultipart()
-        msg['From'] = smtp_user
-        responsible_user = observations_data[0].get('responsible', '') if observations_data else ''
-        msg['To'] = admin_email
-        msg['Subject'] = f"Новая регистрация ПАБ: {body['pabNumber']}"
-        
-        pab_url = f"https://lk.psot-realization.pro/pab-view/{pab_id}"
-        
-        email_body = f"""
-        Зарегистрирован новый ПАБ
-        
-        Номер: {body['pabNumber']}
-        Дата: {body['date']}
-        Проверяющий: {body['inspectorName']}
-        Подразделение: {body.get('subdivision', '')}
-        
-        Просмотреть ПАБ: {pab_url}
-        
-        Во вложении находится полный документ.
-        """
-        
-        msg.attach(MIMEText(email_body, 'plain', 'utf-8'))
-        
-        # Прикрепление Word документа
-        part = MIMEBase('application', 'vnd.openxmlformats-officedocument.wordprocessingml.document')
-        part.set_payload(word_doc.read())
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition', f'attachment; filename={doc_filename}')
-        msg.attach(part)
-        
-        server = smtplib.SMTP(smtp_host, smtp_port)
-        server.starttls()
-        server.login(smtp_user, smtp_password)
-        server.send_message(msg)
-        server.quit()
-        
-    except Exception as e:
-        print(f"Email error: {str(e)}")
+    email_sent = False
+    email_error = None
+    
+    smtp_host = os.environ.get('SMTP_HOST')
+    smtp_port = os.environ.get('SMTP_PORT', '587')
+    smtp_user = os.environ.get('SMTP_USER')
+    smtp_password = os.environ.get('SMTP_PASSWORD')
+    admin_email = os.environ.get('ADMIN_EMAIL')
+    
+    if smtp_host and smtp_user and smtp_password and admin_email:
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = smtp_user
+            msg['To'] = admin_email
+            msg['Subject'] = f"Новая регистрация ПАБ: {doc_number}"
+            
+            pab_url = f"https://lk.psot-realization.pro/pab-view/{pab_id}"
+            
+            email_body = f"""Зарегистрирован новый ПАБ
+
+Номер: {doc_number}
+Дата: {body['date']}
+Проверяющий: {body['inspectorName']}
+Подразделение: {body.get('subdivision', '')}
+
+Просмотреть ПАБ: {pab_url}
+
+Во вложении находится полный документ.
+"""
+            
+            msg.attach(MIMEText(email_body, 'plain', 'utf-8'))
+            
+            part = MIMEBase('application', 'vnd.openxmlformats-officedocument.wordprocessingml.document')
+            part.set_payload(word_doc.getvalue())
+            encoders.encode_base64(part)
+            part.add_header('Content-Disposition', f'attachment; filename={doc_filename}')
+            msg.attach(part)
+            
+            server = smtplib.SMTP(smtp_host, int(smtp_port))
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.send_message(msg)
+            server.quit()
+            
+            email_sent = True
+            print(f"Email sent successfully to {admin_email}")
+            
+        except Exception as e:
+            email_error = str(e)
+            print(f"Email error: {email_error}")
+    else:
+        print("Email credentials not configured")
     
     cur.close()
     conn.close()
@@ -232,8 +256,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'body': json.dumps({
             'success': True,
             'pabId': pab_id,
-            'pabNumber': body['pabNumber'],
-            'fileUrl': file_url
+            'pabNumber': doc_number,
+            'fileUrl': file_url,
+            'emailSent': email_sent,
+            'emailError': email_error
         }, ensure_ascii=False),
         'isBase64Encoded': False
     }

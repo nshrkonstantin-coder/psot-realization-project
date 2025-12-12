@@ -5,19 +5,30 @@
       "method": "POST",
       "path": "/",
       "body": {
-        "pabNumber": "ПАБ-1-25",
         "date": "2025-12-03",
         "inspectorName": "Иванов И.И.",
         "inspectorPosition": "Инженер",
         "area": "Участок 1",
         "inspectedObject": "Станок",
         "subdivision": "ОТиПБ",
-        "observations": "[{\"description\":\"Тест\",\"category\":\"Безопасность\",\"conditions\":\"Небезопасное состояние\",\"hazards\":\"Механические опасности\",\"measures\":\"Устранить\",\"responsible\":\"Иванов И.И.\",\"deadline\":\"2025-12-10\"}]"
+        "userId": "1",
+        "observations": [
+          {
+            "description": "Тест наблюдения",
+            "category": "Безопасность",
+            "conditions": "Небезопасное состояние",
+            "hazards": "Механические опасности",
+            "measures": "Устранить дефект",
+            "responsible": "Иванов И.И.",
+            "deadline": "2025-12-10"
+          }
+        ]
       },
       "expectedStatus": 200,
       "expectedBody": {
         "success": true,
-        "pabId": "number"
+        "pabId": "number",
+        "pabNumber": "string"
       },
       "bodyMatcher": "partial"
     }
