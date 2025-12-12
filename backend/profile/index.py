@@ -49,8 +49,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                    COALESCE(s.registered_count, 0) as registered_count,
                    COALESCE(s.online_count, 0) as online_count,
                    COALESCE(s.offline_count, 0) as offline_count
-            FROM users u
-            LEFT JOIN user_stats s ON u.id = s.user_id
+            FROM t_p80499285_psot_realization_pro.users u
+            LEFT JOIN t_p80499285_psot_realization_pro.user_stats s ON u.id = s.user_id
             WHERE u.id = %s
         """, (user_id,))
         

@@ -62,6 +62,7 @@ export default function PabRegistrationPage() {
   const [conditions, setConditions] = useState<Dictionary[]>([]);
   const [hazards, setHazards] = useState<Dictionary[]>([]);
   const [responsibleUsers, setResponsibleUsers] = useState<OrgUser[]>([]);
+  const [canSubmitSingle, setCanSubmitSingle] = useState(false);
 
   useEffect(() => {
     loadInitialData();
@@ -82,6 +83,10 @@ export default function PabRegistrationPage() {
         const userData = await userResponse.json();
         setInspectorName(userData.fio || '');
         setInspectorPosition(userData.position || '');
+        
+        if (userData.fio === 'Сергеев Дем Демович') {
+          setCanSubmitSingle(true);
+        }
         
         const orgId = localStorage.getItem('organizationId');
         if (orgId) {
@@ -139,6 +144,11 @@ export default function PabRegistrationPage() {
   const validateForm = (): boolean => {
     if (!area || !inspectedObject || !subdivision) {
       toast.error('Заполните все обязательные поля шапки');
+      return false;
+    }
+    
+    if (!canSubmitSingle && observations.length < 3) {
+      toast.error('Необходимо заполнить все 3 наблюдения');
       return false;
     }
     
@@ -406,35 +416,37 @@ export default function PabRegistrationPage() {
             </div>
           ))}
 
-          <div className="flex flex-col md:flex-row gap-3 pt-6">
-            <Button 
-              onClick={() => navigate('/user-cabinet')} 
-              variant="outline"
-              className="flex-1"
-            >
-              Назад на главную
-            </Button>
-            <Button 
-              onClick={handleSubmit}
-              disabled={loading}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {loading ? 'Отправка...' : 'Отправить'}
-            </Button>
-            <Button 
-              variant="outline"
-              className="flex-1"
-            >
-              Скачать в PDF
-            </Button>
-            <Button 
-              variant="outline"
-              className="flex-1"
-            >
-              <Icon name="FileText" className="mr-2 h-4 w-4" />
-              Скачать в Word
-            </Button>
-          </div>
+          {(canSubmitSingle || observations.length === 3) && (
+            <div className="flex flex-col md:flex-row gap-3 pt-6">
+              <Button 
+                onClick={() => navigate('/user-cabinet')} 
+                variant="outline"
+                className="flex-1"
+              >
+                Назад на главную
+              </Button>
+              <Button 
+                onClick={handleSubmit}
+                disabled={loading}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {loading ? 'Отправка...' : 'Отправить'}
+              </Button>
+              <Button 
+                variant="outline"
+                className="flex-1"
+              >
+                Скачать в PDF
+              </Button>
+              <Button 
+                variant="outline"
+                className="flex-1"
+              >
+                <Icon name="FileText" className="mr-2 h-4 w-4" />
+                Скачать в Word
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
