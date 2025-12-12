@@ -69,7 +69,7 @@ export default function PabRegistrationPage() {
 
   const loadInitialData = async () => {
     try {
-      const response = await fetch('https://lk.psot-realization.pro/api/pab-number');
+      const response = await fetch('https://functions.poehali.dev/74d22125-c73a-42f1-9ad2-542f5186d614');
       const data = await response.json();
       setPabNumber(data.pabNumber);
       
@@ -78,20 +78,20 @@ export default function PabRegistrationPage() {
       
       const userId = localStorage.getItem('userId');
       if (userId) {
-        const userResponse = await fetch(`https://lk.psot-realization.pro/api/user/${userId}`);
+        const userResponse = await fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`);
         const userData = await userResponse.json();
         setInspectorName(userData.fio || '');
         setInspectorPosition(userData.position || '');
         
         const orgId = localStorage.getItem('organizationId');
         if (orgId) {
-          const usersResponse = await fetch(`https://lk.psot-realization.pro/api/organization-users?orgId=${orgId}`);
+          const usersResponse = await fetch(`https://functions.poehali.dev/7f32d60e-dee5-4b28-901a-10984045d99e?orgId=${orgId}`);
           const usersData = await usersResponse.json();
           setResponsibleUsers(usersData);
         }
       }
       
-      const dictionariesResponse = await fetch('https://lk.psot-realization.pro/api/pab-dictionaries');
+      const dictionariesResponse = await fetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960');
       const dictionariesData = await dictionariesResponse.json();
       
       setCategories(dictionariesData.categories || []);
@@ -177,7 +177,7 @@ export default function PabRegistrationPage() {
         }
       });
       
-      const response = await fetch('https://lk.psot-realization.pro/api/pab-submit', {
+      const response = await fetch('https://functions.poehali.dev/5054985e-ff94-4512-8302-c02f01b09d66', {
         method: 'POST',
         body: formData
       });
