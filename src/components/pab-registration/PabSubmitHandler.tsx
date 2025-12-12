@@ -205,14 +205,31 @@ export async function handlePabSubmit({
 
         console.log('[PAB] Sending email to:', recipients);
 
-        if (recipients.length > 0) {
-          await sendEmail(
-            recipients,
-            `Новое наблюдение ПАБ: ${docNumber}`,
-            `Вам назначено наблюдение в карте ПАБ №${docNumber}. Ознакомьтесь с деталями по ссылке: ${cdnUrl}`,
-            [{ filename: `${docNumber}.html`, url: cdnUrl }]
-          );
-          setShowEmailStatus(true);
+        try {
+          const emailResponse = await fetch('https://functions.poehali.dev/963fb84a-6c11-4009-a2f8-e46804543809', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              doc_number: docNumber,
+              responsible_email: recipients[0] || '',
+              admin_email: recipients[1] || '',
+              html_url: cdnUrl
+            })
+          });
+
+          const emailResult = await emailResponse.json();
+          
+          if (emailResult.success) {
+            console.log('[PAB] Email sent successfully to:', emailResult.recipients);
+            toast.success(`Письмо отправлено: ${emailResult.recipients?.join(', ')}`);
+            setShowEmailStatus(true);
+          } else {
+            console.error('[PAB] Email send failed:', emailResult.error);
+            toast.warning('ПАБ сохранён, но письмо не отправлено: ' + emailResult.error);
+          }
+        } catch (emailError) {
+          console.error('[PAB] Email send error:', emailError);
+          toast.warning('ПАБ сохранён, но письмо не отправлено');
         }
       }
 

@@ -97,6 +97,36 @@ export default function PabViewPage() {
     }
   };
 
+  const handleExportWord = async () => {
+    if (!pab) return;
+    
+    setIsExporting(true);
+    try {
+      const response = await fetch(`https://functions.poehali.dev/0db319fd-4f2e-44a7-b74f-cdb9a7c69f61?ids=${pab.id}`);
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `PAB_${pab.doc_number}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        toast.success('Документ Word скачан');
+      } else {
+        const error = await response.json();
+        toast.error('Ошибка экспорта: ' + (error.error || 'неизвестная ошибка'));
+      }
+    } catch (error) {
+      console.error('Error exporting Word:', error);
+      toast.error('Ошибка экспорта в Word');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!pab || !isAdmin) return;
 
@@ -216,6 +246,15 @@ export default function PabViewPage() {
             >
               <Icon name="Printer" size={20} />
               Печать
+            </Button>
+            <Button
+              onClick={handleExportWord}
+              disabled={isExporting}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Icon name="FileText" size={20} />
+              Word
             </Button>
             {isAdmin && (
               <Button

@@ -52,14 +52,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Missing required parameters'}),
+            'body': json.dumps({'error': 'Missing required parameters: smtp or doc_number or html_url'}),
             'isBase64Encoded': False
         }
+    
+    recipients = [email for email in [responsible_email, admin_email] if email]
+    
+    if not recipients:
+        admin_email_fallback = os.environ.get('ADMIN_EMAIL', '')
+        if admin_email_fallback:
+            recipients = [admin_email_fallback]
+        else:
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'No recipients provided and no ADMIN_EMAIL configured'}),
+                'isBase64Encoded': False
+            }
     
     msg = MIMEMultipart('alternative')
     msg['Subject'] = f'Регистрация ПАБ №{doc_number}'
     msg['From'] = smtp_user
-    msg['To'] = ', '.join(filter(None, [responsible_email, admin_email]))
+    msg['To'] = ', '.join(recipients)
     
     html_body = f'''
     <html>
@@ -77,19 +91,40 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     msg.attach(part)
     
     try:
-        server = smtplib.SMTP(smtp_server, smtp_port)
+        print(f'[PAB EMAIL] Connecting to {smtp_server}:{smtp_port}')
+        server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
         server.starttls()
+        print(f'[PAB EMAIL] Logging in as {smtp_user}')
         server.login(smtp_user, smtp_password)
+        print(f'[PAB EMAIL] Sending email to {recipients}')
         server.send_message(msg)
         server.quit()
+        print(f'[PAB EMAIL] Email sent successfully to {recipients}')
         
         return {
             'statusCode': 200,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'success': True, 'message': 'Email sent successfully'}),
+            'body': json.dumps({
+                'success': True, 
+                'message': 'Email sent successfully',
+                'recipients': recipients,
+                'doc_number': doc_number
+            }),
+            'isBase64Encoded': False
+        }
+    except smtplib.SMTPAuthenticationError as e:
+        print(f'[PAB EMAIL] Authentication error: {str(e)}')
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({
+                'error': 'SMTP authentication failed',
+                'details': 'Check SMTP_USER and SMTP_PASSWORD configuration'
+            }),
             'isBase64Encoded': False
         }
     except Exception as e:
+        print(f'[PAB EMAIL] Error: {str(e)}')
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},

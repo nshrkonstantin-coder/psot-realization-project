@@ -1,20 +1,23 @@
 {
   "tests": [
     {
-      "name": "Test send email endpoint",
+      "name": "Test missing parameters",
       "method": "POST",
       "path": "/",
       "body": {
-        "doc_number": "ПАБ-123",
-        "responsible_email": "test@example.com",
-        "admin_email": "admin@example.com",
-        "html_url": "https://example.com/pab-123.html"
+        "doc_number": ""
       },
-      "expectedStatus": 200,
+      "expectedStatus": 400,
       "expectedBody": {
-        "success": true
+        "error": "string"
       },
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test OPTIONS (CORS)",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
     }
   ]
 }

@@ -98,6 +98,42 @@ export default function PabListPage() {
     }
   };
 
+  const handleExportWord = async () => {
+    if (selectedIds.length === 0) {
+      toast.error('Выберите хотя бы один ПАБ для экспорта');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const response = await fetch(`https://functions.poehali.dev/0db319fd-4f2e-44a7-b74f-cdb9a7c69f61?ids=${selectedIds.join(',')}`);
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const filename = selectedIds.length === 1 
+          ? `PAB_${records.find(r => r.id === selectedIds[0])?.doc_number || 'Document'}.docx`
+          : 'PAB_Multiple.docx';
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        toast.success('Документ Word скачан');
+      } else {
+        const error = await response.json();
+        toast.error('Ошибка экспорта: ' + (error.error || 'неизвестная ошибка'));
+      }
+    } catch (error) {
+      console.error('Error exporting Word:', error);
+      toast.error('Ошибка экспорта в Word');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
       toast.error('Выберите хотя бы один ПАБ для удаления');
@@ -224,6 +260,15 @@ export default function PabListPage() {
                 >
                   <Icon name="Printer" size={20} />
                   Печать ({selectedIds.length})
+                </Button>
+                <Button
+                  onClick={handleExportWord}
+                  disabled={isExporting}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Icon name="FileText" size={20} />
+                  Word ({selectedIds.length})
                 </Button>
                 {isAdmin && (
                   <Button
