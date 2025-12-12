@@ -36,7 +36,7 @@ export default function PabAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('30');
 
-  const organizationId = localStorage.getItem('organization_id') || '';
+  const organizationId = localStorage.getItem('organizationId') || '';
 
   useEffect(() => {
     loadAnalytics();
