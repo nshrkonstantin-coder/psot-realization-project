@@ -191,10 +191,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             admin_email = 'ACYBT@yandex.ru'
             
             try:
-                smtp_host = os.environ.get('SMTP_HOST')
-                smtp_port = int(os.environ.get('SMTP_PORT', '587'))
-                smtp_user = os.environ.get('SMTP_USER')
-                smtp_password = os.environ.get('SMTP_PASSWORD')
+                smtp_host = 'smtp.yandex.ru'
+                smtp_port = 587
+                smtp_user = 'bezop.truda@yandex.ru'
+                smtp_password = 'xmjulctzszmavdyw'
                 
                 print(f"SMTP Config: host={smtp_host}, port={smtp_port}, user={smtp_user}, has_password={bool(smtp_password)}")
                 
