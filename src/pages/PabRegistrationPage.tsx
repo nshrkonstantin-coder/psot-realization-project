@@ -181,39 +181,44 @@ export default function PabRegistrationPage() {
     
     setLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('pabNumber', pabNumber);
-      formData.append('date', currentDate);
-      formData.append('inspectorName', inspectorName);
-      formData.append('inspectorPosition', inspectorPosition);
-      formData.append('area', area);
-      formData.append('inspectedObject', inspectedObject);
-      formData.append('subdivision', subdivision);
-      formData.append('observations', JSON.stringify(observations.map((obs, idx) => ({
-        ...obs,
-        photo: obs.photo ? `photo_${idx}` : null
-      }))));
-      
-      observations.forEach((obs, idx) => {
-        if (obs.photo) {
-          formData.append(`photo_${idx}`, obs.photo);
-        }
-      });
+      const payload = {
+        pabNumber,
+        date: currentDate,
+        inspectorName,
+        inspectorPosition,
+        area,
+        inspectedObject,
+        subdivision,
+        observations: observations.map(obs => ({
+          description: obs.description,
+          category: obs.category,
+          conditions: obs.conditions,
+          hazards: obs.hazards,
+          measures: obs.measures,
+          responsible: obs.responsible,
+          deadline: obs.deadline
+        }))
+      };
       
       const response = await fetch('https://functions.poehali.dev/5054985e-ff94-4512-8302-c02f01b09d66', {
         method: 'POST',
-        body: formData
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
       });
       
       if (response.ok) {
         toast.success('ПАБ успешно зарегистрирован и отправлен');
         navigate('/pab-list');
       } else {
-        throw new Error('Ошибка отправки');
+        const errorData = await response.json();
+        console.error('Server error:', errorData);
+        throw new Error(errorData.error || 'Ошибка отправки');
       }
     } catch (error) {
       console.error('Error submitting PAB:', error);
-      toast.error('Ошибка отправки ПАБ');
+      toast.error('Ошибка отправки ПАБ: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
     } finally {
       setLoading(false);
     }
@@ -283,7 +288,7 @@ export default function PabRegistrationPage() {
                 id="subdivision" 
                 value={subdivision} 
                 onChange={(e) => setSubdivision(e.target.value)}
-                placeholder="Напр. 3л/5"
+                placeholder="Например ПГУ"
                 className={subdivision ? 'bg-green-50 border-green-300' : ''}
               />
             </div>
