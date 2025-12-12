@@ -312,11 +312,23 @@ export default function PabViewPage() {
                 <div className="mt-4">
                   <span className="font-semibold">Фотография нарушения:</span>
                   <div className="mt-2">
-                    <img 
-                      src={obs.photo_url} 
-                      alt={`Фото наблюдения №${obs.observation_number}`}
-                      className="max-w-md rounded-lg shadow-md border border-gray-200"
-                    />
+                    <a 
+                      href={obs.photo_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-block cursor-pointer hover:opacity-90 transition-opacity"
+                    >
+                      <img 
+                        src={obs.photo_url} 
+                        alt={`Фото наблюдения №${obs.observation_number}`}
+                        className="max-w-md rounded-lg shadow-lg border-2 border-gray-300 hover:border-blue-500 transition-colors"
+                        loading="lazy"
+                      />
+                    </a>
+                    <p className="text-sm text-gray-500 mt-2">
+                      <Icon name="ZoomIn" size={14} className="inline mr-1" />
+                      Нажмите на фото для увеличения
+                    </p>
                   </div>
                 </div>
               )}
