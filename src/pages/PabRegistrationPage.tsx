@@ -85,9 +85,9 @@ export default function PabRegistrationPage() {
         
         const orgId = localStorage.getItem('organizationId');
         if (orgId) {
-          const usersResponse = await fetch(`https://functions.poehali.dev/7f32d60e-dee5-4b28-901a-10984045d99e?orgId=${orgId}`);
+          const usersResponse = await fetch(`https://functions.poehali.dev/7f32d60e-dee5-4b28-901a-10984045d99e?organization_id=${orgId}`);
           const usersData = await usersResponse.json();
-          setResponsibleUsers(usersData);
+          setResponsibleUsers(Array.isArray(usersData) ? usersData : (usersData.users || []));
         }
       }
       
