@@ -78,11 +78,22 @@ export default function PabRegistrationPage() {
       setCurrentDate(today);
       
       const userId = localStorage.getItem('userId');
+      console.log('userId from localStorage:', userId);
+      
       if (userId) {
         const userResponse = await fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`);
         const userData = await userResponse.json();
-        setInspectorName(userData.fio || '');
-        setInspectorPosition(userData.position || '');
+        console.log('User data received:', userData);
+        
+        if (userData && userData.fio) {
+          setInspectorName(userData.fio);
+          console.log('Set inspector name:', userData.fio);
+        }
+        
+        if (userData && userData.position) {
+          setInspectorPosition(userData.position);
+          console.log('Set inspector position:', userData.position);
+        }
         
         if (userData.fio === 'Сергеев Дем Демович') {
           setCanSubmitSingle(true);
