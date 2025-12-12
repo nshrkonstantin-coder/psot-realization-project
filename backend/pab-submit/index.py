@@ -190,8 +190,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     conn.commit()
     
-    # Отправка email
-    email_sent = False
+    # Отправка email администратору и пользователю
+    admin_email_sent = False
+    user_email_sent = False
     email_error = None
     
     smtp_host = os.environ.get('SMTP_HOST')
@@ -200,16 +201,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     smtp_password = os.environ.get('SMTP_PASSWORD')
     admin_email = os.environ.get('ADMIN_EMAIL')
     
-    if smtp_host and smtp_user and smtp_password and admin_email:
-        try:
-            msg = MIMEMultipart()
-            msg['From'] = smtp_user
-            msg['To'] = admin_email
-            msg['Subject'] = f"Новая регистрация ПАБ: {doc_number}"
-            
-            pab_url = f"https://lk.psot-realization.pro/pab-view/{pab_id}"
-            
-            email_body = f"""Зарегистрирован новый ПАБ
+    # Получаем email пользователя из базы
+    user_email = None
+    if user_id:
+        cur.execute(f"SELECT email FROM {schema}.users WHERE id = %s", (user_id,))
+        user_row = cur.fetchone()
+        if user_row and user_row[0]:
+            user_email = user_row[0]
+    
+    if smtp_host and smtp_user and smtp_password:
+        pab_url = f"https://lk.psot-realization.pro/pab-view/{pab_id}"
+        
+        email_body = f"""Зарегистрирован новый ПАБ
 
 Номер: {doc_number}
 Дата: {body['date']}
@@ -220,27 +223,79 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 Во вложении находится полный документ.
 """
-            
-            msg.attach(MIMEText(email_body, 'plain', 'utf-8'))
-            
-            part = MIMEBase('application', 'vnd.openxmlformats-officedocument.wordprocessingml.document')
-            part.set_payload(word_doc.getvalue())
-            encoders.encode_base64(part)
-            part.add_header('Content-Disposition', f'attachment; filename={doc_filename}')
-            msg.attach(part)
-            
-            server = smtplib.SMTP(smtp_host, int(smtp_port))
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.send_message(msg)
-            server.quit()
-            
-            email_sent = True
-            print(f"Email sent successfully to {admin_email}")
-            
-        except Exception as e:
-            email_error = str(e)
-            print(f"Email error: {email_error}")
+        
+        # Отправка администратору
+        if admin_email:
+            try:
+                msg = MIMEMultipart()
+                msg['From'] = smtp_user
+                msg['To'] = admin_email
+                msg['Subject'] = f"Новая регистрация ПАБ: {doc_number}"
+                
+                msg.attach(MIMEText(email_body, 'plain', 'utf-8'))
+                
+                part = MIMEBase('application', 'vnd.openxmlformats-officedocument.wordprocessingml.document')
+                part.set_payload(word_doc.getvalue())
+                encoders.encode_base64(part)
+                part.add_header('Content-Disposition', f'attachment; filename={doc_filename}')
+                msg.attach(part)
+                
+                server = smtplib.SMTP(smtp_host, int(smtp_port))
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.send_message(msg)
+                server.quit()
+                
+                admin_email_sent = True
+                print(f"Email sent to admin: {admin_email}")
+                
+            except Exception as e:
+                email_error = f"Admin email error: {str(e)}"
+                print(email_error)
+        
+        # Отправка пользователю
+        if user_email and user_email != admin_email:
+            try:
+                msg_user = MIMEMultipart()
+                msg_user['From'] = smtp_user
+                msg_user['To'] = user_email
+                msg_user['Subject'] = f"Ваш ПАБ зарегистрирован: {doc_number}"
+                
+                user_email_body = f"""Ваш ПАБ успешно зарегистрирован в системе
+
+Номер: {doc_number}
+Дата: {body['date']}
+Проверяющий: {body['inspectorName']}
+Подразделение: {body.get('subdivision', '')}
+
+Просмотреть ПАБ: {pab_url}
+
+Во вложении находится полный документ.
+"""
+                
+                msg_user.attach(MIMEText(user_email_body, 'plain', 'utf-8'))
+                
+                part_user = MIMEBase('application', 'vnd.openxmlformats-officedocument.wordprocessingml.document')
+                part_user.set_payload(word_doc.getvalue())
+                encoders.encode_base64(part_user)
+                part_user.add_header('Content-Disposition', f'attachment; filename={doc_filename}')
+                msg_user.attach(part_user)
+                
+                server_user = smtplib.SMTP(smtp_host, int(smtp_port))
+                server_user.starttls()
+                server_user.login(smtp_user, smtp_password)
+                server_user.send_message(msg_user)
+                server_user.quit()
+                
+                user_email_sent = True
+                print(f"Email sent to user: {user_email}")
+                
+            except Exception as e:
+                if email_error:
+                    email_error += f"; User email error: {str(e)}"
+                else:
+                    email_error = f"User email error: {str(e)}"
+                print(f"User email error: {e}")
     else:
         print("Email credentials not configured")
     
@@ -258,7 +313,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'pabId': pab_id,
             'pabNumber': doc_number,
             'fileUrl': file_url,
-            'emailSent': email_sent,
+            'adminEmailSent': admin_email_sent,
+            'userEmailSent': user_email_sent,
+            'userEmail': user_email,
             'emailError': email_error
         }, ensure_ascii=False),
         'isBase64Encoded': False
