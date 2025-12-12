@@ -115,12 +115,43 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     observations_data = body.get('observations', [])
     
+    s3_client = boto3.client('s3',
+        endpoint_url='https://bucket.poehali.dev',
+        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+    )
+    
     for idx, obs in enumerate(observations_data, 1):
+        photo_url = None
+        
+        if obs.get('photo'):
+            try:
+                import base64
+                
+                photo_base64 = obs['photo'].split(',')[1] if ',' in obs['photo'] else obs['photo']
+                photo_data = base64.b64decode(photo_base64)
+                
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                photo_key = f'pab/photos/{doc_number}_obs{idx}_{timestamp}.jpg'
+                
+                s3_client.put_object(
+                    Bucket='files',
+                    Key=photo_key,
+                    Body=photo_data,
+                    ContentType='image/jpeg',
+                    ContentDisposition='inline',
+                    CacheControl='public, max-age=31536000'
+                )
+                
+                photo_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{photo_key}"
+            except Exception as e:
+                print(f"Error uploading photo for observation {idx}: {e}")
+        
         cur.execute(
             f"""INSERT INTO {schema}.pab_observations 
             (pab_record_id, observation_number, description, category, 
-            conditions_actions, hazard_factors, measures, responsible_person, deadline, created_at) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
+            conditions_actions, hazard_factors, measures, responsible_person, deadline, photo_url, created_at) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
             (
                 pab_id,
                 idx,
@@ -130,7 +161,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 obs.get('hazards'),
                 obs.get('measures'),
                 obs.get('responsible'),
-                obs.get('deadline')
+                obs.get('deadline'),
+                photo_url
             )
         )
     
@@ -149,14 +181,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     doc_filename = f"{doc_number}.docx"
     
-    s3 = boto3.client('s3',
-        endpoint_url='https://bucket.poehali.dev',
-        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
-    )
-    
     file_key = f'pab/{doc_filename}'
-    s3.put_object(
+    s3_client.put_object(
         Bucket='files',
         Key=file_key,
         Body=word_doc.getvalue(),

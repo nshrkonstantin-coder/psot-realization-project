@@ -183,6 +183,28 @@ export default function PabRegistrationPage() {
     try {
       const userId = localStorage.getItem('userId');
       
+      const observationsWithPhotos = await Promise.all(observations.map(async obs => {
+        let photoBase64 = null;
+        if (obs.photo) {
+          photoBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(obs.photo as File);
+          });
+        }
+        
+        return {
+          description: obs.description,
+          category: obs.category,
+          conditions: obs.conditions,
+          hazards: obs.hazards,
+          measures: obs.measures,
+          responsible: obs.responsible,
+          deadline: obs.deadline,
+          photo: photoBase64
+        };
+      }));
+      
       const payload = {
         date: currentDate,
         inspectorName,
@@ -191,15 +213,7 @@ export default function PabRegistrationPage() {
         inspectedObject,
         subdivision,
         userId: userId,
-        observations: observations.map(obs => ({
-          description: obs.description,
-          category: obs.category,
-          conditions: obs.conditions,
-          hazards: obs.hazards,
-          measures: obs.measures,
-          responsible: obs.responsible,
-          deadline: obs.deadline
-        }))
+        observations: observationsWithPhotos
       };
       
       const response = await fetch('https://functions.poehali.dev/5054985e-ff94-4512-8302-c02f01b09d66', {
