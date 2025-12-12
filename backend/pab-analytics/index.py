@@ -56,22 +56,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     cur.execute("""
         SELECT 
             COUNT(*) as total_pab,
-            COUNT(CASE WHEN status = 'draft' THEN 1 END) as draft_count,
-            COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_count,
-            COUNT(CASE WHEN status = 'in_work' THEN 1 END) as in_work_count
-        FROM pab_documents 
-        WHERE organization_id = %s
+            COUNT(CASE WHEN pr.status = 'draft' THEN 1 END) as draft_count,
+            COUNT(CASE WHEN pr.status = 'completed' THEN 1 END) as completed_count,
+            COUNT(CASE WHEN pr.status = 'in_work' THEN 1 END) as in_work_count
+        FROM t_p80499285_psot_realization_pro.pab_records pr
+        JOIN t_p80499285_psot_realization_pro.users u ON pr.user_id = u.id
+        WHERE u.organization_id = %s
     """, (organization_id,))
     
     stats = cur.fetchone()
     
     cur.execute("""
         SELECT 
-            DATE(created_at) as date,
+            DATE(pr.created_at) as date,
             COUNT(*) as count
-        FROM pab_documents 
-        WHERE organization_id = %s AND created_at >= %s
-        GROUP BY DATE(created_at)
+        FROM t_p80499285_psot_realization_pro.pab_records pr
+        JOIN t_p80499285_psot_realization_pro.users u ON pr.user_id = u.id
+        WHERE u.organization_id = %s AND pr.created_at >= %s
+        GROUP BY DATE(pr.created_at)
         ORDER BY date
     """, (organization_id, start_date))
     
@@ -79,12 +81,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     cur.execute("""
         SELECT 
-            o.observation_text,
+            o.description,
             COUNT(*) as frequency
-        FROM pab_observations o
-        JOIN pab_documents d ON o.pab_id = d.id
-        WHERE d.organization_id = %s
-        GROUP BY o.observation_text
+        FROM t_p80499285_psot_realization_pro.pab_observations o
+        JOIN t_p80499285_psot_realization_pro.pab_records pr ON o.pab_record_id = pr.id
+        JOIN t_p80499285_psot_realization_pro.users u ON pr.user_id = u.id
+        WHERE u.organization_id = %s
+        GROUP BY o.description
         ORDER BY frequency DESC
         LIMIT 10
     """, (organization_id,))
@@ -95,10 +98,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         SELECT 
             o.responsible_person,
             COUNT(*) as count,
-            COUNT(CASE WHEN d.status = 'completed' THEN 1 END) as completed
-        FROM pab_observations o
-        JOIN pab_documents d ON o.pab_id = d.id
-        WHERE d.organization_id = %s AND o.responsible_person IS NOT NULL
+            COUNT(CASE WHEN o.status = 'completed' THEN 1 END) as completed
+        FROM t_p80499285_psot_realization_pro.pab_observations o
+        JOIN t_p80499285_psot_realization_pro.pab_records pr ON o.pab_record_id = pr.id
+        JOIN t_p80499285_psot_realization_pro.users u ON pr.user_id = u.id
+        WHERE u.organization_id = %s AND o.responsible_person IS NOT NULL
         GROUP BY o.responsible_person
         ORDER BY count DESC
         LIMIT 10
@@ -133,7 +137,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         insight = 'Недостаточно данных для анализа трендов'
         recommendation = 'Продолжайте регистрировать ПАБ для аналитики'
     
-    top_issues = [item['observation_text'][:50] + '...' if len(item['observation_text']) > 50 else item['observation_text'] 
+    top_issues = [item['description'][:50] + '...' if len(item['description']) > 50 else item['description'] 
                   for item in top_observations[:3]]
     
     cur.close()
@@ -158,7 +162,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'top_issues': top_issues
         },
         'top_observations': [
-            {'text': item['observation_text'], 'count': item['frequency']} 
+            {'text': item['description'], 'count': item['frequency']} 
             for item in top_observations
         ],
         'responsible_performance': [
