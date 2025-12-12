@@ -32,14 +32,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     cur = conn.cursor()
     
     if method == 'GET':
-        # Получаем все справочники
-        cur.execute("SELECT id, name FROM pab_categories WHERE is_active = true ORDER BY name")
+        schema = 't_p80499285_psot_realization_pro'
+        
+        cur.execute(f"SELECT id, name FROM {schema}.pab_categories WHERE is_active = true ORDER BY name")
         categories = [{'id': row[0], 'name': row[1]} for row in cur.fetchall()]
         
-        cur.execute("SELECT id, name FROM pab_conditions WHERE is_active = true ORDER BY name")
+        cur.execute(f"SELECT id, name FROM {schema}.pab_conditions WHERE is_active = true ORDER BY name")
         conditions = [{'id': row[0], 'name': row[1]} for row in cur.fetchall()]
         
-        cur.execute("SELECT id, name FROM pab_hazards WHERE is_active = true ORDER BY name")
+        cur.execute(f"SELECT id, name FROM {schema}.pab_hazards WHERE is_active = true ORDER BY name")
         hazards = [{'id': row[0], 'name': row[1]} for row in cur.fetchall()]
         
         cur.close()

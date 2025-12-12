@@ -1,20 +1,435 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
+import { toast } from 'sonner';
+
+interface ObservationData {
+  description: string;
+  category: string;
+  conditions: string;
+  hazards: string;
+  measures: string;
+  responsible: string;
+  deadline: string;
+  photo?: File | null;
+}
+
+interface Dictionary {
+  id: number;
+  name: string;
+}
+
+interface OrgUser {
+  id: number;
+  fio: string;
+  position: string;
+  subdivision: string;
+  email: string;
+}
 
 export default function PabRegistrationPage() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  
+  const [pabNumber, setPabNumber] = useState('');
+  const [currentDate, setCurrentDate] = useState('');
+  const [inspectorName, setInspectorName] = useState('');
+  const [inspectorPosition, setInspectorPosition] = useState('');
+  
+  const [area, setArea] = useState('');
+  const [inspectedObject, setInspectedObject] = useState('');
+  const [subdivision, setSubdivision] = useState('');
+  
+  const [observations, setObservations] = useState<ObservationData[]>([
+    {
+      description: '',
+      category: '',
+      conditions: '',
+      hazards: '',
+      measures: '',
+      responsible: '',
+      deadline: '',
+      photo: null
+    }
+  ]);
+  
+  const [categories, setCategories] = useState<Dictionary[]>([]);
+  const [conditions, setConditions] = useState<Dictionary[]>([]);
+  const [hazards, setHazards] = useState<Dictionary[]>([]);
+  const [responsibleUsers, setResponsibleUsers] = useState<OrgUser[]>([]);
+
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  const loadInitialData = async () => {
+    try {
+      const response = await fetch('https://lk.psot-realization.pro/api/pab-number');
+      const data = await response.json();
+      setPabNumber(data.pabNumber);
+      
+      const today = new Date().toISOString().split('T')[0];
+      setCurrentDate(today);
+      
+      const userId = localStorage.getItem('userId');
+      if (userId) {
+        const userResponse = await fetch(`https://lk.psot-realization.pro/api/user/${userId}`);
+        const userData = await userResponse.json();
+        setInspectorName(userData.fio || '');
+        setInspectorPosition(userData.position || '');
+        
+        const orgId = localStorage.getItem('organizationId');
+        if (orgId) {
+          const usersResponse = await fetch(`https://lk.psot-realization.pro/api/organization-users?orgId=${orgId}`);
+          const usersData = await usersResponse.json();
+          setResponsibleUsers(usersData);
+        }
+      }
+      
+      const dictionariesResponse = await fetch('https://lk.psot-realization.pro/api/pab-dictionaries');
+      const dictionariesData = await dictionariesResponse.json();
+      
+      setCategories(dictionariesData.categories || []);
+      setConditions(dictionariesData.conditions || []);
+      setHazards(dictionariesData.hazards || []);
+      
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.error('Ошибка загрузки данных');
+    }
+  };
+
+  const handleAddObservation = () => {
+    if (observations.length < 3) {
+      setObservations([...observations, {
+        description: '',
+        category: '',
+        conditions: '',
+        hazards: '',
+        measures: '',
+        responsible: '',
+        deadline: '',
+        photo: null
+      }]);
+    }
+  };
+
+  const handleObservationChange = (index: number, field: keyof ObservationData, value: string | File) => {
+    const updated = [...observations];
+    if (field === 'photo') {
+      updated[index][field] = value as File;
+    } else {
+      updated[index][field] = value as string;
+    }
+    setObservations(updated);
+  };
+
+  const handlePhotoUpload = (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleObservationChange(index, 'photo', file);
+    }
+  };
+
+  const validateForm = (): boolean => {
+    if (!area || !inspectedObject || !subdivision) {
+      toast.error('Заполните все обязательные поля шапки');
+      return false;
+    }
+    
+    for (let i = 0; i < observations.length; i++) {
+      const obs = observations[i];
+      if (!obs.description || !obs.category || !obs.conditions || !obs.hazards || !obs.measures || !obs.responsible || !obs.deadline) {
+        toast.error(`Заполните все обязательные поля наблюдения №${i + 1}`);
+        return false;
+      }
+    }
+    
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+    
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('pabNumber', pabNumber);
+      formData.append('date', currentDate);
+      formData.append('inspectorName', inspectorName);
+      formData.append('inspectorPosition', inspectorPosition);
+      formData.append('area', area);
+      formData.append('inspectedObject', inspectedObject);
+      formData.append('subdivision', subdivision);
+      formData.append('observations', JSON.stringify(observations.map((obs, idx) => ({
+        ...obs,
+        photo: obs.photo ? `photo_${idx}` : null
+      }))));
+      
+      observations.forEach((obs, idx) => {
+        if (obs.photo) {
+          formData.append(`photo_${idx}`, obs.photo);
+        }
+      });
+      
+      const response = await fetch('https://lk.psot-realization.pro/api/pab-submit', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (response.ok) {
+        toast.success('ПАБ успешно зарегистрирован и отправлен');
+        navigate('/pab-list');
+      } else {
+        throw new Error('Ошибка отправки');
+      }
+    } catch (error) {
+      console.error('Error submitting PAB:', error);
+      toast.error('Ошибка отправки ПАБ');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-4xl mx-auto px-4">
         <div className="mb-6">
           <Button variant="ghost" onClick={() => navigate('/pab-list')} className="mb-4">
             <Icon name="ArrowLeft" className="mr-2 h-4 w-4" />
             Назад к списку ПАБ
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900">Регистрация ПАБ</h1>
-          <p className="text-gray-600 mt-2">Форма для регистрации будет загружена</p>
+          <h1 className="text-3xl font-bold text-center text-gray-900 mb-8">Регистрация ПАБ</h1>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="pabNumberSheet">Название листа</Label>
+              <Input id="pabNumberSheet" value={pabNumber} disabled className="bg-gray-100" />
+            </div>
+            <div>
+              <Label htmlFor="pabNumberDoc">Номер документа</Label>
+              <Input id="pabNumberDoc" value={pabNumber} disabled className="bg-gray-100" />
+            </div>
+            <div>
+              <Label htmlFor="date">Дата *</Label>
+              <Input 
+                id="date" 
+                type="date" 
+                value={currentDate} 
+                onChange={(e) => setCurrentDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="inspectorName">ФИО проверяющего *</Label>
+              <Input id="inspectorName" value={inspectorName} disabled className="bg-gray-100" />
+            </div>
+            <div>
+              <Label htmlFor="inspectorPosition">Должность проверяющего *</Label>
+              <Input id="inspectorPosition" value={inspectorPosition} disabled className="bg-gray-100" />
+            </div>
+            <div>
+              <Label htmlFor="area">Участок *</Label>
+              <Input 
+                id="area" 
+                value={area} 
+                onChange={(e) => setArea(e.target.value)}
+                placeholder="Участок"
+              />
+            </div>
+            <div>
+              <Label htmlFor="inspectedObject">Проверяемый объект *</Label>
+              <Input 
+                id="inspectedObject" 
+                value={inspectedObject} 
+                onChange={(e) => setInspectedObject(e.target.value)}
+                placeholder="Проверяемый объект"
+              />
+            </div>
+            <div>
+              <Label htmlFor="subdivision">Подразделение *</Label>
+              <Input 
+                id="subdivision" 
+                value={subdivision} 
+                onChange={(e) => setSubdivision(e.target.value)}
+                placeholder="Напр. 3л/5"
+              />
+            </div>
+          </div>
+
+          {observations.map((obs, index) => (
+            <div key={index} className="border-t pt-6 mt-6">
+              <h2 className="text-xl font-semibold mb-4">Наблюдение №{index + 1}</h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor={`description-${index}`}>Наблюдение №{index + 1} *</Label>
+                  <Textarea 
+                    id={`description-${index}`}
+                    value={obs.description}
+                    onChange={(e) => handleObservationChange(index, 'description', e.target.value)}
+                    placeholder="Кратко опишите ситуацию..."
+                    rows={4}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor={`category-${index}`}>Категория наблюдений *</Label>
+                    <Select 
+                      value={obs.category} 
+                      onValueChange={(value) => handleObservationChange(index, 'category', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="-Не выбрано-" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor={`conditions-${index}`}>Вид условий и действий *</Label>
+                    <Select 
+                      value={obs.conditions} 
+                      onValueChange={(value) => handleObservationChange(index, 'conditions', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="-Не выбрано-" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {conditions.map((cond) => (
+                          <SelectItem key={cond.id} value={cond.name}>{cond.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor={`hazards-${index}`}>Опасные факторы *</Label>
+                  <Select 
+                    value={obs.hazards} 
+                    onValueChange={(value) => handleObservationChange(index, 'hazards', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="-Не выбрано-" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {hazards.map((haz) => (
+                        <SelectItem key={haz.id} value={haz.name}>{haz.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor={`measures-${index}`}>Мероприятия *</Label>
+                  <Textarea 
+                    id={`measures-${index}`}
+                    value={obs.measures}
+                    onChange={(e) => handleObservationChange(index, 'measures', e.target.value)}
+                    placeholder="Что нужно сделать..."
+                    rows={4}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor={`photo-${index}`}>Фотография нарушения</Label>
+                    <Input 
+                      id={`photo-${index}`}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handlePhotoUpload(index, e)}
+                      className="cursor-pointer"
+                    />
+                    {obs.photo && (
+                      <p className="text-sm text-gray-600 mt-1">Выбран файл: {obs.photo.name}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor={`deadline-${index}`}>Срок *</Label>
+                    <Input 
+                      id={`deadline-${index}`}
+                      type="date"
+                      value={obs.deadline}
+                      onChange={(e) => handleObservationChange(index, 'deadline', e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor={`responsible-${index}`}>Ответственный за выполнение *</Label>
+                  <Select 
+                    value={obs.responsible} 
+                    onValueChange={(value) => handleObservationChange(index, 'responsible', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите из списка" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {responsibleUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.fio}>
+                          {user.fio} ({user.position})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-gray-500 mt-1">Ф.И.О. или оставьте пустым</p>
+                </div>
+              </div>
+
+              {index === observations.length - 1 && observations.length < 3 && (
+                <Button 
+                  onClick={handleAddObservation} 
+                  className="w-full mt-6"
+                  variant="outline"
+                >
+                  Заполнить наблюдение №{observations.length + 1}
+                </Button>
+              )}
+            </div>
+          ))}
+
+          <div className="flex flex-col md:flex-row gap-3 pt-6">
+            <Button 
+              onClick={() => navigate('/pab-list')} 
+              variant="outline"
+              className="flex-1"
+            >
+              Назад на главную
+            </Button>
+            <Button 
+              onClick={handleSubmit}
+              disabled={loading}
+              className="flex-1"
+            >
+              {loading ? 'Отправка...' : 'Отправить'}
+            </Button>
+            <Button 
+              variant="outline"
+              className="flex-1"
+            >
+              Скачать в PDF
+            </Button>
+            <Button 
+              variant="outline"
+              className="flex-1"
+            >
+              <Icon name="FileText" className="mr-2 h-4 w-4" />
+              Скачать в Word
+            </Button>
+          </div>
         </div>
       </div>
     </div>

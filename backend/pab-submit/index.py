@@ -76,58 +76,79 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     dsn = os.environ.get('DATABASE_URL')
     conn = psycopg2.connect(dsn)
     cur = conn.cursor()
+    schema = 't_p80499285_psot_realization_pro'
     
-    # Сохранение записи ПАБ
     cur.execute(
-        """INSERT INTO pab_records 
-        (doc_number, doc_date, inspector_fio, inspector_position, user_id, 
-        department, location, checked_object, photo_url) 
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) 
+        f"""INSERT INTO {schema}.pab_records 
+        (doc_number, doc_date, inspector_fio, inspector_position, location, checked_object, department, created_at) 
+        VALUES (%s, %s, %s, %s, %s, %s, %s, NOW()) 
         RETURNING id""",
         (
-            body['doc_number'],
-            body['doc_date'],
-            body['inspector_fio'],
-            body['inspector_position'],
-            body.get('user_id'),
-            body.get('department'),
-            body.get('location'),
-            body.get('checked_object'),
-            body.get('photo_url')
+            body['pabNumber'],
+            body['date'],
+            body['inspectorName'],
+            body['inspectorPosition'],
+            body.get('area'),
+            body.get('inspectedObject'),
+            body.get('subdivision')
         )
     )
     
     pab_id = cur.fetchone()[0]
     
-    # Сохранение наблюдений
-    for obs in body['observations']:
+    observations_data = json.loads(body.get('observations', '[]'))
+    
+    for idx, obs in enumerate(observations_data, 1):
         cur.execute(
-            """INSERT INTO pab_observations 
+            f"""INSERT INTO {schema}.pab_observations 
             (pab_record_id, observation_number, description, category, 
-            conditions_actions, hazard_factors, measures, responsible_person, deadline, photo_url) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            conditions_actions, hazard_factors, measures, responsible_person, deadline, created_at) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
             (
                 pab_id,
-                obs['observation_number'],
-                obs['description'],
+                idx,
+                obs.get('description'),
                 obs.get('category'),
-                obs.get('conditions_actions'),
-                obs.get('hazard_factors'),
-                obs['measures'],
-                obs.get('responsible_person'),
-                obs.get('deadline'),
-                obs.get('photo_url')
+                obs.get('conditions'),
+                obs.get('hazards'),
+                obs.get('measures'),
+                obs.get('responsible'),
+                obs.get('deadline')
             )
         )
     
     conn.commit()
     
-    # Создание Word документа
-    word_doc = create_word_document(body)
-    doc_filename = f"{body['doc_number']}. {body['doc_date']}.docx"
+    word_doc = create_word_document({
+        'doc_number': body['pabNumber'],
+        'doc_date': body['date'],
+        'inspector_fio': body['inspectorName'],
+        'inspector_position': body['inspectorPosition'],
+        'location': body.get('area'),
+        'checked_object': body.get('inspectedObject'),
+        'department': body.get('subdivision'),
+        'observations': observations_data
+    })
     
-    # Сохранение в S3 (имитация - в реальности нужен S3 клиент)
-    # Здесь должна быть логика загрузки в storage_folders
+    doc_filename = f"{body['pabNumber']}.docx"
+    
+    s3 = boto3.client('s3',
+        endpoint_url='https://bucket.poehali.dev',
+        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+    )
+    
+    file_key = f'pab/{doc_filename}'
+    s3.put_object(
+        Bucket='files',
+        Key=file_key,
+        Body=word_doc.getvalue(),
+        ContentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
+    
+    file_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{file_key}"
+    
+    cur.execute(f"UPDATE {schema}.pab_records SET word_file_url = %s WHERE id = %s", (file_url, pab_id))
     
     # Отправка email
     try:
@@ -139,16 +160,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         msg = MIMEMultipart()
         msg['From'] = smtp_user
-        msg['To'] = f"{body.get('responsible_email', '')}, {admin_email}"
-        msg['Subject'] = f"Новая регистрация ПАБ: {body['doc_number']}"
+        responsible_user = observations_data[0].get('responsible', '') if observations_data else ''
+        msg['To'] = admin_email
+        msg['Subject'] = f"Новая регистрация ПАБ: {body['pabNumber']}"
+        
+        pab_url = f"https://lk.psot-realization.pro/pab-view/{pab_id}"
         
         email_body = f"""
         Зарегистрирован новый ПАБ
         
-        Номер: {body['doc_number']}
-        Дата: {body['doc_date']}
-        Проверяющий: {body['inspector_fio']}
-        Подразделение: {body.get('department', '')}
+        Номер: {body['pabNumber']}
+        Дата: {body['date']}
+        Проверяющий: {body['inspectorName']}
+        Подразделение: {body.get('subdivision', '')}
+        
+        Просмотреть ПАБ: {pab_url}
         
         Во вложении находится полный документ.
         """
@@ -182,8 +208,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         },
         'body': json.dumps({
             'success': True,
-            'pab_id': pab_id,
-            'doc_number': body['doc_number']
+            'pabId': pab_id,
+            'pabNumber': body['pabNumber'],
+            'fileUrl': file_url
         }, ensure_ascii=False),
         'isBase64Encoded': False
     }

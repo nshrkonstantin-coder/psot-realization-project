@@ -5,28 +5,19 @@
       "method": "POST",
       "path": "/",
       "body": {
-        "doc_number": "ПАБ-1-25",
-        "doc_date": "2025-12-03",
-        "inspector_fio": "Иванов И.И.",
-        "inspector_position": "Инженер",
-        "department": "ОТиПБ",
-        "location": "Участок 1",
-        "checked_object": "Станок",
-        "observations": [
-          {
-            "observation_number": 1,
-            "description": "Тест",
-            "measures": "Устранить",
-            "category": "Безопасность",
-            "conditions_actions": "Небезопасное состояние",
-            "hazard_factors": "Механические опасности"
-          }
-        ]
+        "pabNumber": "ПАБ-1-25",
+        "date": "2025-12-03",
+        "inspectorName": "Иванов И.И.",
+        "inspectorPosition": "Инженер",
+        "area": "Участок 1",
+        "inspectedObject": "Станок",
+        "subdivision": "ОТиПБ",
+        "observations": "[{\"description\":\"Тест\",\"category\":\"Безопасность\",\"conditions\":\"Небезопасное состояние\",\"hazards\":\"Механические опасности\",\"measures\":\"Устранить\",\"responsible\":\"Иванов И.И.\",\"deadline\":\"2025-12-10\"}]"
       },
       "expectedStatus": 200,
       "expectedBody": {
         "success": true,
-        "pab_id": "number"
+        "pabId": "number"
       },
       "bodyMatcher": "partial"
     }
