@@ -185,6 +185,8 @@ export default function PabRegistrationPage() {
       const numberData = await numberResponse.json();
       const finalPabNumber = numberData.pabNumber;
       
+      const userId = localStorage.getItem('userId');
+      
       const payload = {
         pabNumber: finalPabNumber,
         date: currentDate,
@@ -193,6 +195,7 @@ export default function PabRegistrationPage() {
         area,
         inspectedObject,
         subdivision,
+        userId: userId,
         observations: observations.map(obs => ({
           description: obs.description,
           category: obs.category,

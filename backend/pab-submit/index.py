@@ -143,12 +143,35 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         Bucket='files',
         Key=file_key,
         Body=word_doc.getvalue(),
-        ContentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ContentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ContentDisposition=f'inline; filename="{doc_filename}"',
+        CacheControl='public, max-age=31536000'
     )
     
     file_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{file_key}"
     
     cur.execute(f"UPDATE {schema}.pab_records SET word_file_url = %s WHERE id = %s", (file_url, pab_id))
+    
+    user_id = body.get('userId')
+    if user_id:
+        cur.execute(f"SELECT id FROM {schema}.storage_folders WHERE user_id = %s AND folder_name = 'ПАБ' LIMIT 1", (user_id,))
+        folder_row = cur.fetchone()
+        
+        if not folder_row:
+            cur.execute(f"INSERT INTO {schema}.storage_folders (user_id, folder_name, created_at) VALUES (%s, 'ПАБ', NOW()) RETURNING id", (user_id,))
+            folder_id = cur.fetchone()[0]
+        else:
+            folder_id = folder_row[0]
+        
+        file_size = len(word_doc.getvalue())
+        cur.execute(
+            f"""INSERT INTO {schema}.storage_files 
+            (folder_id, file_name, file_url, file_size, file_type, uploaded_at) 
+            VALUES (%s, %s, %s, %s, %s, NOW())""",
+            (folder_id, doc_filename, file_url, file_size, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        )
+    
+    conn.commit()
     
     # Отправка email
     try:

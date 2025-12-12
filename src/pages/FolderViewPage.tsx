@@ -214,6 +214,35 @@ const FolderViewPage = () => {
            fileType === 'text/html';
   };
 
+  const isWordDocument = (fileType: string): boolean => {
+    return fileType.includes('word') || 
+           fileType.includes('document') || 
+           fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+           fileType === 'application/msword';
+  };
+
+  const handleFileOpen = (file: StorageFile) => {
+    window.open(file.file_url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleFileDownload = async (file: StorageFile) => {
+    try {
+      const response = await fetch(file.file_url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download error:', error);
+      window.open(file.file_url, '_blank');
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' Б';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
@@ -234,7 +263,7 @@ const FolderViewPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Button
               onClick={() => navigate('/storage')}
@@ -263,6 +292,22 @@ const FolderViewPage = () => {
             {uploading ? 'Загрузка...' : 'Загрузить файл'}
           </Button>
         </div>
+
+        {files.length > 0 && (
+          <Card className="bg-slate-800/50 border-blue-600/30 p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <Icon name="Info" size={20} className="text-blue-400 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-white text-sm font-medium mb-1">Управление файлами:</p>
+                <div className="text-slate-300 text-xs space-y-1">
+                  <p>• <Icon name="ExternalLink" size={14} className="inline text-green-400" /> — Открыть Word документ в новой вкладке</p>
+                  <p>• <Icon name="Eye" size={14} className="inline text-blue-400" /> — Просмотр изображений, PDF и видео</p>
+                  <p>• <Icon name="Download" size={14} className="inline text-yellow-400" /> — Скачать файл на ваше устройство</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
 
         <input
           ref={fileInputRef}
@@ -315,6 +360,20 @@ const FolderViewPage = () => {
                       <Icon name={getFileIcon(file.file_type)} size={32} className="text-white" />
                     </div>
                     <div className="flex gap-2">
+                      {isWordDocument(file.file_type) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-green-400 hover:text-green-300 hover:bg-green-500/10"
+                          title="Открыть в новой вкладке"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleFileOpen(file);
+                          }}
+                        >
+                          <Icon name="ExternalLink" size={20} />
+                        </Button>
+                      )}
                       {isPreviewable(file.file_type) && (
                         <Button
                           variant="ghost"
@@ -331,13 +390,11 @@ const FolderViewPage = () => {
                       <Button
                         onClick={(e) => {
                           e.stopPropagation();
-                          const link = document.createElement('a');
-                          link.href = file.file_url;
-                          link.download = file.file_name;
-                          link.click();
+                          handleFileDownload(file);
                         }}
                         variant="ghost"
                         size="icon"
+                        title="Скачать файл"
                         className="text-slate-400 hover:text-yellow-500 hover:bg-yellow-500/10"
                       >
                         <Icon name="Download" size={20} />
