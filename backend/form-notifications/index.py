@@ -8,6 +8,7 @@ from typing import Dict, Any
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
     Отправка уведомлений при сохранении форм: в чат ответственным + на email администратору
+    Обновлено: 12.12.2024 - новый пароль SMTP
     '''
     method: str = event.get('httpMethod', 'POST')
     
