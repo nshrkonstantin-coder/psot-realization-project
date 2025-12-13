@@ -4,6 +4,20 @@ from typing import Dict, Any
 import psycopg2
 from io import BytesIO
 import base64
+from datetime import datetime
+
+def format_date_ru(date_str):
+    '''Форматирует дату в формат дд.мм.гггг'''
+    if not date_str:
+        return ''
+    try:
+        if isinstance(date_str, str):
+            date_obj = datetime.fromisoformat(date_str.split('T')[0])
+        else:
+            date_obj = date_str
+        return date_obj.strftime('%d.%m.%Y')
+    except:
+        return str(date_str)
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
@@ -146,7 +160,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'violation_number': viol[0],
                     'description': viol[1],
                     'measures': viol[2],
-                    'deadline': str(viol[3]) if viol[3] else '',
+                    'deadline': format_date_ru(viol[3]),
                     'responsible_person': viol[4],
                     'photos': photos
                 })
@@ -160,12 +174,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             """
             cursor.execute(signatures_query, (pc_id,))
             signatures_rows = cursor.fetchall()
-            signatures = [{'user_name': sig[0], 'date': str(sig[1]) if sig[1] else ''} for sig in signatures_rows]
+            signatures = [{'user_name': sig[0], 'date': format_date_ru(sig[1])} for sig in signatures_rows]
             
             pcs_with_violations.append({
                 'id': pc_row[0],
                 'doc_number': pc_row[1],
-                'doc_date': str(pc_row[2]) if pc_row[2] else '',
+                'doc_date': format_date_ru(pc_row[2]),
                 'inspector_fio': pc_row[3],
                 'inspector_position': pc_row[4],
                 'location': pc_row[5],
