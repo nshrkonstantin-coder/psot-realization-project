@@ -1,0 +1,46 @@
+{
+  "tests": [
+    {
+      "name": "Get prescriptions statistics",
+      "method": "GET",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "1",
+        "X-User-Role": "user",
+        "X-User-Fio": "Тестовый Пользователь"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "stats": {
+          "total_prescriptions": "number",
+          "total_violations": "number"
+        },
+        "violations": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Create prescription",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "1",
+        "X-User-Role": "admin"
+      },
+      "body": {
+        "action": "create_prescription",
+        "issuer_fio": "Иванов Иван Иванович",
+        "issuer_position": "Инженер ОТ",
+        "issuer_department": "Отдел охраны труда",
+        "issuer_organization": "ООО Тест",
+        "assigned_user_id": 2,
+        "assigned_user_fio": "Петров Петр Петрович"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "id": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

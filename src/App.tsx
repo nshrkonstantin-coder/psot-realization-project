@@ -48,6 +48,7 @@ import EmailConfigPage from "./pages/EmailConfigPage";
 import SystemNotificationsPage from "./pages/SystemNotificationsPage";
 import DatabasePage from "./pages/DatabasePage";
 import PabAnalyticsPage from "./pages/PabAnalyticsPage";
+import PrescriptionsPage from "./pages/PrescriptionsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -105,6 +106,7 @@ const App = () => (
           <Route path="/system-notifications" element={<SystemNotificationsPage />} />
           <Route path="/database" element={<DatabasePage />} />
           <Route path="/pab-analytics" element={<PabAnalyticsPage />} />
+          <Route path="/prescriptions" element={<PrescriptionsPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
