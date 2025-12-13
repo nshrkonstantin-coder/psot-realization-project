@@ -224,6 +224,47 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 doc.add_paragraph()
             
+            # Блок подписей
+            doc.add_paragraph()
+            doc.add_paragraph()
+            
+            signatures_heading = doc.add_heading('ПОДПИСИ', level=2)
+            signatures_heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            
+            doc.add_paragraph()
+            
+            # Таблица с двумя колонками для подписей
+            table = doc.add_table(rows=1, cols=2)
+            table.autofit = False
+            table.allow_autofit = False
+            
+            # Левая колонка - Проверяющий
+            left_cell = table.rows[0].cells[0]
+            p1 = left_cell.paragraphs[0]
+            p1.add_run('Проверяющий:').bold = True
+            left_cell.add_paragraph(f'{pab["inspector_fio"]}')
+            left_cell.add_paragraph()
+            left_cell.add_paragraph()
+            p_sign1 = left_cell.add_paragraph('_______________ / ______________')
+            p_sign1_run = p_sign1.runs[0]
+            p_sign1_run.font.size = Pt(10)
+            p_date1 = left_cell.add_paragraph(f'Дата: {pab["doc_date"]}')
+            p_date1.runs[0].font.size = Pt(9)
+            
+            # Правая колонка - Ответственный за выполнение
+            right_cell = table.rows[0].cells[1]
+            p2 = right_cell.paragraphs[0]
+            p2.add_run('Ответственный за выполнение:').bold = True
+            responsible_person = pab['observations'][0]['responsible_person'] if pab['observations'] else '—'
+            right_cell.add_paragraph(f'{responsible_person}')
+            right_cell.add_paragraph()
+            right_cell.add_paragraph()
+            p_sign2 = right_cell.add_paragraph('_______________ / ______________')
+            p_sign2_run = p_sign2.runs[0]
+            p_sign2_run.font.size = Pt(10)
+            p_date2 = right_cell.add_paragraph('Дата: __________')
+            p_date2.runs[0].font.size = Pt(9)
+            
             doc.add_page_break()
         
         buffer = BytesIO()
