@@ -1,3 +1,4 @@
+# Prescriptions registry API v2.0
 import json
 import os
 import psycopg2
