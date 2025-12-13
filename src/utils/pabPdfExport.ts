@@ -74,14 +74,6 @@ export const generatePabPDF = (pabs: PabData[]) => {
       background: #fff;
     }
     
-    .company-logo {
-      position: absolute;
-      top: 10mm;
-      right: 10mm;
-      max-width: 40mm;
-      max-height: 25mm;
-    }
-    
     .page-break {
       page-break-after: always;
     }
@@ -279,7 +271,6 @@ export const generatePabPDF = (pabs: PabData[]) => {
 <body>
   ${pabs.map((pab, pabIndex) => `
     <div class="pab-document">
-      ${pab.logo_url ? `<img src="${pab.logo_url}" alt="Логотип компании" class="company-logo" />` : ''}
       <div class="header">
         <h1>Протокол аудита безопасности</h1>
         <h2>${pab.doc_number}</h2>

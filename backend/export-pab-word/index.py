@@ -206,15 +206,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             section.right_margin = Inches(0.6)
         
         for pab in pabs_with_obs:
-            logo_paragraph = doc.add_paragraph()
-            logo_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            
-            if pab.get('logo_url'):
-                logo_stream = download_image(pab['logo_url'])
-                if logo_stream:
-                    logo_run = logo_paragraph.add_run()
-                    logo_run.add_picture(logo_stream, width=Inches(1.5))
-            
             heading1 = doc.add_heading('ПРОТОКОЛ АУДИТА БЕЗОПАСНОСТИ', level=1)
             heading1.alignment = WD_ALIGN_PARAGRAPH.CENTER
             for run in heading1.runs:
