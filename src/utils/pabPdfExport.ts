@@ -43,12 +43,16 @@ export const generatePabPDF = (pabs: PabData[]) => {
     }
   };
 
+  const documentTitle = pabs.length === 1 
+    ? `Протокол аудита безопасности ${pabs[0].doc_number}`
+    : 'Протокол аудита безопасности';
+
   const html = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Протокол аудита безопасности</title>
+  <title>${documentTitle}</title>
   <style>
     @page {
       size: A4;

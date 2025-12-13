@@ -8,6 +8,7 @@ from typing import Dict, Any
 import psycopg2
 from io import BytesIO
 import base64
+import requests
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
@@ -163,6 +164,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         from docx.shared import Pt, Inches, RGBColor
         from docx.enum.text import WD_ALIGN_PARAGRAPH
         
+        def download_image(url: str) -> BytesIO:
+            """Скачивает изображение по URL и возвращает BytesIO объект"""
+            try:
+                response = requests.get(url, timeout=10)
+                if response.status_code == 200:
+                    return BytesIO(response.content)
+            except Exception as e:
+                print(f"Error downloading image from {url}: {str(e)}")
+            return None
+        
         doc = Document()
         
         for pab in pabs_with_obs:
@@ -179,7 +190,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             if pab.get('photo_url'):
                 doc.add_paragraph()
-                doc.add_paragraph(f"Фото объекта: {pab['photo_url']}")
+                p = doc.add_paragraph()
+                p.add_run('Фото объекта:').bold = True
+                image_stream = download_image(pab['photo_url'])
+                if image_stream:
+                    doc.add_picture(image_stream, width=Inches(4.5))
+                else:
+                    doc.add_paragraph(f"Ссылка на фото: {pab['photo_url']}")
             
             doc.add_paragraph()
             doc.add_heading('Наблюдения:', level=2)
@@ -197,7 +214,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 if obs.get('photo_url'):
                     doc.add_paragraph()
-                    doc.add_paragraph(f"Фото наблюдения: {obs['photo_url']}")
+                    p = doc.add_paragraph()
+                    p.add_run('Фотография нарушения:').bold = True
+                    image_stream = download_image(obs['photo_url'])
+                    if image_stream:
+                        doc.add_picture(image_stream, width=Inches(4.5))
+                    else:
+                        doc.add_paragraph(f"Ссылка на фото: {obs['photo_url']}")
                 
                 doc.add_paragraph()
             
