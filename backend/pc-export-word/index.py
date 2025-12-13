@@ -119,6 +119,38 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             cursor.execute(viol_query, (pc_id,))
             violations = cursor.fetchall()
             
+            # Загружаем фотографии для каждого нарушения
+            violations_with_photos = []
+            for viol in violations:
+                violation_id_query = """
+                    SELECT id FROM t_p80499285_psot_realization_pro.production_control_violations
+                    WHERE report_id = %s AND item_number = %s
+                """
+                cursor.execute(violation_id_query, (pc_id, viol[0]))
+                violation_id_result = cursor.fetchone()
+                
+                photos = []
+                if violation_id_result:
+                    violation_id = violation_id_result[0]
+                    photos_query = """
+                        SELECT photo_url
+                        FROM t_p80499285_psot_realization_pro.production_control_photos
+                        WHERE violation_id = %s
+                        ORDER BY id
+                    """
+                    cursor.execute(photos_query, (violation_id,))
+                    photo_rows = cursor.fetchall()
+                    photos = [{'data': photo[0]} for photo in photo_rows]
+                
+                violations_with_photos.append({
+                    'violation_number': viol[0],
+                    'description': viol[1],
+                    'measures': viol[2],
+                    'deadline': str(viol[3]) if viol[3] else '',
+                    'responsible_person': viol[4],
+                    'photos': photos
+                })
+            
             pcs_with_violations.append({
                 'id': pc_row[0],
                 'doc_number': pc_row[1],
@@ -128,13 +160,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'location': pc_row[5],
                 'department': pc_row[6],
                 'checked_object': pc_row[7],
-                'violations': [{
-                    'violation_number': viol[0],
-                    'description': viol[1],
-                    'measures': viol[2],
-                    'deadline': str(viol[3]) if viol[3] else '',
-                    'responsible_person': viol[4]
-                } for viol in violations]
+                'violations': violations_with_photos
             })
         
         cursor.close()
@@ -225,6 +251,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     value_run = field_para.add_run(str(field_value))
                     value_run.font.size = Pt(10)
+                
+                # Добавляем фотографии
+                if viol.get('photos') and len(viol['photos']) > 0:
+                    photos_para = viol_cell.add_paragraph()
+                    photos_para.add_run('Фото нарушений:').bold = True
+                    photos_para.runs[0].font.size = Pt(10)
+                    
+                    for photo in viol['photos']:
+                        try:
+                            import base64
+                            from io import BytesIO
+                            from docx.shared import Inches
+                            
+                            # Декодируем base64 фото
+                            photo_data = photo['data']
+                            if photo_data.startswith('data:image'):
+                                photo_data = photo_data.split(',')[1]
+                            
+                            image_bytes = base64.b64decode(photo_data)
+                            image_stream = BytesIO(image_bytes)
+                            
+                            # Добавляем изображение в документ
+                            photo_para = viol_cell.add_paragraph()
+                            run = photo_para.add_run()
+                            run.add_picture(image_stream, width=Inches(3))
+                        except Exception as e:
+                            print(f'Error adding photo to Word: {str(e)}')
                 
                 doc.add_paragraph()
             

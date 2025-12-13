@@ -91,9 +91,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     violations = cur.fetchall()
     
-    cur.close()
-    conn.close()
-    
     pc_dict = dict(record)
     if pc_dict.get('doc_date'):
         pc_dict['doc_date'] = pc_dict['doc_date'].isoformat()
@@ -103,7 +100,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         violation_dict = dict(violation)
         if violation_dict.get('deadline'):
             violation_dict['deadline'] = violation_dict['deadline'].isoformat()
+        
+        # Загружаем фотографии для каждого нарушения
+        violation_id = violation_dict['id']
+        cur.execute("""
+            SELECT photo_url
+            FROM t_p80499285_psot_realization_pro.production_control_photos
+            WHERE violation_id = %s
+            ORDER BY id
+        """, (violation_id,))
+        
+        photos = cur.fetchall()
+        violation_dict['photos'] = [{'data': photo[0]} for photo in photos] if photos else []
+        
         violations_list.append(violation_dict)
+    
+    cur.close()
+    conn.close()
     
     pc_dict['violations'] = violations_list
     

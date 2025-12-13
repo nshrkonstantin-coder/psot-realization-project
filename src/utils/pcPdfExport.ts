@@ -7,6 +7,7 @@ interface Violation {
   deadline: string;
   status: string;
   photo_url?: string;
+  photos?: Array<{ data: string }>;
 }
 
 interface PcData {
@@ -349,9 +350,14 @@ export const generatePcPDF = (records: PcData[]) => {
             <span class="field-value">${formatDate(violation.deadline)}</span>
           </div>
           
-          ${violation.photo_url ? `
-          <div class="photo-container">
-            <img src="${violation.photo_url}" alt="Фото нарушения ${violation.violation_number}" />
+          ${violation.photos && violation.photos.length > 0 ? `
+          <div class="violation-field">
+            <span class="field-label">Фото нарушений (${violation.photos.length}):</span>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            ${violation.photos.map((photo, idx) => `
+              <img src="${photo.data}" alt="Фото ${idx + 1}" style="width: 200px; height: 200px; object-fit: cover; border: 2px solid #ccc; border-radius: 4px;" />
+            `).join('')}
           </div>
           ` : ''}
         </div>

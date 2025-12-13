@@ -17,6 +17,7 @@ interface Violation {
   deadline: string;
   status: 'new' | 'in_progress' | 'completed' | 'overdue';
   photo_url?: string;
+  photos?: Array<{ data: string }>;
 }
 
 interface PcDetail {
@@ -371,15 +372,20 @@ export default function PcViewPage() {
                     </div>
                   </div>
 
-                  {violation.photo_url && (
+                  {(violation.photos && violation.photos.length > 0) && (
                     <div>
-                      <label className="text-sm font-medium text-gray-600 block mb-2">Фото нарушения</label>
-                      <img 
-                        src={violation.photo_url} 
-                        alt={`Нарушение ${violation.violation_number}`}
-                        className="max-w-md rounded-lg border-2 border-gray-200 shadow-md hover:shadow-xl transition-shadow cursor-pointer"
-                        onClick={() => window.open(violation.photo_url, '_blank')}
-                      />
+                      <label className="text-sm font-medium text-gray-600 block mb-2">Фото нарушений ({violation.photos.length})</label>
+                      <div className="flex flex-wrap gap-3">
+                        {violation.photos.map((photo, idx) => (
+                          <img 
+                            key={idx}
+                            src={photo.data} 
+                            alt={`Нарушение ${violation.violation_number} - фото ${idx + 1}`}
+                            className="w-48 h-48 object-cover rounded-lg border-2 border-gray-200 shadow-md hover:shadow-xl transition-shadow cursor-pointer"
+                            onClick={() => window.open(photo.data, '_blank')}
+                          />
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
