@@ -378,7 +378,11 @@ export default function PcViewPage() {
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Срок устранения</label>
-                      <p className="mt-1 p-3 bg-red-50 rounded border border-red-200 text-red-900 font-semibold">
+                      <p className={`mt-1 p-3 rounded border font-semibold ${
+                        isOverdue 
+                          ? 'bg-red-50 border-red-200 text-red-900' 
+                          : 'bg-blue-50 border-blue-200 text-blue-900'
+                      }`}>
                         {formatDate(violation.deadline)}
                       </p>
                     </div>

@@ -320,6 +320,7 @@ export default function PcListPage() {
                     <th className="p-4 text-left">Объект</th>
                     <th className="p-4 text-left">Ответственный</th>
                     <th className="p-4 text-left">Нарушения</th>
+                    <th className="p-4 text-left">Срок устранения</th>
                     <th className="p-4 text-left">Статус</th>
                     <th className="p-4 text-left">Действия</th>
                   </tr>
@@ -344,6 +345,17 @@ export default function PcListPage() {
                         <td className="p-4">{record.checked_object}</td>
                         <td className="p-4">{record.responsible_person}</td>
                         <td className="p-4">{getStatusIndicator(record)}</td>
+                        <td className="p-4">
+                          {record.max_deadline ? (
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                              isOverdue ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-blue-100 text-blue-800 border border-blue-300'
+                            }`}>
+                              {formatDate(record.max_deadline)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-sm">—</span>
+                          )}
+                        </td>
                         <td className="p-4">
                           {isAdmin ? (
                             <Select

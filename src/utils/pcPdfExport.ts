@@ -38,6 +38,10 @@ export const generatePcPDF = (records: PcData[]) => {
     return new Date(dateString).toLocaleDateString('ru-RU');
   };
 
+  const isDeadlineOverdue = (docDate: string, deadline: string) => {
+    return new Date(deadline) < new Date(docDate);
+  };
+
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'new': return 'Новый';
@@ -353,7 +357,9 @@ export const generatePcPDF = (records: PcData[]) => {
           
           <div class="violation-field">
             <span class="field-label">Срок устранения:</span>
-            <span class="field-value">${formatDate(violation.deadline)}</span>
+            <span class="field-value" style="padding: 2px 8px; border-radius: 3px; ${isDeadlineOverdue(pc.doc_date, violation.deadline) ? 'background: #fee; color: #c00; border: 1px solid #fcc;' : 'background: #e3f2fd; color: #1976d2; border: 1px solid #bbdefb;'}">
+              ${formatDate(violation.deadline)}
+            </span>
           </div>
           
           ${violation.photos && violation.photos.length > 0 ? `
