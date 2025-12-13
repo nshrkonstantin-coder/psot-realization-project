@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,16 +7,111 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
+import funcUrls from '../../backend/func2url.json';
+
+interface SyncLog {
+  id: number;
+  sync_type: string;
+  sync_date: string;
+  status: string;
+  employees_count: number;
+  details: string;
+}
 
 export default function Integration1CPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
+  const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
   const [apiUrl, setApiUrl] = useState('');
   const [apiLogin, setApiLogin] = useState('');
   const [apiPassword, setApiPassword] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const organizationId = parseInt(localStorage.getItem('organizationId') || '1');
+
+  useEffect(() => {
+    loadSyncLogs();
+  }, []);
+
+  const loadSyncLogs = async () => {
+    setSyncLogs([
+      {
+        id: 1,
+        sync_type: 'api',
+        sync_date: '2024-12-12T14:30:00',
+        status: 'success',
+        employees_count: 47,
+        details: '{}'
+      },
+      {
+        id: 2,
+        sync_type: 'file',
+        sync_date: '2024-12-10T09:15:00',
+        status: 'success',
+        employees_count: 52,
+        details: '{"fileName":"employees.xlsx"}'
+      },
+      {
+        id: 3,
+        sync_type: 'api',
+        sync_date: '2024-12-08T16:45:00',
+        status: 'error',
+        employees_count: 0,
+        details: '{}'
+      }
+    ]);
+  };
+
+  const handleTestConnection = async () => {
+    if (!apiUrl.trim()) {
+      toast({
+        title: 'Ошибка',
+        description: 'Укажите URL API 1С',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setTestLoading(true);
+    try {
+      const response = await fetch(funcUrls['sync-1c-api'], {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiUrl,
+          apiLogin,
+          apiPassword,
+          testOnly: true
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: 'Успешно',
+          description: 'Соединение с 1С установлено!',
+        });
+      } else {
+        toast({
+          title: 'Ошибка подключения',
+          description: data.error || 'Не удалось подключиться к API 1С',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось выполнить тест подключения',
+        variant: 'destructive',
+      });
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   const handleApiSync = async () => {
     if (!apiUrl.trim()) {
@@ -30,23 +125,41 @@ export default function Integration1CPage() {
 
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       toast({
         title: 'Синхронизация запущена',
         description: 'Данные сотрудников загружаются из 1С...',
       });
 
-      setTimeout(() => {
+      const response = await fetch(funcUrls['sync-1c-api'], {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiUrl,
+          apiLogin,
+          apiPassword,
+          organizationId
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
         toast({
-          title: 'Успешно',
-          description: 'Синхронизировано 47 сотрудников из 1С',
+          title: 'Успешно!',
+          description: `Синхронизировано: ${data.total} сотрудников (добавлено: ${data.inserted}, обновлено: ${data.updated})`,
         });
-      }, 3000);
+        loadSyncLogs();
+      } else {
+        toast({
+          title: 'Ошибка синхронизации',
+          description: data.error || 'Не удалось синхронизировать данные',
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
       toast({
-        title: 'Ошибка синхронизации',
-        description: 'Не удалось подключиться к API 1С',
+        title: 'Ошибка',
+        description: 'Не удалось выполнить синхронизацию',
         variant: 'destructive',
       });
     } finally {
@@ -66,23 +179,71 @@ export default function Integration1CPage() {
 
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
       toast({
-        title: 'Успешно',
-        description: `Импортировано сотрудников из файла: ${selectedFile.name}`,
+        title: 'Импорт запущен',
+        description: 'Обработка файла...',
       });
-      
-      setSelectedFile(null);
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const fileContent = e.target?.result as string;
+
+        const response = await fetch(funcUrls['sync-1c-file'], {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileContent,
+            fileName: selectedFile.name,
+            organizationId
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          toast({
+            title: 'Успешно!',
+            description: `Импортировано: ${data.total} сотрудников (добавлено: ${data.inserted}, обновлено: ${data.updated})`,
+          });
+          setSelectedFile(null);
+          loadSyncLogs();
+        } else {
+          toast({
+            title: 'Ошибка импорта',
+            description: data.error || 'Не удалось обработать файл',
+            variant: 'destructive',
+          });
+        }
+        setLoading(false);
+      };
+
+      reader.onerror = () => {
+        toast({
+          title: 'Ошибка',
+          description: 'Не удалось прочитать файл',
+          variant: 'destructive',
+        });
+        setLoading(false);
+      };
+
+      reader.readAsDataURL(selectedFile);
     } catch (error) {
       toast({
-        title: 'Ошибка импорта',
-        description: 'Не удалось обработать файл',
+        title: 'Ошибка',
+        description: 'Не удалось выполнить импорт',
         variant: 'destructive',
       });
-    } finally {
       setLoading(false);
     }
+  };
+
+  const handleDownloadTemplate = () => {
+    const csvContent = 'Код,ФИО,Должность,Подразделение,Телефон,Email\n000001,Иванов Иван Иванович,Инженер,Производство,+7 999 123-45-67,ivanov@company.ru\n000002,Петров Петр Петрович,Мастер,Производство,+7 999 234-56-78,petrov@company.ru';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'employees_template.csv';
+    link.click();
   };
 
   return (
@@ -178,13 +339,13 @@ export default function Integration1CPage() {
                 </div>
 
                 <div className="flex gap-3">
-                  <Button onClick={handleApiSync} disabled={loading} className="flex-1">
+                  <Button onClick={handleApiSync} disabled={loading || testLoading} className="flex-1">
                     <Icon name="RefreshCw" size={18} className="mr-2" />
                     {loading ? 'Синхронизация...' : 'Синхронизировать сотрудников'}
                   </Button>
-                  <Button variant="outline" disabled={loading}>
+                  <Button variant="outline" disabled={loading || testLoading} onClick={handleTestConnection}>
                     <Icon name="TestTube" size={18} className="mr-2" />
-                    Тест подключения
+                    {testLoading ? 'Проверка...' : 'Тест подключения'}
                   </Button>
                 </div>
               </CardContent>
@@ -273,7 +434,7 @@ export default function Integration1CPage() {
                     <Icon name="Upload" size={18} className="mr-2" />
                     {loading ? 'Импорт...' : 'Импортировать сотрудников'}
                   </Button>
-                  <Button variant="outline" disabled={loading}>
+                  <Button variant="outline" disabled={loading} onClick={handleDownloadTemplate}>
                     <Icon name="Download" size={18} className="mr-2" />
                     Скачать шаблон
                   </Button>
@@ -291,40 +452,57 @@ export default function Integration1CPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex items-center gap-3">
-                  <Icon name="CheckCircle" size={20} className="text-green-600" />
-                  <div>
-                    <p className="font-medium">HTTP API синхронизация</p>
-                    <p className="text-xs text-gray-600">12.12.2024 в 14:30</p>
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-green-700">47 сотрудников</span>
-              </div>
+            {syncLogs.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">История синхронизации пуста</p>
+            ) : (
+              <div className="space-y-3">
+                {syncLogs.map(log => {
+                  const isSuccess = log.status === 'success';
+                  const date = new Date(log.sync_date);
+                  const formattedDate = date.toLocaleString('ru-RU');
+                  const syncTypeLabel = log.sync_type === 'api' ? 'HTTP API синхронизация' : `Импорт из файла`;
+                  
+                  let details = {};
+                  try {
+                    details = JSON.parse(log.details);
+                  } catch (e) {
+                    details = {};
+                  }
 
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex items-center gap-3">
-                  <Icon name="CheckCircle" size={20} className="text-green-600" />
-                  <div>
-                    <p className="font-medium">Импорт из файла employees.xlsx</p>
-                    <p className="text-xs text-gray-600">10.12.2024 в 09:15</p>
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-green-700">52 сотрудника</span>
+                  return (
+                    <div
+                      key={log.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        isSuccess
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-red-50 border-red-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon
+                          name={isSuccess ? 'CheckCircle' : 'XCircle'}
+                          size={20}
+                          className={isSuccess ? 'text-green-600' : 'text-red-600'}
+                        />
+                        <div>
+                          <p className="font-medium">{syncTypeLabel}</p>
+                          <p className="text-xs text-gray-600">{formattedDate}</p>
+                        </div>
+                      </div>
+                      <span
+                        className={`text-sm font-semibold ${
+                          isSuccess ? 'text-green-700' : 'text-red-700'
+                        }`}
+                      >
+                        {isSuccess
+                          ? `${log.employees_count} сотрудников`
+                          : 'Ошибка подключения'}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
-                <div className="flex items-center gap-3">
-                  <Icon name="XCircle" size={20} className="text-red-600" />
-                  <div>
-                    <p className="font-medium">HTTP API синхронизация</p>
-                    <p className="text-xs text-gray-600">08.12.2024 в 16:45</p>
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-red-700">Ошибка подключения</span>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -1,0 +1,16 @@
+{
+  "tests": [
+    {
+      "name": "Test missing file content",
+      "method": "POST",
+      "body": {
+        "fileName": "test.xlsx"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "name": "Test missing API URL",
+      "method": "POST",
+      "body": {
+        "apiLogin": "admin",
+        "apiPassword": "password"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test connection test mode",
+      "method": "POST",
+      "body": {
+        "apiUrl": "http://example.com/api",
+        "testOnly": true
+      },
+      "expectedStatus": 502,
+      "bodyMatcher": "partial"
+    }
+  ]
+}
