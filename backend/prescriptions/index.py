@@ -77,6 +77,7 @@ def get_prescriptions(conn, user_id: str, user_role: str, event: Dict) -> Dict:
     schema = 't_p80499285_psot_realization_pro'
     
     is_admin = user_role in ['admin', 'superadmin', 'miniadmin']
+    print(f'[DEBUG] get_prescriptions: user_id={user_id}, user_role={user_role}, is_admin={is_admin}')
     
     # Статистика
     stats_query = f'''
