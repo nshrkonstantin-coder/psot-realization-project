@@ -79,20 +79,32 @@ export default function ProductionControlPage() {
     generateDocNumber();
   }, [navigate]);
 
-  const generateDocNumber = () => {
-    const currentYear = new Date().getFullYear();
-    const shortYear = currentYear.toString().slice(-2);
-    const reportsKey = 'production_control_reports';
-    const existingReports = JSON.parse(localStorage.getItem(reportsKey) || '[]');
-    
-    const currentYearReports = existingReports.filter((report: any) => {
-      const reportYear = new Date(report.created_at).getFullYear();
-      return reportYear === currentYear;
-    });
-    
-    const nextNumber = currentYearReports.length + 1;
-    const docNum = `ЭПК-${nextNumber}-${shortYear}`;
-    setDocNumber(docNum);
+  const generateDocNumber = async () => {
+    const organizationId = localStorage.getItem('organizationId');
+    if (!organizationId) {
+      console.error('No organizationId found');
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://functions.poehali.dev/19d2aac9-fad8-4354-a87d-0d21abbbdc67?organization_id=${organizationId}`
+      );
+      
+      if (!response.ok) {
+        console.error('Failed to generate doc number:', response.status);
+        return;
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.doc_number) {
+        setDocNumber(data.doc_number);
+        console.log('Generated doc number:', data.doc_number);
+      }
+    } catch (error) {
+      console.error('Error generating doc number:', error);
+    }
   };
 
   const loadOrgUsers = async () => {

@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "Generate production control document number",
+      "method": "GET",
+      "path": "/?organization_id=1",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "doc_number": "string",
+        "year": "number",
+        "sequence": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
