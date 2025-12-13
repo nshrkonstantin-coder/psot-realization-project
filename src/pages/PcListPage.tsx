@@ -215,7 +215,7 @@ export default function PcListPage() {
           );
         } else {
           indicators.push(
-            <div key={i} className="w-3 h-3 rounded-full bg-red-500 shadow-lg" />
+            <div key={i} className="w-3 h-3 rounded-full bg-blue-500 shadow-lg" />
           );
         }
       }

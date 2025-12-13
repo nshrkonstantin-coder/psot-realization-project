@@ -176,7 +176,7 @@ export default function PcViewPage() {
       );
     }
     
-    return <div className="w-3 h-3 rounded-full bg-red-500 shadow-lg" />;
+    return <div className="w-3 h-3 rounded-full bg-blue-500 shadow-lg" />;
   };
 
   const getStatusLabel = (status: string) => {
