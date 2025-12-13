@@ -15,9 +15,8 @@ interface PcRecord {
   doc_date: string;
   inspector_fio: string;
   inspector_position: string;
-  department: string;
-  location: string;
   checked_object: string;
+  responsible_person: string;
   created_at: string;
   status: 'new' | 'completed' | 'overdue' | 'in_progress';
   photo_url?: string;
@@ -230,7 +229,8 @@ export default function PcListPage() {
     return (
       record.doc_number.toLowerCase().includes(query) ||
       record.inspector_fio.toLowerCase().includes(query) ||
-      record.department.toLowerCase().includes(query)
+      record.checked_object.toLowerCase().includes(query) ||
+      record.responsible_person.toLowerCase().includes(query)
     );
   });
 
@@ -238,7 +238,7 @@ export default function PcListPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1600px] mx-auto">
         <div className="flex items-center justify-between mb-8">
           <Button
             onClick={() => navigate('/dashboard')}
@@ -317,8 +317,8 @@ export default function PcListPage() {
                     <th className="p-4 text-left">Дата</th>
                     <th className="p-4 text-left">Проверяющий</th>
                     <th className="p-4 text-left">Должность</th>
-                    <th className="p-4 text-left">Подразделение</th>
                     <th className="p-4 text-left">Объект</th>
+                    <th className="p-4 text-left">Ответственный</th>
                     <th className="p-4 text-left">Нарушения</th>
                     <th className="p-4 text-left">Статус</th>
                     <th className="p-4 text-left">Действия</th>
@@ -339,8 +339,8 @@ export default function PcListPage() {
                         <td className="p-4">{formatDate(record.doc_date)}</td>
                         <td className="p-4">{record.inspector_fio}</td>
                         <td className="p-4">{record.inspector_position}</td>
-                        <td className="p-4">{record.department}</td>
                         <td className="p-4">{record.checked_object}</td>
+                        <td className="p-4">{record.responsible_person}</td>
                         <td className="p-4">{getStatusIndicator(record)}</td>
                         <td className="p-4">
                           {isAdmin ? (
