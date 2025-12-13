@@ -36,6 +36,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             report_id = body_data.get('report_id')
             doc_number = body_data.get('doc_number', '')
             organization_id = body_data.get('organization_id')
+            word_file_url = body_data.get('word_file_url', '')
             
             conn = psycopg2.connect(os.environ['DATABASE_URL'])
             cur = conn.cursor()
@@ -62,6 +63,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 notification_text += f"📁 Документ в папке ЭПК\n"
                 
                 email_subject = f"Новое Предписание ЭПК №{doc_number} - {org_name}"
+                word_file_link = f'<p><a href="{word_file_url}" target="_blank" style="display: inline-block; background-color: #d97706; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">📄 Открыть Word документ</a></p>' if word_file_url else ''
                 email_body = f"""
 <html>
 <body style="font-family: Arial, sans-serif;">
@@ -76,6 +78,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     </div>
     <p><strong>ID записи в базе данных:</strong> {report_id}</p>
     <p><strong>Место хранения:</strong> База данных + папка "ЭПК" в Хранилище</p>
+    {word_file_link}
     <hr style="margin: 20px 0;">
     <p style="color: #6b7280; font-size: 12px;">Автоматическое уведомление из системы АСУБТ</p>
 </body>
@@ -186,9 +189,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             conn.commit()
             
-            # 2. Отправляем email администратору
-            email_sent = False
+            # 2. Получаем email-адреса ответственных и администратора
+            email_recipients = []
             admin_email = 'ACYBT@yandex.ru'
+            email_recipients.append(admin_email)
+            
+            # Получаем email ответственных лиц
+            for user_id in responsible_user_ids:
+                try:
+                    cur.execute(f"SELECT email FROM t_p80499285_psot_realization_pro.users WHERE id = {user_id}")
+                    user_email = cur.fetchone()
+                    if user_email and user_email[0]:
+                        email_recipients.append(user_email[0])
+                        print(f"Added responsible user email: {user_email[0]}")
+                except Exception as e:
+                    print(f"Error fetching email for user {user_id}: {str(e)}")
+            
+            # 3. Отправляем email всем получателям
+            email_sent = False
+            emails_sent_to = []
             
             try:
                 smtp_host = 'smtp.yandex.ru'
@@ -197,23 +216,30 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 smtp_password = 'yposmisntfvbuemf'
                 
                 print(f"SMTP Config: host={smtp_host}, port={smtp_port}, user={smtp_user}, has_password={bool(smtp_password)}")
+                print(f"Email recipients: {email_recipients}")
                 
                 if all([smtp_host, smtp_user, smtp_password]):
-                    msg = MIMEMultipart('alternative')
-                    msg['From'] = smtp_user
-                    msg['To'] = admin_email
-                    msg['Subject'] = email_subject
+                    for recipient_email in email_recipients:
+                        try:
+                            msg = MIMEMultipart('alternative')
+                            msg['From'] = smtp_user
+                            msg['To'] = recipient_email
+                            msg['Subject'] = email_subject
+                            
+                            html_part = MIMEText(email_body, 'html')
+                            msg.attach(html_part)
+                            
+                            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                                server.starttls()
+                                server.login(smtp_user, smtp_password)
+                                server.send_message(msg)
+                            
+                            emails_sent_to.append(recipient_email)
+                            print(f"Email sent to: {recipient_email}")
+                        except Exception as e:
+                            print(f"Error sending email to {recipient_email}: {str(e)}")
                     
-                    html_part = MIMEText(email_body, 'html')
-                    msg.attach(html_part)
-                    
-                    with smtplib.SMTP(smtp_host, smtp_port) as server:
-                        server.starttls()
-                        server.login(smtp_user, smtp_password)
-                        server.send_message(msg)
-                    
-                    email_sent = True
-                    print(f"Email sent to admin: {admin_email}")
+                    email_sent = len(emails_sent_to) > 0
                 else:
                     print("SMTP credentials not configured (one or more missing)")
             except smtplib.SMTPAuthenticationError as e:
@@ -236,7 +262,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'success': True,
                     'chat_notifications_sent': chat_notifications_sent,
                     'email_sent': email_sent,
-                    'admin_email': admin_email
+                    'emails_sent_to': emails_sent_to
                 })
             }
             

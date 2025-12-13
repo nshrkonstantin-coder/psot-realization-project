@@ -193,6 +193,7 @@ export default function ProductionControlPage() {
           doc_number: docNumber,
           report_id: result.report_id,
           organization_id: parseInt(organizationId!),
+          word_file_url: wordFileUrl,
           responsible_user_ids: [
             parseInt(recipientUserId),
             ...acceptorSignatures.filter(s => s.userId).map(s => parseInt(s.userId))
@@ -264,7 +265,7 @@ export default function ProductionControlPage() {
       const tableRows = [
         new TableRow({
           children: [
-            new TableCell({ children: [new Paragraph({ text: 'п/п', bold: true })], width: { size: 5, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ text: 'п/п', bold: true })], width: { size: 1500, type: WidthType.DXA } }),
             new TableCell({ children: [new Paragraph({ text: 'Краткое изложение выявленных нарушений с указанием места обнаружения (при необходимости вкладывать фото)', bold: true })], width: { size: 45, type: WidthType.PERCENTAGE } }),
             new TableCell({ children: [new Paragraph({ text: 'Предлагаемые меры, ответственные за выполнение и срок устранения нарушений', bold: true })], width: { size: 50, type: WidthType.PERCENTAGE } })
           ]
@@ -298,12 +299,14 @@ export default function ProductionControlPage() {
           }
         }
 
+        const measuresWithDeadline = item.measures ? `${item.measures}\n\nСрок: ${item.deadline || 'Не указан'}` : `Срок: ${item.deadline || 'Не указан'}`;
+        
         tableRows.push(
           new TableRow({
             children: [
-              new TableCell({ children: [new Paragraph(String(item.item_number) + '.')] }),
+              new TableCell({ children: [new Paragraph(String(item.item_number) + '.')], width: { size: 1500, type: WidthType.DXA } }),
               new TableCell({ children: descriptionParts }),
-              new TableCell({ children: [new Paragraph(item.measures || '')] })
+              new TableCell({ children: [new Paragraph(measuresWithDeadline)] })
             ]
           })
         );
@@ -365,7 +368,7 @@ export default function ProductionControlPage() {
       const tableRows = [
         new TableRow({
           children: [
-            new TableCell({ children: [new Paragraph({ text: 'п/п', bold: true })], width: { size: 5, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ text: 'п/п', bold: true })], width: { size: 1500, type: WidthType.DXA } }),
             new TableCell({ children: [new Paragraph({ text: 'Краткое изложение выявленных нарушений с указанием места обнаружения (при необходимости вкладывать фото)', bold: true })], width: { size: 45, type: WidthType.PERCENTAGE } }),
             new TableCell({ children: [new Paragraph({ text: 'Предлагаемые меры, ответственные за выполнение и срок устранения нарушений', bold: true })], width: { size: 50, type: WidthType.PERCENTAGE } })
           ]
@@ -399,12 +402,14 @@ export default function ProductionControlPage() {
           }
         }
 
+        const measuresWithDeadline = item.measures ? `${item.measures}\n\nСрок: ${item.deadline || 'Не указан'}` : `Срок: ${item.deadline || 'Не указан'}`;
+        
         tableRows.push(
           new TableRow({
             children: [
-              new TableCell({ children: [new Paragraph(String(item.item_number) + '.')] }),
+              new TableCell({ children: [new Paragraph(String(item.item_number) + '.')], width: { size: 1500, type: WidthType.DXA } }),
               new TableCell({ children: descriptionParts }),
-              new TableCell({ children: [new Paragraph(item.measures || '')] })
+              new TableCell({ children: [new Paragraph(measuresWithDeadline)] })
             ]
           })
         );
