@@ -52,6 +52,7 @@ import PcListPage from "./pages/PcListPage";
 import PcViewPage from "./pages/PcViewPage";
 import PcAnalyticsPage from "./pages/PcAnalyticsPage";
 import PrescriptionsPage from "./pages/PrescriptionsPage";
+import Integration1CPage from "./pages/Integration1CPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -113,6 +114,7 @@ const App = () => (
           <Route path="/pc-view/:id" element={<PcViewPage />} />
           <Route path="/pc-analytics" element={<PcAnalyticsPage />} />
           <Route path="/prescriptions" element={<PrescriptionsPage />} />
+          <Route path="/integration-1c" element={<Integration1CPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

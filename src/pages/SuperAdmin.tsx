@@ -42,6 +42,7 @@ const SuperAdmin = () => {
     { label: 'Управление предприятиями', icon: 'Building2', color: 'from-blue-500 to-blue-600', route: '/organizations-management' },
     { label: 'Межкорпоративные связи', icon: 'Link', color: 'from-purple-500 to-pink-600', route: '/intercorp-management' },
     { label: 'Назначить минадминистратора', icon: 'UserCog', color: 'from-teal-500 to-teal-600', route: '/assign-miniadmin' },
+    { label: 'Интеграция с 1С', icon: 'RefreshCw', color: 'from-emerald-500 to-emerald-600', route: '/integration-1c' },
     { label: 'Управление тарифами и модулями', icon: 'Package', color: 'from-green-500 to-emerald-600', route: '/tariff-management' },
     { label: 'Настройка подписок (старые)', icon: 'CreditCard', color: 'from-green-500 to-emerald-600', route: '/subscription-plans' },
     { label: 'Управление пользователями', icon: 'Users', color: 'from-purple-500 to-purple-600', route: '/users-management' },
