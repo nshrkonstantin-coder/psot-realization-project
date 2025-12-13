@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "Update observation status",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "observation_id": 1,
+        "status": "in_progress"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

@@ -234,7 +234,7 @@ export default function PabListPage() {
     );
   });
 
-  const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+  const isAdmin = userRole === 'admin' || userRole === 'superadmin' || userRole === 'miniadmin';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4">

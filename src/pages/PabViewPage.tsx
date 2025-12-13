@@ -64,14 +64,14 @@ export default function PabViewPage() {
 
   const updateObservationStatus = async (observationId: number, newStatus: string) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/226be57f-c09b-4429-9cc3-7def6c7317a0', {
+      const response = await fetch('https://functions.poehali.dev/9829c5e0-a504-482d-bcc5-733cf62bd9e6', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ observation_id: observationId, status: newStatus })
       });
       
       if (response.ok) {
-        toast.success('Статус обновлён');
+        toast.success('Статус наблюдения обновлён');
         if (id) loadPab(id);
       } else {
         toast.error('Ошибка обновления статуса');
@@ -79,6 +79,30 @@ export default function PabViewPage() {
     } catch (error) {
       console.error('Error updating status:', error);
       toast.error('Ошибка обновления статуса');
+    }
+  };
+
+  const deleteObservation = async (observationId: number, observationNumber: number) => {
+    if (!confirm(`Удалить наблюдение №${observationNumber}? Это действие нельзя отменить.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('https://functions.poehali.dev/6ec43ead-41fa-4995-8c3b-3fa1e0822a3b', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ observation_id: observationId })
+      });
+      
+      if (response.ok) {
+        toast.success('Наблюдение удалено');
+        if (id) loadPab(id);
+      } else {
+        toast.error('Ошибка удаления');
+      }
+    } catch (error) {
+      console.error('Error deleting observation:', error);
+      toast.error('Ошибка удаления');
     }
   };
 
@@ -210,7 +234,7 @@ export default function PabViewPage() {
     );
   }
 
-  const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+  const isAdmin = userRole === 'admin' || userRole === 'superadmin' || userRole === 'miniadmin';
   const completedCount = pab.observations.filter(o => o.status === 'completed').length;
   const totalCount = pab.observations.length;
 
@@ -307,20 +331,29 @@ export default function PabViewPage() {
                 </span>
               </div>
               {isAdmin && (
-                <Select
-                  value={obs.status}
-                  onValueChange={(value) => updateObservationStatus(obs.id, value)}
-                >
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Изменить статус" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">Новый</SelectItem>
-                    <SelectItem value="in_progress">В работе</SelectItem>
-                    <SelectItem value="completed">Выполнен</SelectItem>
-                    <SelectItem value="overdue">Просрочен</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={obs.status}
+                    onValueChange={(value) => updateObservationStatus(obs.id, value)}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Изменить статус" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">Новое</SelectItem>
+                      <SelectItem value="in_progress">В работе</SelectItem>
+                      <SelectItem value="completed">Устранено</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => deleteObservation(obs.id, obs.observation_number)}
+                    className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50"
+                  >
+                    <Icon name="Trash2" size={16} />
+                  </Button>
+                </div>
               )}
             </div>
             <div className="space-y-3 text-gray-700">

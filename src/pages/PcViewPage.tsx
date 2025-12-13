@@ -69,14 +69,14 @@ export default function PcViewPage() {
 
   const updateViolationStatus = async (violationId: number, newStatus: string) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/pc-violation-update-status-placeholder', {
+      const response = await fetch('https://functions.poehali.dev/8f65bf78-c12a-4ffc-9c9e-fd8f4fc4c6a7', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ violation_id: violationId, status: newStatus })
       });
       
       if (response.ok) {
-        toast.success('Статус обновлён');
+        toast.success('Статус нарушения обновлён');
         if (id) loadPc(id);
       } else {
         toast.error('Ошибка обновления статуса');
@@ -84,6 +84,30 @@ export default function PcViewPage() {
     } catch (error) {
       console.error('Error updating status:', error);
       toast.error('Ошибка обновления статуса');
+    }
+  };
+
+  const deleteViolation = async (violationId: number, violationNumber: number) => {
+    if (!confirm(`Удалить нарушение №${violationNumber}? Это действие нельзя отменить.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('https://functions.poehali.dev/d4845ec4-7998-43f8-8eb7-9833d64cd9ec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ violation_id: violationId })
+      });
+      
+      if (response.ok) {
+        toast.success('Нарушение удалено');
+        if (id) loadPc(id);
+      } else {
+        toast.error('Ошибка удаления');
+      }
+    } catch (error) {
+      console.error('Error deleting violation:', error);
+      toast.error('Ошибка удаления');
     }
   };
 
@@ -194,7 +218,7 @@ export default function PcViewPage() {
     }
   };
 
-  const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+  const isAdmin = userRole === 'admin' || userRole === 'superadmin' || userRole === 'miniadmin';
 
   const overallStatusIndicators = pc?.violations?.map(violation => 
     getViolationStatusIndicator(violation)
@@ -326,20 +350,29 @@ export default function PcViewPage() {
                     </h3>
                   </div>
                   {isAdmin ? (
-                    <Select
-                      value={actualStatus}
-                      onValueChange={(value) => updateViolationStatus(violation.id, value)}
-                    >
-                      <SelectTrigger className={`w-40 ${statusInfo.color}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="new">Новый</SelectItem>
-                        <SelectItem value="in_progress">В работе</SelectItem>
-                        <SelectItem value="completed">Выполнен</SelectItem>
-                        <SelectItem value="overdue">Просрочен</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={actualStatus}
+                        onValueChange={(value) => updateViolationStatus(violation.id, value)}
+                      >
+                        <SelectTrigger className={`w-40 ${statusInfo.color}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="new">Новое</SelectItem>
+                          <SelectItem value="in_progress">В работе</SelectItem>
+                          <SelectItem value="completed">Устранено</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteViolation(violation.id, violation.violation_number)}
+                        className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50"
+                      >
+                        <Icon name="Trash2" size={16} />
+                      </Button>
+                    </div>
                   ) : (
                     <span className={`px-4 py-2 rounded-full text-sm font-medium ${statusInfo.color}`}>
                       {statusInfo.label}

@@ -1,4 +1,8 @@
 {
+  "pc-update-violation-status": "https://functions.poehali.dev/8f65bf78-c12a-4ffc-9c9e-fd8f4fc4c6a7",
+  "pc-delete-violation": "https://functions.poehali.dev/d4845ec4-7998-43f8-8eb7-9833d64cd9ec",
+  "pab-update-observation-status": "https://functions.poehali.dev/9829c5e0-a504-482d-bcc5-733cf62bd9e6",
+  "pab-delete-observation": "https://functions.poehali.dev/6ec43ead-41fa-4995-8c3b-3fa1e0822a3b",
   "sync-1c-file": "https://functions.poehali.dev/00c968d2-ef8d-4de1-834f-3c33a2cdd6f8",
   "sync-1c-api": "https://functions.poehali.dev/36ae667f-7e56-4298-8362-f24103185253",
   "pc-export-word": "https://functions.poehali.dev/b9254750-728b-41ea-88fe-33ac7f924adc",

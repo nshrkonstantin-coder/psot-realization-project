@@ -40,6 +40,8 @@ const Admin = () => {
 
   const adminButtons = [
     { label: 'Управление пользователями', icon: 'Users', color: 'from-blue-500 to-blue-600', route: '/users-management' },
+    { label: 'Управление ПАБ', icon: 'FileText', color: 'from-blue-500 to-indigo-600', route: '/pab-list' },
+    { label: 'Управление ПК', icon: 'ClipboardList', color: 'from-emerald-500 to-teal-600', route: '/pc-list' },
     { label: 'Назначить минадминистратора', icon: 'UserCog', color: 'from-teal-500 to-teal-600', route: '/assign-miniadmin' },
     { label: 'Интеграция с 1С', icon: 'Database', color: 'from-emerald-500 to-emerald-600', route: '/integration-1c' },
     { label: 'Управление регистрацией ПАБ', icon: 'Settings', color: 'from-orange-500 to-orange-600', route: '/pab-dictionaries' },

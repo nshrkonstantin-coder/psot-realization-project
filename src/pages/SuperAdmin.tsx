@@ -40,6 +40,8 @@ const SuperAdmin = () => {
 
   const adminButtons = [
     { label: 'Управление предприятиями', icon: 'Building2', color: 'from-blue-500 to-blue-600', route: '/organizations-management' },
+    { label: 'Управление ПАБ', icon: 'FileText', color: 'from-blue-500 to-indigo-600', route: '/pab-list' },
+    { label: 'Управление ПК', icon: 'ClipboardList', color: 'from-emerald-500 to-teal-600', route: '/pc-list' },
     { label: 'Межкорпоративные связи', icon: 'Link', color: 'from-purple-500 to-pink-600', route: '/intercorp-management' },
     { label: 'Назначить минадминистратора', icon: 'UserCog', color: 'from-teal-500 to-teal-600', route: '/assign-miniadmin' },
     { label: 'Интеграция с 1С', icon: 'RefreshCw', color: 'from-emerald-500 to-emerald-600', route: '/integration-1c' },

@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "Delete violation",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "violation_id": 999
+      },
+      "expectedStatus": 404,
+      "expectedBody": {
+        "error": "Violation not found"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

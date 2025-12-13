@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "Delete observation",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "observation_id": 999
+      },
+      "expectedStatus": 404,
+      "expectedBody": {
+        "error": "Observation not found"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
