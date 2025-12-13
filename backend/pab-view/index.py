@@ -42,10 +42,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     cur.execute("""
         SELECT 
-            id, doc_number, doc_date, inspector_fio, inspector_position,
-            department, location, checked_object, status, photo_url
-        FROM t_p80499285_psot_realization_pro.pab_records
-        WHERE id = %s
+            pr.id, pr.doc_number, pr.doc_date, pr.inspector_fio, pr.inspector_position,
+            pr.department, pr.location, pr.checked_object, pr.status, pr.photo_url,
+            COALESCE(pr.organization_id, 1) as organization_id
+        FROM t_p80499285_psot_realization_pro.pab_records pr
+        WHERE pr.id = %s
     """, (pab_id,))
     
     record = cur.fetchone()
@@ -74,10 +75,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     observations = cur.fetchall()
     
+    pab_dict = dict(record)
+    
+    org_id = pab_dict.get('organization_id')
+    if org_id:
+        cur.execute("""
+            SELECT logo_url FROM t_p80499285_psot_realization_pro.organizations WHERE id = %s
+        """, (org_id,))
+        logo_result = cur.fetchone()
+        if logo_result and logo_result['logo_url']:
+            pab_dict['logo_url'] = logo_result['logo_url']
+    
     cur.close()
     conn.close()
-    
-    pab_dict = dict(record)
     if pab_dict.get('doc_date'):
         pab_dict['doc_date'] = pab_dict['doc_date'].isoformat()
     

@@ -1,0 +1,1 @@
+ALTER TABLE t_p80499285_psot_realization_pro.pab_records ADD COLUMN organization_id INTEGER REFERENCES t_p80499285_psot_realization_pro.organizations(id);

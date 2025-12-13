@@ -22,6 +22,7 @@ interface PabData {
   checked_object: string;
   status: string;
   photo_url?: string;
+  logo_url?: string;
   observations: Observation[];
 }
 
@@ -71,6 +72,14 @@ export const generatePabPDF = (pabs: PabData[]) => {
       line-height: 1.4;
       color: #000;
       background: #fff;
+    }
+    
+    .company-logo {
+      position: absolute;
+      top: 10mm;
+      right: 10mm;
+      max-width: 40mm;
+      max-height: 25mm;
     }
     
     .page-break {
@@ -270,6 +279,7 @@ export const generatePabPDF = (pabs: PabData[]) => {
 <body>
   ${pabs.map((pab, pabIndex) => `
     <div class="pab-document">
+      ${pab.logo_url ? `<img src="${pab.logo_url}" alt="Логотип компании" class="company-logo" />` : ''}
       <div class="header">
         <h1>Протокол аудита безопасности</h1>
         <h2>${pab.doc_number}</h2>

@@ -94,11 +94,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     doc_number = f"ПАБ-{counter}-{year_short}"
     
-    # Создаём запись ПАБ с новым номером
+    headers = event.get('headers', {})
+    user_id = headers.get('X-User-Id') or headers.get('x-user-id')
+    
+    organization_id = None
+    if user_id:
+        cur.execute("SELECT organization_id FROM t_p80499285_psot_realization_pro.users WHERE id = %s", (int(user_id),))
+        org_result = cur.fetchone()
+        if org_result:
+            organization_id = org_result[0]
+    
+    if not organization_id:
+        organization_id = 1
+    
     cur.execute(
         f"""INSERT INTO {schema}.pab_records 
-        (doc_number, doc_date, inspector_fio, inspector_position, location, checked_object, department, created_at) 
-        VALUES (%s, %s, %s, %s, %s, %s, %s, NOW()) 
+        (doc_number, doc_date, inspector_fio, inspector_position, location, checked_object, department, organization_id, created_at) 
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW()) 
         RETURNING id""",
         (
             doc_number,
@@ -107,7 +119,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             body['inspectorPosition'],
             body.get('area'),
             body.get('inspectedObject'),
-            body.get('subdivision')
+            body.get('subdivision'),
+            organization_id
         )
     )
     

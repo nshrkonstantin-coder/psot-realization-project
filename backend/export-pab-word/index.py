@@ -88,7 +88,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 p.checked_object,
                 p.department,
                 p.photo_url,
-                p.status
+                p.status,
+                COALESCE(p.organization_id, 1) as organization_id
             FROM t_p80499285_psot_realization_pro.pab_records p
             WHERE p.id IN ({ids_placeholder})
             ORDER BY p.doc_date DESC
@@ -106,6 +107,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'body': json.dumps({'error': 'No PAB records found'}),
                 'isBase64Encoded': False
             }
+        
+        organization_id = pab_records[0][10]
+        logo_url = None
+        
+        if organization_id:
+            logo_query = """SELECT logo_url FROM t_p80499285_psot_realization_pro.organizations WHERE id = %s"""
+            cursor.execute(logo_query, (organization_id,))
+            logo_result = cursor.fetchone()
+            if logo_result and logo_result[0]:
+                logo_url = logo_result[0]
         
         pabs_with_obs = []
         
@@ -143,6 +154,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'department': pab_row[7],
                 'photo_url': pab_row[8] or '',
                 'status': pab_row[9],
+                'logo_url': logo_url,
                 'observations': [{
                     'observation_number': obs[0],
                     'description': obs[1],
@@ -194,7 +206,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             section.right_margin = Inches(0.6)
         
         for pab in pabs_with_obs:
-            # Заголовок - ПРОТОКОЛ АУДИТА БЕЗОПАСНОСТИ
+            logo_paragraph = doc.add_paragraph()
+            logo_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            
+            if pab.get('logo_url'):
+                logo_stream = download_image(pab['logo_url'])
+                if logo_stream:
+                    logo_run = logo_paragraph.add_run()
+                    logo_run.add_picture(logo_stream, width=Inches(1.5))
+            
             heading1 = doc.add_heading('ПРОТОКОЛ АУДИТА БЕЗОПАСНОСТИ', level=1)
             heading1.alignment = WD_ALIGN_PARAGRAPH.CENTER
             for run in heading1.runs:
