@@ -120,6 +120,38 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         VALUES ({report_id}, {sig_user_id_sql}, '{user_name}', '{sig_date}')
                     """)
             
+            # Создаем записи в реестре предписаний для отслеживания выполнения
+            if recipient_user_id:
+                # Создаем главное предписание
+                cur.execute(f"""
+                    INSERT INTO t_p80499285_psot_realization_pro.production_prescriptions
+                    (issuer_fio, issuer_position, issuer_department, issuer_organization, 
+                     assigned_user_id, assigned_user_fio)
+                    VALUES ('{issuer_name_esc}', '{issuer_position_esc}', '{department_esc}', 
+                            'Производственный контроль', {recipient_user_id}, '{recipient_name_esc}')
+                    RETURNING id
+                """)
+                prescription_id = cur.fetchone()[0]
+                
+                # Создаем записи о нарушениях в реестре
+                for violation in violations:
+                    description = str(violation.get('description', '')).replace("'", "''")
+                    measures = str(violation.get('measures', '')).replace("'", "''")
+                    
+                    if description or measures:
+                        violation_text = description
+                        if measures:
+                            violation_text += f"\n\nМеры: {measures}"
+                        
+                        # Срок выполнения = дата выдачи + 30 дней
+                        cur.execute(f"""
+                            INSERT INTO t_p80499285_psot_realization_pro.production_prescription_violations
+                            (prescription_id, violation_text, assigned_user_id, assigned_user_fio, 
+                             deadline, status)
+                            VALUES ({prescription_id}, '{violation_text}', {recipient_user_id}, 
+                                    '{recipient_name_esc}', DATE('{issue_date}') + INTERVAL '30 days', 'in_work')
+                        """)
+            
             conn.commit()
             
             return {
