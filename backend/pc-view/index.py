@@ -79,7 +79,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             v.measures,
             COALESCE(u.fio, '') as responsible_person,
             COALESCE(v.deadline, r.doc_date) as deadline,
-            'new' as status,
+            CASE 
+                WHEN v.deadline IS NOT NULL AND v.deadline < CURRENT_DATE THEN 'overdue'
+                ELSE 'new'
+            END as status,
             NULL as photo_url,
             v.responsible_user_id
         FROM t_p80499285_psot_realization_pro.production_control_violations v
@@ -115,10 +118,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         violations_list.append(violation_dict)
     
+    # Загружаем подписи
+    cur.execute("""
+        SELECT user_name, signature_date
+        FROM t_p80499285_psot_realization_pro.production_control_signatures
+        WHERE report_id = %s
+        ORDER BY id
+    """, (pc_id,))
+    
+    signatures = cur.fetchall()
+    signatures_list = []
+    for sig in signatures:
+        signatures_list.append({
+            'user_name': sig['user_name'],
+            'date': sig['signature_date'].isoformat() if sig['signature_date'] else ''
+        })
+    
     cur.close()
     conn.close()
     
     pc_dict['violations'] = violations_list
+    pc_dict['signatures'] = signatures_list
     
     return {
         'statusCode': 200,

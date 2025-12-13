@@ -20,6 +20,11 @@ interface Violation {
   photos?: Array<{ data: string }>;
 }
 
+interface Signature {
+  user_name: string;
+  date: string;
+}
+
 interface PcDetail {
   id: number;
   doc_number: string;
@@ -31,6 +36,7 @@ interface PcDetail {
   checked_object: string;
   status: string;
   violations: Violation[];
+  signatures?: Signature[];
 }
 
 export default function PcViewPage() {
@@ -272,29 +278,33 @@ export default function PcViewPage() {
             Информация о проверке
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="text-sm font-medium text-gray-600">Дата проверки</label>
-              <p className="text-lg font-semibold text-gray-900">{formatDate(pc.doc_date)}</p>
+            <div className="space-y-6">
+              <div>
+                <label className="text-sm font-medium text-gray-600">Дата проверки</label>
+                <p className="text-lg font-semibold text-gray-900">{formatDate(pc.doc_date)}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Проверяющий</label>
+                <p className="text-lg font-semibold text-gray-900">{pc.inspector_fio}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Должность</label>
+                <p className="text-lg font-semibold text-gray-900">{pc.inspector_position}</p>
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600">Проверяющий</label>
-              <p className="text-lg font-semibold text-gray-900">{pc.inspector_fio}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600">Должность</label>
-              <p className="text-lg font-semibold text-gray-900">{pc.inspector_position}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600">Подразделение</label>
-              <p className="text-lg font-semibold text-gray-900">{pc.department}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600">Участок</label>
-              <p className="text-lg font-semibold text-gray-900">{pc.location}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600">Проверяемый объект</label>
-              <p className="text-lg font-semibold text-gray-900">{pc.checked_object}</p>
+            <div className="space-y-6">
+              <div>
+                <label className="text-sm font-medium text-gray-600">Проверяемый объект</label>
+                <p className="text-lg font-semibold text-gray-900">{pc.checked_object}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Подразделение</label>
+                <p className="text-lg font-semibold text-gray-900">{pc.department}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Контролирующий</label>
+                <p className="text-lg font-semibold text-gray-900">{pc.location}</p>
+              </div>
             </div>
           </div>
         </Card>
@@ -393,6 +403,28 @@ export default function PcViewPage() {
             );
           })}
         </div>
+
+        {pc.signatures && pc.signatures.length > 0 && (
+          <Card className="p-8 mt-6 border-emerald-200 shadow-lg">
+            <h2 className="text-xl font-bold mb-6 text-emerald-800 border-b border-emerald-200 pb-3">
+              Подписи
+            </h2>
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <label className="text-sm font-medium text-gray-600 block mb-1">Проверяющий</label>
+                <p className="text-lg font-semibold text-gray-900 mb-2">{pc.inspector_fio}</p>
+                <p className="text-sm text-gray-500">Дата: {formatDate(pc.doc_date)}</p>
+              </div>
+              {pc.signatures.map((sig, idx) => (
+                <div key={idx} className="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                  <label className="text-sm font-medium text-emerald-700 block mb-1">Принял</label>
+                  <p className="text-lg font-semibold text-emerald-900 mb-2">{sig.user_name}</p>
+                  <p className="text-sm text-emerald-600">Дата: {formatDate(sig.date)}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

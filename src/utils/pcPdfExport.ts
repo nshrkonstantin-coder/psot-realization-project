@@ -10,6 +10,11 @@ interface Violation {
   photos?: Array<{ data: string }>;
 }
 
+interface Signature {
+  user_name: string;
+  date: string;
+}
+
 interface PcData {
   id: number;
   doc_number: string;
@@ -22,6 +27,7 @@ interface PcData {
   status: string;
   photo_url?: string;
   violations: Violation[];
+  signatures?: Signature[];
 }
 
 export const generatePcPDF = (records: PcData[]) => {
@@ -274,34 +280,34 @@ export const generatePcPDF = (records: PcData[]) => {
         <h2>${pc.doc_number}</h2>
       </div>
       
-      <div class="info-section">
-        <div class="info-row">
-          <span class="info-label">Дата:</span>
-          <span class="info-value">${formatDate(pc.doc_date)}</span>
+      <div class="info-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div>
+          <div class="info-row">
+            <span class="info-label">Дата проверки:</span>
+            <span class="info-value">${formatDate(pc.doc_date)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Проверяющий:</span>
+            <span class="info-value">${pc.inspector_fio}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Должность:</span>
+            <span class="info-value">${pc.inspector_position}</span>
+          </div>
         </div>
-        <div class="info-row">
-          <span class="info-label">Проверяющий:</span>
-          <span class="info-value">${pc.inspector_fio}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Должность:</span>
-          <span class="info-value">${pc.inspector_position}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Подразделение:</span>
-          <span class="info-value">${pc.department}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Участок:</span>
-          <span class="info-value">${pc.location}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Проверяемый объект:</span>
-          <span class="info-value">${pc.checked_object}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Статус:</span>
-          <span class="info-value">${getStatusLabel(pc.status)}</span>
+        <div>
+          <div class="info-row">
+            <span class="info-label">Проверяемый объект:</span>
+            <span class="info-value">${pc.checked_object}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Подразделение:</span>
+            <span class="info-value">${pc.department}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Контролирующий:</span>
+            <span class="info-value">${pc.location}</span>
+          </div>
         </div>
       </div>
       
@@ -365,26 +371,26 @@ export const generatePcPDF = (records: PcData[]) => {
       
       <div class="signatures-section">
         <div class="signatures-title">ПОДПИСИ</div>
-        <div class="signatures-grid">
-          <div class="signature-block">
-            <div class="signature-label">Проверяющий:</div>
-            <div class="signature-name">${pc.inspector_fio}</div>
-            <div class="signature-line">
-              <span>Подпись</span>
-              <span>______________</span>
-              <span>${formatDate(pc.doc_date)}</span>
-            </div>
-          </div>
-          <div class="signature-block">
-            <div class="signature-label">Ответственный за устранение:</div>
-            <div class="signature-name">${pc.violations[0]?.responsible_person || '—'}</div>
-            <div class="signature-line">
-              <span>Подпись</span>
-              <span>______________</span>
-              <span>__________</span>
-            </div>
+        <div style="margin-bottom: 20px;">
+          <div class="signature-label">Проверяющий:</div>
+          <div class="signature-name">${pc.inspector_fio}</div>
+          <div class="signature-line">
+            <span>Подпись</span>
+            <span>______________</span>
+            <span>${formatDate(pc.doc_date)}</span>
           </div>
         </div>
+        ${pc.signatures && pc.signatures.length > 0 ? pc.signatures.map(sig => `
+          <div style="margin-bottom: 15px;">
+            <div class="signature-label">Принял:</div>
+            <div class="signature-name">${sig.user_name}</div>
+            <div class="signature-line">
+              <span>Подпись</span>
+              <span>______________</span>
+              <span>${formatDate(sig.date)}</span>
+            </div>
+          </div>
+        `).join('') : ''}
       </div>
     </div>
     ${pcIndex < records.length - 1 ? '<div class="page-break"></div>' : ''}

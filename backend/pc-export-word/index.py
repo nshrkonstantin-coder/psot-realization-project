@@ -151,6 +151,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'photos': photos
                 })
             
+            # Загружаем подписи
+            signatures_query = """
+                SELECT user_name, signature_date
+                FROM t_p80499285_psot_realization_pro.production_control_signatures
+                WHERE report_id = %s
+                ORDER BY id
+            """
+            cursor.execute(signatures_query, (pc_id,))
+            signatures_rows = cursor.fetchall()
+            signatures = [{'user_name': sig[0], 'date': str(sig[1]) if sig[1] else ''} for sig in signatures_rows]
+            
             pcs_with_violations.append({
                 'id': pc_row[0],
                 'doc_number': pc_row[1],
@@ -160,7 +171,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'location': pc_row[5],
                 'department': pc_row[6],
                 'checked_object': pc_row[7],
-                'violations': violations_with_photos
+                'violations': violations_with_photos,
+                'signatures': signatures
             })
         
         cursor.close()
@@ -194,31 +206,46 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             doc.add_paragraph()
             
-            info_table = doc.add_table(rows=6, cols=2)
+            info_table = doc.add_table(rows=3, cols=4)
             info_table.style = 'Table Grid'
             
-            info_data = [
-                ('Дата:', pc['doc_date']),
+            info_data_left = [
+                ('Дата проверки:', pc['doc_date']),
                 ('Проверяющий:', pc['inspector_fio']),
-                ('Должность:', pc['inspector_position']),
-                ('Подразделение:', pc['department']),
-                ('Кому:', pc['location']),
-                ('Объект проверки:', pc['checked_object'] or '—')
+                ('Должность:', pc['inspector_position'])
             ]
             
-            for idx, (label, value) in enumerate(info_data):
+            info_data_right = [
+                ('Проверяемый объект:', pc['checked_object'] or '—'),
+                ('Подразделение:', pc['department']),
+                ('Контролирующий:', pc['location'])
+            ]
+            
+            for idx in range(3):
                 row = info_table.rows[idx]
-                label_cell = row.cells[0]
-                value_cell = row.cells[1]
                 
-                label_para = label_cell.paragraphs[0]
-                label_para.text = label
-                label_para.runs[0].font.bold = True
-                label_para.runs[0].font.size = Pt(10)
+                label_left = row.cells[0]
+                value_left = row.cells[1]
+                label_right = row.cells[2]
+                value_right = row.cells[3]
                 
-                value_para = value_cell.paragraphs[0]
-                value_para.text = str(value) if value else '—'
-                value_para.runs[0].font.size = Pt(10)
+                label_para_left = label_left.paragraphs[0]
+                label_para_left.text = info_data_left[idx][0]
+                label_para_left.runs[0].font.bold = True
+                label_para_left.runs[0].font.size = Pt(10)
+                
+                value_para_left = value_left.paragraphs[0]
+                value_para_left.text = str(info_data_left[idx][1]) if info_data_left[idx][1] else '—'
+                value_para_left.runs[0].font.size = Pt(10)
+                
+                label_para_right = label_right.paragraphs[0]
+                label_para_right.text = info_data_right[idx][0]
+                label_para_right.runs[0].font.bold = True
+                label_para_right.runs[0].font.size = Pt(10)
+                
+                value_para_right = value_right.paragraphs[0]
+                value_para_right.text = str(info_data_right[idx][1]) if info_data_right[idx][1] else '—'
+                value_para_right.runs[0].font.size = Pt(10)
             
             doc.add_paragraph()
             
@@ -289,44 +316,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 run.font.size = Pt(12)
                 run.font.bold = True
             
-            sig_table = doc.add_table(rows=1, cols=2)
-            sig_table.style = 'Table Grid'
+            # Добавляем подпись проверяющего
+            inspector_para = doc.add_paragraph()
+            inspector_para.add_run('Проверяющий: ').bold = True
+            inspector_para.add_run(f'{pc["inspector_fio"]} ').font.size = Pt(10)
+            inspector_para.add_run('Подпись ______________').font.size = Pt(10)
+            inspector_para.add_run(f'  Дата: {pc["doc_date"]}').font.size = Pt(9)
             
-            left_cell = sig_table.rows[0].cells[0]
+            doc.add_paragraph()
             
-            left_label = left_cell.paragraphs[0]
-            left_label.add_run('Проверяющий:').bold = True
-            left_label.runs[0].font.size = Pt(10)
-            
-            left_name = left_cell.add_paragraph(pc['inspector_fio'])
-            left_name.runs[0].font.size = Pt(10)
-            
-            left_cell.add_paragraph()
-            left_cell.add_paragraph()
-            
-            left_sign = left_cell.add_paragraph('Подпись ______________')
-            left_sign.runs[0].font.size = Pt(10)
-            
-            left_date = left_cell.add_paragraph(f'Дата: {pc["doc_date"]}')
-            left_date.runs[0].font.size = Pt(9)
-            
-            right_cell = sig_table.rows[0].cells[1]
-            
-            right_label = right_cell.paragraphs[0]
-            right_label.add_run('Кому:').bold = True
-            right_label.runs[0].font.size = Pt(10)
-            
-            right_name = right_cell.add_paragraph(pc['location'])
-            right_name.runs[0].font.size = Pt(10)
-            
-            right_cell.add_paragraph()
-            right_cell.add_paragraph()
-            
-            right_sign = right_cell.add_paragraph('Подпись ______________')
-            right_sign.runs[0].font.size = Pt(10)
-            
-            right_date = right_cell.add_paragraph('Дата: __________')
-            right_date.runs[0].font.size = Pt(9)
+            # Добавляем подписи принявших из основной формы
+            for sig in pc.get('signatures', []):
+                sig_para = doc.add_paragraph()
+                sig_para.add_run('Принял: ').bold = True
+                sig_para.add_run(f'{sig["user_name"]} ').font.size = Pt(10)
+                sig_para.add_run('Подпись ______________').font.size = Pt(10)
+                sig_para.add_run(f'  Дата: {sig["date"]}').font.size = Pt(9)
             
             doc.add_page_break()
         
