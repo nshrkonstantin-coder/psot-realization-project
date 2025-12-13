@@ -54,7 +54,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             elif action == 'confirm_completion':
                 return confirm_completion(conn, body, user_id)
             
-            return {'statusCode': 400, 'body': json.dumps({'error': 'Unknown action'}), 'isBase64Encoded': False}
+            return {
+                'statusCode': 400,
+                'headers': {'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'},
+                'body': json.dumps({'error': 'Unknown action'}),
+                'isBase64Encoded': False
+            }
         
         elif method == 'PUT':
             body = json.loads(event.get('body', '{}'))
