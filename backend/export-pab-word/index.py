@@ -86,9 +86,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 p.location,
                 p.checked_object,
                 p.department,
-                p.header_photo_url,
+                p.photo_url,
                 p.status
-            FROM pab_records p
+            FROM t_p80499285_psot_realization_pro.pab_records p
             WHERE p.id IN ({ids_placeholder})
             ORDER BY p.doc_date DESC
         """
@@ -123,8 +123,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     deadline,
                     photo_url,
                     status
-                FROM pab_observations
-                WHERE pab_id = %s
+                FROM t_p80499285_psot_realization_pro.pab_observations
+                WHERE pab_record_id = %s
                 ORDER BY observation_number
             """
             
@@ -140,7 +140,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'location': pab_row[5],
                 'checked_object': pab_row[6],
                 'department': pab_row[7],
-                'header_photo_url': pab_row[8] or '',
+                'photo_url': pab_row[8] or '',
                 'status': pab_row[9],
                 'observations': [{
                     'observation_number': obs[0],
@@ -159,72 +159,68 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cursor.close()
         conn.close()
         
-        try:
-            from docx import Document
-            from docx.shared import Pt, Inches, RGBColor
-            from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx import Document
+        from docx.shared import Pt, Inches, RGBColor
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        
+        doc = Document()
+        
+        for pab in pabs_with_obs:
+            heading = doc.add_heading(f"Карта регистрации ПАБ №{pab['doc_number']}", level=1)
+            heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
             
-            doc = Document()
+            doc.add_paragraph(f"Дата составления: {pab['doc_date']}")
+            doc.add_paragraph(f"Проверяющий: {pab['inspector_fio']}")
+            doc.add_paragraph(f"Должность: {pab['inspector_position']}")
+            doc.add_paragraph(f"Подразделение: {pab['department']}")
+            doc.add_paragraph(f"Участок: {pab['location']}")
+            doc.add_paragraph(f"Объект проверки: {pab['checked_object']}")
+            doc.add_paragraph(f"Статус: {pab['status']}")
             
-            for pab in pabs_with_obs:
-                heading = doc.add_heading(f"Карта регистрации ПАБ №{pab['doc_number']}", level=1)
-                heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            if pab.get('photo_url'):
+                doc.add_paragraph()
+                doc.add_paragraph(f"Фото объекта: {pab['photo_url']}")
+            
+            doc.add_paragraph()
+            doc.add_heading('Наблюдения:', level=2)
+            
+            for obs in pab['observations']:
+                doc.add_heading(f"Наблюдение №{obs['observation_number']}", level=3)
+                doc.add_paragraph(f"Описание: {obs['description']}")
+                doc.add_paragraph(f"Категория: {obs['category']}")
+                doc.add_paragraph(f"Условия/Действия: {obs['conditions_actions']}")
+                doc.add_paragraph(f"Опасные факторы: {obs['hazard_factors']}")
+                doc.add_paragraph(f"Меры устранения: {obs['measures']}")
+                doc.add_paragraph(f"Ответственный: {obs['responsible_person']}")
+                doc.add_paragraph(f"Срок: {obs['deadline']}")
+                doc.add_paragraph(f"Статус: {obs['status']}")
                 
-                doc.add_paragraph(f"Дата составления: {pab['doc_date']}")
-                doc.add_paragraph(f"Проверяющий: {pab['inspector_fio']}")
-                doc.add_paragraph(f"Должность: {pab['inspector_position']}")
-                doc.add_paragraph(f"Подразделение: {pab['department']}")
-                doc.add_paragraph(f"Участок: {pab['location']}")
-                doc.add_paragraph(f"Объект проверки: {pab['checked_object']}")
-                doc.add_paragraph(f"Статус: {pab['status']}")
+                if obs.get('photo_url'):
+                    doc.add_paragraph()
+                    doc.add_paragraph(f"Фото наблюдения: {obs['photo_url']}")
                 
                 doc.add_paragraph()
-                doc.add_heading('Наблюдения:', level=2)
-                
-                for obs in pab['observations']:
-                    doc.add_heading(f"Наблюдение №{obs['observation_number']}", level=3)
-                    doc.add_paragraph(f"Описание: {obs['description']}")
-                    doc.add_paragraph(f"Категория: {obs['category']}")
-                    doc.add_paragraph(f"Условия/Действия: {obs['conditions_actions']}")
-                    doc.add_paragraph(f"Опасные факторы: {obs['hazard_factors']}")
-                    doc.add_paragraph(f"Меры устранения: {obs['measures']}")
-                    doc.add_paragraph(f"Ответственный: {obs['responsible_person']}")
-                    doc.add_paragraph(f"Срок: {obs['deadline']}")
-                    doc.add_paragraph(f"Статус: {obs['status']}")
-                    
-                    if obs['photo_url']:
-                        doc.add_paragraph(f"Фото: {obs['photo_url']}")
-                    
-                    doc.add_paragraph()
-                
-                doc.add_page_break()
             
-            buffer = BytesIO()
-            doc.save(buffer)
-            buffer.seek(0)
-            
-            docx_base64 = base64.b64encode(buffer.read()).decode('utf-8')
-            
-            filename = f"PAB_{pabs_with_obs[0]['doc_number']}" if len(pabs_with_obs) == 1 else "PAB_Multiple"
-            
-            return {
-                'statusCode': 200,
-                'headers': {
-                    'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Disposition': f'attachment; filename="{filename}.docx"'
-                },
-                'body': docx_base64,
-                'isBase64Encoded': True
-            }
-            
-        except ImportError:
-            return {
-                'statusCode': 500,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'python-docx library not installed'}),
-                'isBase64Encoded': False
-            }
+            doc.add_page_break()
+        
+        buffer = BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        
+        docx_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+        
+        filename = f"PAB_{pabs_with_obs[0]['doc_number']}" if len(pabs_with_obs) == 1 else "PAB_Multiple"
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'Access-Control-Allow-Origin': '*',
+                'Content-Disposition': f'attachment; filename="{filename}.docx"'
+            },
+            'body': docx_base64,
+            'isBase64Encoded': True
+        }
         
     except Exception as e:
         return {

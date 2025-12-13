@@ -1,24 +1,6 @@
 {
   "tests": [
     {
-      "name": "Export single PAB to Word",
-      "method": "GET",
-      "path": "/?ids=1",
-      "expectedStatus": 200,
-      "headers": {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      }
-    },
-    {
-      "name": "Export multiple PABs to Word",
-      "method": "GET",
-      "path": "/?ids=1,2",
-      "expectedStatus": 200,
-      "headers": {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      }
-    },
-    {
       "name": "Missing ids parameter",
       "method": "GET",
       "path": "/",

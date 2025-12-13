@@ -8,6 +8,7 @@ interface Observation {
   responsible_person: string;
   deadline: string;
   status: string;
+  photo_url?: string;
 }
 
 interface PabData {
@@ -20,6 +21,7 @@ interface PabData {
   location: string;
   checked_object: string;
   status: string;
+  photo_url?: string;
   observations: Observation[];
 }
 
@@ -185,6 +187,21 @@ export const generatePabPDF = (pabs: PabData[]) => {
       white-space: pre-wrap;
     }
     
+    .photo-container {
+      margin-top: 10px;
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+    }
+    
+    .photo-container img {
+      max-width: 400px;
+      max-height: 300px;
+      border: 2px solid #ccc;
+      border-radius: 4px;
+      display: block;
+      margin: 10px 0;
+    }
+    
     .signatures-section {
       margin-top: 30px;
       padding: 15px;
@@ -285,6 +302,17 @@ export const generatePabPDF = (pabs: PabData[]) => {
         </div>
       </div>
       
+      ${pab.photo_url ? `
+      <div class="info-section">
+        <div class="info-row">
+          <span class="info-label">Фото объекта:</span>
+        </div>
+        <div class="photo-container">
+          <img src="${pab.photo_url}" alt="Фото объекта проверки" />
+        </div>
+      </div>
+      ` : ''}
+      
       <div class="observations-title">Наблюдения</div>
       
       ${pab.observations.map(obs => `
@@ -328,6 +356,15 @@ export const generatePabPDF = (pabs: PabData[]) => {
             <span class="field-label">Срок выполнения:</span>
             <span class="field-value">${obs.deadline ? formatDate(obs.deadline) : '—'}</span>
           </div>
+          
+          ${obs.photo_url ? `
+          <div class="observation-field">
+            <span class="field-label">Фотография нарушения:</span>
+            <div class="photo-container">
+              <img src="${obs.photo_url}" alt="Фото наблюдения №${obs.observation_number}" />
+            </div>
+          </div>
+          ` : ''}
         </div>
       `).join('')}
       

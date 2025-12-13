@@ -43,8 +43,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     cur.execute("""
         SELECT 
             id, doc_number, doc_date, inspector_fio, inspector_position,
-            department, location, checked_object, status
-        FROM pab_records
+            department, location, checked_object, status, photo_url
+        FROM t_p80499285_psot_realization_pro.pab_records
         WHERE id = %s
     """, (pab_id,))
     
@@ -67,7 +67,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         SELECT 
             id, observation_number, description, category, conditions_actions,
             hazard_factors, measures, responsible_person, deadline, status, photo_url
-        FROM pab_observations
+        FROM t_p80499285_psot_realization_pro.pab_observations
         WHERE pab_record_id = %s
         ORDER BY observation_number
     """, (pab_id,))
