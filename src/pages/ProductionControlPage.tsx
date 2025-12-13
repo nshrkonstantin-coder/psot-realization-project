@@ -18,6 +18,7 @@ interface ViolationItem {
   photos: Array<{ data: string }>;
   measures: string;
   deadline: string;
+  responsible_user_id?: string;
 }
 
 interface SignatureLine {
@@ -299,14 +300,18 @@ export default function ProductionControlPage() {
           }
         }
 
-        const measuresWithDeadline = item.measures ? `${item.measures}\n\nСрок: ${item.deadline || 'Не указан'}` : `Срок: ${item.deadline || 'Не указан'}`;
+        const responsibleUser = item.responsible_user_id ? orgUsers.find(u => String(u.id) === item.responsible_user_id) : null;
+        const responsibleText = responsibleUser ? `Ответственный: ${responsibleUser.fio}` : '';
+        const measuresWithInfo = item.measures 
+          ? `${item.measures}${responsibleText ? '\n\n' + responsibleText : ''}\n\nСрок: ${item.deadline || 'Не указан'}` 
+          : `${responsibleText ? responsibleText + '\n\n' : ''}Срок: ${item.deadline || 'Не указан'}`;
         
         tableRows.push(
           new TableRow({
             children: [
               new TableCell({ children: [new Paragraph(String(item.item_number) + '.')], width: { size: 1500, type: WidthType.DXA } }),
               new TableCell({ children: descriptionParts }),
-              new TableCell({ children: [new Paragraph(measuresWithDeadline)] })
+              new TableCell({ children: [new Paragraph(measuresWithInfo)] })
             ]
           })
         );
@@ -402,14 +407,18 @@ export default function ProductionControlPage() {
           }
         }
 
-        const measuresWithDeadline = item.measures ? `${item.measures}\n\nСрок: ${item.deadline || 'Не указан'}` : `Срок: ${item.deadline || 'Не указан'}`;
+        const responsibleUser = item.responsible_user_id ? orgUsers.find(u => String(u.id) === item.responsible_user_id) : null;
+        const responsibleText = responsibleUser ? `Ответственный: ${responsibleUser.fio}` : '';
+        const measuresWithInfo = item.measures 
+          ? `${item.measures}${responsibleText ? '\n\n' + responsibleText : ''}\n\nСрок: ${item.deadline || 'Не указан'}` 
+          : `${responsibleText ? responsibleText + '\n\n' : ''}Срок: ${item.deadline || 'Не указан'}`;
         
         tableRows.push(
           new TableRow({
             children: [
               new TableCell({ children: [new Paragraph(String(item.item_number) + '.')], width: { size: 1500, type: WidthType.DXA } }),
               new TableCell({ children: descriptionParts }),
-              new TableCell({ children: [new Paragraph(measuresWithDeadline)] })
+              new TableCell({ children: [new Paragraph(measuresWithInfo)] })
             ]
           })
         );
@@ -511,8 +520,6 @@ export default function ProductionControlPage() {
     }
   };
 
-  const uniqueSubdivisions = Array.from(new Set(orgUsers.map(u => u.subdivision).filter(Boolean)));
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 print:bg-white">
       <Card id="print-container" className="max-w-7xl mx-auto p-8 print:shadow-none bg-white">
@@ -527,12 +534,12 @@ export default function ProductionControlPage() {
           witness={witness}
           setWitness={setWitness}
           orgUsers={orgUsers}
-          uniqueSubdivisions={uniqueSubdivisions}
         />
 
         <ViolationsTable
           violations={violations}
           setViolations={setViolations}
+          orgUsers={orgUsers}
         />
 
         <SignatureSection

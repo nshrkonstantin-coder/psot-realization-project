@@ -99,12 +99,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 v.description,
                 '' as who_violated,
                 v.measures,
-                '' as responsible_person,
-                r.doc_date as deadline,
+                COALESCE(u.fio, '') as responsible_person,
+                COALESCE(v.deadline, r.doc_date) as deadline,
                 'new' as status,
                 NULL as photo_url
             FROM t_p80499285_psot_realization_pro.production_control_violations v
             JOIN t_p80499285_psot_realization_pro.production_control_reports r ON v.report_id = r.id
+            LEFT JOIN t_p80499285_psot_realization_pro.users u ON v.responsible_user_id = u.id
             WHERE v.report_id = %s
             ORDER BY v.item_number
         """, (pc_id,))

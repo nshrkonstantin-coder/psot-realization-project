@@ -105,12 +105,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             viol_query = """
                 SELECT 
-                    item_number,
-                    description,
-                    measures
-                FROM t_p80499285_psot_realization_pro.production_control_violations
-                WHERE report_id = %s
-                ORDER BY item_number
+                    v.item_number,
+                    v.description,
+                    v.measures,
+                    v.deadline,
+                    COALESCE(u.fio, '') as responsible_person
+                FROM t_p80499285_psot_realization_pro.production_control_violations v
+                LEFT JOIN t_p80499285_psot_realization_pro.users u ON v.responsible_user_id = u.id
+                WHERE v.report_id = %s
+                ORDER BY v.item_number
             """
             
             cursor.execute(viol_query, (pc_id,))
@@ -129,6 +132,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'violation_number': viol[0],
                     'description': viol[1],
                     'measures': viol[2],
+                    'deadline': str(viol[3]) if viol[3] else '',
+                    'responsible_person': viol[4]
                 } for viol in violations]
             })
         
@@ -209,6 +214,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 fields = [
                     ('Описание нарушения:', viol['description']),
                     ('Мероприятия по устранению:', viol['measures']),
+                    ('Ответственный:', viol.get('responsible_person', '')),
+                    ('Срок устранения:', viol.get('deadline', '')),
                 ]
                 
                 for field_label, field_value in fields:

@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
@@ -9,14 +10,16 @@ interface ViolationItem {
   photos: Array<{ data: string }>;
   measures: string;
   deadline: string;
+  responsible_user_id?: string;
 }
 
 interface ViolationsTableProps {
   violations: ViolationItem[];
   setViolations: (violations: ViolationItem[]) => void;
+  orgUsers: Array<{ id: number; fio: string; position: string }>;
 }
 
-export default function ViolationsTable({ violations, setViolations }: ViolationsTableProps) {
+export default function ViolationsTable({ violations, setViolations, orgUsers }: ViolationsTableProps) {
   const addViolationRow = () => {
     setViolations([
       ...violations,
@@ -39,9 +42,13 @@ export default function ViolationsTable({ violations, setViolations }: Violation
     }
   };
 
-  const updateViolation = (index: number, field: 'description' | 'measures' | 'deadline', value: string) => {
+  const updateViolation = (index: number, field: 'description' | 'measures' | 'deadline' | 'responsible_user_id', value: string) => {
     const updated = [...violations];
-    updated[index][field] = value;
+    if (field === 'responsible_user_id') {
+      updated[index].responsible_user_id = value;
+    } else {
+      updated[index][field] = value;
+    }
     setViolations(updated);
   };
 
@@ -139,14 +146,34 @@ export default function ViolationsTable({ violations, setViolations }: Violation
                   className="w-full min-h-[80px] resize-none border-none bg-transparent print:border-none"
                   placeholder="Меры и сроки устранения"
                 />
-                <div className="mt-2 pt-2 border-t border-slate-200">
-                  <label className="text-xs text-slate-600 mb-1 block">Срок выполнения:</label>
-                  <input
-                    type="date"
-                    value={item.deadline}
-                    onChange={(e) => updateViolation(index, 'deadline', e.target.value)}
-                    className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 print:border-none"
-                  />
+                <div className="mt-2 pt-2 border-t border-slate-200 space-y-2">
+                  <div>
+                    <label className="text-xs text-slate-600 mb-1 block">Ответственный:</label>
+                    <Select 
+                      value={item.responsible_user_id || ''} 
+                      onValueChange={(value) => updateViolation(index, 'responsible_user_id', value)}
+                    >
+                      <SelectTrigger className={`h-8 text-sm ${item.responsible_user_id ? 'bg-green-100 border-green-400' : ''}`}>
+                        <SelectValue placeholder="Выберите ответственного" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {orgUsers.map((user) => (
+                          <SelectItem key={user.id} value={String(user.id)}>
+                            {user.fio}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-600 mb-1 block">Срок выполнения:</label>
+                    <input
+                      type="date"
+                      value={item.deadline}
+                      onChange={(e) => updateViolation(index, 'deadline', e.target.value)}
+                      className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 print:border-none"
+                    />
+                  </div>
                 </div>
               </td>
             </tr>

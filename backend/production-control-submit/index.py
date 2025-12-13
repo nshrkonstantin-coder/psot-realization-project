@@ -87,11 +87,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 description = str(violation.get('description', '')).replace("'", "''")
                 measures = str(violation.get('measures', '')).replace("'", "''")
                 photos = violation.get('photos', [])
+                deadline = violation.get('deadline', '')
+                responsible_user_id = violation.get('responsible_user_id')
+                
+                responsible_sql = str(responsible_user_id) if responsible_user_id else 'NULL'
+                deadline_sql = f"'{deadline}'" if deadline else 'NULL'
                 
                 cur.execute(f"""
                     INSERT INTO t_p80499285_psot_realization_pro.production_control_violations
-                    (report_id, item_number, description, measures)
-                    VALUES ({report_id}, {item_number}, '{description}', '{measures}')
+                    (report_id, item_number, description, measures, deadline, responsible_user_id)
+                    VALUES ({report_id}, {item_number}, '{description}', '{measures}', {deadline_sql}, {responsible_sql})
                     RETURNING id
                 """)
                 violation_id = cur.fetchone()[0]
@@ -138,6 +143,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     description = str(violation.get('description', '')).replace("'", "''")
                     measures = str(violation.get('measures', '')).replace("'", "''")
                     deadline = violation.get('deadline', '')
+                    responsible_user_id_viol = violation.get('responsible_user_id')
                     
                     if description or measures:
                         violation_text = description
@@ -147,12 +153,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         # Используем срок выполнения из формы
                         deadline_sql = f"DATE('{deadline}')" if deadline else f"DATE('{issue_date}') + INTERVAL '30 days'"
                         
+                        # Используем ответственного из нарушения, если указан, иначе получателя
+                        final_user_id = responsible_user_id_viol if responsible_user_id_viol else recipient_user_id
+                        
+                        # Получаем ФИО ответственного
+                        if responsible_user_id_viol:
+                            cur.execute(f"SELECT fio FROM t_p80499285_psot_realization_pro.users WHERE id = {final_user_id}")
+                            result = cur.fetchone()
+                            responsible_fio = result[0].replace("'", "''") if result else recipient_name_esc
+                        else:
+                            responsible_fio = recipient_name_esc
+                        
                         cur.execute(f"""
                             INSERT INTO t_p80499285_psot_realization_pro.production_prescription_violations
                             (prescription_id, violation_text, assigned_user_id, assigned_user_fio, 
                              deadline, status)
-                            VALUES ({prescription_id}, '{violation_text}', {recipient_user_id}, 
-                                    '{recipient_name_esc}', {deadline_sql}, 'in_work')
+                            VALUES ({prescription_id}, '{violation_text}', {final_user_id}, 
+                                    '{responsible_fio}', {deadline_sql}, 'in_work')
                         """)
             
             conn.commit()

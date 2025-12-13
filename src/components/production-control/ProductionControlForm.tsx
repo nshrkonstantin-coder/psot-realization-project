@@ -13,7 +13,6 @@ interface ProductionControlFormProps {
   witness: string;
   setWitness: (witness: string) => void;
   orgUsers: Array<{ id: number; fio: string; position: string; subdivision: string }>;
-  uniqueSubdivisions: string[];
 }
 
 export default function ProductionControlForm({
@@ -26,8 +25,7 @@ export default function ProductionControlForm({
   setDepartment,
   witness,
   setWitness,
-  orgUsers,
-  uniqueSubdivisions
+  orgUsers
 }: ProductionControlFormProps) {
   return (
     <>
@@ -76,18 +74,12 @@ export default function ProductionControlForm({
 
         <div>
           <Label className="font-semibold">Наименование обследуемого подразделения общества *</Label>
-          <Select value={department} onValueChange={setDepartment}>
-            <SelectTrigger className={`transition-colors ${department ? 'bg-green-100 border-green-400' : ''}`}>
-              <SelectValue placeholder="Выберите подразделение" />
-            </SelectTrigger>
-            <SelectContent>
-              {uniqueSubdivisions.map((sub, idx) => (
-                <SelectItem key={idx} value={sub}>
-                  {sub}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            placeholder="Введите название подразделения"
+            className={`transition-colors ${department.trim() ? 'bg-green-100 border-green-400' : ''}`}
+          />
         </div>
 
         <div>
