@@ -326,7 +326,9 @@ export default function PcListPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredRecords.map((record) => {
-                    const statusInfo = getStatusLabel(record.status);
+                    const isOverdue = record.max_deadline && new Date(record.max_deadline) < new Date();
+                    const actualStatus = isOverdue && record.status !== 'completed' ? 'overdue' : record.status;
+                    const statusInfo = getStatusLabel(actualStatus);
                     return (
                       <tr key={record.id} className="hover:bg-emerald-50 transition-colors">
                         <td className="p-4">
@@ -345,7 +347,7 @@ export default function PcListPage() {
                         <td className="p-4">
                           {isAdmin ? (
                             <Select
-                              value={record.status}
+                              value={actualStatus}
                               onValueChange={(value) => updateStatus(record.id, value)}
                             >
                               <SelectTrigger className={`w-36 ${statusInfo.color}`}>

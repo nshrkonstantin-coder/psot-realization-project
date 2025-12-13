@@ -313,7 +313,9 @@ export default function PcViewPage() {
           <h2 className="text-2xl font-bold text-gray-900">Нарушения ({pc.violations?.length || 0})</h2>
           
           {pc.violations?.map((violation) => {
-            const statusInfo = getStatusLabel(violation.status);
+            const isOverdue = violation.deadline && new Date(violation.deadline) < new Date();
+            const actualStatus = isOverdue && violation.status !== 'completed' ? 'overdue' : violation.status;
+            const statusInfo = getStatusLabel(actualStatus);
             return (
               <Card key={violation.id} className="p-6 border-l-4 border-l-emerald-600 hover:shadow-xl transition-shadow">
                 <div className="flex items-start justify-between mb-4">
@@ -325,7 +327,7 @@ export default function PcViewPage() {
                   </div>
                   {isAdmin ? (
                     <Select
-                      value={violation.status}
+                      value={actualStatus}
                       onValueChange={(value) => updateViolationStatus(violation.id, value)}
                     >
                       <SelectTrigger className={`w-40 ${statusInfo.color}`}>
