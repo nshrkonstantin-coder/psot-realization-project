@@ -79,12 +79,16 @@ const PrescriptionsPage = () => {
       const response = await fetch(url, {
         headers: {
           'X-User-Id': localStorage.getItem('userId') || '',
-          'X-User-Role': userRole || '',
+          'X-User-Role': localStorage.getItem('userRole') || 'user',
           'X-User-Fio': localStorage.getItem('userFio') || ''
         }
       });
 
-      if (!response.ok) throw new Error('Ошибка загрузки данных');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Backend error:', errorText);
+        throw new Error('Ошибка загрузки данных');
+      }
 
       const data = await response.json();
       setStats(data.stats);
@@ -255,16 +259,14 @@ const PrescriptionsPage = () => {
           <div className="flex gap-3">
             <Button
               onClick={() => loadData()}
-              variant="outline"
-              className="border-slate-700 text-white hover:bg-slate-800"
+              className="bg-slate-700 text-white hover:bg-slate-600"
             >
               <Icon name="RefreshCw" size={20} className="mr-2" />
               Обновить
             </Button>
             <Button
               onClick={() => navigate('/dashboard')}
-              variant="outline"
-              className="border-slate-700 text-white hover:bg-slate-800"
+              className="bg-slate-700 text-white hover:bg-slate-600"
             >
               <Icon name="ArrowLeft" size={20} className="mr-2" />
               Назад
