@@ -111,7 +111,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         """, (violation_id,))
         
         photos = cur.fetchall()
-        violation_dict['photos'] = [{'data': photo[0]} for photo in photos] if photos else []
+        violation_dict['photos'] = [{'data': photo['photo_url']} for photo in photos] if photos else []
         
         violations_list.append(violation_dict)
     
