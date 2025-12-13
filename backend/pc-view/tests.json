@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "Get PC details",
+      "method": "GET",
+      "path": "/?id=1",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "pc": "object"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

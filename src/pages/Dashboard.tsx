@@ -32,6 +32,8 @@ const Dashboard = () => {
     { label: 'Регистрация ПАБ', icon: 'FileText', color: 'from-red-500 to-red-600', route: '/pab-registration' },
     { label: 'Список ПАБ', icon: 'List', color: 'from-green-500 to-green-600', route: '/pab-list' },
     { label: 'Аналитика ПАБ', icon: 'LineChart', color: 'from-indigo-500 to-indigo-600', route: '/pab-analytics' },
+    { label: 'Список ПК', icon: 'ClipboardList', color: 'from-emerald-500 to-emerald-600', route: '/pc-list' },
+    { label: 'Аналитика ПК', icon: 'BarChart2', color: 'from-teal-500 to-teal-600', route: '/pc-analytics' },
     { label: 'Мои показатели', icon: 'TrendingUp', color: 'from-blue-500 to-blue-600', route: '/my-metrics' },
     { label: 'Отчет для КБТ', icon: 'ClipboardCheck', color: 'from-orange-600 to-orange-700', route: '/kbt-report' },
     { label: 'Производственный контроль', icon: 'Shield', color: 'from-red-600 to-red-700', route: '/production-control' },

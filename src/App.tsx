@@ -48,6 +48,9 @@ import EmailConfigPage from "./pages/EmailConfigPage";
 import SystemNotificationsPage from "./pages/SystemNotificationsPage";
 import DatabasePage from "./pages/DatabasePage";
 import PabAnalyticsPage from "./pages/PabAnalyticsPage";
+import PcListPage from "./pages/PcListPage";
+import PcViewPage from "./pages/PcViewPage";
+import PcAnalyticsPage from "./pages/PcAnalyticsPage";
 import PrescriptionsPage from "./pages/PrescriptionsPage";
 import NotFound from "./pages/NotFound";
 
@@ -106,6 +109,9 @@ const App = () => (
           <Route path="/system-notifications" element={<SystemNotificationsPage />} />
           <Route path="/database" element={<DatabasePage />} />
           <Route path="/pab-analytics" element={<PabAnalyticsPage />} />
+          <Route path="/pc-list" element={<PcListPage />} />
+          <Route path="/pc-view/:id" element={<PcViewPage />} />
+          <Route path="/pc-analytics" element={<PcAnalyticsPage />} />
           <Route path="/prescriptions" element={<PrescriptionsPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "Get PC data for PDF",
+      "method": "GET",
+      "path": "/?ids=1",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "records": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
