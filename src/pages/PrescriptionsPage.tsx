@@ -80,7 +80,7 @@ const PrescriptionsPage = () => {
         headers: {
           'X-User-Id': localStorage.getItem('userId') || '',
           'X-User-Role': localStorage.getItem('userRole') || 'user',
-          'X-User-Fio': localStorage.getItem('userFio') || ''
+          'X-User-Fio': encodeURIComponent(localStorage.getItem('userFio') || '')
         }
       });
 
@@ -103,7 +103,7 @@ const PrescriptionsPage = () => {
 
   const loadUsers = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/f5e1a0f9-6c1a-4aec-8e11-82a847c7fc28');
+      const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf');
       if (!response.ok) throw new Error('Ошибка загрузки пользователей');
       const data = await response.json();
       setUsers(data.users || []);
