@@ -36,9 +36,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             r.department as checked_object,
             r.recipient_name as responsible_person,
             r.created_at,
-            'new' as status,
+            CASE 
+                WHEN MAX(v.deadline) IS NOT NULL AND MAX(v.deadline) < CURRENT_DATE THEN 'overdue'
+                ELSE 'new'
+            END as status,
             COUNT(v.id) as total_violations,
-            0 as completed_violations
+            0 as completed_violations,
+            MAX(v.deadline) as max_deadline
         FROM t_p80499285_psot_realization_pro.production_control_reports r
         LEFT JOIN t_p80499285_psot_realization_pro.production_control_violations v ON r.id = v.report_id
         GROUP BY r.id, r.doc_number, r.doc_date, r.issuer_name, r.issuer_position, r.department, r.recipient_name, r.created_at
@@ -57,6 +61,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             record_dict['doc_date'] = record_dict['doc_date'].isoformat()
         if record_dict.get('created_at'):
             record_dict['created_at'] = record_dict['created_at'].isoformat()
+        if record_dict.get('max_deadline'):
+            record_dict['max_deadline'] = record_dict['max_deadline'].isoformat()
         records_list.append(record_dict)
     
     return {
