@@ -137,19 +137,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 for violation in violations:
                     description = str(violation.get('description', '')).replace("'", "''")
                     measures = str(violation.get('measures', '')).replace("'", "''")
+                    deadline = violation.get('deadline', '')
                     
                     if description or measures:
                         violation_text = description
                         if measures:
                             violation_text += f"\n\nМеры: {measures}"
                         
-                        # Срок выполнения = дата выдачи + 30 дней
+                        # Используем срок выполнения из формы
+                        deadline_sql = f"DATE('{deadline}')" if deadline else f"DATE('{issue_date}') + INTERVAL '30 days'"
+                        
                         cur.execute(f"""
                             INSERT INTO t_p80499285_psot_realization_pro.production_prescription_violations
                             (prescription_id, violation_text, assigned_user_id, assigned_user_fio, 
                              deadline, status)
                             VALUES ({prescription_id}, '{violation_text}', {recipient_user_id}, 
-                                    '{recipient_name_esc}', DATE('{issue_date}') + INTERVAL '30 days', 'in_work')
+                                    '{recipient_name_esc}', {deadline_sql}, 'in_work')
                         """)
             
             conn.commit()

@@ -8,6 +8,7 @@ interface ViolationItem {
   description: string;
   photos: Array<{ data: string }>;
   measures: string;
+  deadline: string;
 }
 
 interface ViolationsTableProps {
@@ -23,7 +24,8 @@ export default function ViolationsTable({ violations, setViolations }: Violation
         item_number: violations.length + 1,
         description: '',
         photos: [],
-        measures: ''
+        measures: '',
+        deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       }
     ]);
   };
@@ -37,7 +39,7 @@ export default function ViolationsTable({ violations, setViolations }: Violation
     }
   };
 
-  const updateViolation = (index: number, field: 'description' | 'measures', value: string) => {
+  const updateViolation = (index: number, field: 'description' | 'measures' | 'deadline', value: string) => {
     const updated = [...violations];
     updated[index][field] = value;
     setViolations(updated);
@@ -137,6 +139,15 @@ export default function ViolationsTable({ violations, setViolations }: Violation
                   className="w-full min-h-[80px] resize-none border-none bg-transparent print:border-none"
                   placeholder="Меры и сроки устранения"
                 />
+                <div className="mt-2 pt-2 border-t border-slate-200">
+                  <label className="text-xs text-slate-600 mb-1 block">Срок выполнения:</label>
+                  <input
+                    type="date"
+                    value={item.deadline}
+                    onChange={(e) => updateViolation(index, 'deadline', e.target.value)}
+                    className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 print:border-none"
+                  />
+                </div>
               </td>
             </tr>
           ))}

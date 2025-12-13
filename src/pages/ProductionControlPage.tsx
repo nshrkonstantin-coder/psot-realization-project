@@ -17,6 +17,7 @@ interface ViolationItem {
   description: string;
   photos: Array<{ data: string }>;
   measures: string;
+  deadline: string;
 }
 
 interface SignatureLine {
@@ -45,13 +46,15 @@ export default function ProductionControlPage() {
       item_number: 1,
       description: '',
       photos: [],
-      measures: ''
+      measures: '',
+      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     },
     {
       item_number: 2,
       description: '',
       photos: [],
-      measures: ''
+      measures: '',
+      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     }
   ]);
 
