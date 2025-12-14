@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import OrganizationLogo from '@/components/OrganizationLogo';
 
 interface User {
   id: number;
@@ -612,6 +613,7 @@ const VideoConferencePage = () => {
             <Button onClick={() => navigate(-1)} variant="outline" className="border-pink-600/50">
               <Icon name="ArrowLeft" size={20} />
             </Button>
+            <OrganizationLogo size={48} showCompanyName={false} />
             <div>
               <h1 className="text-3xl font-bold text-white">Видео конференция</h1>
               <p className="text-pink-400">Создавайте и присоединяйтесь к видеозвонкам</p>

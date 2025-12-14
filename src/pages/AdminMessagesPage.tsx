@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import OrganizationLogo from '@/components/OrganizationLogo';
 
 interface User {
   id: number;
@@ -431,6 +432,7 @@ const AdminMessagesPage = () => {
             <Button onClick={() => navigate(-1)} variant="outline" className="border-blue-600/50">
               <Icon name="ArrowLeft" size={20} />
             </Button>
+            <OrganizationLogo size={48} showCompanyName={false} />
             <div>
               <h1 className="text-3xl font-bold text-white">История сообщений</h1>
               <p className="text-blue-400">Управление перепиской и рассылками</p>

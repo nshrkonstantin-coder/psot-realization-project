@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { TechnicalSupport } from '@/components/TechnicalSupport';
+import OrganizationLogo from '@/components/OrganizationLogo';
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -61,9 +62,7 @@ const Admin = () => {
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-blue-600 to-cyan-700 p-3 rounded-xl shadow-lg">
-              <Icon name="ShieldCheck" size={32} className="text-white" />
-            </div>
+            <OrganizationLogo size={56} showCompanyName={true} />
             <div>
               <h1 className="text-3xl font-bold text-white">Панель администратора</h1>
               <p className="text-blue-400">{userFio}</p>

@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import OrganizationLogo from '@/components/OrganizationLogo';
 
 interface ObservationData {
   description: string;
@@ -248,7 +249,10 @@ export default function PabRegistrationPage() {
             <Icon name="ArrowLeft" className="mr-2 h-4 w-4" />
             Назад к списку ПАБ
           </Button>
-          <h1 className="text-3xl font-bold text-center text-gray-900 mb-8">Регистрация ПАБ</h1>
+          <div className="flex items-center justify-center gap-4 mb-8">
+            <OrganizationLogo size={56} showCompanyName={false} />
+            <h1 className="text-3xl font-bold text-gray-900">Регистрация ПАБ</h1>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6 space-y-6">

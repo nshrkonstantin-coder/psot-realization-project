@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { TechnicalSupport } from '@/components/TechnicalSupport';
+import OrganizationLogo from '@/components/OrganizationLogo';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -50,9 +51,7 @@ const Dashboard = () => {
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-yellow-600 to-orange-700 p-3 rounded-xl shadow-lg">
-              <Icon name="Mountain" size={32} className="text-white" />
-            </div>
+            <OrganizationLogo size={56} showCompanyName={false} />
             <div>
               <h1 className="text-3xl font-bold text-white">АСУБТ</h1>
               {userCompany && (

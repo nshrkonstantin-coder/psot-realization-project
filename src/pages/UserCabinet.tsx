@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
+import OrganizationLogo from '@/components/OrganizationLogo';
 import {
   Dialog,
   DialogContent,
@@ -244,9 +245,7 @@ const UserCabinet = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-3 rounded-xl shadow-lg">
-              <Icon name="User" size={32} className="text-white" />
-            </div>
+            <OrganizationLogo size={56} showCompanyName={false} />
             <div>
               <h1 className="text-3xl font-bold text-white">Личный кабинет</h1>
               {stats.company && (

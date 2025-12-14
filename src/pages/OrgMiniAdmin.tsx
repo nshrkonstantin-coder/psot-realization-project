@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { TechnicalSupport } from '@/components/TechnicalSupport';
+import OrganizationLogo from '@/components/OrganizationLogo';
 
 interface Permission {
   module: string;
@@ -144,8 +145,9 @@ const OrgMiniAdmin = () => {
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-teal-600 to-cyan-700 p-3 rounded-xl shadow-lg">
-              <Icon name="UserCog" size={32} className="text-white" />
+            <OrganizationLogo size={56} showCompanyName={true} />
+            <div>
+              <Icon name="UserCog" size={24} className="text-teal-400 inline mr-2" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">Панель минадминистратора</h1>

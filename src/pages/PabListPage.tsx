@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { generatePabPDF } from '@/utils/pabPdfExport';
+import OrganizationLogo from '@/components/OrganizationLogo';
 
 interface PabRecord {
   id: number;
@@ -248,7 +249,10 @@ export default function PabListPage() {
             <Icon name="ArrowLeft" size={20} />
             Назад
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900">Список ПАБ</h1>
+          <div className="flex items-center gap-4">
+            <OrganizationLogo size={56} showCompanyName={false} />
+            <h1 className="text-3xl font-bold text-gray-900">Список ПАБ</h1>
+          </div>
           <div className="flex items-center gap-2">
             {selectedIds.length > 0 && (
               <>
