@@ -341,6 +341,137 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'body': json.dumps({'success': True, 'users': users})
             }
         
+        elif action == 'user_observations':
+            user_id = params.get('userId')
+            
+            if not user_id:
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'User ID required'})
+                }
+            
+            # Получаем ФИО пользователя
+            cur.execute(f"""
+                SELECT fio
+                FROM t_p80499285_psot_realization_pro.users
+                WHERE id = {user_id}
+            """)
+            
+            user_row = cur.fetchone()
+            if not user_row or not user_row[0]:
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({'success': True, 'observations': []})
+                }
+            
+            user_fio = user_row[0]
+            
+            # Получаем наблюдения где responsible_person совпадает с ФИО
+            cur.execute(f"""
+                SELECT id, pab_record_id, observation_number, description, category, 
+                       conditions_actions, hazard_factors, measures, responsible_person, 
+                       deadline, status, photo_url, created_at
+                FROM t_p80499285_psot_realization_pro.pab_observations
+                WHERE LOWER(responsible_person) = LOWER('{user_fio.replace("'", "''")}')
+                ORDER BY created_at DESC
+            """)
+            
+            observations = []
+            for obs_row in cur.fetchall():
+                observations.append({
+                    'id': obs_row[0],
+                    'pab_record_id': obs_row[1],
+                    'observation_number': obs_row[2],
+                    'description': obs_row[3] or '',
+                    'category': obs_row[4] or '',
+                    'conditions_actions': obs_row[5] or '',
+                    'hazard_factors': obs_row[6] or '',
+                    'measures': obs_row[7] or '',
+                    'responsible_person': obs_row[8] or '',
+                    'deadline': obs_row[9].isoformat() if obs_row[9] else None,
+                    'status': obs_row[10] or 'Новый',
+                    'photo_url': obs_row[11] or '',
+                    'created_at': obs_row[12].isoformat() if obs_row[12] else None
+                })
+            
+            cur.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({'success': True, 'observations': observations})
+            }
+        
+        elif action == 'user_prescriptions':
+            user_id = params.get('userId')
+            
+            if not user_id:
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'User ID required'})
+                }
+            
+            # Получаем предписания выписанные на пользователя
+            cur.execute(f"""
+                SELECT id, prescription_id, violation_text, assigned_user_id, 
+                       assigned_user_fio, status, deadline, completed_at, 
+                       confirmed_by_issuer, created_at, updated_at
+                FROM t_p80499285_psot_realization_pro.production_prescription_violations
+                WHERE assigned_user_id = {user_id}
+                ORDER BY created_at DESC
+            """)
+            
+            prescriptions = []
+            for presc_row in cur.fetchall():
+                prescriptions.append({
+                    'id': presc_row[0],
+                    'prescription_id': presc_row[1],
+                    'violation_text': presc_row[2] or '',
+                    'assigned_user_id': presc_row[3],
+                    'assigned_user_fio': presc_row[4] or '',
+                    'status': presc_row[5] or 'В работе',
+                    'deadline': presc_row[6].isoformat() if presc_row[6] else None,
+                    'completed_at': presc_row[7].isoformat() if presc_row[7] else None,
+                    'confirmed_by_issuer': presc_row[8] or False,
+                    'created_at': presc_row[9].isoformat() if presc_row[9] else None,
+                    'updated_at': presc_row[10].isoformat() if presc_row[10] else None
+                })
+            
+            cur.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({'success': True, 'prescriptions': prescriptions})
+            }
+        
         elif action == 'online_users':
             user_id = params.get('userId')
             
