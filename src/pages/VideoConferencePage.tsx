@@ -52,11 +52,14 @@ const VideoConferencePage = () => {
   const [currentConference, setCurrentConference] = useState<Conference | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const screenShareRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
 
   const MESSAGING_URL = 'https://functions.poehali.dev/0bd87c15-af37-4e08-93fa-f921a3c18bee';
   const ORGANIZATIONS_URL = 'https://functions.poehali.dev/cc1f4cd3-7f42-42f3-b55b-1d7da3d5b869';
@@ -206,16 +209,67 @@ const VideoConferencePage = () => {
     }
   };
 
+  const toggleScreenShare = async () => {
+    if (isScreenSharing) {
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
+        screenStreamRef.current = null;
+      }
+      
+      if (localStreamRef.current && localVideoRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current;
+      }
+      
+      setIsScreenSharing(false);
+      toast({ title: 'Демонстрация экрана остановлена' });
+    } else {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            cursor: 'always'
+          },
+          audio: false
+        });
+
+        screenStreamRef.current = screenStream;
+        
+        if (screenShareRef.current) {
+          screenShareRef.current.srcObject = screenStream;
+        }
+
+        screenStream.getVideoTracks()[0].onended = () => {
+          toggleScreenShare();
+        };
+
+        setIsScreenSharing(true);
+        toast({ title: 'Демонстрация экрана началась' });
+      } catch (error) {
+        console.error('Ошибка захвата экрана:', error);
+        toast({ 
+          title: 'Ошибка демонстрации экрана', 
+          description: 'Не удалось получить доступ к экрану',
+          variant: 'destructive' 
+        });
+      }
+    }
+  };
+
   const endCall = () => {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
     }
     
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+    }
+    
     setInCall(false);
     setCurrentConference(null);
     setIsMuted(false);
     setIsVideoOff(false);
+    setIsScreenSharing(false);
   };
 
   const copyRoomLink = (conferenceId: string) => {
@@ -261,6 +315,14 @@ const VideoConferencePage = () => {
               <Button onClick={toggleVideo} variant={isVideoOff ? 'destructive' : 'outline'}>
                 <Icon name={isVideoOff ? 'VideoOff' : 'Video'} size={20} />
               </Button>
+              <Button 
+                onClick={toggleScreenShare} 
+                variant={isScreenSharing ? 'default' : 'outline'}
+                className={isScreenSharing ? 'bg-green-600 hover:bg-green-700' : ''}
+              >
+                <Icon name="Monitor" size={20} className={isScreenSharing ? 'mr-2' : ''} />
+                {isScreenSharing && 'Остановить'}
+              </Button>
               <Button onClick={() => copyRoomLink(currentConference.id)} variant="outline">
                 <Icon name="Share2" size={20} />
               </Button>
@@ -272,36 +334,87 @@ const VideoConferencePage = () => {
           </div>
         </div>
 
-        <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute bottom-4 left-4 bg-slate-900/80 px-3 py-1 rounded text-white">
-              Собеседник
-            </div>
-          </div>
-
-          <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover mirror"
-            />
-            <div className="absolute bottom-4 left-4 bg-slate-900/80 px-3 py-1 rounded text-white">
-              Вы ({userFio})
-            </div>
-            {isVideoOff && (
-              <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
-                <Icon name="VideoOff" size={64} className="text-slate-600" />
+        <div className="flex-1 p-6">
+          {isScreenSharing ? (
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-full">
+              <div className="lg:col-span-3 relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
+                <video
+                  ref={screenShareRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-contain"
+                />
+                <div className="absolute top-4 left-4 bg-green-600/90 px-4 py-2 rounded flex items-center gap-2">
+                  <Icon name="Monitor" size={20} className="text-white" />
+                  <span className="text-white font-semibold">Демонстрация экрана</span>
+                </div>
               </div>
-            )}
-          </div>
+
+              <div className="lg:col-span-1 space-y-4">
+                <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl h-[45%]">
+                  <video
+                    ref={remoteVideoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-2 left-2 bg-slate-900/80 px-2 py-1 rounded text-white text-sm">
+                    Собеседник
+                  </div>
+                </div>
+
+                <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl h-[45%]">
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover mirror"
+                  />
+                  <div className="absolute bottom-2 left-2 bg-slate-900/80 px-2 py-1 rounded text-white text-sm">
+                    Вы
+                  </div>
+                  {isVideoOff && (
+                    <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
+                      <Icon name="VideoOff" size={32} className="text-slate-600" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute bottom-4 left-4 bg-slate-900/80 px-3 py-1 rounded text-white">
+                  Собеседник
+                </div>
+              </div>
+
+              <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover mirror"
+                />
+                <div className="absolute bottom-4 left-4 bg-slate-900/80 px-3 py-1 rounded text-white">
+                  Вы ({userFio})
+                </div>
+                {isVideoOff && (
+                  <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
+                    <Icon name="VideoOff" size={64} className="text-slate-600" />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <style>{`
