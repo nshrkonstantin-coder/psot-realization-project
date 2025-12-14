@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 
@@ -46,6 +47,16 @@ interface Message {
   sender_company: string;
 }
 
+const EMOJI_LIST = [
+  '😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘',
+  '😗', '😙', '😚', '☺️', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥳', '🤩', '😏',
+  '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠',
+  '👍', '👎', '👏', '🙌', '👐', '🤝', '🙏', '✌️', '🤞', '🤟', '🤘', '👌', '👈', '👉', '👆', '👇',
+  '💪', '🦾', '🦿', '🦵', '🦶', '👂', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁️', '👅', '👄',
+  '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖',
+  '⭐', '🌟', '✨', '💫', '⚡', '🔥', '💥', '💯', '✅', '❌', '⚠️', '🚀', '🎉', '🎊', '🎈', '🎁'
+];
+
 const AdminMessagesPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -74,6 +85,10 @@ const AdminMessagesPage = () => {
   const [newChatUserIds, setNewChatUserIds] = useState<number[]>([]);
   const [newChatCompanyFilter, setNewChatCompanyFilter] = useState<string>('all');
   const [newChatSearch, setNewChatSearch] = useState('');
+
+  const newMessageRef = useRef<HTMLTextAreaElement>(null);
+  const massMessageRef = useRef<HTMLTextAreaElement>(null);
+  const emailBodyRef = useRef<HTMLTextAreaElement>(null);
 
   const MESSAGING_URL = 'https://functions.poehali.dev/0bd87c15-af37-4e08-93fa-f921a3c18bee';
   const SEND_EMAIL_URL = 'https://functions.poehali.dev/5055f3a3-bc30-4e5b-b65c-e30b28b07a03';
@@ -106,6 +121,7 @@ const AdminMessagesPage = () => {
       }
     } catch (error) {
       console.error('Ошибка загрузки предприятий:', error);
+      toast({ title: 'Ошибка загрузки предприятий', variant: 'destructive' });
     }
   };
 
@@ -155,6 +171,23 @@ const AdminMessagesPage = () => {
   const handleSelectChat = (chatId: number) => {
     setSelectedChat(chatId);
     loadMessages(chatId);
+  };
+
+  const insertEmoji = (emoji: string, targetRef: React.RefObject<HTMLTextAreaElement>, setter: (val: string) => void, currentValue: string) => {
+    const textarea = targetRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newValue = currentValue.substring(0, start) + emoji + currentValue.substring(end);
+      setter(newValue);
+      
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+      }, 0);
+    } else {
+      setter(currentValue + emoji);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -214,6 +247,8 @@ const AdminMessagesPage = () => {
         setShowCreateChat(false);
         setNewChatName('');
         setNewChatUserIds([]);
+        setNewChatCompanyFilter('all');
+        setNewChatSearch('');
         loadChats();
       }
     } catch (error) {
@@ -326,6 +361,20 @@ const AdminMessagesPage = () => {
     });
   };
 
+  const getUsersCountByCompany = (companyId: string) => {
+    if (companyId === 'all') {
+      return users.filter(u =>
+        u.fio.toLowerCase().includes(searchUsers.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchUsers.toLowerCase())
+      ).length;
+    }
+    return users.filter(u => 
+      u.company_id === Number(companyId) && 
+      (u.fio.toLowerCase().includes(searchUsers.toLowerCase()) ||
+       u.email.toLowerCase().includes(searchUsers.toLowerCase()))
+    ).length;
+  };
+
   const filteredUsers = getFilteredUsers();
   const newChatFilteredUsers = getNewChatFilteredUsers();
 
@@ -383,7 +432,7 @@ const AdminMessagesPage = () => {
                             <Label className="text-white">Фильтр по предприятию</Label>
                             <Select value={newChatCompanyFilter} onValueChange={setNewChatCompanyFilter}>
                               <SelectTrigger className="bg-slate-900/50 text-white border-blue-600/30">
-                                <SelectValue />
+                                <SelectValue placeholder="Выберите предприятие" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="all">Все предприятия</SelectItem>
@@ -403,23 +452,27 @@ const AdminMessagesPage = () => {
                               className="bg-slate-900/50 text-white border-blue-600/30 mb-2"
                             />
                             <div className="bg-slate-900/50 rounded-lg p-4 max-h-[300px] overflow-y-auto space-y-2">
-                              {newChatFilteredUsers.map(user => (
-                                <div
-                                  key={user.id}
-                                  className="flex items-center gap-3 p-2 hover:bg-slate-700/30 rounded cursor-pointer"
-                                  onClick={() => toggleNewChatUser(user.id)}
-                                >
-                                  <Checkbox
-                                    checked={newChatUserIds.includes(user.id)}
-                                    onCheckedChange={() => toggleNewChatUser(user.id)}
-                                  />
-                                  <div className="flex-1">
-                                    <p className="text-white">{user.fio}</p>
-                                    <p className="text-slate-400 text-sm">{user.email}</p>
+                              {newChatFilteredUsers.length === 0 ? (
+                                <p className="text-slate-400 text-center py-4">Пользователи не найдены</p>
+                              ) : (
+                                newChatFilteredUsers.map(user => (
+                                  <div
+                                    key={user.id}
+                                    className="flex items-center gap-3 p-2 hover:bg-slate-700/30 rounded cursor-pointer"
+                                    onClick={() => toggleNewChatUser(user.id)}
+                                  >
+                                    <Checkbox
+                                      checked={newChatUserIds.includes(user.id)}
+                                      onCheckedChange={() => toggleNewChatUser(user.id)}
+                                    />
+                                    <div className="flex-1">
+                                      <p className="text-white">{user.fio}</p>
+                                      <p className="text-slate-400 text-sm">{user.email}</p>
+                                    </div>
+                                    <span className="text-xs text-blue-400">{user.role}</span>
                                   </div>
-                                  <span className="text-xs text-blue-400">{user.role}</span>
-                                </div>
-                              ))}
+                                ))
+                              )}
                             </div>
                           </div>
 
@@ -498,27 +551,52 @@ const AdminMessagesPage = () => {
                         ))}
                       </div>
 
-                      <div className="flex gap-2">
-                        <Textarea
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          placeholder="Введите сообщение..."
-                          className="bg-slate-900/50 text-white border-blue-600/30"
-                          rows={3}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage();
-                            }
-                          }}
-                        />
-                        <Button
-                          onClick={handleSendMessage}
-                          disabled={loading || !newMessage.trim()}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          <Icon name="Send" size={20} />
-                        </Button>
+                      <div className="space-y-2">
+                        <div className="flex gap-2 items-end">
+                          <Textarea
+                            ref={newMessageRef}
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder="Введите сообщение..."
+                            className="bg-slate-900/50 text-white border-blue-600/30"
+                            rows={3}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendMessage();
+                              }
+                            }}
+                          />
+                          <div className="flex flex-col gap-2">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" size="icon" className="border-blue-600/50">
+                                  <Icon name="Smile" size={20} />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-80 bg-slate-800 border-blue-600/30 p-2">
+                                <div className="grid grid-cols-8 gap-1 max-h-64 overflow-y-auto">
+                                  {EMOJI_LIST.map((emoji, idx) => (
+                                    <button
+                                      key={idx}
+                                      onClick={() => insertEmoji(emoji, newMessageRef, setNewMessage, newMessage)}
+                                      className="text-2xl hover:bg-slate-700 p-1 rounded transition-colors"
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                            <Button
+                              onClick={handleSendMessage}
+                              disabled={loading || !newMessage.trim()}
+                              className="bg-blue-600 hover:bg-blue-700"
+                            >
+                              <Icon name="Send" size={20} />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -551,8 +629,32 @@ const AdminMessagesPage = () => {
                 </div>
 
                 <div>
-                  <Label className="text-white">Текст сообщения</Label>
+                  <div className="flex justify-between items-center mb-2">
+                    <Label className="text-white">Текст сообщения</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="border-blue-600/50">
+                          <Icon name="Smile" size={16} className="mr-1" />
+                          Смайлики
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 bg-slate-800 border-blue-600/30 p-2">
+                        <div className="grid grid-cols-8 gap-1 max-h-64 overflow-y-auto">
+                          {EMOJI_LIST.map((emoji, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => insertEmoji(emoji, massMessageRef, setMassMessageText, massMessageText)}
+                              className="text-2xl hover:bg-slate-700 p-1 rounded transition-colors"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                   <Textarea
+                    ref={massMessageRef}
                     value={massMessageText}
                     onChange={(e) => setMassMessageText(e.target.value)}
                     placeholder="Введите текст для массовой рассылки..."
@@ -565,12 +667,16 @@ const AdminMessagesPage = () => {
                   <Label className="text-white">Фильтр по предприятию</Label>
                   <Select value={filterCompanyId} onValueChange={setFilterCompanyId}>
                     <SelectTrigger className="bg-slate-900/50 text-white border-blue-600/30">
-                      <SelectValue />
+                      <SelectValue placeholder="Выберите предприятие" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Все предприятия</SelectItem>
+                      <SelectItem value="all">
+                        Все предприятия ({getUsersCountByCompany('all')} польз.)
+                      </SelectItem>
                       {companies.map(c => (
-                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          {c.name} ({getUsersCountByCompany(String(c.id))} польз.)
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -605,7 +711,7 @@ const AdminMessagesPage = () => {
                           />
                           <div className="flex-1">
                             <p className="text-white">{user.fio}</p>
-                            <p className="text-slate-400 text-sm">{user.email}</p>
+                            <p className="text-slate-400 text-sm">{user.email} · {user.company_name || 'Без предприятия'}</p>
                           </div>
                           <span className="text-xs text-blue-400">{user.role}</span>
                         </div>
@@ -638,7 +744,7 @@ const AdminMessagesPage = () => {
                     <SelectTrigger className="bg-slate-900/50 text-white border-blue-600/30">
                       <SelectValue placeholder="Выберите пользователя" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[300px]">
                       {users.map(user => (
                         <SelectItem key={user.id} value={String(user.id)}>
                           {user.fio} ({user.email})
@@ -659,8 +765,32 @@ const AdminMessagesPage = () => {
                 </div>
 
                 <div>
-                  <Label className="text-white">Текст письма</Label>
+                  <div className="flex justify-between items-center mb-2">
+                    <Label className="text-white">Текст письма</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="border-blue-600/50">
+                          <Icon name="Smile" size={16} className="mr-1" />
+                          Смайлики
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 bg-slate-800 border-blue-600/30 p-2">
+                        <div className="grid grid-cols-8 gap-1 max-h-64 overflow-y-auto">
+                          {EMOJI_LIST.map((emoji, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => insertEmoji(emoji, emailBodyRef, setEmailBody, emailBody)}
+                              className="text-2xl hover:bg-slate-700 p-1 rounded transition-colors"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                   <Textarea
+                    ref={emailBodyRef}
                     value={emailBody}
                     onChange={(e) => setEmailBody(e.target.value)}
                     placeholder="Введите текст письма..."
