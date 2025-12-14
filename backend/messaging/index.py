@@ -92,6 +92,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 raise ValueError('Доступ запрещен')
             cursor.execute('SELECT id, name FROM companies ORDER BY name')
             result = {'companies': [dict(r) for r in cursor.fetchall()]}
+        elif action == 'list_all_users':
+            if user_role not in ['admin', 'superadmin']:
+                raise ValueError('Доступ запрещен')
+            cursor.execute('SELECT id, fio, email, role, company_id FROM users ORDER BY fio')
+            result = {'users': [dict(r) for r in cursor.fetchall()]}
+        elif action == 'mass_message':
+            body = json.loads(event.get('body', '{}'))
+            result = send_mass_message(cursor, conn, body, user_id, user_role)
         else:
             raise ValueError(f'Неизвестное действие: {action}')
         
@@ -278,3 +286,75 @@ def create_intercorp_connection(cursor, conn, body: Dict[str, Any], user_id: int
         return {'success': True, 'connection_id': result['id']}
     else:
         return {'success': True, 'message': 'Связь уже существует'}
+
+def send_mass_message(cursor, conn, body: Dict[str, Any], user_id: int, user_role: str) -> Dict[str, Any]:
+    '''Массовая отправка сообщений пользователям'''
+    if user_role not in ['admin', 'superadmin']:
+        raise ValueError('Доступ запрещен')
+    
+    user_ids = body.get('user_ids', [])
+    message_text = body.get('message_text', '').strip()
+    delivery_type = body.get('delivery_type', 'internal')
+    
+    if not user_ids or not message_text:
+        raise ValueError('Требуется user_ids и message_text')
+    
+    cursor.execute('SELECT company_id FROM users WHERE id = %s', (user_id,))
+    sender_info = cursor.fetchone()
+    if not sender_info:
+        raise ValueError('Отправитель не найден')
+    
+    sender_company_id = sender_info['company_id']
+    sent_count = 0
+    
+    for recipient_id in user_ids:
+        cursor.execute('SELECT company_id FROM users WHERE id = %s', (recipient_id,))
+        recipient = cursor.fetchone()
+        if not recipient:
+            continue
+        
+        recipient_company_id = recipient['company_id']
+        
+        cursor.execute('''
+            SELECT id FROM chats 
+            WHERE type = 'direct' 
+              AND created_by = %s
+              AND id IN (
+                SELECT chat_id FROM chat_participants WHERE user_id = %s
+              )
+              AND id IN (
+                SELECT chat_id FROM chat_participants WHERE user_id = %s
+              )
+            LIMIT 1
+        ''', (user_id, user_id, recipient_id))
+        
+        existing_chat = cursor.fetchone()
+        
+        if existing_chat:
+            chat_id = existing_chat['id']
+        else:
+            cursor.execute('SELECT fio FROM users WHERE id = %s', (recipient_id,))
+            recipient_name = cursor.fetchone()['fio']
+            
+            cursor.execute('''
+                INSERT INTO chats (name, type, company_id, created_by)
+                VALUES (%s, 'direct', %s, %s)
+                RETURNING id
+            ''', (f'Сообщение для {recipient_name}', sender_company_id, user_id))
+            
+            chat_id = cursor.fetchone()['id']
+            
+            cursor.execute('''
+                INSERT INTO chat_participants (chat_id, user_id, company_id)
+                VALUES (%s, %s, %s), (%s, %s, %s)
+            ''', (chat_id, user_id, sender_company_id, chat_id, recipient_id, recipient_company_id))
+        
+        cursor.execute('''
+            INSERT INTO messages (chat_id, sender_id, sender_company_id, message_text)
+            VALUES (%s, %s, %s, %s)
+        ''', (chat_id, user_id, sender_company_id, message_text))
+        
+        sent_count += 1
+    
+    conn.commit()
+    return {'success': True, 'sent_count': sent_count}
