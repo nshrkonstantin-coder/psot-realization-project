@@ -371,7 +371,7 @@ def send_mass_message(cursor, conn, body: Dict[str, Any], user_id: int, user_rol
             recipient_name = cursor.fetchone()['fio']
             
             cursor.execute(f'''
-                INSERT INTO {SCHEMA}chats (name, type, company_id, created_by)
+                INSERT INTO {SCHEMA}chats (name, type, organization_id, created_by)
                 VALUES (%s, 'direct', %s, %s)
                 RETURNING id
             ''', (f'Сообщение для {recipient_name}', sender_company_id, user_id))
