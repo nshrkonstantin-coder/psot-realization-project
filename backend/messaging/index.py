@@ -47,6 +47,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         user_id = int(user_id)
         print(f'[DEBUG] Looking for user_id={user_id}')
+        cursor.execute('SET search_path TO t_p80499285_psot_realization_pro')
         cursor.execute('SELECT company_id, role FROM users WHERE id = %s', (user_id,))
         user = cursor.fetchone()
         print(f'[DEBUG] Found user: {user}')
