@@ -133,7 +133,10 @@ const AdminMessagesPage = () => {
         headers: { 'X-User-Id': localStorage.getItem('userId')! }
       });
       const data = await response.json();
-      if (data.users) {
+      console.log('Users API response:', data);
+      if (data.error) {
+        toast({ title: 'Ошибка', description: data.error, variant: 'destructive' });
+      } else if (data.users) {
         setUsers(data.users);
       }
     } catch (error) {
