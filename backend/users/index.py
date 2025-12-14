@@ -225,6 +225,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             """)
             presc_stats = cur.fetchone()
             
+            # Статистика нарушений ПК (выписанных на пользователя как ответственного)
+            cur.execute(f"""
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(CASE WHEN v.status = 'completed' THEN 1 END) as completed,
+                    COUNT(CASE WHEN v.status IN ('in_progress', 'new') THEN 1 END) as in_progress,
+                    COUNT(CASE WHEN v.deadline < CURRENT_DATE AND v.status != 'completed' THEN 1 END) as overdue
+                FROM t_p80499285_psot_realization_pro.production_control_violations v
+                WHERE v.responsible_user_id = {user_id}
+            """)
+            pc_violations_stats = cur.fetchone()
+            
             # Количество проведенных аудитов (ПАБ которые пользователь создал)
             cur.execute(f"""
                 SELECT COUNT(*)
@@ -256,6 +268,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'prescriptions_completed': presc_stats[1] or 0,
                 'prescriptions_in_progress': presc_stats[2] or 0,
                 'prescriptions_overdue': presc_stats[3] or 0,
+                'pc_violations_issued': pc_violations_stats[0] or 0,
+                'pc_violations_completed': pc_violations_stats[1] or 0,
+                'pc_violations_in_progress': pc_violations_stats[2] or 0,
+                'pc_violations_overdue': pc_violations_stats[3] or 0,
                 'audits_conducted': audits_conducted
             }
             
@@ -472,6 +488,61 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 },
                 'isBase64Encoded': False,
                 'body': json.dumps({'success': True, 'prescriptions': prescriptions})
+            }
+        
+        elif action == 'user_pc_violations':
+            user_id = params.get('userId')
+            
+            if not user_id:
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'User ID required'})
+                }
+            
+            # Получаем нарушения ПК выписанные на пользователя как ответственного
+            cur.execute(f"""
+                SELECT v.id, v.report_id, v.item_number, v.description, v.measures,
+                       v.responsible_user_id, v.deadline, v.status, v.created_at,
+                       r.doc_number, r.doc_date, r.issuer_name
+                FROM t_p80499285_psot_realization_pro.production_control_violations v
+                LEFT JOIN t_p80499285_psot_realization_pro.production_control_reports r ON v.report_id = r.id
+                WHERE v.responsible_user_id = {user_id}
+                ORDER BY v.created_at DESC
+            """)
+            
+            violations = []
+            for v_row in cur.fetchall():
+                violations.append({
+                    'id': v_row[0],
+                    'report_id': v_row[1],
+                    'item_number': v_row[2],
+                    'description': v_row[3] or '',
+                    'measures': v_row[4] or '',
+                    'responsible_user_id': v_row[5],
+                    'deadline': v_row[6].isoformat() if v_row[6] else None,
+                    'status': v_row[7] or 'new',
+                    'created_at': v_row[8].isoformat() if v_row[8] else None,
+                    'doc_number': v_row[9] or '',
+                    'doc_date': v_row[10].isoformat() if v_row[10] else None,
+                    'issuer_name': v_row[11] or ''
+                })
+            
+            cur.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({'success': True, 'violations': violations})
             }
         
         elif action == 'online_users':

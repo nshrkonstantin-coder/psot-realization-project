@@ -39,6 +39,10 @@ interface UserStats {
   prescriptions_completed: number;
   prescriptions_in_progress: number;
   prescriptions_overdue: number;
+  pc_violations_issued: number;
+  pc_violations_completed: number;
+  pc_violations_in_progress: number;
+  pc_violations_overdue: number;
   audits_conducted: number;
   plan_audits?: number;
   plan_observations?: number;
@@ -71,12 +75,15 @@ const UserCabinet = () => {
   const [showPabDetails, setShowPabDetails] = useState(false);
   const [showObservationsDetails, setShowObservationsDetails] = useState(false);
   const [showPrescriptionsDetails, setShowPrescriptionsDetails] = useState(false);
+  const [showPCViolationsDetails, setShowPCViolationsDetails] = useState(false);
   const [pabList, setPabList] = useState<any[]>([]);
   const [observationsList, setObservationsList] = useState<any[]>([]);
   const [prescriptionsList, setPrescriptionsList] = useState<any[]>([]);
+  const [pcViolationsList, setPCViolationsList] = useState<any[]>([]);
   const [selectedPabItem, setSelectedPabItem] = useState<any | null>(null);
   const [selectedObservationItem, setSelectedObservationItem] = useState<any | null>(null);
   const [selectedPrescriptionItem, setSelectedPrescriptionItem] = useState<any | null>(null);
+  const [selectedPCViolationItem, setSelectedPCViolationItem] = useState<any | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [userRole, setUserRole] = useState<string>('user');
 
@@ -287,6 +294,24 @@ const UserCabinet = () => {
     }
   };
 
+  const loadPCViolationsDetails = async (status: string = 'all') => {
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=user_pc_violations&userId=${userId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setPCViolationsList(data.violations || []);
+        setFilterStatus(status);
+        setShowPCViolationsDetails(true);
+      } else {
+        toast({ title: 'Ошибка загрузки нарушений ПК', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Ошибка сервера', variant: 'destructive' });
+    }
+  };
+
   const markObservationComplete = async (observationId: number) => {
     try {
       const response = await fetch('https://functions.poehali.dev/5a742ffc-9ee8-4f89-ba42-3be59b2024f1', {
@@ -372,6 +397,20 @@ const UserCabinet = () => {
       });
     }
     return prescriptionsList;
+  };
+
+  const getFilteredPCViolationsList = () => {
+    if (filterStatus === 'all') return pcViolationsList;
+    if (filterStatus === 'completed') return pcViolationsList.filter(v => v.status === 'completed');
+    if (filterStatus === 'in_progress') return pcViolationsList.filter(v => v.status === 'in_progress' || v.status === 'new');
+    if (filterStatus === 'overdue') {
+      return pcViolationsList.filter(v => {
+        if (v.status === 'completed') return false;
+        if (!v.deadline) return false;
+        return new Date(v.deadline) < new Date();
+      });
+    }
+    return pcViolationsList;
   };
 
   if (loading) {
@@ -696,6 +735,63 @@ const UserCabinet = () => {
             </div>
           </div>
         </Card>
+
+        {/* 
+          PC Violations (Production Control Violations Assigned to Me)
+          Data source: production_control_violations table
+          - All: total count where responsible_user_id matches user
+          - Completed: status = 'completed'
+          - In Progress: status IN ('in_progress', 'new')
+          - Overdue: deadline < today AND status != 'completed'
+        */}
+        <Card className="bg-slate-800/50 border-yellow-600/30 p-6">
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <Icon name="AlertTriangle" size={24} className="text-yellow-500" />
+            Нарушения ПК
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div 
+              className="bg-slate-700/50 p-4 rounded-lg cursor-pointer hover:bg-slate-600/50 transition-colors"
+              onClick={() => loadPCViolationsDetails('all')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Всего выдано нарушений
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
+              <p className="text-2xl font-bold text-white">{stats.pc_violations_issued}</p>
+            </div>
+            <div 
+              className="bg-green-900/20 p-4 rounded-lg border border-green-600/30 cursor-pointer hover:bg-green-900/30 transition-colors"
+              onClick={() => loadPCViolationsDetails('completed')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Устранено нарушений
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
+              <p className="text-2xl font-bold text-green-500">{stats.pc_violations_completed}</p>
+            </div>
+            <div 
+              className="bg-yellow-900/20 p-4 rounded-lg border border-yellow-600/30 cursor-pointer hover:bg-yellow-900/30 transition-colors"
+              onClick={() => loadPCViolationsDetails('in_progress')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Нарушений в работе
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
+              <p className="text-2xl font-bold text-yellow-500">{stats.pc_violations_in_progress}</p>
+            </div>
+            <div 
+              className="bg-red-900/20 p-4 rounded-lg border border-red-600/30 cursor-pointer hover:bg-red-900/30 transition-colors"
+              onClick={() => loadPCViolationsDetails('overdue')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Просроченных нарушений
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
+              <p className="text-2xl font-bold text-red-500">{stats.pc_violations_overdue}</p>
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Registered Users Dialog */}
@@ -1016,6 +1112,67 @@ const UserCabinet = () => {
         </DialogContent>
       </Dialog>
 
+      {/* PC Violations Details Dialog */}
+      <Dialog open={showPCViolationsDetails} onOpenChange={setShowPCViolationsDetails}>
+        <DialogContent className="bg-slate-800 border-yellow-600/30 text-white max-w-6xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-yellow-500 flex items-center gap-2">
+              <Icon name="AlertTriangle" size={28} />
+              Нарушения ПК - {
+                filterStatus === 'all' ? 'Все' :
+                filterStatus === 'completed' ? 'Устранено' :
+                filterStatus === 'in_progress' ? 'В работе' :
+                filterStatus === 'overdue' ? 'Просроченные' : ''
+              }
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Нажмите на нарушение для открытия полной информации
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-4">
+            {getFilteredPCViolationsList().length === 0 ? (
+              <p className="text-slate-400 text-center py-8">Нет нарушений в этой категории</p>
+            ) : (
+              getFilteredPCViolationsList().map((violation) => (
+                <Card
+                  key={violation.id}
+                  className="bg-slate-700/50 border-slate-600/50 p-4 hover:bg-slate-600/50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedPCViolationItem(violation);
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-lg font-semibold text-white">Нарушение №{violation.item_number} ({violation.doc_number})</h3>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          violation.status === 'completed' ? 'bg-green-900/30 text-green-400 border border-green-600/50' :
+                          violation.status === 'in_progress' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-600/50' :
+                          'bg-slate-900/30 text-slate-400 border border-slate-600/50'
+                        }`}>
+                          {violation.status === 'completed' ? 'Устранено' : violation.status === 'in_progress' ? 'В работе' : 'Новое'}
+                        </span>
+                        {violation.status === 'completed' && (
+                          <Icon name="Sparkles" size={20} className="text-purple-400 animate-pulse" />
+                        )}
+                        <Icon name="MousePointerClick" size={18} className="text-slate-500 ml-auto" />
+                      </div>
+                      <div className="text-sm text-slate-300 space-y-1">
+                        <p><strong>Описание:</strong> {violation.description}</p>
+                        <p><strong>Меры устранения:</strong> {violation.measures}</p>
+                        <p><strong>Срок устранения:</strong> {violation.deadline ? new Date(violation.deadline).toLocaleDateString('ru-RU') : 'Не указан'}</p>
+                        <p><strong>Проверяющий:</strong> {violation.issuer_name}</p>
+                        <p><strong>Дата проверки:</strong> {violation.doc_date ? new Date(violation.doc_date).toLocaleDateString('ru-RU') : 'Не указана'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Prescriptions Details Dialog */}
       <Dialog open={showPrescriptionsDetails} onOpenChange={setShowPrescriptionsDetails}>
         <DialogContent className="bg-slate-800 border-yellow-600/30 text-white max-w-6xl max-h-[85vh] overflow-y-auto">
@@ -1094,6 +1251,69 @@ const UserCabinet = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Selected PC Violation Details */}
+      {selectedPCViolationItem && (
+        <Dialog open={!!selectedPCViolationItem} onOpenChange={() => setSelectedPCViolationItem(null)}>
+          <DialogContent className="bg-slate-800 border-yellow-600/30 text-white max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl text-yellow-500 flex items-center gap-2">
+                <Icon name="AlertTriangle" size={28} />
+                Нарушение ПК №{selectedPCViolationItem.item_number}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Статус</p>
+                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                    selectedPCViolationItem.status === 'completed' ? 'bg-green-900/30 text-green-400 border border-green-600/50' :
+                    selectedPCViolationItem.status === 'in_progress' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-600/50' :
+                    'bg-slate-900/30 text-slate-400 border border-slate-600/50'
+                  }`}>
+                    {selectedPCViolationItem.status === 'completed' ? 'Устранено' : selectedPCViolationItem.status === 'in_progress' ? 'В работе' : 'Новое'}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Документ</p>
+                  <p className="text-white">{selectedPCViolationItem.doc_number}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Дата проверки</p>
+                  <p className="text-white">{selectedPCViolationItem.doc_date ? new Date(selectedPCViolationItem.doc_date).toLocaleDateString('ru-RU') : 'Не указана'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Срок устранения</p>
+                  <p className="text-white">{selectedPCViolationItem.deadline ? new Date(selectedPCViolationItem.deadline).toLocaleDateString('ru-RU') : 'Не указан'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm text-slate-400 mb-1">Проверяющий</p>
+                  <p className="text-white">{selectedPCViolationItem.issuer_name}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Описание нарушения</p>
+                <p className="text-white bg-slate-700/50 p-3 rounded-lg">{selectedPCViolationItem.description}</p>
+              </div>
+              {selectedPCViolationItem.measures && (
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Меры устранения</p>
+                  <p className="text-white bg-slate-700/50 p-3 rounded-lg">{selectedPCViolationItem.measures}</p>
+                </div>
+              )}
+              <div className="flex gap-2 pt-4">
+                <Button
+                  onClick={() => setSelectedPCViolationItem(null)}
+                  variant="outline"
+                  className="border-slate-600 text-white hover:bg-slate-700"
+                >
+                  Закрыть
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Selected Observation Details */}
       {selectedObservationItem && (
