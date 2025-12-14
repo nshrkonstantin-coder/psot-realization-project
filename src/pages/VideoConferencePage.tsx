@@ -303,7 +303,14 @@ const VideoConferencePage = () => {
     // Отправляем приглашения всем участникам
     try {
       const inviteLink = `${window.location.origin}/video-conference?room=${newConference.id}`;
-      await fetch(`${MESSAGING_URL}?action=mass_message`, {
+      console.log('Отправка приглашений:', { 
+        selectedUserIds, 
+        userId, 
+        conferenceName,
+        inviteLink 
+      });
+      
+      const response = await fetch(`${MESSAGING_URL}?action=mass_message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -315,11 +322,32 @@ const VideoConferencePage = () => {
           delivery_type: 'internal'
         })
       });
+      
+      console.log('Ответ сервера:', response.status, response.statusText);
+      const data = await response.json();
+      console.log('Данные ответа:', data);
+      
+      if (data.success) {
+        toast({ 
+          title: 'Конференция создана!', 
+          description: `Приглашения отправлены ${data.sent_count} участникам` 
+        });
+      } else {
+        toast({ 
+          title: 'Конференция создана, но не удалось отправить приглашения', 
+          description: data.error || 'Неизвестная ошибка',
+          variant: 'destructive' 
+        });
+      }
     } catch (error) {
       console.error('Ошибка отправки приглашений:', error);
+      toast({ 
+        title: 'Конференция создана, но не удалось отправить приглашения', 
+        description: 'Проверьте подключение к интернету',
+        variant: 'destructive' 
+      });
     }
     
-    toast({ title: 'Конференция создана, приглашения отправлены' });
     await startCall(newConference);
   };
 

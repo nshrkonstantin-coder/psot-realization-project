@@ -320,15 +320,18 @@ def create_intercorp_connection(cursor, conn, body: Dict[str, Any], user_id: int
 
 def send_mass_message(cursor, conn, body: Dict[str, Any], user_id: int, user_role: str) -> Dict[str, Any]:
     '''Массовая отправка сообщений пользователям'''
-    if user_role not in ['admin', 'superadmin']:
-        raise ValueError('Доступ запрещен')
-    
     user_ids = body.get('user_ids', [])
     message_text = body.get('message_text', '').strip()
     delivery_type = body.get('delivery_type', 'internal')
     
     if not user_ids or not message_text:
         raise ValueError('Требуется user_ids и message_text')
+    
+    # Для обычных пользователей ограничиваем количество получателей (защита от спама)
+    # Для видеоконференций это нормально - до 50 участников
+    if user_role not in ['admin', 'superadmin', 'miniadmin']:
+        if len(user_ids) > 50:
+            raise ValueError('Обычные пользователи могут отправить сообщение максимум 50 получателям')
     
     cursor.execute(f'SELECT organization_id FROM {SCHEMA}users WHERE id = %s', (user_id,))
     sender_info = cursor.fetchone()
