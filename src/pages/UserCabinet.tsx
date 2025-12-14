@@ -582,11 +582,11 @@ const UserCabinet = () => {
           </div>
         </Card>
 
-        {/* Observations Statistics */}
+        {/* My Observations (Assigned to Me) */}
         <Card className="bg-slate-800/50 border-yellow-600/30 p-6 mb-6">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Icon name="Eye" size={24} className="text-yellow-500" />
-            Статистика наблюдений
+            Мне выписаны наблюдения (ПАБ)
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div 
@@ -604,7 +604,7 @@ const UserCabinet = () => {
               onClick={() => loadObservationsDetails('completed')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                Устранено
+                Устранено наблюдений
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
               <p className="text-2xl font-bold text-green-500">{stats.observations_completed}</p>
@@ -614,7 +614,7 @@ const UserCabinet = () => {
               onClick={() => loadObservationsDetails('in_progress')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                В работе
+                В работе наблюдений
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
               <p className="text-2xl font-bold text-yellow-500">{stats.observations_in_progress}</p>
@@ -624,7 +624,7 @@ const UserCabinet = () => {
               onClick={() => loadObservationsDetails('overdue')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                Просроченные
+                Просроченные наблюдения
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
               <p className="text-2xl font-bold text-red-500">{stats.observations_overdue}</p>
