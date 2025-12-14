@@ -632,11 +632,11 @@ const UserCabinet = () => {
           </div>
         </Card>
 
-        {/* Prescriptions Statistics */}
+        {/* Prescriptions from Production Control (Assigned to Me) */}
         <Card className="bg-slate-800/50 border-yellow-600/30 p-6">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Icon name="ClipboardList" size={24} className="text-yellow-500" />
-            Статистика предписаний
+            Предписания ПК выданные мне
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div 
@@ -644,7 +644,7 @@ const UserCabinet = () => {
               onClick={() => loadPrescriptionsDetails('all')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                Выписано предписаний
+                Всего выписано предписаний ПК
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
               <p className="text-2xl font-bold text-white">{stats.prescriptions_issued}</p>
@@ -654,7 +654,7 @@ const UserCabinet = () => {
               onClick={() => loadPrescriptionsDetails('completed')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                Устранено
+                Устранено предписаний ПК
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
               <p className="text-2xl font-bold text-green-500">{stats.prescriptions_completed}</p>
@@ -664,7 +664,7 @@ const UserCabinet = () => {
               onClick={() => loadPrescriptionsDetails('in_progress')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                В работе
+                Предписаний ПК в работе
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
               <p className="text-2xl font-bold text-yellow-500">{stats.prescriptions_in_progress}</p>
@@ -674,7 +674,7 @@ const UserCabinet = () => {
               onClick={() => loadPrescriptionsDetails('overdue')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                Просроченные
+                Просроченные предписания ПК
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
               <p className="text-2xl font-bold text-red-500">{stats.prescriptions_overdue}</p>
