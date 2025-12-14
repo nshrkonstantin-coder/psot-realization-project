@@ -211,13 +211,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             """)
             obs_stats = cur.fetchone()
             
-            # Статистика предписаний (выписанных на пользователя)
+            # Статистика предписаний ПК (выписанных на пользователя из Списка Производственного Контроля)
             cur.execute(f"""
                 SELECT 
                     COUNT(*) as total,
-                    COUNT(CASE WHEN status = 'Выполнено' THEN 1 END) as completed,
-                    COUNT(CASE WHEN status = 'В работе' THEN 1 END) as in_progress,
-                    COUNT(CASE WHEN deadline < CURRENT_DATE AND status != 'Выполнено' THEN 1 END) as overdue
+                    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+                    COUNT(CASE WHEN status = 'in_work' AND deadline >= CURRENT_DATE THEN 1 END) as in_progress,
+                    COUNT(CASE WHEN deadline < CURRENT_DATE AND status != 'completed' THEN 1 END) as overdue
                 FROM t_p80499285_psot_realization_pro.production_prescription_violations
                 WHERE assigned_user_id = {user_id}
             """)

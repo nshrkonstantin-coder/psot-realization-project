@@ -632,7 +632,14 @@ const UserCabinet = () => {
           </div>
         </Card>
 
-        {/* Prescriptions from Production Control (Assigned to Me) */}
+        {/* 
+          Prescriptions from Production Control (Assigned to Me)
+          Data source: production_prescription_violations table
+          - All: total count of prescriptions assigned to user
+          - Completed: status = 'completed'
+          - In Progress: status = 'in_work' AND deadline >= today
+          - Overdue: deadline < today AND status != 'completed'
+        */}
         <Card className="bg-slate-800/50 border-yellow-600/30 p-6">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Icon name="ClipboardList" size={24} className="text-yellow-500" />
