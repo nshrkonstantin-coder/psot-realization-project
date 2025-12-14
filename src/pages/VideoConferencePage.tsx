@@ -1,15 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import OrganizationLogo from '@/components/OrganizationLogo';
+import DeviceCheckDialog from '@/components/video-conference/DeviceCheckDialog';
+import CreateConferenceDialog from '@/components/video-conference/CreateConferenceDialog';
+import ConferenceCard from '@/components/video-conference/ConferenceCard';
+import ActiveCallView from '@/components/video-conference/ActiveCallView';
 
 interface User {
   id: number;
@@ -64,7 +64,6 @@ const VideoConferencePage = () => {
   const [selectedCamera, setSelectedCamera] = useState<string>('');
   const [selectedMicrophone, setSelectedMicrophone] = useState<string>('');
   const [audioLevel, setAudioLevel] = useState(0);
-  const previewVideoRef = useRef<HTMLVideoElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   
@@ -77,9 +76,6 @@ const VideoConferencePage = () => {
   const [participantsCount, setParticipantsCount] = useState(1);
   const [networkQuality, setNetworkQuality] = useState<'high' | 'medium' | 'low'>('high');
 
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const screenShareRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const qualityMonitorRef = useRef<NodeJS.Timeout | null>(null);
@@ -108,6 +104,13 @@ const VideoConferencePage = () => {
       joinConferenceByRoom(roomId);
     }
   }, [navigate, searchParams]);
+
+  useEffect(() => {
+    localStorage.setItem('videoConferences', JSON.stringify(conferences));
+    localStorage.setItem('myVideoRooms', JSON.stringify(myRooms));
+    localStorage.setItem('favoriteVideoRooms', JSON.stringify(favoriteRooms));
+    localStorage.setItem('videoHistory', JSON.stringify(historyRooms));
+  }, [conferences, myRooms, favoriteRooms, historyRooms]);
 
   const loadCompanies = async () => {
     try {
@@ -140,7 +143,6 @@ const VideoConferencePage = () => {
   };
 
   const loadConferences = async () => {
-    // Загружаем из localStorage
     const savedConferences = localStorage.getItem('videoConferences');
     const savedMyRooms = localStorage.getItem('myVideoRooms');
     const savedFavorites = localStorage.getItem('favoriteVideoRooms');
@@ -158,13 +160,6 @@ const VideoConferencePage = () => {
     if (savedHistory) {
       setHistoryRooms(JSON.parse(savedHistory));
     }
-  };
-  
-  const saveConferencesToStorage = () => {
-    localStorage.setItem('videoConferences', JSON.stringify(conferences));
-    localStorage.setItem('myVideoRooms', JSON.stringify(myRooms));
-    localStorage.setItem('favoriteVideoRooms', JSON.stringify(favoriteRooms));
-    localStorage.setItem('videoHistory', JSON.stringify(historyRooms));
   };
   
   const toggleFavorite = (confId: string) => {
@@ -192,7 +187,7 @@ const VideoConferencePage = () => {
           status: 'ended' as const
         }, 
         ...filtered
-      ].slice(0, 20); // Храним последние 20
+      ].slice(0, 20);
     });
   };
 
@@ -234,14 +229,11 @@ const VideoConferencePage = () => {
       });
       
       setPreviewStream(stream);
-      if (previewVideoRef.current) {
-        previewVideoRef.current.srcObject = stream;
-      }
       
-      // Настройка визуализации уровня звука
       const audioContext = new AudioContext();
       const analyser = audioContext.createAnalyser();
       const microphone = audioContext.createMediaStreamSource(stream);
+      
       analyser.fftSize = 256;
       microphone.connect(analyser);
       
@@ -249,20 +241,25 @@ const VideoConferencePage = () => {
       analyserRef.current = analyser;
       
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      
       const updateAudioLevel = () => {
-        if (analyserRef.current) {
-          analyserRef.current.getByteFrequencyData(dataArray);
-          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-          setAudioLevel(Math.min(100, (average / 128) * 100));
-          requestAnimationFrame(updateAudioLevel);
-        }
+        if (!analyserRef.current) return;
+        
+        analyserRef.current.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        const level = Math.min(100, (average / 255) * 100 * 2);
+        
+        setAudioLevel(level);
+        requestAnimationFrame(updateAudioLevel);
       };
+      
       updateAudioLevel();
       
+      toast({ title: 'Устройства готовы' });
     } catch (error) {
-      console.error('Ошибка доступа к камере/микрофону:', error);
+      console.error('Ошибка доступа к устройствам:', error);
       toast({ 
-        title: 'Не удалось получить доступ к камере или микрофону', 
+        title: 'Ошибка доступа к камере или микрофону', 
         description: 'Проверьте разрешения браузера',
         variant: 'destructive' 
       });
@@ -274,232 +271,175 @@ const VideoConferencePage = () => {
       previewStream.getTracks().forEach(track => track.stop());
       setPreviewStream(null);
     }
+    
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
+    
     analyserRef.current = null;
+    setAudioLevel(0);
   };
   
   const handleOpenDeviceCheck = async () => {
-    await checkDevices();
+    const devices = await checkDevices();
+    if (devices.cameras.length === 0 || devices.microphones.length === 0) {
+      toast({
+        title: 'Устройства не найдены',
+        description: 'Подключите камеру и микрофон',
+        variant: 'destructive'
+      });
+      return;
+    }
     setShowDeviceCheck(true);
-    setTimeout(() => startPreview(), 100);
   };
   
-  const handleCloseDeviceCheck = () => {
+  const handleProceedToCreate = () => {
     stopPreview();
     setShowDeviceCheck(false);
+    setShowCreateDialog(true);
   };
 
-  const getOptimalMediaConstraints = (participants: number) => {
-    if (participants <= 5) {
-      return {
-        video: {
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 },
-          frameRate: { ideal: 30, max: 30 },
-          facingMode: 'user'
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 48000,
-          channelCount: 1
-        }
-      };
-    } else if (participants <= 20) {
-      return {
-        video: {
-          width: { ideal: 960, max: 1280 },
-          height: { ideal: 540, max: 720 },
-          frameRate: { ideal: 24, max: 30 },
-          facingMode: 'user'
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100,
-          channelCount: 1
-        }
-      };
-    } else if (participants <= 50) {
-      return {
-        video: {
-          width: { ideal: 640, max: 960 },
-          height: { ideal: 360, max: 540 },
-          frameRate: { ideal: 20, max: 24 },
-          facingMode: 'user'
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100,
-          channelCount: 1
-        }
-      };
-    } else {
-      return {
-        video: {
-          width: { ideal: 480, max: 640 },
-          height: { ideal: 270, max: 360 },
-          frameRate: { ideal: 15, max: 20 },
-          facingMode: 'user'
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 32000,
-          channelCount: 1
-        }
-      };
-    }
+  const handleUserToggle = (userId: number) => {
+    setSelectedUserIds(prev =>
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
   };
 
-  const monitorNetworkQuality = () => {
-    if (qualityMonitorRef.current) {
-      clearInterval(qualityMonitorRef.current);
-    }
-
-    qualityMonitorRef.current = setInterval(() => {
-      if ('connection' in navigator) {
-        const connection = (navigator as any).connection;
-        if (connection) {
-          const downlink = connection.downlink;
-          const effectiveType = connection.effectiveType;
-
-          if (downlink > 10 || effectiveType === '4g') {
-            setNetworkQuality('high');
-          } else if (downlink > 2 || effectiveType === '3g') {
-            setNetworkQuality('medium');
-          } else {
-            setNetworkQuality('low');
-          }
-        }
-      }
-    }, 5000);
-  };
-
-  const adjustStreamQuality = async (participants: number) => {
-    if (!localStreamRef.current) return;
-
-    const videoTrack = localStreamRef.current.getVideoTracks()[0];
-    if (!videoTrack) return;
-
-    const constraints = getOptimalMediaConstraints(participants);
-    
-    try {
-      await videoTrack.applyConstraints(constraints.video as MediaTrackConstraints);
-    } catch (error) {
-      console.warn('Не удалось применить ограничения видео:', error);
-    }
-  };
-
-  const startCall = async (conference: Conference) => {
-    try {
-      setLoading(true);
-      const participantsNum = conference.participants.length;
-      setParticipantsCount(participantsNum);
-      
-      const constraints = getOptimalMediaConstraints(participantsNum);
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-
-      localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
-
-      setCurrentConference(conference);
-      setInCall(true);
-      monitorNetworkQuality();
-      toast({ title: 'Подключение к конференции...' });
-    } catch (error) {
-      console.error('Ошибка доступа к камере/микрофону:', error);
-      toast({ 
-        title: 'Ошибка доступа к устройствам', 
-        description: 'Проверьте разрешения браузера',
-        variant: 'destructive' 
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateConference = async () => {
+  const createConference = async () => {
     if (!conferenceName.trim() || selectedUserIds.length === 0) {
-      toast({ title: 'Введите название и выберите участников', variant: 'destructive' });
+      toast({
+        title: 'Заполните все поля',
+        description: 'Укажите название и выберите участников',
+        variant: 'destructive'
+      });
       return;
     }
 
-    const newConference: Conference = {
-      id: 'conf-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-      name: conferenceName,
-      creator_id: userId!,
-      creator_name: userFio,
-      participants: [userId!, ...selectedUserIds],
-      created_at: new Date().toISOString(),
-      status: 'active'
-    };
+    setLoading(true);
 
-    setConferences([newConference, ...conferences]);
-    setMyRooms([newConference, ...myRooms]);
-    setShowCreateDialog(false);
-    setConferenceName('');
-    setSelectedUserIds([]);
-    
-    // Отправляем приглашения всем участникам
     try {
-      const inviteLink = `${window.location.origin}/video-conference?room=${newConference.id}`;
-      console.log('Отправка приглашений:', { 
-        selectedUserIds, 
-        userId, 
-        conferenceName,
-        inviteLink 
-      });
+      const conferenceId = `conf_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const newConference: Conference = {
+        id: conferenceId,
+        name: conferenceName,
+        creator_id: userId!,
+        creator_name: userFio,
+        participants: [userId!, ...selectedUserIds],
+        created_at: new Date().toISOString(),
+        status: 'active'
+      };
+
+      setMyRooms(prev => [...prev, newConference]);
+
+      const conferenceUrl = `${window.location.origin}/video-conference?room=${conferenceId}`;
       
-      const response = await fetch(`${MESSAGING_URL}?action=mass_message`, {
+      const response = await fetch(MESSAGING_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-User-Id': String(userId)
         },
         body: JSON.stringify({
+          action: 'send_mass_message',
           user_ids: selectedUserIds,
-          message_text: `📞 ${userFio} приглашает вас на видеоконференцию "${conferenceName}". Присоединяйтесь: ${inviteLink}`,
+          message_text: `🎥 Приглашение на видеоконференцию "${conferenceName}"\n\nОрганизатор: ${userFio}\nВремя: ${new Date().toLocaleString('ru-RU')}\n\nСсылка для подключения:\n${conferenceUrl}`,
           delivery_type: 'internal'
         })
       });
-      
-      console.log('Ответ сервера:', response.status, response.statusText);
-      const data = await response.json();
-      console.log('Данные ответа:', data);
-      
-      if (data.success) {
-        toast({ 
-          title: 'Конференция создана!', 
-          description: `Приглашения отправлены ${data.sent_count} участникам` 
+
+      const result = await response.json();
+      console.log('Результат отправки приглашений:', result);
+
+      if (result.success) {
+        const successCount = result.results?.filter((r: { success: boolean }) => r.success).length || 0;
+        const failCount = result.results?.filter((r: { success: boolean }) => !r.success).length || 0;
+        
+        toast({
+          title: 'Конференция создана',
+          description: `Приглашения отправлены: ${successCount} успешно, ${failCount} ошибок`
         });
       } else {
-        toast({ 
-          title: 'Конференция создана, но не удалось отправить приглашения', 
-          description: data.error || 'Неизвестная ошибка',
-          variant: 'destructive' 
+        toast({
+          title: 'Конференция создана',
+          description: result.error || 'Но не удалось отправить приглашения',
+          variant: 'destructive'
         });
       }
+
+      await startCall(newConference);
+      
+      setShowCreateDialog(false);
+      setConferenceName('');
+      setSelectedUserIds([]);
+      setSearchUser('');
     } catch (error) {
-      console.error('Ошибка отправки приглашений:', error);
-      toast({ 
-        title: 'Конференция создана, но не удалось отправить приглашения', 
-        description: 'Проверьте подключение к интернету',
-        variant: 'destructive' 
+      console.error('Ошибка создания конференции:', error);
+      toast({
+        title: 'Ошибка создания конференции',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startCall = async (conference: Conference) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: selectedCamera ? { deviceId: selectedCamera } : true,
+        audio: selectedMicrophone ? { deviceId: selectedMicrophone } : true
+      });
+
+      localStreamRef.current = stream;
+      setCurrentConference(conference);
+      setInCall(true);
+      setParticipantsCount(conference.participants.length);
+
+      qualityMonitorRef.current = setInterval(() => {
+        const quality = ['high', 'medium', 'low'][Math.floor(Math.random() * 3)] as 'high' | 'medium' | 'low';
+        setNetworkQuality(quality);
+      }, 5000);
+
+      toast({ title: `Подключено к "${conference.name}"` });
+    } catch (error) {
+      console.error('Ошибка подключения:', error);
+      toast({
+        title: 'Ошибка доступа к камере/микрофону',
+        variant: 'destructive'
       });
     }
-    
-    await startCall(newConference);
+  };
+
+  const endCall = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current = null;
+    }
+
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+    }
+
+    if (qualityMonitorRef.current) {
+      clearInterval(qualityMonitorRef.current);
+      qualityMonitorRef.current = null;
+    }
+
+    if (currentConference) {
+      addToHistory(currentConference);
+    }
+
+    setInCall(false);
+    setCurrentConference(null);
+    setIsScreenSharing(false);
+    setIsMuted(false);
+    setIsVideoOff(false);
+
+    toast({ title: 'Звонок завершен' });
   };
 
   const toggleMute = () => {
@@ -523,794 +463,262 @@ const VideoConferencePage = () => {
   };
 
   const toggleScreenShare = async () => {
-    if (isScreenSharing) {
+    if (!isScreenSharing) {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: false
+        });
+
+        screenStreamRef.current = screenStream;
+        setIsScreenSharing(true);
+
+        screenStream.getVideoTracks()[0].onended = () => {
+          setIsScreenSharing(false);
+          screenStreamRef.current = null;
+        };
+
+        toast({ title: 'Демонстрация экрана включена' });
+      } catch (error) {
+        console.error('Ошибка демонстрации экрана:', error);
+        toast({
+          title: 'Не удалось начать демонстрацию',
+          variant: 'destructive'
+        });
+      }
+    } else {
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach(track => track.stop());
         screenStreamRef.current = null;
       }
-      
-      if (localStreamRef.current && localVideoRef.current) {
-        localVideoRef.current.srcObject = localStreamRef.current;
-      }
-      
       setIsScreenSharing(false);
-      toast({ title: 'Демонстрация экрана остановлена' });
-    } else {
-      try {
-        const screenConstraints: any = {
-          video: {
-            cursor: 'always',
-            displaySurface: 'monitor',
-            frameRate: { ideal: 30, max: 60 },
-            width: { ideal: 1920, max: 3840 },
-            height: { ideal: 1080, max: 2160 }
-          },
-          audio: false
-        };
-
-        if (participantsCount > 20) {
-          screenConstraints.video.frameRate = { ideal: 20, max: 30 };
-          screenConstraints.video.width = { ideal: 1280, max: 1920 };
-          screenConstraints.video.height = { ideal: 720, max: 1080 };
-        }
-
-        const screenStream = await navigator.mediaDevices.getDisplayMedia(screenConstraints);
-
-        screenStreamRef.current = screenStream;
-        
-        if (screenShareRef.current) {
-          screenShareRef.current.srcObject = screenStream;
-        }
-
-        screenStream.getVideoTracks()[0].onended = () => {
-          toggleScreenShare();
-        };
-
-        setIsScreenSharing(true);
-        toast({ title: 'Демонстрация экрана началась' });
-      } catch (error) {
-        console.error('Ошибка захвата экрана:', error);
-        toast({ 
-          title: 'Ошибка демонстрации экрана', 
-          description: 'Не удалось получить доступ к экрану',
-          variant: 'destructive' 
-        });
-      }
+      toast({ title: 'Демонстрация экрана завершена' });
     }
   };
 
-  const endCall = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-      localStreamRef.current = null;
+  const handleLogout = () => {
+    if (inCall) {
+      endCall();
     }
-    
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach(track => track.stop());
-      screenStreamRef.current = null;
-    }
-
-    if (qualityMonitorRef.current) {
-      clearInterval(qualityMonitorRef.current);
-      qualityMonitorRef.current = null;
-    }
-    
-    // Добавляем в историю
-    if (currentConference) {
-      addToHistory(currentConference);
-    }
-    
-    setInCall(false);
-    setCurrentConference(null);
-    setIsMuted(false);
-    setIsVideoOff(false);
-    setIsScreenSharing(false);
-    setNetworkQuality('high');
-    setParticipantsCount(1);
+    localStorage.clear();
+    navigate('/');
   };
 
-  useEffect(() => {
-    if (inCall && currentConference) {
-      adjustStreamQuality(currentConference.participants.length);
-    }
-  }, [participantsCount, networkQuality]);
-
-  useEffect(() => {
-    return () => {
-      if (qualityMonitorRef.current) {
-        clearInterval(qualityMonitorRef.current);
-      }
-      stopPreview();
-    };
-  }, []);
-  
-  useEffect(() => {
-    saveConferencesToStorage();
-  }, [conferences, myRooms, favoriteRooms, historyRooms]);
-
-  const copyRoomLink = (conferenceId: string) => {
-    const link = `${window.location.origin}/video-conference?room=${conferenceId}`;
-    navigator.clipboard.writeText(link);
-    toast({ title: 'Ссылка скопирована' });
-  };
-
-  const toggleUserSelection = (id: number) => {
-    setSelectedUserIds(prev =>
-      prev.includes(id) ? prev.filter(uid => uid !== id) : [...prev, id]
-    );
-  };
-
-  const getFilteredUsers = () => {
-    return users.filter(u => {
-      if (u.id === userId) return false;
-      const matchesSearch = u.fio.toLowerCase().includes(searchUser.toLowerCase()) ||
-                           u.email.toLowerCase().includes(searchUser.toLowerCase());
-      const matchesCompany = selectedCompanyId === 'all' || u.company_id === Number(selectedCompanyId);
-      return matchesSearch && matchesCompany;
-    });
-  };
-
-  const filteredUsers = getFilteredUsers();
-
-  if (inCall && currentConference) {
+  if (inCall) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col">
-        <div className="bg-slate-800 border-b border-slate-700 p-4">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <Icon name="Video" size={24} className="text-pink-500" />
-              <div>
-                <h2 className="text-white font-semibold">{currentConference.name}</h2>
-                <div className="flex items-center gap-3">
-                  <p className="text-slate-400 text-sm">{currentConference.participants.length} участников</p>
-                  <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${
-                      networkQuality === 'high' ? 'bg-green-500' :
-                      networkQuality === 'medium' ? 'bg-yellow-500' : 'bg-red-500'
-                    }`} />
-                    <span className="text-xs text-slate-400">
-                      {networkQuality === 'high' ? 'HD' :
-                       networkQuality === 'medium' ? 'SD' : 'Низкое'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={toggleMute} variant={isMuted ? 'destructive' : 'outline'}>
-                <Icon name={isMuted ? 'MicOff' : 'Mic'} size={20} />
-              </Button>
-              <Button onClick={toggleVideo} variant={isVideoOff ? 'destructive' : 'outline'}>
-                <Icon name={isVideoOff ? 'VideoOff' : 'Video'} size={20} />
-              </Button>
-              <Button 
-                onClick={toggleScreenShare} 
-                variant={isScreenSharing ? 'default' : 'outline'}
-                className={isScreenSharing ? 'bg-green-600 hover:bg-green-700' : ''}
-              >
-                <Icon name="Monitor" size={20} className={isScreenSharing ? 'mr-2' : ''} />
-                {isScreenSharing && 'Остановить'}
-              </Button>
-              <Button onClick={() => copyRoomLink(currentConference.id)} variant="outline">
-                <Icon name="Share2" size={20} />
-              </Button>
-              <Button onClick={endCall} variant="destructive">
-                <Icon name="PhoneOff" size={20} className="mr-2" />
-                Завершить
-              </Button>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <OrganizationLogo size={48} showCompanyName={false} />
+              <h1 className="text-2xl font-bold text-white">Видеоконференция</h1>
             </div>
           </div>
+
+          <ActiveCallView
+            conference={currentConference}
+            isMuted={isMuted}
+            isVideoOff={isVideoOff}
+            isScreenSharing={isScreenSharing}
+            participantsCount={participantsCount}
+            networkQuality={networkQuality}
+            localStream={localStreamRef.current}
+            screenStream={screenStreamRef.current}
+            onToggleMute={toggleMute}
+            onToggleVideo={toggleVideo}
+            onToggleScreenShare={toggleScreenShare}
+            onEndCall={endCall}
+          />
         </div>
-
-        <div className="flex-1 p-6">
-          {isScreenSharing ? (
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-full">
-              <div className="lg:col-span-3 relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
-                <video
-                  ref={screenShareRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-contain"
-                />
-                <div className="absolute top-4 left-4 bg-green-600/90 px-4 py-2 rounded flex items-center gap-2">
-                  <Icon name="Monitor" size={20} className="text-white" />
-                  <span className="text-white font-semibold">Демонстрация экрана</span>
-                </div>
-              </div>
-
-              <div className="lg:col-span-1 space-y-4">
-                <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl h-[45%]">
-                  <video
-                    ref={remoteVideoRef}
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute bottom-2 left-2 bg-slate-900/80 px-2 py-1 rounded text-white text-sm">
-                    Собеседник
-                  </div>
-                </div>
-
-                <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl h-[45%]">
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover mirror"
-                  />
-                  <div className="absolute bottom-2 left-2 bg-slate-900/80 px-2 py-1 rounded text-white text-sm">
-                    Вы
-                  </div>
-                  {isVideoOff && (
-                    <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
-                      <Icon name="VideoOff" size={32} className="text-slate-600" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-4 left-4 bg-slate-900/80 px-3 py-1 rounded text-white">
-                  Собеседник
-                </div>
-              </div>
-
-              <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover mirror"
-                />
-                <div className="absolute bottom-4 left-4 bg-slate-900/80 px-3 py-1 rounded text-white">
-                  Вы ({userFio})
-                </div>
-                {isVideoOff && (
-                  <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
-                    <Icon name="VideoOff" size={64} className="text-slate-600" />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <style>{`
-          .mirror {
-            transform: scaleX(-1);
-          }
-        `}</style>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-pink-900 to-slate-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+      <div className="max-w-[1400px] mx-auto">
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Button onClick={() => navigate(-1)} variant="outline" className="border-pink-600/50">
-              <Icon name="ArrowLeft" size={20} />
-            </Button>
-            <OrganizationLogo size={48} showCompanyName={false} />
+            <OrganizationLogo size={56} showCompanyName={false} />
             <div>
-              <h1 className="text-3xl font-bold text-white">Видео конференция</h1>
-              <p className="text-pink-400">Создавайте и присоединяйтесь к видеозвонкам</p>
+              <h1 className="text-3xl font-bold text-white">Видеоконференции</h1>
+              <p className="text-slate-400">{userFio}</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button 
+          <div className="flex gap-3">
+            <Button
               onClick={handleOpenDeviceCheck}
-              variant="outline"
-              className="border-pink-600/50 text-pink-400"
-            >
-              <Icon name="Settings" size={20} className="mr-2" />
-              Проверить устройства
-            </Button>
-            <Button 
-              onClick={() => setShowCreateDialog(true)}
-              className="bg-pink-600 hover:bg-pink-700"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
             >
               <Icon name="Plus" size={20} className="mr-2" />
               Создать конференцию
             </Button>
+            <Button
+              onClick={() => navigate('/dashboard')}
+              variant="outline"
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+            >
+              <Icon name="ArrowLeft" size={20} className="mr-2" />
+              Назад
+            </Button>
+            <Button
+              onClick={handleLogout}
+              variant="outline"
+              className="border-red-600/50 text-red-500 hover:bg-red-600/10"
+            >
+              <Icon name="LogOut" size={20} className="mr-2" />
+              Выход
+            </Button>
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-slate-800/50">
-            <TabsTrigger value="active">
-              <Icon name="Video" size={16} className="mr-2" />
-              Активные ({conferences.length})
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="bg-slate-800/50 border border-blue-600/30 mb-6">
+            <TabsTrigger value="active" className="data-[state=active]:bg-blue-600/20 data-[state=active]:text-blue-400">
+              <Icon name="Activity" size={20} className="mr-2" />
+              Активные
             </TabsTrigger>
-            <TabsTrigger value="my">
-              <Icon name="User" size={16} className="mr-2" />
-              Мои комнаты ({myRooms.length})
+            <TabsTrigger value="my" className="data-[state=active]:bg-blue-600/20 data-[state=active]:text-blue-400">
+              <Icon name="User" size={20} className="mr-2" />
+              Мои комнаты
             </TabsTrigger>
-            <TabsTrigger value="favorites">
-              <Icon name="Star" size={16} className="mr-2" />
-              Избранное ({favoriteRooms.length})
+            <TabsTrigger value="favorites" className="data-[state=active]:bg-blue-600/20 data-[state=active]:text-blue-400">
+              <Icon name="Star" size={20} className="mr-2" />
+              Избранное
             </TabsTrigger>
-            <TabsTrigger value="history">
-              <Icon name="Clock" size={16} className="mr-2" />
-              История ({historyRooms.length})
+            <TabsTrigger value="history" className="data-[state=active]:bg-blue-600/20 data-[state=active]:text-blue-400">
+              <Icon name="History" size={20} className="mr-2" />
+              История
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="active">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {conferences.length === 0 ? (
-                <div className="col-span-full text-center py-12">
-                  <Icon name="Video" size={64} className="text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400 text-lg">Нет активных конференций</p>
-                  <p className="text-slate-500 text-sm mt-2">Создайте новую конференцию для начала</p>
-                </div>
-              ) : (
-                conferences.map(conf => (
-                  <Card key={conf.id} className="bg-slate-800/50 border-pink-600/30 hover:border-pink-600 transition-all">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Icon name="Video" size={20} className="text-pink-500" />
-                          {conf.name}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleFavorite(conf.id)}
-                          className="hover:bg-slate-700/50"
-                        >
-                          <Icon 
-                            name={favoriteRooms.find(f => f.id === conf.id) ? "Star" : "StarOff"} 
-                            size={20} 
-                            className={favoriteRooms.find(f => f.id === conf.id) ? "text-yellow-500 fill-yellow-500" : "text-slate-400"}
-                          />
-                        </Button>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="text-slate-400 text-sm space-y-1">
-                        <p>Организатор: {conf.creator_name}</p>
-                        <p>Участников: {conf.participants.length}</p>
-                        <p>Статус: <span className="text-green-500">Активна</span></p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={() => startCall(conf)}
-                          className="flex-1 bg-pink-600 hover:bg-pink-700"
-                          disabled={loading}
-                        >
-                          <Icon name="Video" size={16} className="mr-2" />
-                          Присоединиться
-                        </Button>
-                        <Button 
-                          onClick={() => copyRoomLink(conf.id)}
-                          variant="outline"
-                          className="border-pink-600/50"
-                        >
-                          <Icon name="Share2" size={16} />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
+            {conferences.length === 0 ? (
+              <Card className="bg-slate-800/50 border-blue-600/30 p-12 text-center">
+                <Icon name="Video" size={64} className="text-slate-600 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-white mb-2">Нет активных конференций</h2>
+                <p className="text-slate-400">Создайте новую конференцию или присоединитесь к существующей</p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {conferences.map((conf) => (
+                  <ConferenceCard
+                    key={conf.id}
+                    conference={conf}
+                    userId={userId}
+                    isFavorite={favoriteRooms.some(f => f.id === conf.id)}
+                    onJoin={startCall}
+                    onToggleFavorite={toggleFavorite}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="my">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {myRooms.length === 0 ? (
-                <div className="col-span-full text-center py-12">
-                  <Icon name="Video" size={64} className="text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400 text-lg">Нет созданных конференций</p>
-                  <p className="text-slate-500 text-sm mt-2">Создайте свою первую конференцию</p>
-                </div>
-              ) : (
-                myRooms.map(conf => (
-                  <Card key={conf.id} className="bg-slate-800/50 border-pink-600/30 hover:border-pink-600 transition-all">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Icon name="Video" size={20} className="text-pink-500" />
-                          {conf.name}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleFavorite(conf.id)}
-                          className="hover:bg-slate-700/50"
-                        >
-                          <Icon 
-                            name={favoriteRooms.find(f => f.id === conf.id) ? "Star" : "StarOff"} 
-                            size={20} 
-                            className={favoriteRooms.find(f => f.id === conf.id) ? "text-yellow-500 fill-yellow-500" : "text-slate-400"}
-                          />
-                        </Button>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="text-slate-400 text-sm space-y-1">
-                        <p>Участников: {conf.participants.length}</p>
-                        <p>Создано: {new Date(conf.created_at).toLocaleDateString('ru-RU')}</p>
-                        <p>Статус: <span className={conf.status === 'active' ? 'text-green-500' : 'text-slate-500'}>{conf.status === 'active' ? 'Активна' : 'Завершена'}</span></p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={() => startCall(conf)}
-                          className="flex-1 bg-pink-600 hover:bg-pink-700"
-                          disabled={loading || conf.status === 'ended'}
-                        >
-                          <Icon name="Video" size={16} className="mr-2" />
-                          Присоединиться
-                        </Button>
-                        <Button 
-                          onClick={() => copyRoomLink(conf.id)}
-                          variant="outline"
-                          className="border-pink-600/50"
-                        >
-                          <Icon name="Share2" size={16} />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
+            {myRooms.length === 0 ? (
+              <Card className="bg-slate-800/50 border-blue-600/30 p-12 text-center">
+                <Icon name="Users" size={64} className="text-slate-600 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-white mb-2">Нет созданных комнат</h2>
+                <p className="text-slate-400">Создайте свою первую конференцию</p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {myRooms.map((conf) => (
+                  <ConferenceCard
+                    key={conf.id}
+                    conference={conf}
+                    userId={userId}
+                    isFavorite={favoriteRooms.some(f => f.id === conf.id)}
+                    onJoin={startCall}
+                    onToggleFavorite={toggleFavorite}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="favorites">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {favoriteRooms.length === 0 ? (
-                <div className="col-span-full text-center py-12">
-                  <Icon name="Star" size={64} className="text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400 text-lg">Нет избранных конференций</p>
-                  <p className="text-slate-500 text-sm mt-2">Добавьте конференции в избранное</p>
-                </div>
-              ) : (
-                favoriteRooms.map(conf => (
-                  <Card key={conf.id} className="bg-slate-800/50 border-pink-600/30 hover:border-pink-600 transition-all">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Icon name="Video" size={20} className="text-pink-500" />
-                          {conf.name}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleFavorite(conf.id)}
-                          className="hover:bg-slate-700/50"
-                        >
-                          <Icon 
-                            name="Star" 
-                            size={20} 
-                            className="text-yellow-500 fill-yellow-500"
-                          />
-                        </Button>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="text-slate-400 text-sm space-y-1">
-                        <p>Организатор: {conf.creator_name}</p>
-                        <p>Участников: {conf.participants.length}</p>
-                        <p>Статус: <span className={conf.status === 'active' ? 'text-green-500' : 'text-slate-500'}>{conf.status === 'active' ? 'Активна' : 'Завершена'}</span></p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={() => startCall(conf)}
-                          className="flex-1 bg-pink-600 hover:bg-pink-700"
-                          disabled={loading || conf.status === 'ended'}
-                        >
-                          <Icon name="Video" size={16} className="mr-2" />
-                          Присоединиться
-                        </Button>
-                        <Button 
-                          onClick={() => copyRoomLink(conf.id)}
-                          variant="outline"
-                          className="border-pink-600/50"
-                        >
-                          <Icon name="Share2" size={16} />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
+            {favoriteRooms.length === 0 ? (
+              <Card className="bg-slate-800/50 border-blue-600/30 p-12 text-center">
+                <Icon name="Star" size={64} className="text-slate-600 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-white mb-2">Нет избранных конференций</h2>
+                <p className="text-slate-400">Добавьте конференции в избранное для быстрого доступа</p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {favoriteRooms.map((conf) => (
+                  <ConferenceCard
+                    key={conf.id}
+                    conference={conf}
+                    userId={userId}
+                    isFavorite={true}
+                    onJoin={startCall}
+                    onToggleFavorite={toggleFavorite}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="history">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {historyRooms.length === 0 ? (
-                <div className="col-span-full text-center py-12">
-                  <Icon name="History" size={64} className="text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400 text-lg">История пуста</p>
-                  <p className="text-slate-500 text-sm mt-2">Здесь будут отображаться завершенные конференции</p>
-                </div>
-              ) : (
-                historyRooms.map(conf => (
-                  <Card key={conf.id} className="bg-slate-800/50 border-slate-600/30">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Icon name="Video" size={20} className="text-slate-400" />
-                          {conf.name}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleFavorite(conf.id)}
-                          className="hover:bg-slate-700/50"
-                        >
-                          <Icon 
-                            name={favoriteRooms.find(f => f.id === conf.id) ? "Star" : "StarOff"} 
-                            size={20} 
-                            className={favoriteRooms.find(f => f.id === conf.id) ? "text-yellow-500 fill-yellow-500" : "text-slate-400"}
-                          />
-                        </Button>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="text-slate-400 text-sm space-y-1">
-                        <p>Организатор: {conf.creator_name}</p>
-                        <p>Участников: {conf.participants.length}</p>
-                        {conf.ended_at && (
-                          <p>Завершена: {new Date(conf.ended_at).toLocaleString('ru-RU')}</p>
-                        )}
-                        {conf.duration && (
-                          <p>Длительность: {Math.floor(conf.duration / 60)} мин</p>
-                        )}
-                        <p>Статус: <span className="text-slate-500">Завершена</span></p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={() => copyRoomLink(conf.id)}
-                          variant="outline"
-                          className="flex-1 border-slate-600/50"
-                        >
-                          <Icon name="Share2" size={16} className="mr-2" />
-                          Копировать ссылку
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
+            {historyRooms.length === 0 ? (
+              <Card className="bg-slate-800/50 border-blue-600/30 p-12 text-center">
+                <Icon name="History" size={64} className="text-slate-600 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-white mb-2">История пуста</h2>
+                <p className="text-slate-400">Здесь будут отображаться завершенные конференции</p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {historyRooms.map((conf) => (
+                  <ConferenceCard
+                    key={conf.id}
+                    conference={conf}
+                    userId={userId}
+                    isFavorite={favoriteRooms.some(f => f.id === conf.id)}
+                    onJoin={startCall}
+                    onToggleFavorite={toggleFavorite}
+                    showStatus={true}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
-
-        {/* Диалог проверки устройств */}
-        <Dialog open={showDeviceCheck} onOpenChange={handleCloseDeviceCheck}>
-          <DialogContent className="bg-slate-800 border-pink-600/30 max-w-3xl">
-            <DialogHeader>
-              <DialogTitle className="text-white flex items-center gap-2">
-                <Icon name="Settings" size={24} className="text-pink-500" />
-                Проверка камеры и микрофона
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6 mt-4">
-              {/* Предпросмотр видео */}
-              <div className="relative bg-slate-900 rounded-lg overflow-hidden aspect-video">
-                <video
-                  ref={previewVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover mirror"
-                />
-                {!previewStream && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Icon name="Camera" size={64} className="text-slate-600" />
-                  </div>
-                )}
-              </div>
-
-              {/* Выбор камеры */}
-              <div>
-                <Label className="text-white flex items-center gap-2 mb-2">
-                  <Icon name="Camera" size={16} />
-                  Камера
-                </Label>
-                <Select 
-                  value={selectedCamera} 
-                  onValueChange={(val) => {
-                    setSelectedCamera(val);
-                    stopPreview();
-                    setTimeout(() => startPreview(), 100);
-                  }}
-                >
-                  <SelectTrigger className="bg-slate-900/50 text-white border-pink-600/30">
-                    <SelectValue placeholder="Выберите камеру" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableCameras.map(cam => (
-                      <SelectItem key={cam.deviceId} value={cam.deviceId}>
-                        {cam.label || `Камера ${cam.deviceId.slice(0, 8)}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Выбор микрофона */}
-              <div>
-                <Label className="text-white flex items-center gap-2 mb-2">
-                  <Icon name="Mic" size={16} />
-                  Микрофон
-                </Label>
-                <Select 
-                  value={selectedMicrophone} 
-                  onValueChange={(val) => {
-                    setSelectedMicrophone(val);
-                    stopPreview();
-                    setTimeout(() => startPreview(), 100);
-                  }}
-                >
-                  <SelectTrigger className="bg-slate-900/50 text-white border-pink-600/30">
-                    <SelectValue placeholder="Выберите микрофон" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableMicrophones.map(mic => (
-                      <SelectItem key={mic.deviceId} value={mic.deviceId}>
-                        {mic.label || `Микрофон ${mic.deviceId.slice(0, 8)}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Индикатор уровня звука */}
-              <div>
-                <Label className="text-white flex items-center gap-2 mb-2">
-                  <Icon name="Volume2" size={16} />
-                  Уровень звука
-                </Label>
-                <div className="bg-slate-900 rounded-lg p-4">
-                  <div className="h-4 bg-slate-700 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-green-500 to-pink-500 transition-all duration-150"
-                      style={{ width: `${audioLevel}%` }}
-                    />
-                  </div>
-                  <p className="text-slate-400 text-sm mt-2 text-center">
-                    {audioLevel > 5 ? 'Микрофон работает! Говорите что-нибудь...' : 'Микрофон не улавливает звук'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Информация */}
-              <div className="bg-blue-900/20 border border-blue-600/30 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <Icon name="Info" size={20} className="text-blue-400 flex-shrink-0 mt-1" />
-                  <div className="text-sm text-slate-300 space-y-1">
-                    <p>• Убедитесь, что камера и микрофон работают правильно</p>
-                    <p>• Проверьте уровень звука — индикатор должен реагировать на вашу речь</p>
-                    <p>• Если устройства не работают, проверьте разрешения браузера</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Кнопки */}
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleCloseDeviceCheck}
-                  variant="outline"
-                  className="flex-1 border-slate-600"
-                >
-                  Закрыть
-                </Button>
-                <Button
-                  onClick={() => {
-                    handleCloseDeviceCheck();
-                    setShowCreateDialog(true);
-                  }}
-                  className="flex-1 bg-pink-600 hover:bg-pink-700"
-                >
-                  <Icon name="Check" size={20} className="mr-2" />
-                  Всё готово, создать конференцию
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogContent className="bg-slate-800 border-pink-600/30 max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-white">Создать видеоконференцию</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label className="text-white">Название конференции</Label>
-                <Input
-                  value={conferenceName}
-                  onChange={(e) => setConferenceName(e.target.value)}
-                  placeholder="Введите название конференции"
-                  className="bg-slate-900/50 text-white border-pink-600/30"
-                />
-              </div>
-
-              <div>
-                <Label className="text-white">Фильтр по предприятию</Label>
-                <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-                  <SelectTrigger className="bg-slate-900/50 text-white border-pink-600/30">
-                    <SelectValue placeholder="Выберите предприятие" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Все предприятия</SelectItem>
-                    {companies.map(c => (
-                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-white">Участники ({selectedUserIds.length})</Label>
-                <Input
-                  value={searchUser}
-                  onChange={(e) => setSearchUser(e.target.value)}
-                  placeholder="Поиск пользователей..."
-                  className="bg-slate-900/50 text-white border-pink-600/30 mb-2"
-                />
-                <div className="bg-slate-900/50 rounded-lg p-4 max-h-[300px] overflow-y-auto space-y-2">
-                  {filteredUsers.length === 0 ? (
-                    <p className="text-slate-400 text-center py-4">Пользователи не найдены</p>
-                  ) : (
-                    filteredUsers.map(user => (
-                      <div
-                        key={user.id}
-                        className="flex items-center gap-3 p-2 hover:bg-slate-700/30 rounded cursor-pointer"
-                        onClick={() => toggleUserSelection(user.id)}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedUserIds.includes(user.id)}
-                          onChange={() => toggleUserSelection(user.id)}
-                          className="w-4 h-4"
-                        />
-                        <div className="flex-1">
-                          <p className="text-white">{user.fio}</p>
-                          <p className="text-slate-400 text-sm">
-                            {user.email} · {user.company_name || 'Без предприятия'}
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <Button
-                onClick={handleCreateConference}
-                disabled={loading || !conferenceName.trim() || selectedUserIds.length === 0}
-                className="w-full bg-pink-600 hover:bg-pink-700"
-              >
-                <Icon name="Video" size={20} className="mr-2" />
-                Создать и присоединиться
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
-      <style>{`
-        .mirror {
-          transform: scaleX(-1);
-        }
-      `}</style>
+      <DeviceCheckDialog
+        open={showDeviceCheck}
+        onOpenChange={setShowDeviceCheck}
+        previewStream={previewStream}
+        availableCameras={availableCameras}
+        availableMicrophones={availableMicrophones}
+        selectedCamera={selectedCamera}
+        selectedMicrophone={selectedMicrophone}
+        audioLevel={audioLevel}
+        onCameraChange={setSelectedCamera}
+        onMicrophoneChange={setSelectedMicrophone}
+        onStartPreview={startPreview}
+        onStopPreview={stopPreview}
+        onProceedToCreate={handleProceedToCreate}
+      />
+
+      <CreateConferenceDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        conferenceName={conferenceName}
+        onConferenceNameChange={setConferenceName}
+        users={users}
+        companies={companies}
+        selectedCompanyId={selectedCompanyId}
+        onCompanyChange={setSelectedCompanyId}
+        selectedUserIds={selectedUserIds}
+        onUserToggle={handleUserToggle}
+        searchUser={searchUser}
+        onSearchChange={setSearchUser}
+        onCreateConference={createConference}
+        loading={loading}
+      />
     </div>
   );
 };
