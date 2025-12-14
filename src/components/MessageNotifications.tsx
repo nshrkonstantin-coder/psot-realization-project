@@ -81,7 +81,10 @@ const MessageNotifications = () => {
             }
           }
           
-          setTimeout(() => setShowNotification(false), 15000);'
+          setTimeout(() => setShowNotification(false), 15000);
+        }
+        
+        setUnreadCount(totalUnread);
       }
     } catch (error) {
       // Тихо игнорируем ошибки
