@@ -8,7 +8,11 @@ from datetime import datetime
 def get_db_connection():
     '''Создает подключение к БД'''
     dsn = os.environ['DATABASE_URL']
-    return psycopg2.connect(dsn, cursor_factory=RealDictCursor)
+    conn = psycopg2.connect(dsn, cursor_factory=RealDictCursor)
+    # Устанавливаем схему через options параметр в DSN
+    with conn.cursor() as cur:
+        cur.execute("SELECT set_config('search_path', 't_p80499285_psot_realization_pro', false)")
+    return conn
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
@@ -47,8 +51,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         user_id = int(user_id)
         print(f'[DEBUG] Looking for user_id={user_id}')
-        cursor.execute('SET search_path TO t_p80499285_psot_realization_pro')
-        cursor.execute('SELECT company_id, role FROM users WHERE id = %s', (user_id,))
+        cursor.execute('SELECT company_id, role FROM t_p80499285_psot_realization_pro.users WHERE id = %s', (user_id,))
         user = cursor.fetchone()
         print(f'[DEBUG] Found user: {user}')
         
