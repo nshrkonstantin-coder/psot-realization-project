@@ -13,6 +13,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { generateObservationPDF } from '@/utils/observationPdfExport';
+import { generatePrescriptionPDF } from '@/utils/prescriptionPdfExport';
 
 interface UserStats {
   user_id: number;
@@ -74,13 +76,16 @@ const UserCabinet = () => {
   const [selectedObservationItem, setSelectedObservationItem] = useState<any | null>(null);
   const [selectedPrescriptionItem, setSelectedPrescriptionItem] = useState<any | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [userRole, setUserRole] = useState<string>('user');
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
+    const role = localStorage.getItem('userRole') || 'user';
     if (!userId) {
       navigate('/');
       return;
     }
+    setUserRole(role);
     loadUserStats();
     checkUnreadMessages();
     
@@ -944,7 +949,15 @@ const UserCabinet = () => {
                       </div>
                     </div>
                     <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-                      {obs.status !== 'Завершено' && (
+                      <Button
+                        onClick={() => generateObservationPDF([obs])}
+                        size="sm"
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                      >
+                        <Icon name="Printer" size={16} className="mr-1" />
+                        Распечатать
+                      </Button>
+                      {(userRole === 'admin' || userRole === 'superadmin' || userRole === 'miniadmin') && obs.status !== 'Завершено' && (
                         <Button
                           onClick={() => markObservationComplete(obs.id)}
                           size="sm"
@@ -1025,7 +1038,15 @@ const UserCabinet = () => {
                       </div>
                     </div>
                     <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-                      {presc.status !== 'Выполнено' && (
+                      <Button
+                        onClick={() => generatePrescriptionPDF([presc])}
+                        size="sm"
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                      >
+                        <Icon name="Printer" size={16} className="mr-1" />
+                        Распечатать
+                      </Button>
+                      {(userRole === 'admin' || userRole === 'superadmin' || userRole === 'miniadmin') && presc.status !== 'Выполнено' && (
                         <Button
                           onClick={() => markPrescriptionComplete(presc.id)}
                           size="sm"
@@ -1112,7 +1133,14 @@ const UserCabinet = () => {
                 </div>
               )}
               <div className="flex gap-2 pt-4">
-                {selectedObservationItem.status !== 'Завершено' && (
+                <Button
+                  onClick={() => generateObservationPDF([selectedObservationItem])}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <Icon name="Printer" size={20} className="mr-2" />
+                  Распечатать
+                </Button>
+                {(userRole === 'admin' || userRole === 'superadmin' || userRole === 'miniadmin') && selectedObservationItem.status !== 'Завершено' && (
                   <Button
                     onClick={() => {
                       markObservationComplete(selectedObservationItem.id);
@@ -1179,7 +1207,14 @@ const UserCabinet = () => {
                 <p className="text-white bg-slate-700/50 p-3 rounded-lg">{selectedPrescriptionItem.violation_text}</p>
               </div>
               <div className="flex gap-2 pt-4">
-                {selectedPrescriptionItem.status !== 'Выполнено' && (
+                <Button
+                  onClick={() => generatePrescriptionPDF([selectedPrescriptionItem])}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <Icon name="Printer" size={20} className="mr-2" />
+                  Распечатать
+                </Button>
+                {(userRole === 'admin' || userRole === 'superadmin' || userRole === 'miniadmin') && selectedPrescriptionItem.status !== 'Выполнено' && (
                   <Button
                     onClick={() => {
                       markPrescriptionComplete(selectedPrescriptionItem.id);
