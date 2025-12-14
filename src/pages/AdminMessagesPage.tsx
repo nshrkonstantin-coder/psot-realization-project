@@ -133,10 +133,14 @@ const AdminMessagesPage = () => {
         headers: { 'X-User-Id': localStorage.getItem('userId')! }
       });
       const data = await response.json();
-      console.log('Users API response:', data);
-      if (data.error) {
-        toast({ title: 'Ошибка', description: data.error, variant: 'destructive' });
-      } else if (data.users) {
+      console.log('Users API response:', data, 'Status:', response.status);
+      if (!response.ok || data.error) {
+        console.error('API Error:', data);
+        toast({ title: 'Ошибка загрузки пользователей', description: data.error || 'Неизвестная ошибка', variant: 'destructive' });
+        return;
+      }
+      if (data.users) {
+        console.log('Loaded users:', data.users.length);
         setUsers(data.users);
       }
     } catch (error) {
