@@ -182,17 +182,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 count_row = cur.fetchone()
                 registered_count = count_row[0] if count_row else 0
             
-            # Считаем онлайн пользователей (активность за последние 5 минут)
-            cur.execute(f"""
-                SELECT COUNT(DISTINCT user_id)
-                FROM t_p80499285_psot_realization_pro.user_activity
-                WHERE organization_id = {organization_id}
-                AND activity_time > NOW() - INTERVAL '5 minutes'
-            """)
-            online_count = cur.fetchone()[0] or 0
-            
-            # Считаем оффлайн пользователей
-            offline_count = max(0, registered_count - online_count)
+            # Пока просто показываем 0 для онлайн/оффлайн (функциональность будет добавлена позже)
+            online_count = 0
+            offline_count = registered_count
             
             # Статистика ПАБ (созданные пользователем)
             cur.execute(f"""
