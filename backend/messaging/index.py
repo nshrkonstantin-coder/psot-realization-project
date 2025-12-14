@@ -105,15 +105,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             cursor.execute(f'SELECT id, name FROM {SCHEMA}organizations ORDER BY name')
             result = {'companies': [dict(r) for r in cursor.fetchall()]}
         elif action == 'list_all_users':
-            print(f'[DEBUG] list_all_users: user_role={user_role}')
-            if user_role not in ['admin', 'superadmin']:
-                raise ValueError('Доступ запрещен')
-            cursor.execute(f'''
-                SELECT u.id, u.fio, u.email, u.role, u.organization_id, o.name as company_name 
-                FROM {SCHEMA}users u
-                LEFT JOIN {SCHEMA}organizations o ON u.organization_id = o.id
-                ORDER BY u.fio
-            ''')
+            print(f'[DEBUG] list_all_users: user_role={user_role}, company_id={company_id}')
+            # Для обычных пользователей показываем только их организацию
+            if user_role in ['admin', 'superadmin']:
+                cursor.execute(f'''
+                    SELECT u.id, u.fio, u.email, u.role, u.organization_id as company_id, o.name as company_name 
+                    FROM {SCHEMA}users u
+                    LEFT JOIN {SCHEMA}organizations o ON u.organization_id = o.id
+                    ORDER BY u.fio
+                ''')
+            else:
+                cursor.execute(f'''
+                    SELECT u.id, u.fio, u.email, u.role, u.organization_id as company_id, o.name as company_name 
+                    FROM {SCHEMA}users u
+                    LEFT JOIN {SCHEMA}organizations o ON u.organization_id = o.id
+                    WHERE u.organization_id = %s
+                    ORDER BY u.fio
+                ''', (company_id,))
             users_list = [dict(r) for r in cursor.fetchall()]
             print(f'[DEBUG] Found {len(users_list)} users')
             result = {'users': users_list}
