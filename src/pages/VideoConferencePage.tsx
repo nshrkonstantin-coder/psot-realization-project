@@ -95,7 +95,9 @@ const VideoConferencePage = () => {
         headers: { 'X-User-Id': localStorage.getItem('userId')! }
       });
       const data = await response.json();
-      if (data.organizations) {
+      if (Array.isArray(data)) {
+        setCompanies(data);
+      } else if (data.organizations) {
         setCompanies(data.organizations);
       }
     } catch (error) {
