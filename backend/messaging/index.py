@@ -46,8 +46,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cursor = conn.cursor()
         
         user_id = int(user_id)
+        print(f'[DEBUG] Looking for user_id={user_id}')
         cursor.execute('SELECT company_id, role FROM users WHERE id = %s', (user_id,))
         user = cursor.fetchone()
+        print(f'[DEBUG] Found user: {user}')
         
         if not user:
             return {
@@ -93,6 +95,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             cursor.execute('SELECT id, name FROM companies ORDER BY name')
             result = {'companies': [dict(r) for r in cursor.fetchall()]}
         elif action == 'list_all_users':
+            print(f'[DEBUG] list_all_users: user_role={user_role}')
             if user_role not in ['admin', 'superadmin']:
                 raise ValueError('Доступ запрещен')
             cursor.execute('''
@@ -101,7 +104,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 LEFT JOIN companies c ON u.company_id = c.id
                 ORDER BY u.fio
             ''')
-            result = {'users': [dict(r) for r in cursor.fetchall()]}
+            users_list = [dict(r) for r in cursor.fetchall()]
+            print(f'[DEBUG] Found {len(users_list)} users')
+            result = {'users': users_list}
         elif action == 'mass_message':
             body = json.loads(event.get('body', '{}'))
             result = send_mass_message(cursor, conn, body, user_id, user_role)
