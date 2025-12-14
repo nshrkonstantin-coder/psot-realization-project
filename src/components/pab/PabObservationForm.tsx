@@ -143,14 +143,14 @@ export const PabObservationForm = ({
         <div>
           <Label className="text-slate-300">Фильтр по подразделению</Label>
           <Select
-            value={subdivisionFilter}
-            onValueChange={onSubdivisionFilterChange}
+            value={subdivisionFilter || "all"}
+            onValueChange={(value) => onSubdivisionFilterChange(value === "all" ? "" : value)}
           >
             <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
               <SelectValue placeholder="Все подразделения" />
             </SelectTrigger>
             <SelectContent className="bg-slate-700 border-slate-600">
-              <SelectItem value="" className="text-white hover:bg-slate-600">
+              <SelectItem value="all" className="text-white hover:bg-slate-600">
                 Все подразделения
               </SelectItem>
               {uniqueSubdivisions.map((subdivision) => (
