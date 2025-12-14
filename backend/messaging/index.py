@@ -55,7 +55,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cursor.execute('SELECT current_user')
         current_user = cursor.fetchone()
         print(f'[DEBUG] Current user: {current_user}')
-        cursor.execute(f'SELECT company_id, role FROM {SCHEMA}users WHERE id = %s', (user_id,))
+        cursor.execute(f'SELECT organization_id, role FROM {SCHEMA}users WHERE id = %s', (user_id,))
         user = cursor.fetchone()
         print(f'[DEBUG] Found user: {user}')
         
@@ -67,7 +67,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
-        company_id = user['company_id']
+        company_id = user['organization_id']
         user_role = user['role']
         print(f'[DEBUG] User role={user_role}, company_id={company_id}')
         
@@ -109,9 +109,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if user_role not in ['admin', 'superadmin']:
                 raise ValueError('Доступ запрещен')
             cursor.execute(f'''
-                SELECT u.id, u.fio, u.email, u.role, u.company_id, o.name as company_name 
+                SELECT u.id, u.fio, u.email, u.role, u.organization_id, o.name as company_name 
                 FROM {SCHEMA}users u
-                LEFT JOIN {SCHEMA}organizations o ON u.company_id = o.id
+                LEFT JOIN {SCHEMA}organizations o ON u.organization_id = o.id
                 ORDER BY u.fio
             ''')
             users_list = [dict(r) for r in cursor.fetchall()]
@@ -177,7 +177,7 @@ def get_chat_messages(cursor, chat_id: int, user_id: int) -> Dict[str, Any]:
             m.sender_id, u.fio as sender_name, o.name as sender_company
         FROM {SCHEMA}messages m
         INNER JOIN {SCHEMA}users u ON m.sender_id = u.id
-        INNER JOIN {SCHEMA}organizations o ON m.sender_company_id = o.id
+        INNER JOIN {SCHEMA}organizations o ON m.sender_organization_id = o.id
         WHERE m.chat_id = %s AND m.is_removed = false
         ORDER BY m.created_at ASC
     ''', (chat_id,))
@@ -208,7 +208,7 @@ def send_message(cursor, conn, body: Dict[str, Any], user_id: int, company_id: i
         raise ValueError('Доступ к чату запрещен')
     
     cursor.execute(f'''
-        INSERT INTO {SCHEMA}messages (chat_id, sender_id, sender_company_id, message_text)
+        INSERT INTO {SCHEMA}messages (chat_id, sender_id, sender_organization_id, message_text)
         VALUES (%s, %s, %s, %s)
         RETURNING id, created_at
     ''', (chat_id, user_id, company_id, message_text))
@@ -234,7 +234,7 @@ def create_chat(cursor, conn, body: Dict[str, Any], user_id: int, company_id: in
         participant_ids.append(user_id)
     
     cursor.execute(f'''
-        INSERT INTO {SCHEMA}chats (name, type, company_id, created_by)
+        INSERT INTO {SCHEMA}chats (name, type, organization_id, created_by)
         VALUES (%s, %s, %s, %s)
         RETURNING id
     ''', (chat_name, chat_type, company_id, user_id))
@@ -242,13 +242,13 @@ def create_chat(cursor, conn, body: Dict[str, Any], user_id: int, company_id: in
     chat_id = cursor.fetchone()['id']
     
     for pid in participant_ids:
-        cursor.execute(f'SELECT company_id FROM {SCHEMA}users WHERE id = %s', (pid,))
+        cursor.execute(f'SELECT organization_id FROM {SCHEMA}users WHERE id = %s', (pid,))
         participant = cursor.fetchone()
         if participant:
             cursor.execute(f'''
-                INSERT INTO {SCHEMA}chat_participants (chat_id, user_id, company_id)
+                INSERT INTO {SCHEMA}chat_participants (chat_id, user_id, organization_id)
                 VALUES (%s, %s, %s)
-            ''', (chat_id, pid, participant['company_id']))
+            ''', (chat_id, pid, participant['organization_id']))
     
     conn.commit()
     
@@ -258,7 +258,7 @@ def list_company_users(cursor, company_id: int) -> Dict[str, Any]:
     '''Получить список пользователей своей компании'''
     cursor.execute(f'''
         SELECT id, fio, email, position FROM {SCHEMA}users 
-        WHERE company_id = %s
+        WHERE organization_id = %s
         ORDER BY fio
     ''', (company_id,))
     
@@ -322,21 +322,21 @@ def send_mass_message(cursor, conn, body: Dict[str, Any], user_id: int, user_rol
     if not user_ids or not message_text:
         raise ValueError('Требуется user_ids и message_text')
     
-    cursor.execute(f'SELECT company_id FROM {SCHEMA}users WHERE id = %s', (user_id,))
+    cursor.execute(f'SELECT organization_id FROM {SCHEMA}users WHERE id = %s', (user_id,))
     sender_info = cursor.fetchone()
     if not sender_info:
         raise ValueError('Отправитель не найден')
     
-    sender_company_id = sender_info['company_id']
+    sender_company_id = sender_info['organization_id']
     sent_count = 0
     
     for recipient_id in user_ids:
-        cursor.execute(f'SELECT company_id FROM {SCHEMA}users WHERE id = %s', (recipient_id,))
+        cursor.execute(f'SELECT organization_id FROM {SCHEMA}users WHERE id = %s', (recipient_id,))
         recipient = cursor.fetchone()
         if not recipient:
             continue
         
-        recipient_company_id = recipient['company_id']
+        recipient_company_id = recipient['organization_id']
         
         cursor.execute(f'''
             SELECT id FROM {SCHEMA}chats 
@@ -368,12 +368,12 @@ def send_mass_message(cursor, conn, body: Dict[str, Any], user_id: int, user_rol
             chat_id = cursor.fetchone()['id']
             
             cursor.execute(f'''
-                INSERT INTO {SCHEMA}chat_participants (chat_id, user_id, company_id)
+                INSERT INTO {SCHEMA}chat_participants (chat_id, user_id, organization_id)
                 VALUES (%s, %s, %s), (%s, %s, %s)
             ''', (chat_id, user_id, sender_company_id, chat_id, recipient_id, recipient_company_id))
         
         cursor.execute(f'''
-            INSERT INTO {SCHEMA}messages (chat_id, sender_id, sender_company_id, message_text)
+            INSERT INTO {SCHEMA}messages (chat_id, sender_id, sender_organization_id, message_text)
             VALUES (%s, %s, %s, %s)
         ''', (chat_id, user_id, sender_company_id, message_text))
         
