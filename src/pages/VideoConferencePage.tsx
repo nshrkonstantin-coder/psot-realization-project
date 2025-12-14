@@ -54,12 +54,15 @@ const VideoConferencePage = () => {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [participantsCount, setParticipantsCount] = useState(1);
+  const [networkQuality, setNetworkQuality] = useState<'high' | 'medium' | 'low'>('high');
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const screenShareRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
+  const qualityMonitorRef = useRef<NodeJS.Timeout | null>(null);
 
   const MESSAGING_URL = 'https://functions.poehali.dev/0bd87c15-af37-4e08-93fa-f921a3c18bee';
   const ORGANIZATIONS_URL = 'https://functions.poehali.dev/cc1f4cd3-7f42-42f3-b55b-1d7da3d5b869';
@@ -136,13 +139,121 @@ const VideoConferencePage = () => {
     }
   };
 
+  const getOptimalMediaConstraints = (participants: number) => {
+    if (participants <= 5) {
+      return {
+        video: {
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          frameRate: { ideal: 30, max: 30 },
+          facingMode: 'user'
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000,
+          channelCount: 1
+        }
+      };
+    } else if (participants <= 20) {
+      return {
+        video: {
+          width: { ideal: 960, max: 1280 },
+          height: { ideal: 540, max: 720 },
+          frameRate: { ideal: 24, max: 30 },
+          facingMode: 'user'
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100,
+          channelCount: 1
+        }
+      };
+    } else if (participants <= 50) {
+      return {
+        video: {
+          width: { ideal: 640, max: 960 },
+          height: { ideal: 360, max: 540 },
+          frameRate: { ideal: 20, max: 24 },
+          facingMode: 'user'
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100,
+          channelCount: 1
+        }
+      };
+    } else {
+      return {
+        video: {
+          width: { ideal: 480, max: 640 },
+          height: { ideal: 270, max: 360 },
+          frameRate: { ideal: 15, max: 20 },
+          facingMode: 'user'
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 32000,
+          channelCount: 1
+        }
+      };
+    }
+  };
+
+  const monitorNetworkQuality = () => {
+    if (qualityMonitorRef.current) {
+      clearInterval(qualityMonitorRef.current);
+    }
+
+    qualityMonitorRef.current = setInterval(() => {
+      if ('connection' in navigator) {
+        const connection = (navigator as any).connection;
+        if (connection) {
+          const downlink = connection.downlink;
+          const effectiveType = connection.effectiveType;
+
+          if (downlink > 10 || effectiveType === '4g') {
+            setNetworkQuality('high');
+          } else if (downlink > 2 || effectiveType === '3g') {
+            setNetworkQuality('medium');
+          } else {
+            setNetworkQuality('low');
+          }
+        }
+      }
+    }, 5000);
+  };
+
+  const adjustStreamQuality = async (participants: number) => {
+    if (!localStreamRef.current) return;
+
+    const videoTrack = localStreamRef.current.getVideoTracks()[0];
+    if (!videoTrack) return;
+
+    const constraints = getOptimalMediaConstraints(participants);
+    
+    try {
+      await videoTrack.applyConstraints(constraints.video as MediaTrackConstraints);
+    } catch (error) {
+      console.warn('Не удалось применить ограничения видео:', error);
+    }
+  };
+
   const startCall = async (conference: Conference) => {
     try {
       setLoading(true);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
+      const participantsNum = conference.participants.length;
+      setParticipantsCount(participantsNum);
+      
+      const constraints = getOptimalMediaConstraints(participantsNum);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
       localStreamRef.current = stream;
       if (localVideoRef.current) {
@@ -151,6 +262,7 @@ const VideoConferencePage = () => {
 
       setCurrentConference(conference);
       setInCall(true);
+      monitorNetworkQuality();
       toast({ title: 'Подключение к конференции...' });
     } catch (error) {
       console.error('Ошибка доступа к камере/микрофону:', error);
@@ -224,12 +336,24 @@ const VideoConferencePage = () => {
       toast({ title: 'Демонстрация экрана остановлена' });
     } else {
       try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        const screenConstraints: any = {
           video: {
-            cursor: 'always'
+            cursor: 'always',
+            displaySurface: 'monitor',
+            frameRate: { ideal: 30, max: 60 },
+            width: { ideal: 1920, max: 3840 },
+            height: { ideal: 1080, max: 2160 }
           },
           audio: false
-        });
+        };
+
+        if (participantsCount > 20) {
+          screenConstraints.video.frameRate = { ideal: 20, max: 30 };
+          screenConstraints.video.width = { ideal: 1280, max: 1920 };
+          screenConstraints.video.height = { ideal: 720, max: 1080 };
+        }
+
+        const screenStream = await navigator.mediaDevices.getDisplayMedia(screenConstraints);
 
         screenStreamRef.current = screenStream;
         
@@ -264,13 +388,34 @@ const VideoConferencePage = () => {
       screenStreamRef.current.getTracks().forEach(track => track.stop());
       screenStreamRef.current = null;
     }
+
+    if (qualityMonitorRef.current) {
+      clearInterval(qualityMonitorRef.current);
+      qualityMonitorRef.current = null;
+    }
     
     setInCall(false);
     setCurrentConference(null);
     setIsMuted(false);
     setIsVideoOff(false);
     setIsScreenSharing(false);
+    setNetworkQuality('high');
+    setParticipantsCount(1);
   };
+
+  useEffect(() => {
+    if (inCall && currentConference) {
+      adjustStreamQuality(currentConference.participants.length);
+    }
+  }, [participantsCount, networkQuality]);
+
+  useEffect(() => {
+    return () => {
+      if (qualityMonitorRef.current) {
+        clearInterval(qualityMonitorRef.current);
+      }
+    };
+  }, []);
 
   const copyRoomLink = (conferenceId: string) => {
     const link = `${window.location.origin}/video-conference?room=${conferenceId}`;
@@ -305,7 +450,19 @@ const VideoConferencePage = () => {
               <Icon name="Video" size={24} className="text-pink-500" />
               <div>
                 <h2 className="text-white font-semibold">{currentConference.name}</h2>
-                <p className="text-slate-400 text-sm">{currentConference.participants.length} участников</p>
+                <div className="flex items-center gap-3">
+                  <p className="text-slate-400 text-sm">{currentConference.participants.length} участников</p>
+                  <div className="flex items-center gap-1">
+                    <div className={`w-2 h-2 rounded-full ${
+                      networkQuality === 'high' ? 'bg-green-500' :
+                      networkQuality === 'medium' ? 'bg-yellow-500' : 'bg-red-500'
+                    }`} />
+                    <span className="text-xs text-slate-400">
+                      {networkQuality === 'high' ? 'HD' :
+                       networkQuality === 'medium' ? 'SD' : 'Низкое'}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="flex gap-2">
