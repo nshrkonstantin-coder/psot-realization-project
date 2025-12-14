@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 
@@ -17,6 +18,12 @@ interface User {
   email: string;
   role: string;
   company_id: number;
+  company_name?: string;
+}
+
+interface Company {
+  id: number;
+  name: string;
 }
 
 interface Chat {
@@ -45,25 +52,32 @@ const AdminMessagesPage = () => {
   const [userId, setUserId] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [users, setUsers] = useState<User[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedChat, setSelectedChat] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showCreateChat, setShowCreateChat] = useState(false);
   
-  // Массовая рассылка
   const [massMessageText, setMassMessageText] = useState('');
   const [massDeliveryType, setMassDeliveryType] = useState<'email' | 'internal'>('internal');
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [searchUsers, setSearchUsers] = useState('');
+  const [filterCompanyId, setFilterCompanyId] = useState<string>('all');
   
-  // Личное сообщение на почту
-  const [emailTo, setEmailTo] = useState('');
+  const [emailToUserId, setEmailToUserId] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
+  
+  const [newChatName, setNewChatName] = useState('');
+  const [newChatUserIds, setNewChatUserIds] = useState<number[]>([]);
+  const [newChatCompanyFilter, setNewChatCompanyFilter] = useState<string>('all');
+  const [newChatSearch, setNewChatSearch] = useState('');
 
   const MESSAGING_URL = 'https://functions.poehali.dev/0bd87c15-af37-4e08-93fa-f921a3c18bee';
   const SEND_EMAIL_URL = 'https://functions.poehali.dev/5055f3a3-bc30-4e5b-b65c-e30b28b07a03';
+  const ORGANIZATIONS_URL = 'https://functions.poehali.dev/cc1f4cd3-7f42-42f3-b55b-1d7da3d5b869';
 
   useEffect(() => {
     const role = localStorage.getItem('userRole');
@@ -76,9 +90,24 @@ const AdminMessagesPage = () => {
 
     setUserId(Number(id));
     setUserRole(role);
+    loadCompanies();
     loadUsers();
     loadChats();
   }, [navigate]);
+
+  const loadCompanies = async () => {
+    try {
+      const response = await fetch(`${ORGANIZATIONS_URL}?action=list`, {
+        headers: { 'X-User-Id': localStorage.getItem('userId')! }
+      });
+      const data = await response.json();
+      if (data.organizations) {
+        setCompanies(data.organizations);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки предприятий:', error);
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -91,6 +120,7 @@ const AdminMessagesPage = () => {
       }
     } catch (error) {
       console.error('Ошибка загрузки пользователей:', error);
+      toast({ title: 'Ошибка загрузки пользователей', variant: 'destructive' });
     }
   };
 
@@ -157,6 +187,42 @@ const AdminMessagesPage = () => {
     }
   };
 
+  const handleCreateChat = async () => {
+    if (!newChatName.trim() || newChatUserIds.length === 0) {
+      toast({ title: 'Введите название и выберите участников', variant: 'destructive' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${MESSAGING_URL}?action=create_chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': localStorage.getItem('userId')!
+        },
+        body: JSON.stringify({
+          name: newChatName,
+          type: 'internal',
+          participant_ids: newChatUserIds
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast({ title: 'Чат создан' });
+        setShowCreateChat(false);
+        setNewChatName('');
+        setNewChatUserIds([]);
+        loadChats();
+      }
+    } catch (error) {
+      toast({ title: 'Ошибка создания чата', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMassMessage = async () => {
     if (!massMessageText.trim() || selectedUserIds.length === 0) {
       toast({ title: 'Выберите пользователей и введите текст', variant: 'destructive' });
@@ -183,6 +249,7 @@ const AdminMessagesPage = () => {
         toast({ title: `Отправлено ${data.sent_count} сообщений` });
         setMassMessageText('');
         setSelectedUserIds([]);
+        loadChats();
       }
     } catch (error) {
       toast({ title: 'Ошибка массовой отправки', variant: 'destructive' });
@@ -192,7 +259,8 @@ const AdminMessagesPage = () => {
   };
 
   const handleSendEmail = async () => {
-    if (!emailTo || !emailSubject.trim() || !emailBody.trim()) {
+    const selectedUser = users.find(u => u.id === Number(emailToUserId));
+    if (!selectedUser || !emailSubject.trim() || !emailBody.trim()) {
       toast({ title: 'Заполните все поля', variant: 'destructive' });
       return;
     }
@@ -203,7 +271,7 @@ const AdminMessagesPage = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to_email: emailTo,
+          to_email: selectedUser.email,
           subject: emailSubject,
           html_content: emailBody
         })
@@ -212,7 +280,7 @@ const AdminMessagesPage = () => {
       const data = await response.json();
       if (data.success) {
         toast({ title: 'Письмо отправлено' });
-        setEmailTo('');
+        setEmailToUserId('');
         setEmailSubject('');
         setEmailBody('');
       }
@@ -229,17 +297,37 @@ const AdminMessagesPage = () => {
     );
   };
 
-  const selectAllUsers = () => {
-    const filtered = users.filter(u =>
-      u.fio.toLowerCase().includes(searchUsers.toLowerCase())
+  const toggleNewChatUser = (id: number) => {
+    setNewChatUserIds(prev =>
+      prev.includes(id) ? prev.filter(uid => uid !== id) : [...prev, id]
     );
+  };
+
+  const selectAllUsers = () => {
+    const filtered = getFilteredUsers();
     setSelectedUserIds(filtered.map(u => u.id));
   };
 
-  const filteredUsers = users.filter(u =>
-    u.fio.toLowerCase().includes(searchUsers.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchUsers.toLowerCase())
-  );
+  const getFilteredUsers = () => {
+    return users.filter(u => {
+      const matchesSearch = u.fio.toLowerCase().includes(searchUsers.toLowerCase()) ||
+                           u.email.toLowerCase().includes(searchUsers.toLowerCase());
+      const matchesCompany = filterCompanyId === 'all' || u.company_id === Number(filterCompanyId);
+      return matchesSearch && matchesCompany;
+    });
+  };
+
+  const getNewChatFilteredUsers = () => {
+    return users.filter(u => {
+      const matchesSearch = u.fio.toLowerCase().includes(newChatSearch.toLowerCase()) ||
+                           u.email.toLowerCase().includes(newChatSearch.toLowerCase());
+      const matchesCompany = newChatCompanyFilter === 'all' || u.company_id === Number(newChatCompanyFilter);
+      return matchesSearch && matchesCompany;
+    });
+  };
+
+  const filteredUsers = getFilteredUsers();
+  const newChatFilteredUsers = getNewChatFilteredUsers();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 p-6">
@@ -263,12 +351,90 @@ const AdminMessagesPage = () => {
             <TabsTrigger value="email">Письмо пользователю</TabsTrigger>
           </TabsList>
 
-          {/* Переписки */}
           <TabsContent value="chats">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="bg-slate-800/50 border-blue-600/30 lg:col-span-1">
                 <CardHeader>
-                  <CardTitle className="text-white">Чаты</CardTitle>
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-white">Чаты</CardTitle>
+                    <Dialog open={showCreateChat} onOpenChange={setShowCreateChat}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                          <Icon name="Plus" size={16} className="mr-1" />
+                          Создать
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="bg-slate-800 border-blue-600/30 max-w-2xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle className="text-white">Создать новый чат</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 mt-4">
+                          <div>
+                            <Label className="text-white">Название чата</Label>
+                            <Input
+                              value={newChatName}
+                              onChange={(e) => setNewChatName(e.target.value)}
+                              placeholder="Введите название чата"
+                              className="bg-slate-900/50 text-white border-blue-600/30"
+                            />
+                          </div>
+
+                          <div>
+                            <Label className="text-white">Фильтр по предприятию</Label>
+                            <Select value={newChatCompanyFilter} onValueChange={setNewChatCompanyFilter}>
+                              <SelectTrigger className="bg-slate-900/50 text-white border-blue-600/30">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">Все предприятия</SelectItem>
+                                {companies.map(c => (
+                                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-white">Участники ({newChatUserIds.length})</Label>
+                            <Input
+                              value={newChatSearch}
+                              onChange={(e) => setNewChatSearch(e.target.value)}
+                              placeholder="Поиск пользователей..."
+                              className="bg-slate-900/50 text-white border-blue-600/30 mb-2"
+                            />
+                            <div className="bg-slate-900/50 rounded-lg p-4 max-h-[300px] overflow-y-auto space-y-2">
+                              {newChatFilteredUsers.map(user => (
+                                <div
+                                  key={user.id}
+                                  className="flex items-center gap-3 p-2 hover:bg-slate-700/30 rounded cursor-pointer"
+                                  onClick={() => toggleNewChatUser(user.id)}
+                                >
+                                  <Checkbox
+                                    checked={newChatUserIds.includes(user.id)}
+                                    onCheckedChange={() => toggleNewChatUser(user.id)}
+                                  />
+                                  <div className="flex-1">
+                                    <p className="text-white">{user.fio}</p>
+                                    <p className="text-slate-400 text-sm">{user.email}</p>
+                                  </div>
+                                  <span className="text-xs text-blue-400">{user.role}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <Button
+                            onClick={handleCreateChat}
+                            disabled={loading || !newChatName.trim() || newChatUserIds.length === 0}
+                            className="w-full bg-blue-600 hover:bg-blue-700"
+                          >
+                            <Icon name="MessageSquarePlus" size={20} className="mr-2" />
+                            Создать чат
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-2 max-h-[600px] overflow-y-auto">
                   {chats.length === 0 ? (
@@ -294,7 +460,7 @@ const AdminMessagesPage = () => {
                         </div>
                         <p className="text-slate-400 text-sm mt-1 truncate">{chat.last_message}</p>
                         <p className="text-slate-500 text-xs mt-1">
-                          {new Date(chat.last_message_time).toLocaleString('ru-RU')}
+                          {chat.last_message_time ? new Date(chat.last_message_time).toLocaleString('ru-RU') : ''}
                         </p>
                       </div>
                     ))
@@ -339,6 +505,12 @@ const AdminMessagesPage = () => {
                           placeholder="Введите сообщение..."
                           className="bg-slate-900/50 text-white border-blue-600/30"
                           rows={3}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
                         />
                         <Button
                           onClick={handleSendMessage}
@@ -359,7 +531,6 @@ const AdminMessagesPage = () => {
             </div>
           </TabsContent>
 
-          {/* Массовая рассылка */}
           <TabsContent value="mass">
             <Card className="bg-slate-800/50 border-blue-600/30">
               <CardHeader>
@@ -391,10 +562,25 @@ const AdminMessagesPage = () => {
                 </div>
 
                 <div>
+                  <Label className="text-white">Фильтр по предприятию</Label>
+                  <Select value={filterCompanyId} onValueChange={setFilterCompanyId}>
+                    <SelectTrigger className="bg-slate-900/50 text-white border-blue-600/30">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все предприятия</SelectItem>
+                      {companies.map(c => (
+                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
                   <div className="flex justify-between items-center mb-2">
                     <Label className="text-white">Получатели ({selectedUserIds.length})</Label>
                     <Button onClick={selectAllUsers} variant="outline" size="sm">
-                      Выбрать всех
+                      Выбрать всех ({filteredUsers.length})
                     </Button>
                   </div>
                   <Input
@@ -404,23 +590,27 @@ const AdminMessagesPage = () => {
                     className="bg-slate-900/50 text-white border-blue-600/30 mb-4"
                   />
                   <div className="bg-slate-900/50 rounded-lg p-4 max-h-[300px] overflow-y-auto space-y-2">
-                    {filteredUsers.map(user => (
-                      <div
-                        key={user.id}
-                        className="flex items-center gap-3 p-2 hover:bg-slate-700/30 rounded cursor-pointer"
-                        onClick={() => toggleUserSelection(user.id)}
-                      >
-                        <Checkbox
-                          checked={selectedUserIds.includes(user.id)}
-                          onCheckedChange={() => toggleUserSelection(user.id)}
-                        />
-                        <div className="flex-1">
-                          <p className="text-white">{user.fio}</p>
-                          <p className="text-slate-400 text-sm">{user.email}</p>
+                    {filteredUsers.length === 0 ? (
+                      <p className="text-slate-400 text-center py-4">Пользователи не найдены</p>
+                    ) : (
+                      filteredUsers.map(user => (
+                        <div
+                          key={user.id}
+                          className="flex items-center gap-3 p-2 hover:bg-slate-700/30 rounded cursor-pointer"
+                          onClick={() => toggleUserSelection(user.id)}
+                        >
+                          <Checkbox
+                            checked={selectedUserIds.includes(user.id)}
+                            onCheckedChange={() => toggleUserSelection(user.id)}
+                          />
+                          <div className="flex-1">
+                            <p className="text-white">{user.fio}</p>
+                            <p className="text-slate-400 text-sm">{user.email}</p>
+                          </div>
+                          <span className="text-xs text-blue-400">{user.role}</span>
                         </div>
-                        <span className="text-xs text-blue-400">{user.role}</span>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -436,7 +626,6 @@ const AdminMessagesPage = () => {
             </Card>
           </TabsContent>
 
-          {/* Письмо пользователю */}
           <TabsContent value="email">
             <Card className="bg-slate-800/50 border-blue-600/30">
               <CardHeader>
@@ -445,13 +634,13 @@ const AdminMessagesPage = () => {
               <CardContent className="space-y-6">
                 <div>
                   <Label className="text-white">Получатель</Label>
-                  <Select value={emailTo} onValueChange={setEmailTo}>
+                  <Select value={emailToUserId} onValueChange={setEmailToUserId}>
                     <SelectTrigger className="bg-slate-900/50 text-white border-blue-600/30">
                       <SelectValue placeholder="Выберите пользователя" />
                     </SelectTrigger>
                     <SelectContent>
                       {users.map(user => (
-                        <SelectItem key={user.id} value={user.email}>
+                        <SelectItem key={user.id} value={String(user.id)}>
                           {user.fio} ({user.email})
                         </SelectItem>
                       ))}
@@ -482,7 +671,7 @@ const AdminMessagesPage = () => {
 
                 <Button
                   onClick={handleSendEmail}
-                  disabled={loading || !emailTo || !emailSubject.trim() || !emailBody.trim()}
+                  disabled={loading || !emailToUserId || !emailSubject.trim() || !emailBody.trim()}
                   className="w-full bg-blue-600 hover:bg-blue-700"
                 >
                   <Icon name="Mail" size={20} className="mr-2" />

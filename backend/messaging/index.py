@@ -95,7 +95,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         elif action == 'list_all_users':
             if user_role not in ['admin', 'superadmin']:
                 raise ValueError('Доступ запрещен')
-            cursor.execute('SELECT id, fio, email, role, company_id FROM users ORDER BY fio')
+            cursor.execute('''
+                SELECT u.id, u.fio, u.email, u.role, u.company_id, c.name as company_name 
+                FROM users u
+                LEFT JOIN companies c ON u.company_id = c.id
+                ORDER BY u.fio
+            ''')
             result = {'users': [dict(r) for r in cursor.fetchall()]}
         elif action == 'mass_message':
             body = json.loads(event.get('body', '{}'))
