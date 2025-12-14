@@ -299,7 +299,26 @@ const VideoConferencePage = () => {
     setConferenceName('');
     setSelectedUserIds([]);
     
-    toast({ title: 'Конференция создана' });
+    // Отправляем приглашения всем участникам
+    try {
+      const inviteLink = `${window.location.origin}/video-conference?room=${newConference.id}`;
+      await fetch(`${MESSAGING_URL}?action=mass_message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': String(userId)
+        },
+        body: JSON.stringify({
+          user_ids: selectedUserIds,
+          message_text: `📞 ${userFio} приглашает вас на видеоконференцию "${conferenceName}". Присоединяйтесь: ${inviteLink}`,
+          delivery_type: 'internal'
+        })
+      });
+    } catch (error) {
+      console.error('Ошибка отправки приглашений:', error);
+    }
+    
+    toast({ title: 'Конференция создана, приглашения отправлены' });
     await startCall(newConference);
   };
 

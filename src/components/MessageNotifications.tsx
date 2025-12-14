@@ -8,6 +8,7 @@ const MessageNotifications = () => {
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotification, setShowNotification] = useState(false);
+  const [lastMessage, setLastMessage] = useState<string>('');
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -26,6 +27,36 @@ const MessageNotifications = () => {
     return () => clearInterval(interval);
   }, [location.pathname]);
 
+  const playCallSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      gainNode.gain.value = 0.3;
+      
+      oscillator.start();
+      
+      // Звонок: 2 секунды звук, 1 секунда пауза, повторить 3 раза
+      setTimeout(() => oscillator.stop(), 2000);
+      setTimeout(() => {
+        const osc2 = audioContext.createOscillator();
+        osc2.connect(gainNode);
+        osc2.frequency.value = 800;
+        osc2.type = 'sine';
+        osc2.start();
+        setTimeout(() => osc2.stop(), 2000);
+      }, 3000);
+    } catch (error) {
+      console.error('Ошибка воспроизведения звука:', error);
+    }
+  };
+
   const checkUnreadMessages = async () => {
     try {
       const userId = localStorage.getItem('userId');
@@ -38,10 +69,19 @@ const MessageNotifications = () => {
         // Показываем уведомление если есть новые сообщения
         if (totalUnread > unreadCount && totalUnread > 0) {
           setShowNotification(true);
-          setTimeout(() => setShowNotification(false), 10000);
-        }
-        
-        setUnreadCount(totalUnread);
+          
+          // Проверяем последнее сообщение
+          const latestChat = data.chats[0];
+          if (latestChat && latestChat.lastMessage) {
+            setLastMessage(latestChat.lastMessage);
+            
+            // Воспроизводим звук для видеозвонка
+            if (latestChat.lastMessage.includes('📞') && latestChat.lastMessage.includes('видеоконференцию')) {
+              playCallSound();
+            }
+          }
+          
+          setTimeout(() => setShowNotification(false), 15000);'
       }
     } catch (error) {
       // Тихо игнорируем ошибки
@@ -61,20 +101,61 @@ const MessageNotifications = () => {
                 <Icon name="MessageCircle" size={24} />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-lg mb-1">Новые сообщения</h3>
-                <p className="text-blue-100 text-sm mb-3">
-                  У вас {unreadCount} непрочитанных сообщений
-                </p>
-                <Button
-                  onClick={() => {
-                    setShowNotification(false);
-                    navigate('/chat-history');
-                  }}
-                  size="sm"
-                  className="bg-white text-blue-600 hover:bg-blue-50"
-                >
-                  Открыть сообщения
-                </Button>
+                {lastMessage.includes('📞') && lastMessage.includes('видеоконференцию') ? (
+                  <>
+                    <h3 className="font-semibold text-lg mb-1 flex items-center gap-2">
+                      <Icon name="Video" size={20} />
+                      Входящий видеозвонок
+                    </h3>
+                    <p className="text-blue-100 text-sm mb-3">
+                      {lastMessage.split('Присоединяйтесь:')[0]}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => {
+                          setShowNotification(false);
+                          const roomMatch = lastMessage.match(/room=([^&\s]+)/);
+                          if (roomMatch) {
+                            navigate(`/video-conference?room=${roomMatch[1]}`);
+                          }
+                        }}
+                        size="sm"
+                        className="bg-green-500 text-white hover:bg-green-600"
+                      >
+                        <Icon name="Phone" size={16} className="mr-1" />
+                        Принять
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setShowNotification(false);
+                          navigate('/chat-history');
+                        }}
+                        size="sm"
+                        variant="outline"
+                        className="bg-white/10 text-white border-white/30 hover:bg-white/20"
+                      >
+                        Отклонить
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="font-semibold text-lg mb-1">Новые сообщения</h3>
+                    <p className="text-blue-100 text-sm mb-3">
+                      У вас {unreadCount} непрочитанных сообщений
+                    </p>
+                    <Button
+                      onClick={() => {
+                        setShowNotification(false);
+                        navigate('/chat-history');
+                      }}
+                      size="sm"
+                      className="bg-white text-blue-600 hover:bg-blue-50"
+                    >
+                      Открыть сообщения
+                    </Button>
+                  </>
+                )}
               </div>
               <button
                 onClick={() => setShowNotification(false)}
