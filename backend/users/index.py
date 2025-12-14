@@ -186,27 +186,29 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             online_count = 0
             offline_count = registered_count
             
-            # Статистика ПАБ (созданные пользователем)
+            # Статистика ПАБ аудитов (проведенные пользователем через inspector_fio)
             cur.execute(f"""
                 SELECT 
-                    COUNT(*) as total,
-                    COUNT(CASE WHEN status = 'Завершено' THEN 1 END) as completed,
-                    COUNT(CASE WHEN status IN ('В работе', 'Новый') THEN 1 END) as in_progress,
-                    COUNT(CASE WHEN status = 'Просрочено' THEN 1 END) as overdue
-                FROM t_p80499285_psot_realization_pro.pab_records
-                WHERE user_id = {user_id}
+                    COUNT(DISTINCT pr.id) as total,
+                    COUNT(DISTINCT CASE WHEN pr.status = 'completed' THEN pr.id END) as completed,
+                    COUNT(DISTINCT CASE WHEN pr.status IN ('in_work', 'new') THEN pr.id END) as in_progress,
+                    COUNT(DISTINCT CASE WHEN pr.status = 'overdue' THEN pr.id END) as overdue
+                FROM t_p80499285_psot_realization_pro.pab_records pr
+                JOIN t_p80499285_psot_realization_pro.users u ON LOWER(pr.inspector_fio) = LOWER(u.fio)
+                WHERE u.id = {user_id}
             """)
             pab_stats = cur.fetchone()
             
-            # Статистика наблюдений (выписанных на пользователя через responsible_person)
+            # Статистика наблюдений (созданные пользователем в его аудитах через inspector_fio)
             cur.execute(f"""
                 SELECT 
-                    COUNT(*) as total,
-                    COUNT(CASE WHEN o.status = 'Завершено' THEN 1 END) as completed,
-                    COUNT(CASE WHEN o.status IN ('В работе', 'Новый') THEN 1 END) as in_progress,
-                    COUNT(CASE WHEN o.status = 'Просрочено' OR (o.deadline < CURRENT_DATE AND o.status != 'Завершено') THEN 1 END) as overdue
-                FROM t_p80499285_psot_realization_pro.pab_observations o
-                JOIN t_p80499285_psot_realization_pro.users u ON LOWER(o.responsible_person) = LOWER(u.fio)
+                    COUNT(obs.id) as total,
+                    COUNT(CASE WHEN obs.status = 'completed' THEN 1 END) as completed,
+                    COUNT(CASE WHEN obs.status IN ('in_work', 'new') THEN 1 END) as in_progress,
+                    COUNT(CASE WHEN obs.status = 'overdue' OR (obs.deadline < CURRENT_DATE AND obs.status != 'completed') THEN 1 END) as overdue
+                FROM t_p80499285_psot_realization_pro.pab_observations obs
+                JOIN t_p80499285_psot_realization_pro.pab_records pr ON obs.pab_record_id = pr.id
+                JOIN t_p80499285_psot_realization_pro.users u ON LOWER(pr.inspector_fio) = LOWER(u.fio)
                 WHERE u.id = {user_id}
             """)
             obs_stats = cur.fetchone()

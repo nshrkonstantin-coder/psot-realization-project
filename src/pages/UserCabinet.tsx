@@ -519,7 +519,15 @@ const UserCabinet = () => {
           </Card>
         </div>
 
-        {/* My Audits and Observations Statistics */}
+        {/* 
+          My Audits and Observations Statistics
+          Data source: pab_records (audits) + pab_observations (observations)
+          Logic: User conducts audits (inspector_fio) with multiple observations (1 audit : 3 observations for regular users)
+          - All Audits: COUNT(DISTINCT pab_records) by inspector_fio
+          - All Observations: COUNT(pab_observations) linked to user's audits
+          - Fact Audits: completed audits
+          - Fact Observations: completed observations
+        */}
         <Card className="bg-slate-800/50 border-yellow-600/30 p-6 mb-6">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Icon name="FileText" size={24} className="text-yellow-500" />
