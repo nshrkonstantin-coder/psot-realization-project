@@ -61,9 +61,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         company_id = user['company_id']
         user_role = user['role']
+        print(f'[DEBUG] User role={user_role}, company_id={company_id}')
         
         params = event.get('queryStringParameters', {}) or {}
         action = params.get('action', 'list_chats')
+        print(f'[DEBUG] Action={action}')
         
         if action == 'list_chats':
             result = list_user_chats(cursor, user_id, company_id)
@@ -124,6 +126,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
         
     except Exception as e:
+        print(f'[ERROR] Exception: {type(e).__name__}: {str(e)}')
+        import traceback
+        print(f'[ERROR] Traceback: {traceback.format_exc()}')
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
