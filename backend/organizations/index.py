@@ -37,8 +37,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     if method == 'GET':
         params = event.get('queryStringParameters', {}) or {}
+        action = params.get('action')
         org_id = params.get('id')
         org_code = params.get('code')
+        
+        # Если запрашивается список (action=list), игнорируем id и code
+        if action == 'list':
+            org_id = None
+            org_code = None
         
         if org_code:
             safe_code = org_code.replace("'", "''")

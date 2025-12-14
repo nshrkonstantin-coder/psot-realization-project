@@ -65,7 +65,7 @@ const VideoConferencePage = () => {
   const qualityMonitorRef = useRef<NodeJS.Timeout | null>(null);
 
   const MESSAGING_URL = 'https://functions.poehali.dev/0bd87c15-af37-4e08-93fa-f921a3c18bee';
-  const ORGANIZATIONS_URL = 'https://functions.poehali.dev/cc1f4cd3-7f42-42f3-b55b-1d7da3d5b869';
+  const ORGANIZATIONS_URL = 'https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b';
 
   useEffect(() => {
     const id = localStorage.getItem('userId');
