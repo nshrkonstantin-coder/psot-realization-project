@@ -92,16 +92,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         elif action == 'list_companies':
             if user_role != 'superadmin':
                 raise ValueError('Доступ запрещен')
-            cursor.execute('SELECT id, name FROM companies ORDER BY name')
+            cursor.execute('SELECT id, name FROM organizations ORDER BY name')
             result = {'companies': [dict(r) for r in cursor.fetchall()]}
         elif action == 'list_all_users':
             print(f'[DEBUG] list_all_users: user_role={user_role}')
             if user_role not in ['admin', 'superadmin']:
                 raise ValueError('Доступ запрещен')
             cursor.execute('''
-                SELECT u.id, u.fio, u.email, u.role, u.company_id, c.name as company_name 
+                SELECT u.id, u.fio, u.email, u.role, u.company_id, o.name as company_name 
                 FROM users u
-                LEFT JOIN companies c ON u.company_id = c.id
+                LEFT JOIN organizations o ON u.company_id = o.id
                 ORDER BY u.fio
             ''')
             users_list = [dict(r) for r in cursor.fetchall()]
@@ -161,10 +161,10 @@ def get_chat_messages(cursor, chat_id: int, user_id: int) -> Dict[str, Any]:
     cursor.execute('''
         SELECT 
             m.id, m.message_text, m.created_at, m.is_read,
-            m.sender_id, u.fio as sender_name, c.name as sender_company
+            m.sender_id, u.fio as sender_name, o.name as sender_company
         FROM messages m
         INNER JOIN users u ON m.sender_id = u.id
-        INNER JOIN companies c ON m.sender_company_id = c.id
+        INNER JOIN organizations o ON m.sender_company_id = o.id
         WHERE m.chat_id = %s AND m.is_removed = false
         ORDER BY m.created_at ASC
     ''', (chat_id,))
@@ -257,11 +257,11 @@ def list_intercorp_connections(cursor) -> Dict[str, Any]:
     cursor.execute('''
         SELECT 
             ic.id, ic.company1_id, ic.company2_id, ic.created_at, ic.is_active,
-            c1.name as company1_name, c2.name as company2_name,
+            o1.name as company1_name, o2.name as company2_name,
             u.fio as created_by_name
         FROM intercorp_connections ic
-        INNER JOIN companies c1 ON ic.company1_id = c1.id
-        INNER JOIN companies c2 ON ic.company2_id = c2.id
+        INNER JOIN organizations o1 ON ic.company1_id = o1.id
+        INNER JOIN organizations o2 ON ic.company2_id = o2.id
         LEFT JOIN users u ON ic.created_by = u.id
         ORDER BY ic.created_at DESC
     ''')
