@@ -40,6 +40,8 @@ interface UserStats {
   prescriptions_in_progress: number;
   prescriptions_overdue: number;
   audits_conducted: number;
+  plan_audits?: number;
+  plan_observations?: number;
 }
 
 interface OrganizationUser {
@@ -517,52 +519,65 @@ const UserCabinet = () => {
           </Card>
         </div>
 
-        {/* ПАБ Statistics */}
+        {/* My Audits and Observations Statistics */}
         <Card className="bg-slate-800/50 border-yellow-600/30 p-6 mb-6">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Icon name="FileText" size={24} className="text-yellow-500" />
-            Статистика ПАБ (Поведенческий Аудит Безопасности)
+            Мои проведенные аудиты и наблюдения
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div 
               className="bg-slate-700/50 p-4 rounded-lg cursor-pointer hover:bg-slate-600/50 transition-colors"
               onClick={() => loadPabDetails('all')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                Всего ПАБов
+                Всего аудитов
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
               <p className="text-2xl font-bold text-white">{stats.pab_total}</p>
             </div>
+            
+            <div 
+              className="bg-slate-700/50 p-4 rounded-lg cursor-pointer hover:bg-slate-600/50 transition-colors"
+              onClick={() => loadObservationsDetails('all')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Всего наблюдений
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
+              <p className="text-2xl font-bold text-white">{stats.observations_issued}</p>
+            </div>
+
+            <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-600/30">
+              <p className="text-sm text-slate-400 mb-1">План Аудиты</p>
+              <p className="text-2xl font-bold text-blue-500">{stats.plan_audits || 0}</p>
+            </div>
+
+            <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-600/30">
+              <p className="text-sm text-slate-400 mb-1">План Наблюдения</p>
+              <p className="text-2xl font-bold text-blue-500">{stats.plan_observations || 0}</p>
+            </div>
+
             <div 
               className="bg-green-900/20 p-4 rounded-lg border border-green-600/30 cursor-pointer hover:bg-green-900/30 transition-colors"
               onClick={() => loadPabDetails('completed')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                Завершено
+                Факт Аудиты
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
               <p className="text-2xl font-bold text-green-500">{stats.pab_completed}</p>
             </div>
+
             <div 
-              className="bg-yellow-900/20 p-4 rounded-lg border border-yellow-600/30 cursor-pointer hover:bg-yellow-900/30 transition-colors"
-              onClick={() => loadPabDetails('in_progress')}
+              className="bg-green-900/20 p-4 rounded-lg border border-green-600/30 cursor-pointer hover:bg-green-900/30 transition-colors"
+              onClick={() => loadObservationsDetails('completed')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                В работе
+                Факт Наблюдения
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
-              <p className="text-2xl font-bold text-yellow-500">{stats.pab_in_progress}</p>
-            </div>
-            <div 
-              className="bg-red-900/20 p-4 rounded-lg border border-red-600/30 cursor-pointer hover:bg-red-900/30 transition-colors"
-              onClick={() => loadPabDetails('overdue')}
-            >
-              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                Просроченные
-                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
-              </p>
-              <p className="text-2xl font-bold text-red-500">{stats.pab_overdue}</p>
+              <p className="text-2xl font-bold text-green-500">{stats.observations_completed}</p>
             </div>
           </div>
         </Card>
