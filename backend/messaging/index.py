@@ -10,6 +10,10 @@ SCHEMA = 't_p80499285_psot_realization_pro'
 def get_db_connection():
     '''Создает подключение к БД'''
     dsn = os.environ['DATABASE_URL']
+    if '?' in dsn:
+        dsn += f'&options=-c%20search_path%3D{SCHEMA}'
+    else:
+        dsn += f'?options=-c%20search_path%3D{SCHEMA}'
     return psycopg2.connect(dsn, cursor_factory=RealDictCursor)
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
