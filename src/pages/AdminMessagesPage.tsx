@@ -107,7 +107,6 @@ const AdminMessagesPage = () => {
     setUserId(Number(id));
     setUserRole(role || 'user');
     loadUserInfo(Number(id));
-    loadCompanies();
     loadUsers();
     loadChats();
   }, [navigate]);
@@ -128,6 +127,8 @@ const AdminMessagesPage = () => {
             setFilterCompanyId(String(currentUser.company_id));
             setNewChatCompanyFilter(String(currentUser.company_id));
           }
+          // После получения organization_id загружаем компании
+          loadCompanies(currentUser.company_id, role || 'user');
         }
       }
     } catch (error) {
@@ -135,19 +136,26 @@ const AdminMessagesPage = () => {
     }
   };
 
-  const loadCompanies = async () => {
+  const loadCompanies = async (userOrgId?: number, userRole?: string) => {
     try {
       const response = await fetch(`${ORGANIZATIONS_URL}?action=list`, {
         headers: { 'X-User-Id': localStorage.getItem('userId')! }
       });
       const data = await response.json();
+      let allCompanies: Company[] = [];
+      
       if (Array.isArray(data)) {
-        setCompanies(data);
+        allCompanies = data;
       } else if (data.organizations && Array.isArray(data.organizations)) {
-        setCompanies(data.organizations);
-      } else {
-        setCompanies([]);
+        allCompanies = data.organizations;
       }
+      
+      // Для обычных пользователей оставляем только их организацию
+      if (userRole && userRole !== 'admin' && userRole !== 'superadmin' && userOrgId) {
+        allCompanies = allCompanies.filter(c => c.id === userOrgId);
+      }
+      
+      setCompanies(allCompanies);
     } catch (error) {
       console.error('Ошибка загрузки предприятий:', error);
       setCompanies([]);
@@ -479,12 +487,9 @@ const AdminMessagesPage = () => {
                                 {(userRole === 'admin' || userRole === 'superadmin') && (
                                   <SelectItem value="all">Все предприятия</SelectItem>
                                 )}
-                                {companies
-                                  .filter(c => userRole === 'admin' || userRole === 'superadmin' || c.id === userOrgId)
-                                  .map(c => (
-                                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                                  ))
-                                }
+                                {companies.map(c => (
+                                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </div>
@@ -725,14 +730,11 @@ const AdminMessagesPage = () => {
                           Все предприятия ({getUsersCountByCompany('all')} польз.)
                         </SelectItem>
                       )}
-                      {companies
-                        .filter(c => userRole === 'admin' || userRole === 'superadmin' || c.id === userOrgId)
-                        .map(c => (
-                          <SelectItem key={c.id} value={String(c.id)}>
-                            {c.name} ({getUsersCountByCompany(String(c.id))} польз.)
-                          </SelectItem>
-                        ))
-                      }
+                      {companies.map(c => (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          {c.name} ({getUsersCountByCompany(String(c.id))} польз.)
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
