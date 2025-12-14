@@ -70,6 +70,10 @@ const UserCabinet = () => {
   const [pabList, setPabList] = useState<any[]>([]);
   const [observationsList, setObservationsList] = useState<any[]>([]);
   const [prescriptionsList, setPrescriptionsList] = useState<any[]>([]);
+  const [selectedPabItem, setSelectedPabItem] = useState<any | null>(null);
+  const [selectedObservationItem, setSelectedObservationItem] = useState<any | null>(null);
+  const [selectedPrescriptionItem, setSelectedPrescriptionItem] = useState<any | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -222,7 +226,7 @@ const UserCabinet = () => {
 
   const commonEmojis = ['😊', '😂', '❤️', '👍', '🔥', '✅', '⚠️', '📌', '💼', '🎯', '👋', '🙏', '💪', '🚀', '⭐', '✨'];
 
-  const loadPabDetails = async () => {
+  const loadPabDetails = async (status: string = 'all') => {
     try {
       const userId = localStorage.getItem('userId');
       const response = await fetch(`https://functions.poehali.dev/d02acf63-6c00-4f42-bcba-abd8da18cec6?user_id=${userId}`);
@@ -230,6 +234,7 @@ const UserCabinet = () => {
       
       if (data.success) {
         setPabList(data.records || []);
+        setFilterStatus(status);
         setShowPabDetails(true);
       } else {
         toast({ title: 'Ошибка загрузки ПАБ', variant: 'destructive' });
@@ -239,7 +244,7 @@ const UserCabinet = () => {
     }
   };
 
-  const loadObservationsDetails = async () => {
+  const loadObservationsDetails = async (status: string = 'all') => {
     try {
       const userId = localStorage.getItem('userId');
       const response = await fetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=user_observations&userId=${userId}`);
@@ -247,6 +252,7 @@ const UserCabinet = () => {
       
       if (data.success) {
         setObservationsList(data.observations || []);
+        setFilterStatus(status);
         setShowObservationsDetails(true);
       } else {
         toast({ title: 'Ошибка загрузки наблюдений', variant: 'destructive' });
@@ -256,7 +262,7 @@ const UserCabinet = () => {
     }
   };
 
-  const loadPrescriptionsDetails = async () => {
+  const loadPrescriptionsDetails = async (status: string = 'all') => {
     try {
       const userId = localStorage.getItem('userId');
       const response = await fetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=user_prescriptions&userId=${userId}`);
@@ -264,6 +270,7 @@ const UserCabinet = () => {
       
       if (data.success) {
         setPrescriptionsList(data.prescriptions || []);
+        setFilterStatus(status);
         setShowPrescriptionsDetails(true);
       } else {
         toast({ title: 'Ошибка загрузки предписаний', variant: 'destructive' });
@@ -284,7 +291,7 @@ const UserCabinet = () => {
       const data = await response.json();
       if (data.success) {
         toast({ title: '✅ Наблюдение отмечено выполненным!' });
-        loadObservationsDetails();
+        loadObservationsDetails(filterStatus);
         loadUserStats();
       }
     } catch (error) {
@@ -303,7 +310,7 @@ const UserCabinet = () => {
       const data = await response.json();
       if (data.success) {
         toast({ title: '✅ Предписание отмечено устраненным!' });
-        loadPrescriptionsDetails();
+        loadPrescriptionsDetails(filterStatus);
         loadUserStats();
       }
     } catch (error) {
@@ -314,6 +321,50 @@ const UserCabinet = () => {
   const handleLogout = () => {
     localStorage.clear();
     navigate('/');
+  };
+
+  const getFilteredPabList = () => {
+    if (filterStatus === 'all') return pabList;
+    if (filterStatus === 'completed') return pabList.filter(p => p.status === 'Завершено');
+    if (filterStatus === 'in_progress') return pabList.filter(p => p.status === 'В работе' || p.status === 'Новый');
+    if (filterStatus === 'overdue') {
+      return pabList.filter(p => {
+        if (p.status === 'Завершено') return false;
+        if (!p.created_at) return false;
+        const created = new Date(p.created_at);
+        const daysPassed = Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24));
+        return daysPassed > 30;
+      });
+    }
+    return pabList;
+  };
+
+  const getFilteredObservationsList = () => {
+    if (filterStatus === 'all') return observationsList;
+    if (filterStatus === 'completed') return observationsList.filter(o => o.status === 'Завершено');
+    if (filterStatus === 'in_progress') return observationsList.filter(o => o.status === 'В работе' || o.status === 'Новый');
+    if (filterStatus === 'overdue') {
+      return observationsList.filter(o => {
+        if (o.status === 'Завершено') return false;
+        if (!o.deadline) return false;
+        return new Date(o.deadline) < new Date();
+      });
+    }
+    return observationsList;
+  };
+
+  const getFilteredPrescriptionsList = () => {
+    if (filterStatus === 'all') return prescriptionsList;
+    if (filterStatus === 'completed') return prescriptionsList.filter(p => p.status === 'Выполнено');
+    if (filterStatus === 'in_progress') return prescriptionsList.filter(p => p.status === 'В работе' || p.status === 'Новый');
+    if (filterStatus === 'overdue') {
+      return prescriptionsList.filter(p => {
+        if (p.status === 'Выполнено') return false;
+        if (!p.deadline) return false;
+        return new Date(p.deadline) < new Date();
+      });
+    }
+    return prescriptionsList;
   };
 
   if (loading) {
@@ -462,81 +513,150 @@ const UserCabinet = () => {
         </div>
 
         {/* ПАБ Statistics */}
-        <Card className="bg-slate-800/50 border-yellow-600/30 p-6 mb-6 cursor-pointer hover:bg-slate-700/30 transition-colors" onClick={loadPabDetails}>
+        <Card className="bg-slate-800/50 border-yellow-600/30 p-6 mb-6">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Icon name="FileText" size={24} className="text-yellow-500" />
             Статистика ПАБ (Поведенческий Аудит Безопасности)
-            <Icon name="MousePointerClick" size={20} className="text-slate-400 ml-auto" />
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-slate-700/50 p-4 rounded-lg">
-              <p className="text-sm text-slate-400 mb-1">Всего ПАБов</p>
+            <div 
+              className="bg-slate-700/50 p-4 rounded-lg cursor-pointer hover:bg-slate-600/50 transition-colors"
+              onClick={() => loadPabDetails('all')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Всего ПАБов
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
               <p className="text-2xl font-bold text-white">{stats.pab_total}</p>
             </div>
-            <div className="bg-green-900/20 p-4 rounded-lg border border-green-600/30">
-              <p className="text-sm text-slate-400 mb-1">Завершено</p>
+            <div 
+              className="bg-green-900/20 p-4 rounded-lg border border-green-600/30 cursor-pointer hover:bg-green-900/30 transition-colors"
+              onClick={() => loadPabDetails('completed')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Завершено
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
               <p className="text-2xl font-bold text-green-500">{stats.pab_completed}</p>
             </div>
-            <div className="bg-yellow-900/20 p-4 rounded-lg border border-yellow-600/30">
-              <p className="text-sm text-slate-400 mb-1">В работе</p>
+            <div 
+              className="bg-yellow-900/20 p-4 rounded-lg border border-yellow-600/30 cursor-pointer hover:bg-yellow-900/30 transition-colors"
+              onClick={() => loadPabDetails('in_progress')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                В работе
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
               <p className="text-2xl font-bold text-yellow-500">{stats.pab_in_progress}</p>
             </div>
-            <div className="bg-red-900/20 p-4 rounded-lg border border-red-600/30">
-              <p className="text-sm text-slate-400 mb-1">Просроченные</p>
+            <div 
+              className="bg-red-900/20 p-4 rounded-lg border border-red-600/30 cursor-pointer hover:bg-red-900/30 transition-colors"
+              onClick={() => loadPabDetails('overdue')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Просроченные
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
               <p className="text-2xl font-bold text-red-500">{stats.pab_overdue}</p>
             </div>
           </div>
         </Card>
 
         {/* Observations Statistics */}
-        <Card className="bg-slate-800/50 border-yellow-600/30 p-6 mb-6 cursor-pointer hover:bg-slate-700/30 transition-colors" onClick={loadObservationsDetails}>
+        <Card className="bg-slate-800/50 border-yellow-600/30 p-6 mb-6">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Icon name="Eye" size={24} className="text-yellow-500" />
             Статистика наблюдений
-            <Icon name="MousePointerClick" size={20} className="text-slate-400 ml-auto" />
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-slate-700/50 p-4 rounded-lg">
-              <p className="text-sm text-slate-400 mb-1">Выписано наблюдений</p>
+            <div 
+              className="bg-slate-700/50 p-4 rounded-lg cursor-pointer hover:bg-slate-600/50 transition-colors"
+              onClick={() => loadObservationsDetails('all')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Выписано наблюдений
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
               <p className="text-2xl font-bold text-white">{stats.observations_issued}</p>
             </div>
-            <div className="bg-green-900/20 p-4 rounded-lg border border-green-600/30">
-              <p className="text-sm text-slate-400 mb-1">Устранено</p>
+            <div 
+              className="bg-green-900/20 p-4 rounded-lg border border-green-600/30 cursor-pointer hover:bg-green-900/30 transition-colors"
+              onClick={() => loadObservationsDetails('completed')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Устранено
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
               <p className="text-2xl font-bold text-green-500">{stats.observations_completed}</p>
             </div>
-            <div className="bg-yellow-900/20 p-4 rounded-lg border border-yellow-600/30">
-              <p className="text-sm text-slate-400 mb-1">В работе</p>
+            <div 
+              className="bg-yellow-900/20 p-4 rounded-lg border border-yellow-600/30 cursor-pointer hover:bg-yellow-900/30 transition-colors"
+              onClick={() => loadObservationsDetails('in_progress')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                В работе
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
               <p className="text-2xl font-bold text-yellow-500">{stats.observations_in_progress}</p>
             </div>
-            <div className="bg-red-900/20 p-4 rounded-lg border border-red-600/30">
-              <p className="text-sm text-slate-400 mb-1">Просроченные</p>
+            <div 
+              className="bg-red-900/20 p-4 rounded-lg border border-red-600/30 cursor-pointer hover:bg-red-900/30 transition-colors"
+              onClick={() => loadObservationsDetails('overdue')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Просроченные
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
               <p className="text-2xl font-bold text-red-500">{stats.observations_overdue}</p>
             </div>
           </div>
         </Card>
 
         {/* Prescriptions Statistics */}
-        <Card className="bg-slate-800/50 border-yellow-600/30 p-6 cursor-pointer hover:bg-slate-700/30 transition-colors" onClick={loadPrescriptionsDetails}>
+        <Card className="bg-slate-800/50 border-yellow-600/30 p-6">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Icon name="ClipboardList" size={24} className="text-yellow-500" />
             Статистика предписаний
-            <Icon name="MousePointerClick" size={20} className="text-slate-400 ml-auto" />
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-slate-700/50 p-4 rounded-lg">
-              <p className="text-sm text-slate-400 mb-1">Выписано предписаний</p>
+            <div 
+              className="bg-slate-700/50 p-4 rounded-lg cursor-pointer hover:bg-slate-600/50 transition-colors"
+              onClick={() => loadPrescriptionsDetails('all')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Выписано предписаний
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
               <p className="text-2xl font-bold text-white">{stats.prescriptions_issued}</p>
             </div>
-            <div className="bg-green-900/20 p-4 rounded-lg border border-green-600/30">
-              <p className="text-sm text-slate-400 mb-1">Устранено</p>
+            <div 
+              className="bg-green-900/20 p-4 rounded-lg border border-green-600/30 cursor-pointer hover:bg-green-900/30 transition-colors"
+              onClick={() => loadPrescriptionsDetails('completed')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Устранено
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
               <p className="text-2xl font-bold text-green-500">{stats.prescriptions_completed}</p>
             </div>
-            <div className="bg-yellow-900/20 p-4 rounded-lg border border-yellow-600/30">
-              <p className="text-sm text-slate-400 mb-1">В работе</p>
+            <div 
+              className="bg-yellow-900/20 p-4 rounded-lg border border-yellow-600/30 cursor-pointer hover:bg-yellow-900/30 transition-colors"
+              onClick={() => loadPrescriptionsDetails('in_progress')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                В работе
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
               <p className="text-2xl font-bold text-yellow-500">{stats.prescriptions_in_progress}</p>
             </div>
-            <div className="bg-red-900/20 p-4 rounded-lg border border-red-600/30">
-              <p className="text-sm text-slate-400 mb-1">Просроченные</p>
+            <div 
+              className="bg-red-900/20 p-4 rounded-lg border border-red-600/30 cursor-pointer hover:bg-red-900/30 transition-colors"
+              onClick={() => loadPrescriptionsDetails('overdue')}
+            >
+              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                Просроченные
+                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
+              </p>
               <p className="text-2xl font-bold text-red-500">{stats.prescriptions_overdue}</p>
             </div>
           </div>
@@ -707,20 +827,26 @@ const UserCabinet = () => {
           <DialogHeader>
             <DialogTitle className="text-2xl text-yellow-500 flex items-center gap-2">
               <Icon name="FileText" size={28} />
-              Мои ПАБ (Поведенческий Аудит Безопасности)
+              Мои ПАБ - {
+                filterStatus === 'all' ? 'Все' :
+                filterStatus === 'completed' ? 'Завершено' :
+                filterStatus === 'in_progress' ? 'В работе' :
+                filterStatus === 'overdue' ? 'Просроченные' : ''
+              }
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Список всех ПАБ, которые вы создали
+              Нажмите на карточку ПАБ для открытия полной информации
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 mt-4">
-            {pabList.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">Нет записей ПАБ</p>
+            {getFilteredPabList().length === 0 ? (
+              <p className="text-slate-400 text-center py-8">Нет записей ПАБ в этой категории</p>
             ) : (
-              pabList.map((pab) => (
+              getFilteredPabList().map((pab) => (
                 <Card
                   key={pab.id}
-                  className="bg-slate-700/50 border-slate-600/50 p-4 hover:bg-slate-600/50 transition-colors"
+                  className="bg-slate-700/50 border-slate-600/50 p-4 hover:bg-slate-600/50 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/pab-view/${pab.id}`)}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -733,6 +859,7 @@ const UserCabinet = () => {
                         }`}>
                           {pab.status}
                         </span>
+                        <Icon name="MousePointerClick" size={18} className="text-slate-500 ml-auto" />
                       </div>
                       <div className="text-sm text-slate-300 space-y-1">
                         <p><strong>Дата:</strong> {new Date(pab.doc_date).toLocaleDateString('ru-RU')}</p>
@@ -742,17 +869,12 @@ const UserCabinet = () => {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        onClick={() => navigate(`/pab-view/${pab.id}`)}
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        <Icon name="Eye" size={16} className="mr-1" />
-                        Просмотр
-                      </Button>
                       {pab.word_file_url && (
                         <Button
-                          onClick={() => window.open(pab.word_file_url, '_blank')}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(pab.word_file_url, '_blank');
+                          }}
                           size="sm"
                           className="bg-purple-600 hover:bg-purple-700 text-white"
                         >
@@ -775,20 +897,28 @@ const UserCabinet = () => {
           <DialogHeader>
             <DialogTitle className="text-2xl text-yellow-500 flex items-center gap-2">
               <Icon name="Eye" size={28} />
-              Наблюдения выписанные на меня
+              Наблюдения - {
+                filterStatus === 'all' ? 'Все' :
+                filterStatus === 'completed' ? 'Устранено' :
+                filterStatus === 'in_progress' ? 'В работе' :
+                filterStatus === 'overdue' ? 'Просроченные' : ''
+              }
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Список всех наблюдений, за которые вы ответственны
+              Нажмите на наблюдение для открытия полной информации
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 mt-4">
-            {observationsList.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">Нет наблюдений</p>
+            {getFilteredObservationsList().length === 0 ? (
+              <p className="text-slate-400 text-center py-8">Нет наблюдений в этой категории</p>
             ) : (
-              observationsList.map((obs) => (
+              getFilteredObservationsList().map((obs) => (
                 <Card
                   key={obs.id}
-                  className="bg-slate-700/50 border-slate-600/50 p-4 hover:bg-slate-600/50 transition-colors"
+                  className="bg-slate-700/50 border-slate-600/50 p-4 hover:bg-slate-600/50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedObservationItem(obs);
+                  }}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -804,15 +934,16 @@ const UserCabinet = () => {
                         {obs.status === 'Завершено' && (
                           <Icon name="Sparkles" size={20} className="text-purple-400 animate-pulse" />
                         )}
+                        <Icon name="MousePointerClick" size={18} className="text-slate-500 ml-auto" />
                       </div>
                       <div className="text-sm text-slate-300 space-y-1">
                         <p><strong>Описание:</strong> {obs.description}</p>
                         <p><strong>Категория:</strong> {obs.category}</p>
-                        <p><strong>Срок устранения:</strong> {new Date(obs.deadline).toLocaleDateString('ru-RU')}</p>
+                        <p><strong>Срок устранения:</strong> {obs.deadline ? new Date(obs.deadline).toLocaleDateString('ru-RU') : 'Не указан'}</p>
                         <p><strong>Ответственный:</strong> {obs.responsible_person}</p>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
                       {obs.status !== 'Завершено' && (
                         <Button
                           onClick={() => markObservationComplete(obs.id)}
@@ -848,25 +979,33 @@ const UserCabinet = () => {
           <DialogHeader>
             <DialogTitle className="text-2xl text-yellow-500 flex items-center gap-2">
               <Icon name="ClipboardList" size={28} />
-              Предписания выписанные на меня
+              Предписания - {
+                filterStatus === 'all' ? 'Все' :
+                filterStatus === 'completed' ? 'Устранено' :
+                filterStatus === 'in_progress' ? 'В работе' :
+                filterStatus === 'overdue' ? 'Просроченные' : ''
+              }
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Список всех предписаний, которые необходимо устранить
+              Нажмите на предписание для открытия полной информации
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 mt-4">
-            {prescriptionsList.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">Нет предписаний</p>
+            {getFilteredPrescriptionsList().length === 0 ? (
+              <p className="text-slate-400 text-center py-8">Нет предписаний в этой категории</p>
             ) : (
-              prescriptionsList.map((presc) => (
+              getFilteredPrescriptionsList().map((presc) => (
                 <Card
                   key={presc.id}
-                  className="bg-slate-700/50 border-slate-600/50 p-4 hover:bg-slate-600/50 transition-colors"
+                  className="bg-slate-700/50 border-slate-600/50 p-4 hover:bg-slate-600/50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedPrescriptionItem(presc);
+                  }}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-lg font-semibold text-white">Предписание №{presc.id}</h3>
+                        <h3 className="text-lg font-semibold text-white">Предписание №{presc.prescription_id}</h3>
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                           presc.status === 'Выполнено' ? 'bg-green-900/30 text-green-400 border border-green-600/50' :
                           presc.status === 'В работе' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-600/50' :
@@ -877,14 +1016,15 @@ const UserCabinet = () => {
                         {presc.status === 'Выполнено' && (
                           <Icon name="Sparkles" size={20} className="text-purple-400 animate-pulse" />
                         )}
+                        <Icon name="MousePointerClick" size={18} className="text-slate-500 ml-auto" />
                       </div>
                       <div className="text-sm text-slate-300 space-y-1">
                         <p><strong>Нарушение:</strong> {presc.violation_text}</p>
-                        <p><strong>Срок устранения:</strong> {new Date(presc.deadline).toLocaleDateString('ru-RU')}</p>
+                        <p><strong>Срок устранения:</strong> {presc.deadline ? new Date(presc.deadline).toLocaleDateString('ru-RU') : 'Не указан'}</p>
                         <p><strong>Ответственный:</strong> {presc.assigned_user_fio}</p>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
                       {presc.status !== 'Выполнено' && (
                         <Button
                           onClick={() => markPrescriptionComplete(presc.id)}
@@ -903,6 +1043,166 @@ const UserCabinet = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Selected Observation Details */}
+      {selectedObservationItem && (
+        <Dialog open={!!selectedObservationItem} onOpenChange={() => setSelectedObservationItem(null)}>
+          <DialogContent className="bg-slate-800 border-yellow-600/30 text-white max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl text-yellow-500 flex items-center gap-2">
+                <Icon name="Eye" size={28} />
+                Наблюдение №{selectedObservationItem.observation_number}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Статус</p>
+                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                    selectedObservationItem.status === 'Завершено' ? 'bg-green-900/30 text-green-400 border border-green-600/50' :
+                    selectedObservationItem.status === 'В работе' || selectedObservationItem.status === 'Новый' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-600/50' :
+                    'bg-red-900/30 text-red-400 border border-red-600/50'
+                  }`}>
+                    {selectedObservationItem.status}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Категория</p>
+                  <p className="text-white">{selectedObservationItem.category}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Срок устранения</p>
+                  <p className="text-white">{selectedObservationItem.deadline ? new Date(selectedObservationItem.deadline).toLocaleDateString('ru-RU') : 'Не указан'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Ответственный</p>
+                  <p className="text-white">{selectedObservationItem.responsible_person}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Описание</p>
+                <p className="text-white bg-slate-700/50 p-3 rounded-lg">{selectedObservationItem.description}</p>
+              </div>
+              {selectedObservationItem.conditions_actions && (
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Условия/Действия</p>
+                  <p className="text-white bg-slate-700/50 p-3 rounded-lg">{selectedObservationItem.conditions_actions}</p>
+                </div>
+              )}
+              {selectedObservationItem.hazard_factors && (
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Опасные факторы</p>
+                  <p className="text-white bg-slate-700/50 p-3 rounded-lg">{selectedObservationItem.hazard_factors}</p>
+                </div>
+              )}
+              {selectedObservationItem.measures && (
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Меры</p>
+                  <p className="text-white bg-slate-700/50 p-3 rounded-lg">{selectedObservationItem.measures}</p>
+                </div>
+              )}
+              {selectedObservationItem.photo_url && (
+                <div>
+                  <p className="text-sm text-slate-400 mb-2">Фотография</p>
+                  <img 
+                    src={selectedObservationItem.photo_url} 
+                    alt="Фото наблюдения" 
+                    className="w-full max-w-2xl rounded-lg border border-slate-600"
+                  />
+                </div>
+              )}
+              <div className="flex gap-2 pt-4">
+                {selectedObservationItem.status !== 'Завершено' && (
+                  <Button
+                    onClick={() => {
+                      markObservationComplete(selectedObservationItem.id);
+                      setSelectedObservationItem(null);
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Icon name="CheckCircle" size={20} className="mr-2" />
+                    Отметить устраненным
+                  </Button>
+                )}
+                <Button
+                  onClick={() => setSelectedObservationItem(null)}
+                  variant="outline"
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  Закрыть
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Selected Prescription Details */}
+      {selectedPrescriptionItem && (
+        <Dialog open={!!selectedPrescriptionItem} onOpenChange={() => setSelectedPrescriptionItem(null)}>
+          <DialogContent className="bg-slate-800 border-yellow-600/30 text-white max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl text-yellow-500 flex items-center gap-2">
+                <Icon name="ClipboardList" size={28} />
+                Предписание №{selectedPrescriptionItem.prescription_id}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Статус</p>
+                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                    selectedPrescriptionItem.status === 'Выполнено' ? 'bg-green-900/30 text-green-400 border border-green-600/50' :
+                    selectedPrescriptionItem.status === 'В работе' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-600/50' :
+                    'bg-red-900/30 text-red-400 border border-red-600/50'
+                  }`}>
+                    {selectedPrescriptionItem.status}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Ответственный</p>
+                  <p className="text-white">{selectedPrescriptionItem.assigned_user_fio}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Срок устранения</p>
+                  <p className="text-white">{selectedPrescriptionItem.deadline ? new Date(selectedPrescriptionItem.deadline).toLocaleDateString('ru-RU') : 'Не указан'}</p>
+                </div>
+                {selectedPrescriptionItem.completed_at && (
+                  <div>
+                    <p className="text-sm text-slate-400 mb-1">Дата выполнения</p>
+                    <p className="text-white">{new Date(selectedPrescriptionItem.completed_at).toLocaleDateString('ru-RU')}</p>
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Текст нарушения</p>
+                <p className="text-white bg-slate-700/50 p-3 rounded-lg">{selectedPrescriptionItem.violation_text}</p>
+              </div>
+              <div className="flex gap-2 pt-4">
+                {selectedPrescriptionItem.status !== 'Выполнено' && (
+                  <Button
+                    onClick={() => {
+                      markPrescriptionComplete(selectedPrescriptionItem.id);
+                      setSelectedPrescriptionItem(null);
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Icon name="CheckCircle" size={20} className="mr-2" />
+                    Отметить устраненным
+                  </Button>
+                )}
+                <Button
+                  onClick={() => setSelectedPrescriptionItem(null)}
+                  variant="outline"
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  Закрыть
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
