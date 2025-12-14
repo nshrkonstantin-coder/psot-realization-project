@@ -143,11 +143,14 @@ const AdminMessagesPage = () => {
       const data = await response.json();
       if (Array.isArray(data)) {
         setCompanies(data);
-      } else if (data.organizations) {
+      } else if (data.organizations && Array.isArray(data.organizations)) {
         setCompanies(data.organizations);
+      } else {
+        setCompanies([]);
       }
     } catch (error) {
       console.error('Ошибка загрузки предприятий:', error);
+      setCompanies([]);
       toast({ title: 'Ошибка загрузки предприятий', variant: 'destructive' });
     }
   };
