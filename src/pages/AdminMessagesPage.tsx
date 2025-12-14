@@ -62,6 +62,7 @@ const AdminMessagesPage = () => {
   const { toast } = useToast();
   const [userId, setUserId] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string>('');
+  const [userOrgId, setUserOrgId] = useState<number | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -98,17 +99,41 @@ const AdminMessagesPage = () => {
     const role = localStorage.getItem('userRole');
     const id = localStorage.getItem('userId');
 
-    if (!id || (role !== 'admin' && role !== 'superadmin')) {
+    if (!id) {
       navigate('/');
       return;
     }
 
     setUserId(Number(id));
-    setUserRole(role);
+    setUserRole(role || 'user');
+    loadUserInfo(Number(id));
     loadCompanies();
     loadUsers();
     loadChats();
   }, [navigate]);
+
+  const loadUserInfo = async (id: number) => {
+    try {
+      const response = await fetch(`${MESSAGING_URL}?action=list_all_users`, {
+        headers: { 'X-User-Id': String(id) }
+      });
+      const data = await response.json();
+      if (data.users) {
+        const currentUser = data.users.find((u: User) => u.id === id);
+        if (currentUser) {
+          setUserOrgId(currentUser.company_id);
+          // Для обычных пользователей устанавливаем фильтр на их организацию
+          const role = localStorage.getItem('userRole');
+          if (role !== 'admin' && role !== 'superadmin') {
+            setFilterCompanyId(String(currentUser.company_id));
+            setNewChatCompanyFilter(String(currentUser.company_id));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки информации пользователя:', error);
+    }
+  };
 
   const loadCompanies = async () => {
     try {
@@ -439,15 +464,24 @@ const AdminMessagesPage = () => {
 
                           <div>
                             <Label className="text-white">Фильтр по предприятию</Label>
-                            <Select value={newChatCompanyFilter} onValueChange={setNewChatCompanyFilter}>
+                            <Select 
+                              value={newChatCompanyFilter} 
+                              onValueChange={setNewChatCompanyFilter}
+                              disabled={userRole !== 'admin' && userRole !== 'superadmin'}
+                            >
                               <SelectTrigger className="bg-slate-900/50 text-white border-blue-600/30">
                                 <SelectValue placeholder="Выберите предприятие" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="all">Все предприятия</SelectItem>
-                                {companies.map(c => (
-                                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                                ))}
+                                {(userRole === 'admin' || userRole === 'superadmin') && (
+                                  <SelectItem value="all">Все предприятия</SelectItem>
+                                )}
+                                {companies
+                                  .filter(c => userRole === 'admin' || userRole === 'superadmin' || c.id === userOrgId)
+                                  .map(c => (
+                                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                                  ))
+                                }
                               </SelectContent>
                             </Select>
                           </div>
@@ -674,19 +708,28 @@ const AdminMessagesPage = () => {
 
                 <div>
                   <Label className="text-white">Фильтр по предприятию</Label>
-                  <Select value={filterCompanyId} onValueChange={setFilterCompanyId}>
+                  <Select 
+                    value={filterCompanyId} 
+                    onValueChange={setFilterCompanyId}
+                    disabled={userRole !== 'admin' && userRole !== 'superadmin'}
+                  >
                     <SelectTrigger className="bg-slate-900/50 text-white border-blue-600/30">
                       <SelectValue placeholder="Выберите предприятие" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">
-                        Все предприятия ({getUsersCountByCompany('all')} польз.)
-                      </SelectItem>
-                      {companies.map(c => (
-                        <SelectItem key={c.id} value={String(c.id)}>
-                          {c.name} ({getUsersCountByCompany(String(c.id))} польз.)
+                      {(userRole === 'admin' || userRole === 'superadmin') && (
+                        <SelectItem value="all">
+                          Все предприятия ({getUsersCountByCompany('all')} польз.)
                         </SelectItem>
-                      ))}
+                      )}
+                      {companies
+                        .filter(c => userRole === 'admin' || userRole === 'superadmin' || c.id === userOrgId)
+                        .map(c => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            {c.name} ({getUsersCountByCompany(String(c.id))} польз.)
+                          </SelectItem>
+                        ))
+                      }
                     </SelectContent>
                   </Select>
                 </div>
