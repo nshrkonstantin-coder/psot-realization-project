@@ -92,6 +92,53 @@ const AdminMessagesPage = () => {
   const massMessageRef = useRef<HTMLTextAreaElement>(null);
   const emailBodyRef = useRef<HTMLTextAreaElement>(null);
 
+  const renderMessageWithLinks = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        const isVideoLink = part.includes('video-conference');
+        const isInternalLink = part.includes(window.location.origin);
+        
+        if (isInternalLink && isVideoLink) {
+          const roomMatch = part.match(/room=([^&\s]+)/);
+          return (
+            <button
+              key={index}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (roomMatch) {
+                  navigate(`/video-conference?room=${roomMatch[1]}`);
+                }
+              }}
+              className="underline hover:opacity-80 font-semibold text-green-400 inline-flex items-center gap-1 break-all"
+            >
+              🎥 Присоединиться к конференции
+            </button>
+          );
+        }
+        
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`underline hover:opacity-80 font-semibold break-all inline-flex items-center gap-1 ${
+              isVideoLink ? 'text-green-400' : 'text-blue-400'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isVideoLink && '🎥 '}
+            {part}
+          </a>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   const MESSAGING_URL = 'https://functions.poehali.dev/0bd87c15-af37-4e08-93fa-f921a3c18bee';
   const SEND_EMAIL_URL = 'https://functions.poehali.dev/5055f3a3-bc30-4e5b-b65c-e30b28b07a03';
   const ORGANIZATIONS_URL = 'https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b';
@@ -596,7 +643,9 @@ const AdminMessagesPage = () => {
                             <p className="text-sm text-blue-400 font-semibold">
                               {msg.sender_name} · {msg.sender_company}
                             </p>
-                            <p className="text-white mt-1">{msg.message_text}</p>
+                            <p className="text-white mt-1 break-words">
+                              {renderMessageWithLinks(msg.message_text)}
+                            </p>
                             <p className="text-xs text-slate-400 mt-1">
                               {new Date(msg.created_at).toLocaleString('ru-RU')}
                             </p>

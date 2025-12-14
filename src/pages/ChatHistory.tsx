@@ -209,6 +209,53 @@ const ChatHistory = () => {
 
   const commonEmojis = ['😊', '😂', '❤️', '👍', '🔥', '✅', '⚠️', '📌', '💼', '🎯', '👋', '🙏', '💪', '🚀', '⭐', '✨'];
 
+  const renderMessageWithLinks = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        const isVideoLink = part.includes('video-conference');
+        const isInternalLink = part.includes(window.location.origin);
+        
+        if (isInternalLink && isVideoLink) {
+          const roomMatch = part.match(/room=([^&\s]+)/);
+          return (
+            <button
+              key={index}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (roomMatch) {
+                  navigate(`/video-conference?room=${roomMatch[1]}`);
+                }
+              }}
+              className="underline hover:opacity-80 font-semibold text-green-400 inline-flex items-center gap-1"
+            >
+              🎥 Присоединиться к конференции
+            </button>
+          );
+        }
+        
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`underline hover:opacity-80 font-semibold inline-flex items-center gap-1 ${
+              isVideoLink ? 'text-green-400' : 'text-blue-400'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isVideoLink && '🎥 '}
+            {part}
+          </a>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -303,7 +350,9 @@ const ChatHistory = () => {
                         {chat.position} • {chat.subdivision}
                       </p>
                       {chat.lastMessage && (
-                        <p className="text-slate-300 text-sm line-clamp-1">{chat.lastMessage}</p>
+                        <p className="text-slate-300 text-sm line-clamp-2 break-words">
+                          {renderMessageWithLinks(chat.lastMessage)}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -357,7 +406,9 @@ const ChatHistory = () => {
                           {msg.senderName}
                         </p>
                       )}
-                      <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
+                      <p className="text-sm whitespace-pre-wrap break-words">
+                        {renderMessageWithLinks(msg.message)}
+                      </p>
                       <p className={`text-xs mt-1 ${isCurrentUser ? 'text-blue-200' : 'text-slate-400'}`}>
                         {formatDate(msg.createdAt)}
                       </p>

@@ -10,6 +10,33 @@ const MessageNotifications = () => {
   const [showNotification, setShowNotification] = useState(false);
   const [lastMessage, setLastMessage] = useState<string>('');
 
+  const renderMessageWithLinks = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        const isVideoLink = part.includes('video-conference');
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`underline hover:opacity-80 font-semibold break-all inline-flex items-center gap-1 ${
+              isVideoLink ? 'text-green-300' : 'text-blue-300'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isVideoLink && '🎥 '}
+            {part}
+          </a>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (!userId) return;
@@ -110,8 +137,8 @@ const MessageNotifications = () => {
                       <Icon name="Video" size={20} />
                       Входящий видеозвонок
                     </h3>
-                    <p className="text-blue-100 text-sm mb-3">
-                      {lastMessage.split('Присоединяйтесь:')[0]}
+                    <p className="text-blue-100 text-sm mb-3 break-words">
+                      {renderMessageWithLinks(lastMessage.split('Присоединяйтесь:')[0])}
                     </p>
                     <div className="flex gap-2">
                       <Button
