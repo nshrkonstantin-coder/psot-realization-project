@@ -55,6 +55,7 @@ const Admin = () => {
     { label: 'Настройки раздела', icon: 'Settings', color: 'from-slate-500 to-slate-600', route: '/section-settings' },
     { label: 'Уведомления', icon: 'Bell', color: 'from-purple-500 to-purple-600', route: '/system-notifications' },
     { label: 'Журнал действий', icon: 'BookOpen', color: 'from-indigo-500 to-indigo-600', route: '/action-log' },
+    { label: 'Управление Графиком личных показателей ПАБ', icon: 'LineChart', color: 'from-amber-500 to-amber-600', route: '/charts' },
   ];
 
   return (

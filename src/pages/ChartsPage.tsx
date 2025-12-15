@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useReactToPrint } from 'react-to-print';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -21,7 +22,8 @@ interface SheetData {
 const ChartsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'назад' | 'печать'>('назад');
+  const printRef = useRef<HTMLDivElement>(null);
+  const [userRole, setUserRole] = useState<string>('');
   const [selectedFiles, setSelectedFiles] = useState<number[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ id: number; name: string; date: string }>>([]);
   
@@ -33,10 +35,12 @@ const ChartsPage = () => {
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
+    const role = localStorage.getItem('userRole');
     if (!userId) {
       navigate('/');
       return;
     }
+    setUserRole(role || '');
 
     const savedFiles = localStorage.getItem('chartsUploadedFiles');
     const savedSheetsData = localStorage.getItem('chartsSheetsData');
@@ -250,6 +254,12 @@ const ChartsPage = () => {
     localStorage.setItem('chartsSelectedCategory', category);
   };
 
+  const handlePrint = useReactToPrint({
+    content: () => printRef.current,
+  });
+
+  const isAdmin = userRole === 'admin' || userRole === 'mainAdmin';
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -259,15 +269,15 @@ const ChartsPage = () => {
             <h1 className="text-2xl font-bold text-gray-900">Личные показатели ПАБ</h1>
             <div className="flex gap-2">
               <Button
-                variant={activeTab === 'назад' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('назад')}
+                variant="outline"
+                onClick={() => navigate('/additional')}
                 className="rounded-full px-8"
               >
                 Назад
               </Button>
               <Button
-                variant={activeTab === 'печать' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('печать')}
+                variant="outline"
+                onClick={handlePrint}
                 className="rounded-full px-8"
               >
                 Печать
@@ -276,7 +286,8 @@ const ChartsPage = () => {
           </div>
         </Card>
 
-        {/* Секция загрузки файла */}
+        {/* Секция загрузки файла - только для админов */}
+        {isAdmin && (
         <Card className="bg-white p-6 mb-6 shadow-sm">
           <h2 className="text-lg font-bold text-gray-900 mb-2">Загрузка графика (Excel)</h2>
           <p className="text-sm text-gray-600 mb-4">
@@ -298,8 +309,10 @@ const ChartsPage = () => {
             onChange={handleFileUpload}
           />
         </Card>
+        )}
 
-        {/* Секция файлов графика */}
+        {/* Секция файлов графика - только для админов */}
+        {isAdmin && (
         <Card className="bg-white p-6 mb-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-900">Файлы графика</h2>
@@ -347,9 +360,11 @@ const ChartsPage = () => {
             )}
           </div>
         </Card>
+        )}
 
         {/* Таблица для заполнения */}
         <Card className="bg-white p-6 shadow-sm">
+          <div ref={printRef}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-900">Таблица для заполнения</h2>
             <div className="flex items-center gap-4">
@@ -369,6 +384,8 @@ const ChartsPage = () => {
                   ))
                 )}
               </select>
+              {isAdmin && (
+                <>
               <Button 
                 variant="outline" 
                 className="rounded px-6 text-sm"
@@ -384,6 +401,8 @@ const ChartsPage = () => {
               >
                 Сохранить файл
               </Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -410,13 +429,17 @@ const ChartsPage = () => {
                     <tr key={item.id} className="border-b hover:bg-gray-50">
                       <td className="p-3 text-sm text-gray-900">{item.position}</td>
                       <td className="p-3">
-                        <input
-                          type="number"
-                          value={item.audits}
-                          onChange={(e) => handleDataChange(item.id, 'audits', e.target.value)}
-                          disabled={!isEditMode}
-                          className="w-20 border border-gray-300 rounded px-2 py-1 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        />
+                        {isAdmin ? (
+                          <input
+                            type="number"
+                            value={item.audits}
+                            onChange={(e) => handleDataChange(item.id, 'audits', e.target.value)}
+                            disabled={!isEditMode}
+                            className="w-20 border border-gray-300 rounded px-2 py-1 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          />
+                        ) : (
+                          <span className="text-sm text-gray-700">{item.audits}</span>
+                        )}
                       </td>
                       <td className="p-3">
                         <span className="text-sm text-gray-700">{item.observations}</span>
@@ -427,19 +450,10 @@ const ChartsPage = () => {
               </table>
             )}
           </div>
+          </div>
         </Card>
 
-        {/* Кнопка назад внизу */}
-        <div className="mt-6 flex justify-center">
-          <Button
-            onClick={() => navigate('/additional')}
-            variant="outline"
-            className="rounded-full px-8"
-          >
-            <Icon name="ArrowLeft" size={20} className="mr-2" />
-            Назад к дополнительным страницам
-          </Button>
-        </div>
+
       </div>
     </div>
   );

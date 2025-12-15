@@ -58,6 +58,7 @@ const SuperAdmin = () => {
     { label: 'База данных', icon: 'Database', color: 'from-green-500 to-green-600', route: '/database' },
     { label: 'Резервное копирование', icon: 'HardDrive', color: 'from-yellow-600 to-yellow-700', route: '/backup' },
     { label: 'Справочники ПАБ', icon: 'BookOpen', color: 'from-pink-500 to-pink-600', route: '/pab-dictionaries' },
+    { label: 'Управление Графиком личных показателей ПАБ', icon: 'LineChart', color: 'from-amber-500 to-amber-600', route: '/charts' },
   ];
 
   return (
