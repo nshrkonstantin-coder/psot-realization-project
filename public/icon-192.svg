@@ -1,14 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <radialGradient id="lampGlow192">
+      <stop offset="0%" style="stop-color:#FFEB3B;stop-opacity:0.8">
+        <animate attributeName="stop-opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite"/>
+      </stop>
+      <stop offset="100%" style="stop-color:#F4C430;stop-opacity:0">
+        <animate attributeName="stop-opacity" values="0;0.3;0" dur="2s" repeatCount="indefinite"/>
+      </stop>
+    </radialGradient>
+  </defs>
   <rect width="192" height="192" fill="#000000"/>
   <path d="M 96 14 L 163 53 L 163 130 L 96 168 L 29 130 L 29 53 Z" fill="none" stroke="#F4C430" stroke-width="4"/>
   <path d="M 24 72 L 96 29 L 168 72" fill="none" stroke="#F4C430" stroke-width="4" stroke-linejoin="miter"/>
   <line x1="24" y1="72" x2="24" y2="86" stroke="#F4C430" stroke-width="4"/>
   <line x1="168" y1="72" x2="168" y2="86" stroke="#F4C430" stroke-width="4"/>
   <g transform="translate(96, 48)">
+    <circle cx="0" cy="3" r="17" fill="url(#lampGlow192)" opacity="0.6"/>
     <line x1="-12" y1="-7" x2="-7" y2="-12" stroke="#F4C430" stroke-width="1.5"/>
     <line x1="12" y1="-7" x2="7" y2="-12" stroke="#F4C430" stroke-width="1.5"/>
     <line x1="-7" y1="-12" x2="7" y2="-12" stroke="#F4C430" stroke-width="1.5"/>
-    <rect x="-10" y="-7" width="20" height="17" fill="none" stroke="#F4C430" stroke-width="1.5" rx="1.5"/>
+    <rect x="-10" y="-7" width="20" height="17" fill="#F4C430" fill-opacity="0.15" stroke="#F4C430" stroke-width="1.5" rx="1.5">
+      <animate attributeName="fill-opacity" values="0.15;0.25;0.15" dur="2s" repeatCount="indefinite"/>
+    </rect>
     <line x1="-10" y1="-2" x2="10" y2="-2" stroke="#F4C430" stroke-width="1"/>
     <line x1="-10" y1="3" x2="10" y2="3" stroke="#F4C430" stroke-width="1"/>
     <line x1="-5" y1="-7" x2="-5" y2="10" stroke="#F4C430" stroke-width="1"/>

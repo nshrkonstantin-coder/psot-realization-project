@@ -1,4 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <radialGradient id="lampGlow">
+      <stop offset="0%" style="stop-color:#FFEB3B;stop-opacity:0.8">
+        <animate attributeName="stop-opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite"/>
+      </stop>
+      <stop offset="100%" style="stop-color:#F4C430;stop-opacity:0">
+        <animate attributeName="stop-opacity" values="0;0.3;0" dur="2s" repeatCount="indefinite"/>
+      </stop>
+    </radialGradient>
+  </defs>
+  
   <!-- Background -->
   <rect width="400" height="400" fill="#000000"/>
   
@@ -19,17 +30,23 @@
   
   <!-- Mining lamp icon -->
   <g transform="translate(200, 100)">
+    <!-- Lamp glow effect -->
+    <circle cx="0" cy="5" r="35" fill="url(#lampGlow)" opacity="0.6"/>
+    
     <!-- Lamp hanger -->
     <line x1="-25" y1="-15" x2="-15" y2="-25" stroke="#F4C430" stroke-width="3"/>
     <line x1="25" y1="-15" x2="15" y2="-25" stroke="#F4C430" stroke-width="3"/>
     <line x1="-15" y1="-25" x2="15" y2="-25" stroke="#F4C430" stroke-width="3"/>
     
-    <!-- Lamp body -->
+    <!-- Lamp body with light fill -->
     <rect x="-20" y="-15" width="40" height="35" 
-          fill="none" 
+          fill="#F4C430" 
+          fill-opacity="0.15"
           stroke="#F4C430" 
           stroke-width="3" 
-          rx="3"/>
+          rx="3">
+      <animate attributeName="fill-opacity" values="0.15;0.25;0.15" dur="2s" repeatCount="indefinite"/>
+    </rect>
     
     <!-- Lamp grid -->
     <line x1="-20" y1="-5" x2="20" y2="-5" stroke="#F4C430" stroke-width="2"/>
