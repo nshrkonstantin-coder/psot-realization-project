@@ -55,6 +55,7 @@ import PrescriptionsPage from "./pages/PrescriptionsPage";
 import Integration1CPage from "./pages/Integration1CPage";
 import AdminMessagesPage from "./pages/AdminMessagesPage";
 import VideoConferencePage from "./pages/VideoConferencePage";
+import ChartsPage from "./pages/ChartsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -119,6 +120,7 @@ const App = () => (
           <Route path="/integration-1c" element={<Integration1CPage />} />
           <Route path="/admin-messages" element={<AdminMessagesPage />} />
           <Route path="/video-conference" element={<VideoConferencePage />} />
+          <Route path="/charts" element={<ChartsPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
