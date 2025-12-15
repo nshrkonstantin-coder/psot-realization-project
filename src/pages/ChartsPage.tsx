@@ -2,179 +2,285 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
+import { useToast } from '@/hooks/use-toast';
+
+interface PositionData {
+  id: number;
+  position: string;
+  audits: number;
+  observations: number;
+}
 
 const ChartsPage = () => {
   const navigate = useNavigate();
-  const [userFio, setUserFio] = useState('');
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<'назад' | 'печать'>('назад');
+  const [selectedFiles, setSelectedFiles] = useState<number[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ id: number; name: string; date: string }>>([
+    { id: 2, name: '2. ДЛЯ Приложения личные показатели ПАБ..xlsx', date: '04.12.2025, 02:39:45' }
+  ]);
+  
+  const [selectedCategory, setSelectedCategory] = useState('Главные специалисты');
+  const [positionsData, setPositionsData] = useState<PositionData[]>([
+    { id: 1, position: 'Главный инженер', audits: 6, observations: 18 },
+    { id: 2, position: 'Зам. Главного инженера', audits: 6, observations: 18 },
+    { id: 3, position: 'ЗУД по горным работам', audits: 6, observations: 18 },
+    { id: 4, position: 'Главный энергетик', audits: 6, observations: 18 },
+    { id: 5, position: 'Главный механик', audits: 6, observations: 18 },
+    { id: 6, position: 'Зам. Главного механика', audits: 6, observations: 18 },
+    { id: 7, position: 'Главный маркшейдер', audits: 6, observations: 18 },
+    { id: 8, position: 'Зам. Главного маркшейдера', audits: 6, observations: 18 },
+    { id: 9, position: 'Главный геолог', audits: 6, observations: 18 },
+    { id: 10, position: 'Зам. Главного геолога', audits: 6, observations: 18 },
+  ]);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (!userId) {
       navigate('/');
-      return;
     }
-    const fio = localStorage.getItem('userFio') || 'Пользователь';
-    setUserFio(fio);
   }, [navigate]);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Фоновые эффекты */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-20 left-10 w-64 h-64 bg-blue-600 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-600 rounded-full blur-3xl animate-pulse delay-1000" />
-        <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-indigo-700 rounded-full blur-3xl animate-pulse delay-500" />
-      </div>
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        const newFile = {
+          id: uploadedFiles.length + 1,
+          name: file.name,
+          date: new Date().toLocaleString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          })
+        };
+        setUploadedFiles([...uploadedFiles, newFile]);
+        toast({
+          title: "Файл загружен",
+          description: `Файл "${file.name}" успешно загружен`,
+        });
+      } else {
+        toast({
+          title: "Ошибка",
+          description: "Пожалуйста, загрузите файл формата .xlsx или .xls",
+          variant: "destructive"
+        });
+      }
+    }
+  };
 
-      <div className="relative z-10 p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Шапка */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedFiles(uploadedFiles.map(f => f.id));
+    } else {
+      setSelectedFiles([]);
+    }
+  };
+
+  const handleSelectFile = (fileId: number, checked: boolean) => {
+    if (checked) {
+      setSelectedFiles([...selectedFiles, fileId]);
+    } else {
+      setSelectedFiles(selectedFiles.filter(id => id !== fileId));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    setUploadedFiles(uploadedFiles.filter(f => !selectedFiles.includes(f.id)));
+    setSelectedFiles([]);
+    toast({
+      title: "Файлы удалены",
+      description: `Удалено файлов: ${selectedFiles.length}`,
+    });
+  };
+
+  const handleDataChange = (id: number, field: 'audits' | 'observations', value: string) => {
+    const numValue = parseInt(value) || 0;
+    setPositionsData(positionsData.map(item => 
+      item.id === id ? { ...item, [field]: numValue } : item
+    ));
+  };
+
+  const handleSaveFile = () => {
+    toast({
+      title: "Файл сохранён",
+      description: "Изменения успешно сохранены",
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Шапка */}
+        <Card className="bg-white p-6 mb-6 shadow-sm">
+          <div className="flex flex-col items-center gap-4">
+            <h1 className="text-2xl font-bold text-gray-900">Личные показатели ПАБ</h1>
+            <div className="flex gap-2">
               <Button
-                onClick={() => navigate('/additional')}
-                variant="outline"
-                className="border-blue-600/50 text-blue-400 hover:bg-blue-600/10"
+                variant={activeTab === 'назад' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('назад')}
+                className="rounded-full px-8"
               >
-                <Icon name="ArrowLeft" size={20} className="mr-2" />
                 Назад
               </Button>
-              <div className="flex items-center gap-4">
-                <div className="bg-gradient-to-br from-blue-600 to-cyan-600 p-3 rounded-xl shadow-lg">
-                  <Icon name="BarChart3" size={32} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-white">Личные показатели ПАБ</h1>
-                  <p className="text-blue-300 text-sm mt-1">{userFio}</p>
-                </div>
-              </div>
+              <Button
+                variant={activeTab === 'печать' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('печать')}
+                className="rounded-full px-8"
+              >
+                Печать
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        {/* Секция загрузки файла */}
+        <Card className="bg-white p-6 mb-6 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Загрузка графика (Excel)</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Загрузите актуальный файл .xlsx или .xls. После изменений перезагрузите обновлённую версию.
+          </p>
+          <label htmlFor="excel-upload">
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6"
+              onClick={() => document.getElementById('excel-upload')?.click()}
+            >
+              Загрузить Excel
+            </Button>
+          </label>
+          <input
+            id="excel-upload"
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+        </Card>
+
+        {/* Секция файлов графика */}
+        <Card className="bg-white p-6 mb-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-gray-900">Файлы графика</h2>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">Выбрано: {selectedFiles.length}</span>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteSelected}
+                disabled={selectedFiles.length === 0}
+                className="bg-red-400 hover:bg-red-500 rounded-full px-6"
+              >
+                Удалить выбранные
+              </Button>
             </div>
           </div>
 
-          {/* Основной контент */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Карточка общей статистики */}
-            <Card className="bg-slate-800/50 border-blue-600/30 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-gradient-to-br from-green-600 to-emerald-600 p-2 rounded-lg">
-                  <Icon name="TrendingUp" size={24} className="text-white" />
-                </div>
-                <h2 className="text-xl font-bold text-white">Общая статистика</h2>
-              </div>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-slate-700/30 rounded-lg">
-                  <span className="text-slate-300">Всего наблюдений</span>
-                  <span className="text-2xl font-bold text-white">124</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-slate-700/30 rounded-lg">
-                  <span className="text-slate-300">Выявлено нарушений</span>
-                  <span className="text-2xl font-bold text-orange-400">38</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-slate-700/30 rounded-lg">
-                  <span className="text-slate-300">Процент безопасности</span>
-                  <span className="text-2xl font-bold text-green-400">69%</span>
-                </div>
-              </div>
-            </Card>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 pb-2 border-b">
+              <Checkbox
+                checked={selectedFiles.length === uploadedFiles.length && uploadedFiles.length > 0}
+                onCheckedChange={handleSelectAll}
+              />
+              <span className="text-sm font-medium text-gray-700">Выбрать все</span>
+            </div>
 
-            {/* Карточка по месяцам */}
-            <Card className="bg-slate-800/50 border-blue-600/30 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2 rounded-lg">
-                  <Icon name="Calendar" size={24} className="text-white" />
+            {uploadedFiles.map((file) => (
+              <div key={file.id} className="flex items-center justify-between py-3 border-b hover:bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={selectedFiles.includes(file.id)}
+                    onCheckedChange={(checked) => handleSelectFile(file.id, checked as boolean)}
+                  />
+                  <a href="#" className="text-blue-600 hover:underline text-sm">
+                    {file.name}
+                  </a>
                 </div>
-                <h2 className="text-xl font-bold text-white">Статистика за месяц</h2>
+                <span className="text-sm text-gray-500">{file.date}</span>
               </div>
-              <div className="space-y-3">
-                {['Январь', 'Февраль', 'Март', 'Апрель'].map((month, idx) => (
-                  <div key={month} className="p-3 bg-slate-700/30 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-slate-300 font-medium">{month}</span>
-                      <span className="text-white font-bold">{85 - idx * 5}%</span>
-                    </div>
-                    <div className="w-full bg-slate-600/50 rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all"
-                        style={{ width: `${85 - idx * 5}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
+            ))}
+          </div>
+        </Card>
 
-            {/* Карточка категорий нарушений */}
-            <Card className="bg-slate-800/50 border-blue-600/30 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-gradient-to-br from-orange-600 to-red-600 p-2 rounded-lg">
-                  <Icon name="AlertTriangle" size={24} className="text-white" />
-                </div>
-                <h2 className="text-xl font-bold text-white">Категории нарушений</h2>
-              </div>
-              <div className="space-y-3">
-                {[
-                  { name: 'СИЗ', count: 12, color: 'from-red-500 to-red-600' },
-                  { name: 'Безопасность работ', count: 8, color: 'from-orange-500 to-orange-600' },
-                  { name: 'Оборудование', count: 6, color: 'from-yellow-500 to-yellow-600' },
-                  { name: 'Документация', count: 12, color: 'from-blue-500 to-blue-600' },
-                ].map((category) => (
-                  <div key={category.name} className="p-3 bg-slate-700/30 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-slate-300">{category.name}</span>
-                      <span className="text-white font-bold">{category.count}</span>
-                    </div>
-                    <div className="w-full bg-slate-600/50 rounded-full h-2">
-                      <div 
-                        className={`bg-gradient-to-r ${category.color} h-2 rounded-full`}
-                        style={{ width: `${(category.count / 38) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Карточка рейтинга */}
-            <Card className="bg-slate-800/50 border-blue-600/30 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-gradient-to-br from-purple-600 to-pink-600 p-2 rounded-lg">
-                  <Icon name="Award" size={24} className="text-white" />
-                </div>
-                <h2 className="text-xl font-bold text-white">Ваш рейтинг</h2>
-              </div>
-              <div className="text-center py-6">
-                <div className="inline-flex items-center justify-center w-32 h-32 mb-4 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-full">
-                  <span className="text-5xl font-bold text-white">3</span>
-                </div>
-                <p className="text-slate-300 text-lg">место в отделе</p>
-                <div className="mt-6 p-4 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg border border-purple-600/30">
-                  <p className="text-sm text-slate-300">
-                    До 2 места осталось <span className="text-white font-bold">12</span> наблюдений
-                  </p>
-                </div>
-              </div>
-            </Card>
+        {/* Таблица для заполнения */}
+        <Card className="bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-gray-900">Таблица для заполнения</h2>
+            <div className="flex items-center gap-4">
+              <select 
+                className="border border-gray-300 rounded px-4 py-2 text-sm"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+              >
+                <option>Главные специалисты</option>
+                <option>Руководители участков</option>
+                <option>Инженерный состав</option>
+              </select>
+              <Button variant="outline" className="rounded px-6 text-sm">
+                Редактировать текст
+              </Button>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded px-6 text-sm"
+                onClick={handleSaveFile}
+              >
+                Сохранить файл
+              </Button>
+            </div>
           </div>
 
-          {/* Дополнительные действия */}
-          <div className="mt-8 flex gap-4 justify-center">
-            <Button
-              onClick={() => navigate('/reports')}
-              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
-            >
-              <Icon name="FileText" size={20} className="mr-2" />
-              Сформировать отчёт
-            </Button>
-            <Button
-              onClick={() => navigate('/dashboard')}
-              variant="outline"
-              className="border-blue-600/50 text-blue-400 hover:bg-blue-600/10"
-            >
-              <Icon name="Home" size={20} className="mr-2" />
-              На главную
-            </Button>
+          <p className="text-xs text-gray-500 mb-4">
+            Формулы пересчитываются автоматически. Для скорости показаны первые 200 строк и 50 столбцов
+          </p>
+
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-3 text-sm font-medium text-gray-700 bg-gray-50">Должность</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-700 bg-gray-50">Аудиты</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-700 bg-gray-50">Наблюдения</th>
+                </tr>
+              </thead>
+              <tbody>
+                {positionsData.map((item) => (
+                  <tr key={item.id} className="border-b hover:bg-gray-50">
+                    <td className="p-3 text-sm text-gray-900">{item.position}</td>
+                    <td className="p-3">
+                      <input
+                        type="number"
+                        value={item.audits}
+                        onChange={(e) => handleDataChange(item.id, 'audits', e.target.value)}
+                        className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
+                      />
+                    </td>
+                    <td className="p-3">
+                      <input
+                        type="number"
+                        value={item.observations}
+                        onChange={(e) => handleDataChange(item.id, 'observations', e.target.value)}
+                        className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+        </Card>
+
+        {/* Кнопка назад внизу */}
+        <div className="mt-6 flex justify-center">
+          <Button
+            onClick={() => navigate('/additional')}
+            variant="outline"
+            className="rounded-full px-8"
+          >
+            <Icon name="ArrowLeft" size={20} className="mr-2" />
+            Назад к дополнительным страницам
+          </Button>
         </div>
       </div>
     </div>
