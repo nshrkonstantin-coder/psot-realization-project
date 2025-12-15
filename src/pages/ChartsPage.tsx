@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 
 interface PositionData {
   id: number;
@@ -13,57 +14,137 @@ interface PositionData {
   observations: number;
 }
 
+interface SheetData {
+  [sheetName: string]: PositionData[];
+}
+
 const ChartsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'назад' | 'печать'>('назад');
   const [selectedFiles, setSelectedFiles] = useState<number[]>([]);
-  const [uploadedFiles, setUploadedFiles] = useState<Array<{ id: number; name: string; date: string }>>([
-    { id: 2, name: '2. ДЛЯ Приложения личные показатели ПАБ..xlsx', date: '04.12.2025, 02:39:45' }
-  ]);
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ id: number; name: string; date: string }>>([]);
   
-  const [selectedCategory, setSelectedCategory] = useState('Главные специалисты');
-  const [positionsData, setPositionsData] = useState<PositionData[]>([
-    { id: 1, position: 'Главный инженер', audits: 6, observations: 18 },
-    { id: 2, position: 'Зам. Главного инженера', audits: 6, observations: 18 },
-    { id: 3, position: 'ЗУД по горным работам', audits: 6, observations: 18 },
-    { id: 4, position: 'Главный энергетик', audits: 6, observations: 18 },
-    { id: 5, position: 'Главный механик', audits: 6, observations: 18 },
-    { id: 6, position: 'Зам. Главного механика', audits: 6, observations: 18 },
-    { id: 7, position: 'Главный маркшейдер', audits: 6, observations: 18 },
-    { id: 8, position: 'Зам. Главного маркшейдера', audits: 6, observations: 18 },
-    { id: 9, position: 'Главный геолог', audits: 6, observations: 18 },
-    { id: 10, position: 'Зам. Главного геолога', audits: 6, observations: 18 },
-  ]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [sheetsData, setSheetsData] = useState<SheetData>({});
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [positionsData, setPositionsData] = useState<PositionData[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (!userId) {
       navigate('/');
+      return;
+    }
+
+    const savedFiles = localStorage.getItem('chartsUploadedFiles');
+    const savedSheetsData = localStorage.getItem('chartsSheetsData');
+    const savedSheetNames = localStorage.getItem('chartsSheetNames');
+    const savedCategory = localStorage.getItem('chartsSelectedCategory');
+    const savedEditMode = localStorage.getItem('chartsEditMode');
+
+    if (savedFiles) {
+      setUploadedFiles(JSON.parse(savedFiles));
+    }
+    if (savedSheetsData) {
+      const data = JSON.parse(savedSheetsData);
+      setSheetsData(data);
+    }
+    if (savedSheetNames) {
+      const names = JSON.parse(savedSheetNames);
+      setSheetNames(names);
+      if (names.length > 0 && !savedCategory) {
+        setSelectedCategory(names[0]);
+      }
+    }
+    if (savedCategory) {
+      setSelectedCategory(savedCategory);
+    }
+    if (savedEditMode) {
+      setIsEditMode(JSON.parse(savedEditMode));
     }
   }, [navigate]);
+
+  useEffect(() => {
+    if (selectedCategory && sheetsData[selectedCategory]) {
+      setPositionsData(sheetsData[selectedCategory]);
+    }
+  }, [selectedCategory, sheetsData]);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        const newFile = {
-          id: uploadedFiles.length + 1,
-          name: file.name,
-          date: new Date().toLocaleString('ru-RU', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          })
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = e.target?.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            
+            const newSheetsData: SheetData = {};
+            const newSheetNames = workbook.SheetNames;
+            
+            workbook.SheetNames.forEach((sheetName) => {
+              const worksheet = workbook.Sheets[sheetName];
+              const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+              
+              const positions: PositionData[] = [];
+              
+              for (let i = 1; i < jsonData.length; i++) {
+                const row = jsonData[i];
+                if (row && row.length >= 3 && row[0]) {
+                  positions.push({
+                    id: i,
+                    position: String(row[0] || ''),
+                    audits: Number(row[1]) || 0,
+                    observations: Number(row[2]) || 0
+                  });
+                }
+              }
+              
+              if (positions.length > 0) {
+                newSheetsData[sheetName] = positions;
+              }
+            });
+            
+            const newFile = {
+              id: Date.now(),
+              name: file.name,
+              date: new Date().toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              })
+            };
+            
+            const updatedFiles = [...uploadedFiles, newFile];
+            setUploadedFiles(updatedFiles);
+            setSheetsData(newSheetsData);
+            setSheetNames(newSheetNames);
+            
+            if (newSheetNames.length > 0) {
+              setSelectedCategory(newSheetNames[0]);
+            }
+            
+            setIsEditMode(true);
+            
+            toast({
+              title: "Файл загружен",
+              description: `Файл "${file.name}" успешно распознан. Найдено листов: ${newSheetNames.length}`,
+            });
+          } catch (error) {
+            toast({
+              title: "Ошибка",
+              description: "Не удалось прочитать файл Excel",
+              variant: "destructive"
+            });
+          }
         };
-        setUploadedFiles([...uploadedFiles, newFile]);
-        toast({
-          title: "Файл загружен",
-          description: `Файл "${file.name}" успешно загружен`,
-        });
+        reader.readAsBinaryString(file);
       } else {
         toast({
           title: "Ошибка",
@@ -72,6 +153,7 @@ const ChartsPage = () => {
         });
       }
     }
+    event.target.value = '';
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -91,26 +173,74 @@ const ChartsPage = () => {
   };
 
   const handleDeleteSelected = () => {
+    if (selectedFiles.length === 0) return;
+    
     setUploadedFiles(uploadedFiles.filter(f => !selectedFiles.includes(f.id)));
     setSelectedFiles([]);
+    
+    setSheetsData({});
+    setSheetNames([]);
+    setPositionsData([]);
+    setSelectedCategory('');
+    setIsEditMode(false);
+    
+    localStorage.removeItem('chartsUploadedFiles');
+    localStorage.removeItem('chartsSheetsData');
+    localStorage.removeItem('chartsSheetNames');
+    localStorage.removeItem('chartsSelectedCategory');
+    localStorage.removeItem('chartsEditMode');
+    
     toast({
       title: "Файлы удалены",
-      description: `Удалено файлов: ${selectedFiles.length}`,
+      description: `Удалено файлов: ${selectedFiles.length}. Все данные очищены.`,
     });
   };
 
   const handleDataChange = (id: number, field: 'audits' | 'observations', value: string) => {
+    if (!isEditMode) return;
+    
     const numValue = parseInt(value) || 0;
-    setPositionsData(positionsData.map(item => 
+    const updatedData = positionsData.map(item => 
       item.id === id ? { ...item, [field]: numValue } : item
-    ));
+    );
+    setPositionsData(updatedData);
+    
+    if (selectedCategory) {
+      const updatedSheetsData = {
+        ...sheetsData,
+        [selectedCategory]: updatedData
+      };
+      setSheetsData(updatedSheetsData);
+    }
   };
 
   const handleSaveFile = () => {
+    localStorage.setItem('chartsUploadedFiles', JSON.stringify(uploadedFiles));
+    localStorage.setItem('chartsSheetsData', JSON.stringify(sheetsData));
+    localStorage.setItem('chartsSheetNames', JSON.stringify(sheetNames));
+    localStorage.setItem('chartsSelectedCategory', selectedCategory);
+    localStorage.setItem('chartsEditMode', JSON.stringify(false));
+    
+    setIsEditMode(false);
+    
     toast({
       title: "Файл сохранён",
-      description: "Изменения успешно сохранены",
+      description: "Изменения успешно сохранены и заблокированы для редактирования",
     });
+  };
+
+  const handleEditText = () => {
+    setIsEditMode(true);
+    localStorage.setItem('chartsEditMode', JSON.stringify(true));
+    toast({
+      title: "Режим редактирования",
+      description: "Теперь вы можете редактировать таблицу",
+    });
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    localStorage.setItem('chartsSelectedCategory', category);
   };
 
   return (
@@ -188,20 +318,26 @@ const ChartsPage = () => {
               <span className="text-sm font-medium text-gray-700">Выбрать все</span>
             </div>
 
-            {uploadedFiles.map((file) => (
-              <div key={file.id} className="flex items-center justify-between py-3 border-b hover:bg-gray-50">
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    checked={selectedFiles.includes(file.id)}
-                    onCheckedChange={(checked) => handleSelectFile(file.id, checked as boolean)}
-                  />
-                  <a href="#" className="text-blue-600 hover:underline text-sm">
-                    {file.name}
-                  </a>
-                </div>
-                <span className="text-sm text-gray-500">{file.date}</span>
+            {uploadedFiles.length === 0 ? (
+              <div className="py-8 text-center text-gray-500">
+                Файлы не загружены
               </div>
-            ))}
+            ) : (
+              uploadedFiles.map((file) => (
+                <div key={file.id} className="flex items-center justify-between py-3 border-b hover:bg-gray-50">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      checked={selectedFiles.includes(file.id)}
+                      onCheckedChange={(checked) => handleSelectFile(file.id, checked as boolean)}
+                    />
+                    <a href="#" className="text-blue-600 hover:underline text-sm">
+                      {file.name}
+                    </a>
+                  </div>
+                  <span className="text-sm text-gray-500">{file.date}</span>
+                </div>
+              ))
+            )}
           </div>
         </Card>
 
@@ -213,18 +349,31 @@ const ChartsPage = () => {
               <select 
                 className="border border-gray-300 rounded px-4 py-2 text-sm"
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                disabled={sheetNames.length === 0}
               >
-                <option>Главные специалисты</option>
-                <option>Руководители участков</option>
-                <option>Инженерный состав</option>
+                {sheetNames.length === 0 ? (
+                  <option value="">Загрузите файл Excel</option>
+                ) : (
+                  sheetNames.map((sheetName) => (
+                    <option key={sheetName} value={sheetName}>
+                      {sheetName}
+                    </option>
+                  ))
+                )}
               </select>
-              <Button variant="outline" className="rounded px-6 text-sm">
+              <Button 
+                variant="outline" 
+                className="rounded px-6 text-sm"
+                onClick={handleEditText}
+                disabled={positionsData.length === 0 || isEditMode}
+              >
                 Редактировать текст
               </Button>
               <Button 
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded px-6 text-sm"
                 onClick={handleSaveFile}
+                disabled={positionsData.length === 0 || !isEditMode}
               >
                 Сохранить файл
               </Button>
@@ -236,38 +385,46 @@ const ChartsPage = () => {
           </p>
 
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-3 text-sm font-medium text-gray-700 bg-gray-50">Должность</th>
-                  <th className="text-left p-3 text-sm font-medium text-gray-700 bg-gray-50">Аудиты</th>
-                  <th className="text-left p-3 text-sm font-medium text-gray-700 bg-gray-50">Наблюдения</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positionsData.map((item) => (
-                  <tr key={item.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 text-sm text-gray-900">{item.position}</td>
-                    <td className="p-3">
-                      <input
-                        type="number"
-                        value={item.audits}
-                        onChange={(e) => handleDataChange(item.id, 'audits', e.target.value)}
-                        className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
-                      />
-                    </td>
-                    <td className="p-3">
-                      <input
-                        type="number"
-                        value={item.observations}
-                        onChange={(e) => handleDataChange(item.id, 'observations', e.target.value)}
-                        className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
-                      />
-                    </td>
+            {positionsData.length === 0 ? (
+              <div className="py-12 text-center text-gray-500">
+                Загрузите Excel файл для отображения данных
+              </div>
+            ) : (
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-3 text-sm font-medium text-gray-700 bg-gray-50">Должность</th>
+                    <th className="text-left p-3 text-sm font-medium text-gray-700 bg-gray-50">Аудиты</th>
+                    <th className="text-left p-3 text-sm font-medium text-gray-700 bg-gray-50">Наблюдения</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {positionsData.map((item) => (
+                    <tr key={item.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3 text-sm text-gray-900">{item.position}</td>
+                      <td className="p-3">
+                        <input
+                          type="number"
+                          value={item.audits}
+                          onChange={(e) => handleDataChange(item.id, 'audits', e.target.value)}
+                          disabled={!isEditMode}
+                          className="w-20 border border-gray-300 rounded px-2 py-1 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      </td>
+                      <td className="p-3">
+                        <input
+                          type="number"
+                          value={item.observations}
+                          onChange={(e) => handleDataChange(item.id, 'observations', e.target.value)}
+                          disabled={!isEditMode}
+                          className="w-20 border border-gray-300 rounded px-2 py-1 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </Card>
 
