@@ -1,10 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
   <defs>
+    <linearGradient id="orangeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B35;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFA500;stop-opacity:1" />
+    </linearGradient>
     <radialGradient id="lampGlow">
       <stop offset="0%" style="stop-color:#FFEB3B;stop-opacity:0.8">
         <animate attributeName="stop-opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite"/>
       </stop>
-      <stop offset="100%" style="stop-color:#F4C430;stop-opacity:0">
+      <stop offset="100%" style="stop-color:#FFA500;stop-opacity:0">
         <animate attributeName="stop-opacity" values="0;0.3;0" dur="2s" repeatCount="indefinite"/>
       </stop>
     </radialGradient>
@@ -16,17 +20,17 @@
   <!-- Hexagon shape outline -->
   <path d="M 200 30 L 340 110 L 340 270 L 200 350 L 60 270 L 60 110 Z" 
         fill="none" 
-        stroke="#F4C430" 
+        stroke="url(#orangeGradient)" 
         stroke-width="8"/>
   
   <!-- Top house shape -->
   <path d="M 50 150 L 200 60 L 350 150" 
         fill="none" 
-        stroke="#F4C430" 
+        stroke="url(#orangeGradient)" 
         stroke-width="8"
         stroke-linejoin="miter"/>
-  <line x1="50" y1="150" x2="50" y2="180" stroke="#F4C430" stroke-width="8"/>
-  <line x1="350" y1="150" x2="350" y2="180" stroke="#F4C430" stroke-width="8"/>
+  <line x1="50" y1="150" x2="50" y2="180" stroke="url(#orangeGradient)" stroke-width="8"/>
+  <line x1="350" y1="150" x2="350" y2="180" stroke="url(#orangeGradient)" stroke-width="8"/>
   
   <!-- Mining lamp icon -->
   <g transform="translate(200, 100)">
@@ -34,38 +38,38 @@
     <circle cx="0" cy="5" r="35" fill="url(#lampGlow)" opacity="0.6"/>
     
     <!-- Lamp hanger -->
-    <line x1="-25" y1="-15" x2="-15" y2="-25" stroke="#F4C430" stroke-width="3"/>
-    <line x1="25" y1="-15" x2="15" y2="-25" stroke="#F4C430" stroke-width="3"/>
-    <line x1="-15" y1="-25" x2="15" y2="-25" stroke="#F4C430" stroke-width="3"/>
+    <line x1="-25" y1="-15" x2="-15" y2="-25" stroke="url(#orangeGradient)" stroke-width="3"/>
+    <line x1="25" y1="-15" x2="15" y2="-25" stroke="url(#orangeGradient)" stroke-width="3"/>
+    <line x1="-15" y1="-25" x2="15" y2="-25" stroke="url(#orangeGradient)" stroke-width="3"/>
     
     <!-- Lamp body with light fill -->
     <rect x="-20" y="-15" width="40" height="35" 
-          fill="#F4C430" 
+          fill="url(#orangeGradient)" 
           fill-opacity="0.15"
-          stroke="#F4C430" 
+          stroke="url(#orangeGradient)" 
           stroke-width="3" 
           rx="3">
       <animate attributeName="fill-opacity" values="0.15;0.25;0.15" dur="2s" repeatCount="indefinite"/>
     </rect>
     
     <!-- Lamp grid -->
-    <line x1="-20" y1="-5" x2="20" y2="-5" stroke="#F4C430" stroke-width="2"/>
-    <line x1="-20" y1="5" x2="20" y2="5" stroke="#F4C430" stroke-width="2"/>
-    <line x1="-10" y1="-15" x2="-10" y2="20" stroke="#F4C430" stroke-width="2"/>
-    <line x1="0" y1="-15" x2="0" y2="20" stroke="#F4C430" stroke-width="2"/>
-    <line x1="10" y1="-15" x2="10" y2="20" stroke="#F4C430" stroke-width="2"/>
+    <line x1="-20" y1="-5" x2="20" y2="-5" stroke="url(#orangeGradient)" stroke-width="2"/>
+    <line x1="-20" y1="5" x2="20" y2="5" stroke="url(#orangeGradient)" stroke-width="2"/>
+    <line x1="-10" y1="-15" x2="-10" y2="20" stroke="url(#orangeGradient)" stroke-width="2"/>
+    <line x1="0" y1="-15" x2="0" y2="20" stroke="url(#orangeGradient)" stroke-width="2"/>
+    <line x1="10" y1="-15" x2="10" y2="20" stroke="url(#orangeGradient)" stroke-width="2"/>
     
     <!-- Lamp stand -->
     <rect x="-8" y="20" width="16" height="12" 
           fill="none" 
-          stroke="#F4C430" 
+          stroke="url(#orangeGradient)" 
           stroke-width="3"/>
   </g>
   
   <!-- Main banner -->
   <rect x="25" y="160" width="350" height="70" 
         fill="#000000" 
-        stroke="#F4C430" 
+        stroke="url(#orangeGradient)" 
         stroke-width="8"/>
   
   <!-- Text АСУБТ -->
@@ -73,13 +77,13 @@
         font-family="Arial Black, sans-serif" 
         font-size="48" 
         font-weight="900" 
-        fill="#FFFFFF" 
+        fill="#8B1538" 
         text-anchor="middle">АСУБТ</text>
   
   <!-- Bottom banner -->
   <path d="M 50 230 L 350 230 L 340 260 L 60 260 Z" 
         fill="#000000" 
-        stroke="#F4C430" 
+        stroke="url(#orangeGradient)" 
         stroke-width="6"/>
   
   <!-- Year text -->
@@ -87,13 +91,13 @@
         font-family="Arial, sans-serif" 
         font-size="20" 
         font-weight="bold" 
-        fill="#F4C430" 
+        fill="#FFA500" 
         text-anchor="middle">2025-2026</text>
   
   <!-- Bottom point -->
   <path d="M 160 290 L 200 320 L 240 290" 
-        fill="#F4C430" 
-        stroke="#F4C430" 
+        fill="#8B1538" 
+        stroke="url(#orangeGradient)" 
         stroke-width="4"
         stroke-linejoin="miter"/>
 </svg>
