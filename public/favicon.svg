@@ -1,33 +1,82 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#FBB040;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#F7931E;stop-opacity:1" />
-    </linearGradient>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <!-- Background -->
+  <rect width="400" height="400" fill="#000000"/>
   
-  <!-- Background circle -->
-  <circle cx="256" cy="256" r="256" fill="#1e293b"/>
+  <!-- Hexagon shape outline -->
+  <path d="M 200 30 L 340 110 L 340 270 L 200 350 L 60 270 L 60 110 Z" 
+        fill="none" 
+        stroke="#F4C430" 
+        stroke-width="8"/>
   
-  <!-- Shield shape -->
-  <path d="M256 80 L140 140 L140 260 Q140 360 256 432 Q372 360 372 260 L372 140 Z" 
-        fill="url(#grad)" stroke="#FBB040" stroke-width="4"/>
+  <!-- Top house shape -->
+  <path d="M 50 150 L 200 60 L 350 150" 
+        fill="none" 
+        stroke="#F4C430" 
+        stroke-width="8"
+        stroke-linejoin="miter"/>
+  <line x1="50" y1="150" x2="50" y2="180" stroke="#F4C430" stroke-width="8"/>
+  <line x1="350" y1="150" x2="350" y2="180" stroke="#F4C430" stroke-width="8"/>
   
-  <!-- Helmet icon -->
-  <g transform="translate(256, 240)">
-    <!-- Helmet main -->
-    <path d="M-60,-20 Q-60,-60 -20,-80 L20,-80 Q60,-60 60,-20 L60,20 L-60,20 Z" 
-          fill="#fff" opacity="0.95"/>
-    <!-- Helmet visor -->
-    <rect x="-50" y="-10" width="100" height="25" fill="#1e293b" opacity="0.3" rx="3"/>
-    <!-- Light on helmet -->
-    <ellipse cx="0" cy="-50" rx="12" ry="8" fill="#FBB040"/>
-    <ellipse cx="0" cy="-50" rx="8" ry="5" fill="#fff"/>
+  <!-- Mining lamp icon -->
+  <g transform="translate(200, 100)">
+    <!-- Lamp hanger -->
+    <line x1="-25" y1="-15" x2="-15" y2="-25" stroke="#F4C430" stroke-width="3"/>
+    <line x1="25" y1="-15" x2="15" y2="-25" stroke="#F4C430" stroke-width="3"/>
+    <line x1="-15" y1="-25" x2="15" y2="-25" stroke="#F4C430" stroke-width="3"/>
+    
+    <!-- Lamp body -->
+    <rect x="-20" y="-15" width="40" height="35" 
+          fill="none" 
+          stroke="#F4C430" 
+          stroke-width="3" 
+          rx="3"/>
+    
+    <!-- Lamp grid -->
+    <line x1="-20" y1="-5" x2="20" y2="-5" stroke="#F4C430" stroke-width="2"/>
+    <line x1="-20" y1="5" x2="20" y2="5" stroke="#F4C430" stroke-width="2"/>
+    <line x1="-10" y1="-15" x2="-10" y2="20" stroke="#F4C430" stroke-width="2"/>
+    <line x1="0" y1="-15" x2="0" y2="20" stroke="#F4C430" stroke-width="2"/>
+    <line x1="10" y1="-15" x2="10" y2="20" stroke="#F4C430" stroke-width="2"/>
+    
+    <!-- Lamp stand -->
+    <rect x="-8" y="20" width="16" height="12" 
+          fill="none" 
+          stroke="#F4C430" 
+          stroke-width="3"/>
   </g>
   
-  <!-- Mining pick axes crossed -->
-  <g transform="translate(256, 340)">
-    <line x1="-40" y1="10" x2="40" y2="-10" stroke="#FBB040" stroke-width="8" stroke-linecap="round"/>
-    <line x1="-40" y1="-10" x2="40" y2="10" stroke="#FBB040" stroke-width="8" stroke-linecap="round"/>
-  </g>
+  <!-- Main banner -->
+  <rect x="25" y="160" width="350" height="70" 
+        fill="#000000" 
+        stroke="#F4C430" 
+        stroke-width="8"/>
+  
+  <!-- Text АСУБТ -->
+  <text x="200" y="210" 
+        font-family="Arial Black, sans-serif" 
+        font-size="48" 
+        font-weight="900" 
+        fill="#FFFFFF" 
+        text-anchor="middle">АСУБТ</text>
+  
+  <!-- Bottom banner -->
+  <path d="M 50 230 L 350 230 L 340 260 L 60 260 Z" 
+        fill="#000000" 
+        stroke="#F4C430" 
+        stroke-width="6"/>
+  
+  <!-- Year text -->
+  <text x="200" y="252" 
+        font-family="Arial, sans-serif" 
+        font-size="20" 
+        font-weight="bold" 
+        fill="#F4C430" 
+        text-anchor="middle">2025-2026</text>
+  
+  <!-- Bottom point -->
+  <path d="M 160 290 L 200 320 L 240 290" 
+        fill="#F4C430" 
+        stroke="#F4C430" 
+        stroke-width="4"
+        stroke-linejoin="miter"/>
 </svg>
