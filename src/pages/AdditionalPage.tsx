@@ -16,6 +16,20 @@ const AdditionalPage = () => {
 
   const additionalFeatures = [
     { 
+      label: 'Сообщения', 
+      icon: 'MessageCircle', 
+      color: 'from-cyan-500 to-blue-600', 
+      route: '/chat-history',
+      description: 'Обмен сообщениями с коллегами'
+    },
+    { 
+      label: 'Видео конференция', 
+      icon: 'Video', 
+      color: 'from-pink-500 to-rose-600', 
+      route: '/video-conference',
+      description: 'Проведение видеоконференций'
+    },
+    { 
       label: 'Хранилище', 
       icon: 'FolderOpen', 
       color: 'from-purple-500 to-purple-600', 

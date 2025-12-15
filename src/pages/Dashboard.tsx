@@ -29,20 +29,18 @@ const Dashboard = () => {
   const navigationButtons = [
     { label: 'Личный кабинет', icon: 'User', color: 'from-purple-500 to-purple-600', route: '/user-cabinet' },
     { label: 'Профиль', icon: 'Settings', color: 'from-slate-500 to-slate-600', route: '/profile' },
-    { label: 'Сообщения', icon: 'MessageCircle', color: 'from-cyan-500 to-blue-600', route: '/chat-history' },
-    { label: 'Видео конференция', icon: 'Video', color: 'from-pink-500 to-rose-600', route: '/video-conference' },
+    { label: 'Дополнительно', icon: 'Plus', color: 'from-yellow-500 to-yellow-600', route: '/additional' },
     { label: 'Регистрация ПАБ', icon: 'FileText', color: 'from-red-500 to-red-600', route: '/pab-registration' },
     { label: 'Список ПАБ', icon: 'List', color: 'from-green-500 to-green-600', route: '/pab-list' },
     { label: 'Аналитика ПАБ', icon: 'LineChart', color: 'from-indigo-500 to-indigo-600', route: '/pab-analytics' },
+    { label: 'Производственный контроль', icon: 'Shield', color: 'from-red-600 to-red-700', route: '/production-control' },
     { label: 'Список ПК', icon: 'ClipboardList', color: 'from-emerald-500 to-emerald-600', route: '/pc-list' },
     { label: 'Аналитика ПК', icon: 'BarChart2', color: 'from-teal-500 to-teal-600', route: '/pc-analytics' },
     { label: 'Мои показатели', icon: 'TrendingUp', color: 'from-blue-500 to-blue-600', route: '/my-metrics' },
     { label: 'Отчет для КБТ', icon: 'ClipboardCheck', color: 'from-orange-600 to-orange-700', route: '/kbt-report' },
-    { label: 'Производственный контроль', icon: 'Shield', color: 'from-red-600 to-red-700', route: '/production-control' },
+    { label: 'Журнал поручений', icon: 'BookOpen', color: 'from-red-500 to-red-600', route: '/orders' },
     { label: 'Реестр предписаний', icon: 'ClipboardList', color: 'from-blue-600 to-cyan-600', route: '/prescriptions' },
     { label: 'Статистика нарушений', icon: 'BarChart3', color: 'from-blue-600 to-cyan-600', route: '/violations-stats' },
-    { label: 'Дополнительно', icon: 'Plus', color: 'from-yellow-500 to-yellow-600', route: '/additional' },
-    { label: 'Журнал поручений', icon: 'BookOpen', color: 'from-red-500 to-red-600', route: '/orders' },
   ];
 
   return (
