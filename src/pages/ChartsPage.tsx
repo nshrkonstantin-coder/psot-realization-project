@@ -93,12 +93,13 @@ const ChartsPage = () => {
               
               for (let i = 1; i < jsonData.length; i++) {
                 const row = jsonData[i];
-                if (row && row.length >= 3 && row[0]) {
+                if (row && row.length >= 2 && row[0]) {
+                  const audits = Number(row[1]) || 0;
                   positions.push({
                     id: i,
                     position: String(row[0] || ''),
-                    audits: Number(row[1]) || 0,
-                    observations: Number(row[2]) || 0
+                    audits: audits,
+                    observations: audits * 3
                   });
                 }
               }
@@ -200,9 +201,15 @@ const ChartsPage = () => {
     if (!isEditMode) return;
     
     const numValue = parseInt(value) || 0;
-    const updatedData = positionsData.map(item => 
-      item.id === id ? { ...item, [field]: numValue } : item
-    );
+    const updatedData = positionsData.map(item => {
+      if (item.id === id) {
+        if (field === 'audits') {
+          return { ...item, audits: numValue, observations: numValue * 3 };
+        }
+        return { ...item, [field]: numValue };
+      }
+      return item;
+    });
     setPositionsData(updatedData);
     
     if (selectedCategory) {
@@ -412,13 +419,7 @@ const ChartsPage = () => {
                         />
                       </td>
                       <td className="p-3">
-                        <input
-                          type="number"
-                          value={item.observations}
-                          onChange={(e) => handleDataChange(item.id, 'observations', e.target.value)}
-                          disabled={!isEditMode}
-                          className="w-20 border border-gray-300 rounded px-2 py-1 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        />
+                        <span className="text-sm text-gray-700">{item.observations}</span>
                       </td>
                     </tr>
                   ))}
