@@ -89,6 +89,13 @@ const OrgMiniAdmin = () => {
       module: 'production_control'
     },
     { 
+      label: 'Реестр ПК', 
+      icon: 'FolderOpen', 
+      color: 'from-teal-500 to-emerald-600', 
+      route: '/pc-registry',
+      module: 'production_control'
+    },
+    { 
       label: 'Реестр предписаний', 
       icon: 'ClipboardList', 
       color: 'from-blue-600 to-cyan-600', 

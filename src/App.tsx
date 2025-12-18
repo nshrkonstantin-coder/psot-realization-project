@@ -51,6 +51,7 @@ import PabAnalyticsPage from "./pages/PabAnalyticsPage";
 import PcListPage from "./pages/PcListPage";
 import PcViewPage from "./pages/PcViewPage";
 import PcAnalyticsPage from "./pages/PcAnalyticsPage";
+import PcRegistryPage from "./pages/PcRegistryPage";
 import PrescriptionsPage from "./pages/PrescriptionsPage";
 import Integration1CPage from "./pages/Integration1CPage";
 import AdminMessagesPage from "./pages/AdminMessagesPage";
@@ -116,6 +117,7 @@ const App = () => (
           <Route path="/pc-list" element={<PcListPage />} />
           <Route path="/pc-view/:id" element={<PcViewPage />} />
           <Route path="/pc-analytics" element={<PcAnalyticsPage />} />
+          <Route path="/pc-registry" element={<PcRegistryPage />} />
           <Route path="/prescriptions" element={<PrescriptionsPage />} />
           <Route path="/integration-1c" element={<Integration1CPage />} />
           <Route path="/admin-messages" element={<AdminMessagesPage />} />
