@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 interface KBTReport {
   id: number;
+  company: string;
   department: string;
   head_name: string;
   period_from: string;
@@ -82,7 +83,8 @@ const KBTReportViewPage = () => {
     setLoading(true);
     try {
       const orgId = localStorage.getItem('organizationId');
-      const response = await fetch(`https://functions.poehali.dev/7abe1e4c-3790-4bcd-9d37-4967f7dfb8ca?organization_id=${orgId}&report_id=${id}`, {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(`https://functions.poehali.dev/7abe1e4c-3790-4bcd-9d37-4967f7dfb8ca?organization_id=${orgId}&report_id=${id}&user_id=${userId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -170,15 +172,15 @@ const KBTReportViewPage = () => {
         <Card className="bg-slate-800/50 border-purple-500/30 p-8 print:bg-white print:border-black">
           <div className="space-y-8">
             <div className="text-center border-b border-purple-500/30 pb-6 print:border-black">
-              <h2 className="text-2xl font-bold text-white print:text-black mb-2">
-                АО «ГРК «Западная» Рудник «Бадран»
-              </h2>
               <h3 className="text-xl font-semibold text-purple-400 print:text-black">
                 Форма отчета на КБТ
               </h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-white print:text-black">
+              <div>
+                <span className="font-semibold">Компания:</span> {report.company}
+              </div>
               <div>
                 <span className="font-semibold">Подразделение:</span> {report.department}
               </div>

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 interface KBTReport {
   id: number;
+  company: string;
   department: string;
   head_name: string;
   period_from: string;
@@ -34,7 +35,8 @@ const KBTReportsPage = () => {
     setLoading(true);
     try {
       const orgId = localStorage.getItem('organizationId');
-      const response = await fetch(`https://functions.poehali.dev/7abe1e4c-3790-4bcd-9d37-4967f7dfb8ca?organization_id=${orgId}`, {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(`https://functions.poehali.dev/7abe1e4c-3790-4bcd-9d37-4967f7dfb8ca?organization_id=${orgId}&user_id=${userId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -141,7 +143,11 @@ const KBTReportsPage = () => {
                           ID: {report.id}
                         </span>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <Icon name="Building2" size={16} className="text-purple-400" />
+                          <span>{report.company}</span>
+                        </div>
                         <div className="flex items-center gap-2 text-slate-400">
                           <Icon name="Calendar" size={16} className="text-purple-400" />
                           <span>Создан: {formatDate(report.created_at)}</span>

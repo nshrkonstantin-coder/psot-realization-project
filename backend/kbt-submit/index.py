@@ -46,8 +46,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         try:
             if report_id:
+                user_id = params.get('user_id')
+                if not user_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
+                        },
+                        'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'user_id required'})
+                    }
+                
                 cur.execute(f"""
-                    SELECT id, department, head_name, period_from, period_to, sick_count, suspended, injuries,
+                    SELECT id, company, department, head_name, period_from, period_to, sick_count, suspended, injuries,
                            micro_injuries, sick_leave, accidents, acts_count, inspector, violations_count,
                            responsible_person, fixed_count, in_progress_count, overdue_count, reasons,
                            actions_taken, internal_checks_count, internal_violations_count, internal_responsible,
@@ -61,7 +73,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                            involved_engineers_count, involved_engineers_list, not_involved_engineers_count,
                            involvement_work, user_id, organization_id, word_file_url, created_at
                     FROM t_p80499285_psot_realization_pro.kbt_reports
-                    WHERE id = {report_id} AND organization_id = {organization_id}
+                    WHERE id = {report_id} AND organization_id = {organization_id} AND user_id = {user_id}
                 """)
                 row = cur.fetchone()
                 if not row:
@@ -98,10 +110,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     })
                 }
             else:
+                user_id = params.get('user_id')
+                if not user_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
+                        },
+                        'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'user_id required'})
+                    }
+                
                 cur.execute(f"""
-                    SELECT id, department, head_name, period_from, period_to, user_id, organization_id, created_at
+                    SELECT id, company, department, head_name, period_from, period_to, user_id, organization_id, created_at
                     FROM t_p80499285_psot_realization_pro.kbt_reports
-                    WHERE organization_id = {organization_id}
+                    WHERE organization_id = {organization_id} AND user_id = {user_id}
                     ORDER BY created_at DESC
                 """)
                 
@@ -151,15 +175,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         body_data = json.loads(event.get('body', '{}'))
         
-        department = body_data.get('department')
-        head_name = body_data.get('head_name')
-        period_from = body_data.get('period_from')
-        period_to = body_data.get('period_to')
         user_id = body_data.get('user_id')
         organization_id = body_data.get('organization_id')
+        period_from = body_data.get('period_from')
+        period_to = body_data.get('period_to')
         word_file_url = body_data.get('word_file_url', '')
         
-        if not all([department, head_name, period_from, period_to, user_id, organization_id]):
+        if not all([period_from, period_to, user_id, organization_id]):
             return {
                 'statusCode': 400,
                 'headers': {
@@ -174,6 +196,29 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cur = conn.cursor()
         
         try:
+            # Get user profile data
+            cur.execute(f"""
+                SELECT fio, company, subdivision
+                FROM t_p80499285_psot_realization_pro.users
+                WHERE id = {user_id} AND organization_id = {organization_id}
+            """)
+            user_row = cur.fetchone()
+            
+            if not user_row:
+                return {
+                    'statusCode': 404,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'User not found'})
+                }
+            
+            head_name = user_row[0] or ''
+            company = user_row[1] or ''
+            department = user_row[2] or ''
+            
             # Escape all string fields
             fields = [
                 'department', 'head_name', 'sick_count', 'suspended', 'injuries', 
@@ -201,9 +246,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             word_file_url_esc = str(word_file_url).replace("'", "''")
             
             # Build SQL query
+            company_esc = str(company).replace("'", "''")
+            department_esc = str(department).replace("'", "''")
+            head_name_esc = str(head_name).replace("'", "''")
+            
             cur.execute(f"""
                 INSERT INTO t_p80499285_psot_realization_pro.kbt_reports 
-                (department, head_name, period_from, period_to, sick_count, suspended, injuries,
+                (company, department, head_name, period_from, period_to, sick_count, suspended, injuries,
                  micro_injuries, sick_leave, accidents, acts_count, inspector, violations_count,
                  responsible_person, fixed_count, in_progress_count, overdue_count, reasons,
                  actions_taken, internal_checks_count, internal_violations_count, internal_responsible,
@@ -216,7 +265,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                  involved_workers_count, involved_workers_list, not_involved_workers_count,
                  involved_engineers_count, involved_engineers_list, not_involved_engineers_count,
                  involvement_work, user_id, organization_id, word_file_url)
-                VALUES ('{escaped_values['department']}', '{escaped_values['head_name']}', '{period_from}', '{period_to}',
+                VALUES ('{company_esc}', '{department_esc}', '{head_name_esc}', '{period_from}', '{period_to}',
                         '{escaped_values['sick_count']}', '{escaped_values['suspended']}', '{escaped_values['injuries']}',
                         '{escaped_values['micro_injuries']}', '{escaped_values['sick_leave']}', '{escaped_values['accidents']}',
                         '{escaped_values['acts_count']}', '{escaped_values['inspector']}', '{escaped_values['violations_count']}',

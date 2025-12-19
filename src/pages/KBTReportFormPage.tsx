@@ -173,11 +173,6 @@ export default function KBTReportFormPage() {
   };
 
   const handleSave = async () => {
-    if (!formData.department || !formData.head_name) {
-      toast.error('Заполните обязательные поля: Подразделение и ФИО руководителя');
-      return;
-    }
-
     setLoading(true);
     
     try {
