@@ -175,18 +175,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         violation_id = cur.fetchone()[0]
                         
                         # Отправляем уведомление в Telegram
+                        print(f'[DEBUG] Checking Telegram for user_id={final_user_id}')
                         cur.execute(f"""
                             SELECT u.telegram_chat_id, u.telegram_username
                             FROM t_p80499285_psot_realization_pro.users u
                             WHERE u.id = {final_user_id} AND u.telegram_chat_id IS NOT NULL
                         """)
                         user_tg = cur.fetchone()
+                        print(f'[DEBUG] Telegram query result: {user_tg}')
                         
                         if user_tg and user_tg[0]:
                             import urllib.request
                             import urllib.parse
                             
                             bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+                            print(f'[DEBUG] Bot token exists: {bool(bot_token)}')
                             if bot_token:
                                 message = f"""🔔 <b>Новое предписание</b>
 
@@ -210,10 +213,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 }).encode()
                                 
                                 try:
+                                    print(f'[DEBUG] Sending to chat_id={user_tg[0]}')
                                     urllib.request.urlopen(send_url, data=data, timeout=5)
                                     print(f'[Telegram] Sent notification to user {final_user_id}')
                                 except Exception as e:
                                     print(f'[Telegram] Failed to send: {e}')
+                            else:
+                                print('[DEBUG] Bot token is empty!')
+                        else:
+                            print(f'[DEBUG] No Telegram for user {final_user_id}')
             
             conn.commit()
             
