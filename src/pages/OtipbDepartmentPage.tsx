@@ -26,31 +26,42 @@ const OtipbDepartmentPage = () => {
   const startWorkDay = () => {
     const greetingText = `Доброе утро, ${userName}! Желаю вам отличного и продуктивного рабочего дня!`;
     
-    const utterance = new SpeechSynthesisUtterance(greetingText);
-    utterance.lang = 'ru-RU';
-    utterance.rate = 1.0;
-    utterance.pitch = 1.3;
-    utterance.volume = 1.0;
+    const loadVoicesAndSpeak = () => {
+      const voices = speechSynthesis.getVoices();
+      
+      const femaleVoice = voices.find(voice => 
+        voice.lang.startsWith('ru') && (
+          voice.name.includes('Google') ||
+          voice.name.includes('Milena') ||
+          voice.name.includes('Катя') ||
+          voice.name.includes('Алёна') ||
+          voice.name.includes('Premium') ||
+          voice.name.includes('Enhanced')
+        )
+      ) || voices.find(voice => voice.lang.startsWith('ru'));
+      
+      const utterance = new SpeechSynthesisUtterance(greetingText);
+      utterance.voice = femaleVoice || voices[0];
+      utterance.lang = 'ru-RU';
+      utterance.rate = 0.95;
+      utterance.pitch = 1.15;
+      utterance.volume = 1.0;
 
-    const voices = speechSynthesis.getVoices();
-    const femaleVoice = voices.find(voice => 
-      (voice.lang.includes('ru') && (
-        voice.name.toLowerCase().includes('female') ||
-        voice.name.toLowerCase().includes('milena') ||
-        voice.name.toLowerCase().includes('елена') ||
-        voice.name.toLowerCase().includes('google')
-      ))
-    ) || voices.find(voice => voice.lang.includes('ru'));
-    
-    if (femaleVoice) {
-      utterance.voice = femaleVoice;
-    }
+      utterance.onend = () => {
+        navigate('/otipb-workspace');
+      };
 
-    utterance.onend = () => {
-      navigate('/otipb-workspace');
+      speechSynthesis.speak(utterance);
     };
 
-    speechSynthesis.speak(utterance);
+    if (speechSynthesis.getVoices().length === 0) {
+      speechSynthesis.onvoiceschanged = () => {
+        loadVoicesAndSpeak();
+        speechSynthesis.onvoiceschanged = null;
+      };
+    } else {
+      loadVoicesAndSpeak();
+    }
 
     const alertDiv = document.createElement('div');
     alertDiv.className = 'fixed inset-0 flex items-center justify-center z-50 bg-black/70 animate-fadeIn';
