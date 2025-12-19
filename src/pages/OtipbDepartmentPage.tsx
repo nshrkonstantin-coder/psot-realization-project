@@ -122,7 +122,7 @@ const OtipbDepartmentPage = () => {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">Отдел ОТиПБ</h1>
-              <p className="text-slate-400 text-sm mt-1">Охрана труда и пожарная безопасность</p>
+              <p className="text-slate-400 text-sm mt-1">Охрана труда и промышленная безопасность</p>
             </div>
           </div>
         </div>

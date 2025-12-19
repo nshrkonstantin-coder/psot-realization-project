@@ -81,7 +81,7 @@ const AdditionalPage = () => {
       icon: 'ShieldAlert', 
       color: 'from-red-600 to-orange-600', 
       route: '/otipb-department',
-      description: 'Отдел охраны труда и пожарной безопасности'
+      description: 'Отдел охраны труда и промышленной безопасности'
     },
   ];
 
