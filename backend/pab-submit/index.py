@@ -248,7 +248,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     smtp_host = 'smtp.yandex.ru'
     smtp_port = 587
     smtp_user = 'ACYBT@yandex.ru'
-    smtp_password = 'lxsqlxpdckxrleap'
+    smtp_password = 'ojohbqpvujmlmout'
     admin_email = 'ACYBT@yandex.ru'
     
     # Получаем email пользователя из базы
