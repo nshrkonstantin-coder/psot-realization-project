@@ -17,7 +17,7 @@ const OtipbInstructionsPage = () => {
     }
 
     const department = localStorage.getItem('userDepartment');
-    setHasAccess(department === 'ОТиПБ' || department === 'Отдел ОТиПБ' || department === 'Дирекция по ОТ и ПБ');
+    setHasAccess(department === 'ОТиПБ' || department === 'Отдел ОТиПБ');
   }, [navigate]);
 
   if (hasAccess === null) {
