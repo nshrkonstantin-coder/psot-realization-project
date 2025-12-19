@@ -264,15 +264,29 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 👤 Ответственный: {responsible_fio}"""
                                 
                                 send_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-                                data = urllib.parse.urlencode({
+                                
+                                # Добавляем inline-кнопку "Принято"
+                                keyboard = {
+                                    'inline_keyboard': [[
+                                        {'text': '✅ Принято', 'callback_data': f'accept_pc_{violation_id}'}
+                                    ]]
+                                }
+                                
+                                payload = json.dumps({
                                     'chat_id': user_tg[0],
                                     'text': telegram_message,
-                                    'parse_mode': 'HTML'
+                                    'parse_mode': 'HTML',
+                                    'reply_markup': keyboard
                                 }).encode()
                                 
                                 try:
                                     print(f'[DEBUG] Sending to chat_id={user_tg[0]}')
-                                    urllib.request.urlopen(send_url, data=data, timeout=5)
+                                    req = urllib.request.Request(
+                                        send_url,
+                                        data=payload,
+                                        headers={'Content-Type': 'application/json'}
+                                    )
+                                    urllib.request.urlopen(req, timeout=5)
                                     print(f'[Telegram] Sent notification to user {final_user_id}')
                                 except Exception as e:
                                     print(f'[Telegram] Failed to send: {e}')

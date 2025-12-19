@@ -230,46 +230,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 Ответственный: {responsible_person}"""
                 
                 send_notification(cur, responsible_user_id, notification_title, notification_message, 'pab')
-                
-                # Отправляем Telegram уведомление (если привязан)
-                if resp_row[2]:
-                    import urllib.request
-                    import urllib.parse
-                    
-                    bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
-                    if bot_token:
-                        telegram_message = f"""🔔 <b>Новое наблюдение ПАБ</b>
-
-📋 Номер: {doc_number}
-📅 Дата: {body.get('date', '')}
-
-⚠️ Описание:
-{obs.get('description', '')}
-
-💡 Мероприятия:
-{obs.get('measures', '')}
-
-⏰ Срок: {obs.get('deadline', 'не указан')}
-👤 Ответственный: {responsible_person}"""
-                        
-                        send_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-                        data = urllib.parse.urlencode({
-                            'chat_id': resp_row[2],
-                            'text': telegram_message,
-                            'parse_mode': 'HTML'
-                        }).encode()
-                        
-                        try:
-                            urllib.request.urlopen(send_url, data=data, timeout=5)
-                            print(f'[Telegram] Sent PAB notification to user {responsible_user_id}')
-                        except Exception as e:
-                            print(f'[Telegram] Failed to send PAB: {e}')
         
+        # Вставляем наблюдение и получаем ID
         cur.execute(
             f"""INSERT INTO {schema}.pab_observations 
             (pab_record_id, observation_number, description, category, 
             conditions_actions, hazard_factors, measures, responsible_person, deadline, photo_url, created_at) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            RETURNING id""",
             (
                 pab_id,
                 idx,
@@ -283,6 +251,59 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 photo_url
             )
         )
+        observation_id = cur.fetchone()[0]
+        
+        # Отправляем Telegram уведомление (если привязан)
+        if responsible_person:
+            cur.execute(f"SELECT id, telegram_chat_id FROM {schema}.users WHERE fio = %s", (responsible_person,))
+            tg_check = cur.fetchone()
+            
+            if tg_check and tg_check[1]:
+                import urllib.request
+                import urllib.parse
+                
+                bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+                if bot_token:
+                    telegram_message = f"""🔔 <b>Новое наблюдение ПАБ</b>
+
+📋 Номер: {doc_number}
+📅 Дата: {body.get('date', '')}
+
+⚠️ Описание:
+{obs.get('description', '')}
+
+💡 Мероприятия:
+{obs.get('measures', '')}
+
+⏰ Срок: {obs.get('deadline', 'не указан')}
+👤 Ответственный: {responsible_person}"""
+                    
+                    send_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                    
+                    # Добавляем inline-кнопку "Принято"
+                    keyboard = {
+                        'inline_keyboard': [[
+                            {'text': '✅ Принято', 'callback_data': f'accept_pab_{observation_id}'}
+                        ]]
+                    }
+                    
+                    payload = json.dumps({
+                        'chat_id': tg_check[1],
+                        'text': telegram_message,
+                        'parse_mode': 'HTML',
+                        'reply_markup': keyboard
+                    }).encode()
+                    
+                    try:
+                        req = urllib.request.Request(
+                            send_url,
+                            data=payload,
+                            headers={'Content-Type': 'application/json'}
+                        )
+                        urllib.request.urlopen(req, timeout=5)
+                        print(f'[Telegram] Sent PAB notification to user {tg_check[0]}')
+                    except Exception as e:
+                        print(f'[Telegram] Failed to send PAB: {e}')
     
     conn.commit()
     

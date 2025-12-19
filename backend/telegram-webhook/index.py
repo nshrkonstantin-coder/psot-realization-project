@@ -34,7 +34,108 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     body = json.loads(event.get('body', '{}'))
     
+    dsn = os.environ.get('DATABASE_URL')
+    conn = psycopg2.connect(dsn)
+    cur = conn.cursor()
+    schema = 't_p80499285_psot_realization_pro'
+    bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    
+    # Обработка callback от кнопок
+    if 'callback_query' in body:
+        callback = body['callback_query']
+        callback_id = callback['id']
+        chat_id = callback['message']['chat']['id']
+        message_id = callback['message']['message_id']
+        data = callback['data']
+        user = callback['from']
+        username = user.get('username', '')
+        
+        import urllib.request
+        import urllib.parse
+        
+        # Парсим callback data: "accept_pc_12" или "accept_pab_34"
+        parts = data.split('_')
+        if len(parts) == 3 and parts[0] == 'accept':
+            notification_type = parts[1]  # 'pc' или 'pab'
+            violation_id = int(parts[2])
+            
+            # Получаем данные пользователя
+            cur.execute(f"""
+                SELECT id, fio FROM {schema}.users 
+                WHERE telegram_chat_id = {chat_id}
+            """)
+            user_data = cur.fetchone()
+            
+            if user_data:
+                user_id, user_fio = user_data
+                user_fio_esc = str(user_fio).replace("'", "''")
+                
+                # Обновляем статус в базе
+                if notification_type == 'pc':
+                    cur.execute(f"""
+                        UPDATE {schema}.production_prescription_violations
+                        SET status = 'in_work', updated_at = NOW()
+                        WHERE id = {violation_id}
+                    """)
+                    table_name = 'ПК'
+                elif notification_type == 'pab':
+                    cur.execute(f"""
+                        UPDATE {schema}.pab_observations
+                        SET created_at = NOW()
+                        WHERE id = {violation_id}
+                    """)
+                    table_name = 'ПАБ'
+                
+                conn.commit()
+                
+                # Отправляем системное уведомление
+                cur.execute(f"""
+                    INSERT INTO {schema}.system_notifications
+                    (notification_type, severity, title, message, user_id, user_fio, 
+                     is_read, created_at)
+                    VALUES ('acceptance', 'info', 
+                            '✅ Предписание принято в работу', 
+                            '{user_fio_esc} принял в работу предписание {table_name} #{violation_id}',
+                            {user_id}, '{user_fio_esc}', false, NOW())
+                """)
+                conn.commit()
+                
+                # Отправляем ответ в Telegram (answerCallbackQuery)
+                answer_url = f"https://api.telegram.org/bot{bot_token}/answerCallbackQuery"
+                answer_data = urllib.parse.urlencode({
+                    'callback_query_id': callback_id,
+                    'text': '✅ Принято в работу!'
+                }).encode()
+                urllib.request.urlopen(answer_url, data=answer_data, timeout=5)
+                
+                # Редактируем сообщение (убираем кнопку)
+                edit_url = f"https://api.telegram.org/bot{bot_token}/editMessageReplyMarkup"
+                edit_data = json.dumps({
+                    'chat_id': chat_id,
+                    'message_id': message_id,
+                    'reply_markup': {'inline_keyboard': []}
+                }).encode()
+                req = urllib.request.Request(
+                    edit_url,
+                    data=edit_data,
+                    headers={'Content-Type': 'application/json'}
+                )
+                urllib.request.urlopen(req, timeout=5)
+        
+        cur.close()
+        conn.close()
+        
+        return {
+            'statusCode': 200,
+            'headers': {'Content-Type': 'application/json'},
+            'body': json.dumps({'ok': True}),
+            'isBase64Encoded': False
+        }
+    
+    # Обработка обычных сообщений
     if 'message' not in body:
+        cur.close()
+        conn.close()
         return {
             'statusCode': 200,
             'headers': {'Content-Type': 'application/json'},
@@ -46,13 +147,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     chat_id = message['chat']['id']
     text = message.get('text', '')
     username = message['from'].get('username', '')
-    
-    dsn = os.environ.get('DATABASE_URL')
-    conn = psycopg2.connect(dsn)
-    cur = conn.cursor()
-    schema = 't_p80499285_psot_realization_pro'
-    
-    bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
     
     if text.startswith('/start'):
         parts = text.split()
@@ -107,7 +201,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'text': response_text
         }).encode()
         
-        urllib.request.urlopen(send_url, data=data)
+        try:
+            urllib.request.urlopen(send_url, data=data, timeout=5)
+        except Exception as e:
+            print(f'[Telegram] Failed to send message: {e}')
     
     cur.close()
     conn.close()
