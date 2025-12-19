@@ -143,21 +143,25 @@ const KBTReportsPage = () => {
                           ID: {report.id}
                         </span>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                         <div className="flex items-center gap-2 text-slate-400">
                           <Icon name="Building2" size={16} className="text-purple-400" />
+                          <span className="font-medium text-slate-300">Компания:</span>
                           <span>{report.company}</span>
                         </div>
                         <div className="flex items-center gap-2 text-slate-400">
                           <Icon name="Calendar" size={16} className="text-purple-400" />
-                          <span>Создан: {formatDate(report.created_at)}</span>
+                          <span className="font-medium text-slate-300">Дата заполнения:</span>
+                          <span>{formatDate(report.created_at)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-slate-400">
                           <Icon name="CalendarRange" size={16} className="text-purple-400" />
-                          <span>Период: {formatDate(report.period_from)} - {formatDate(report.period_to)}</span>
+                          <span className="font-medium text-slate-300">Период:</span>
+                          <span>{formatDate(report.period_from)} - {formatDate(report.period_to)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-slate-400">
                           <Icon name="User" size={16} className="text-purple-400" />
+                          <span className="font-medium text-slate-300">Руководитель:</span>
                           <span>{report.head_name}</span>
                         </div>
                       </div>
