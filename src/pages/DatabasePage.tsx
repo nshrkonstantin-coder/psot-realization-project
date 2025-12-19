@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 
 interface TableInfo {
   table_name: string;
+  schema_name: string;
   row_count: number;
 }
 
@@ -17,10 +18,28 @@ interface ColumnInfo {
   data_type: string;
 }
 
+const TABLE_DESCRIPTIONS: Record<string, string> = {
+  'users': 'Пользователи системы (Профиль, Авторизация)',
+  'organizations': 'Организации (Список организаций)',
+  'pab_reports': 'ПАБ отчеты (Регистрация ПАБ, Список ПАБ)',
+  'production_control': 'Производственный контроль (ПК, Список ПК)',
+  'kbt_reports': 'КБТ отчеты (Отчет для КБТ)',
+  'storage_folders': 'Папки хранилища (Хранилище)',
+  'storage_files': 'Файлы хранилища (Хранилище)',
+  'prescriptions': 'Предписания (Реестр предписаний)',
+  'orders': 'Поручения (Журнал поручений)',
+  'chats': 'Чаты (Мессенджер)',
+  'messages': 'Сообщения (Мессенджер)',
+  'modules': 'Модули системы (Управление модулями)',
+  'tariffs': 'Тарифы (Управление тарифами)',
+  'organization_points': 'Баллы организаций (Мои показатели)',
+};
+
 export default function DatabasePage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [tables, setTables] = useState<TableInfo[]>([]);
+  const [schemaName, setSchemaName] = useState<string>('');
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [columns, setColumns] = useState<ColumnInfo[]>([]);
   const [tableData, setTableData] = useState<any[]>([]);
@@ -54,6 +73,7 @@ export default function DatabasePage() {
       if (response.ok) {
         const data = await response.json();
         setTables(data.tables || []);
+        setSchemaName(data.schema || '');
       } else {
         toast.error('Ошибка загрузки списка таблиц');
       }
@@ -178,7 +198,9 @@ export default function DatabasePage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white">База данных</h1>
-                <p className="text-slate-400 text-sm">Просмотр всех таблиц и данных</p>
+                <p className="text-slate-400 text-sm">
+                  {schemaName ? `Схема: ${schemaName}` : 'Просмотр всех таблиц и данных'}
+                </p>
               </div>
             </div>
           </div>
@@ -221,6 +243,12 @@ export default function DatabasePage() {
                   ))}
                 </SelectContent>
               </Select>
+              {selectedTable && TABLE_DESCRIPTIONS[selectedTable] && (
+                <p className="text-xs text-blue-400 mt-2">
+                  <Icon name="Info" size={12} className="inline mr-1" />
+                  {TABLE_DESCRIPTIONS[selectedTable]}
+                </p>
+              )}
             </div>
 
             <div>

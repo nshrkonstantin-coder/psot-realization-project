@@ -32,13 +32,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         cur = conn.cursor()
         
+        # Получаем текущую схему из search_path
+        cur.execute("SELECT current_schema()")
+        current_schema = cur.fetchone()[0]
+        
         try:
             if action == 'list_tables':
                 # Получаем список всех таблиц
-                cur.execute("""
-                    SELECT table_name
+                cur.execute(f"""
+                    SELECT table_name, table_schema
                     FROM information_schema.tables 
-                    WHERE table_schema = 't_p80499285_psot_realization_pro' 
+                    WHERE table_schema = '{current_schema}' 
                     AND table_type = 'BASE TABLE'
                     ORDER BY table_name
                 """)
@@ -46,15 +50,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 tables = []
                 for row in cur.fetchall():
                     table_name = row[0]
+                    table_schema = row[1]
                     # Получаем количество строк отдельным запросом
                     try:
-                        cur.execute(f"SELECT COUNT(*) FROM t_p80499285_psot_realization_pro.\"{table_name}\"")
+                        cur.execute(f'SELECT COUNT(*) FROM "{table_schema}"."{table_name}"')
                         row_count = cur.fetchone()[0]
                     except:
                         row_count = 0
                     
                     tables.append({
                         'table_name': table_name,
+                        'schema_name': table_schema,
                         'row_count': row_count
                     })
                 
@@ -65,7 +71,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'Access-Control-Allow-Origin': '*'
                     },
                     'isBase64Encoded': False,
-                    'body': json.dumps({'tables': tables})
+                    'body': json.dumps({'tables': tables, 'schema': current_schema})
                 }
             
             elif action == 'table_structure':
@@ -74,7 +80,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 cur.execute(f"""
                     SELECT column_name, data_type
                     FROM information_schema.columns
-                    WHERE table_schema = 't_p80499285_psot_realization_pro'
+                    WHERE table_schema = '{current_schema}'
                     AND table_name = '{table_name}'
                     ORDER BY ordinal_position
                 """)
@@ -102,7 +108,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 search = body_data.get('search', '')
                 
                 # Базовый запрос
-                query = f"SELECT * FROM t_p80499285_psot_realization_pro.{table_name}"
+                query = f'SELECT * FROM "{current_schema}"."{table_name}"'
                 
                 # Добавляем поиск если есть
                 if search:
@@ -111,7 +117,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     cur.execute(f"""
                         SELECT column_name
                         FROM information_schema.columns
-                        WHERE table_schema = 't_p80499285_psot_realization_pro'
+                        WHERE table_schema = '{current_schema}'
                         AND table_name = '{table_name}'
                         AND data_type IN ('character varying', 'text')
                     """)

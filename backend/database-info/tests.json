@@ -8,7 +8,8 @@
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "tables": "array"
+        "tables": "array",
+        "schema": "string"
       },
       "bodyMatcher": "partial"
     }
