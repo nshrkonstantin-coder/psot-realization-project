@@ -24,17 +24,22 @@ const OtipbDepartmentPage = () => {
   }, [navigate]);
 
   const startWorkDay = () => {
-    const greetingText = `Я Вас приветствую ${userName}, желаю отличного и продуктивного рабочего дня!!!`;
+    const greetingText = `Доброе утро, ${userName}! Желаю вам отличного и продуктивного рабочего дня!`;
     
     const utterance = new SpeechSynthesisUtterance(greetingText);
     utterance.lang = 'ru-RU';
-    utterance.rate = 0.9;
-    utterance.pitch = 1.2;
+    utterance.rate = 1.0;
+    utterance.pitch = 1.3;
     utterance.volume = 1.0;
 
     const voices = speechSynthesis.getVoices();
     const femaleVoice = voices.find(voice => 
-      voice.lang.includes('ru') && voice.name.toLowerCase().includes('female')
+      (voice.lang.includes('ru') && (
+        voice.name.toLowerCase().includes('female') ||
+        voice.name.toLowerCase().includes('milena') ||
+        voice.name.toLowerCase().includes('елена') ||
+        voice.name.toLowerCase().includes('google')
+      ))
     ) || voices.find(voice => voice.lang.includes('ru'));
     
     if (femaleVoice) {
