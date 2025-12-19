@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -6,12 +6,16 @@ import Icon from '@/components/ui/icon';
 
 const AdditionalPage = () => {
   const navigate = useNavigate();
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (!userId) {
       navigate('/');
+      return;
     }
+    const role = localStorage.getItem('userRole');
+    setUserRole(role);
   }, [navigate]);
 
   const additionalFeatures = [
@@ -34,7 +38,8 @@ const AdditionalPage = () => {
       icon: 'FolderOpen', 
       color: 'from-purple-500 to-purple-600', 
       route: '/storage',
-      description: 'Управление файлами и документами'
+      description: 'Управление файлами и документами',
+      adminOnly: true
     },
     { 
       label: 'Графики', 
@@ -69,7 +74,7 @@ const AdditionalPage = () => {
       icon: 'Briefcase', 
       color: 'from-amber-700 to-amber-800', 
       route: '/kbt',
-      description: 'Корпоративная безопасность труда'
+      description: 'Комитет по безопасности труда'
     },
   ];
 
@@ -94,7 +99,9 @@ const AdditionalPage = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {additionalFeatures.map((feature, index) => (
+          {additionalFeatures
+            .filter(feature => !feature.adminOnly || userRole === 'admin' || userRole === 'superadmin')
+            .map((feature, index) => (
             <Card
               key={index}
               onClick={() => navigate(feature.route)}

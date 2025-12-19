@@ -26,6 +26,11 @@ import PabListPage from "./pages/PabListPage";
 import PabViewPage from "./pages/PabViewPage";
 import ProductionControlPage from "./pages/ProductionControlPage";
 import KBTReportPage from "./pages/KBTReportPage";
+import KBTMainPage from "./pages/KBTMainPage";
+import KBTReportFormPage from "./pages/KBTReportFormPage";
+import KBTProtocolsPage from "./pages/KBTProtocolsPage";
+import KBTReportsPage from "./pages/KBTReportsPage";
+import KBTProgramsPage from "./pages/KBTProgramsPage";
 import OrganizationsManagementPage from "./pages/OrganizationsManagementPage";
 import CreateOrganizationPage from "./pages/CreateOrganizationPage";
 import OrganizationSettingsPage from "./pages/OrganizationSettingsPage";
@@ -92,6 +97,11 @@ const App = () => (
           <Route path="/pab-list" element={<PabListPage />} />
           <Route path="/pab-view/:id" element={<PabViewPage />} />
           <Route path="/kbt-report" element={<KBTReportPage />} />
+          <Route path="/kbt" element={<KBTMainPage />} />
+          <Route path="/kbt-report-form" element={<KBTReportFormPage />} />
+          <Route path="/kbt-protocols" element={<KBTProtocolsPage />} />
+          <Route path="/kbt-reports" element={<KBTReportsPage />} />
+          <Route path="/kbt-programs" element={<KBTProgramsPage />} />
           <Route path="/production-control" element={<ProductionControlPage />} />
           <Route path="/organizations-management" element={<OrganizationsManagementPage />} />
           <Route path="/create-organization" element={<CreateOrganizationPage />} />
