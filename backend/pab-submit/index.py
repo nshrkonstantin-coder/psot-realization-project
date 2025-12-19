@@ -248,7 +248,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     smtp_host = os.environ.get('SMTP_HOST')
     smtp_port = os.environ.get('SMTP_PORT', '587')
     smtp_user = os.environ.get('SMTP_USER')
-    smtp_password = os.environ.get('SMTP_PASSWORD')
+    smtp_password = os.environ.get('YANDEX_SMTP_PASSWORD', os.environ.get('SMTP_PASSWORD'))
     admin_email = os.environ.get('ADMIN_EMAIL')
     
     # Получаем email пользователя из базы
