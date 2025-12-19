@@ -2,6 +2,45 @@ import json
 import os
 from typing import Dict, Any
 
+def send_notification(cur, user_id: int, title: str, message: str, notification_type: str = 'info'):
+    '''Отправка уведомления пользователю и администраторам в локальный чат'''
+    # Получаем данные пользователя
+    cur.execute(f"""
+        SELECT fio, position, organization_id 
+        FROM t_p80499285_psot_realization_pro.users 
+        WHERE id = {user_id}
+    """)
+    user_data = cur.fetchone()
+    
+    if not user_data:
+        return
+    
+    user_fio, user_position, org_id = user_data
+    user_fio_esc = str(user_fio).replace("'", "''") if user_fio else ''
+    user_position_esc = str(user_position).replace("'", "''") if user_position else ''
+    title_esc = str(title).replace("'", "''")
+    message_esc = str(message).replace("'", "''")
+    
+    # Получаем название организации
+    org_name = 'АО "ГРК "Западная"'
+    if org_id:
+        cur.execute(f"SELECT org_name FROM t_p80499285_psot_realization_pro.organizations WHERE id = {org_id}")
+        org_row = cur.fetchone()
+        if org_row:
+            org_name = str(org_row[0]).replace("'", "''")
+    
+    # Отправляем системное уведомление администраторам
+    cur.execute(f"""
+        INSERT INTO t_p80499285_psot_realization_pro.system_notifications
+        (notification_type, severity, title, message, user_id, user_fio, user_position,
+         organization_id, organization_name, is_read, created_at)
+        VALUES ('{notification_type}', 'info', '{title_esc}', '{message_esc}', 
+                {user_id}, '{user_fio_esc}', '{user_position_esc}',
+                {org_id if org_id else 'NULL'}, '{org_name}', false, NOW())
+    """)
+    
+    print(f'[Notification] Sent to user {user_id} and admins')
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
     Business: Save production control report to database
@@ -184,6 +223,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         user_tg = cur.fetchone()
                         print(f'[DEBUG] Telegram query result: {user_tg}')
                         
+                        # Отправляем уведомление в локальный чат (всегда)
+                        notification_title = f"📋 Новое предписание #{doc_number}"
+                        notification_message = f"""Предписание производственного контроля
+
+Номер: {doc_number}
+Дата: {issue_date}
+
+Нарушение:
+{description}
+
+Меры:
+{measures}
+
+Срок выполнения: {deadline if deadline else 'не указан'}
+Ответственный: {responsible_fio}"""
+                        
+                        send_notification(cur, final_user_id, notification_title, notification_message, 'production_control')
+                        
+                        # Отправляем в Telegram (если привязан)
                         if user_tg and user_tg[0]:
                             import urllib.request
                             import urllib.parse
@@ -191,7 +249,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
                             print(f'[DEBUG] Bot token exists: {bool(bot_token)}')
                             if bot_token:
-                                message = f"""🔔 <b>Новое предписание</b>
+                                telegram_message = f"""🔔 <b>Новое предписание</b>
 
 📋 Номер: {doc_number}
 📅 Дата: {issue_date}
@@ -208,7 +266,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 send_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
                                 data = urllib.parse.urlencode({
                                     'chat_id': user_tg[0],
-                                    'text': message,
+                                    'text': telegram_message,
                                     'parse_mode': 'HTML'
                                 }).encode()
                                 

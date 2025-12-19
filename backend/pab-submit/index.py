@@ -14,6 +14,45 @@ from email.mime.base import MIMEBase
 from email import encoders
 import boto3
 
+def send_notification(cur, user_id: int, title: str, message: str, notification_type: str = 'info'):
+    '''Отправка уведомления пользователю и администраторам в локальный чат'''
+    # Получаем данные пользователя
+    cur.execute(f"""
+        SELECT fio, position, organization_id 
+        FROM t_p80499285_psot_realization_pro.users 
+        WHERE id = {user_id}
+    """)
+    user_data = cur.fetchone()
+    
+    if not user_data:
+        return
+    
+    user_fio, user_position, org_id = user_data
+    user_fio_esc = str(user_fio).replace("'", "''") if user_fio else ''
+    user_position_esc = str(user_position).replace("'", "''") if user_position else ''
+    title_esc = str(title).replace("'", "''")
+    message_esc = str(message).replace("'", "''")
+    
+    # Получаем название организации
+    org_name = 'АО "ГРК "Западная"'
+    if org_id:
+        cur.execute(f"SELECT org_name FROM t_p80499285_psot_realization_pro.organizations WHERE id = {org_id}")
+        org_row = cur.fetchone()
+        if org_row:
+            org_name = str(org_row[0]).replace("'", "''")
+    
+    # Отправляем системное уведомление администраторам
+    cur.execute(f"""
+        INSERT INTO t_p80499285_psot_realization_pro.system_notifications
+        (notification_type, severity, title, message, user_id, user_fio, user_position,
+         organization_id, organization_name, is_read, created_at)
+        VALUES ('{notification_type}', 'info', '{title_esc}', '{message_esc}', 
+                {user_id}, '{user_fio_esc}', '{user_position_esc}',
+                {org_id if org_id else 'NULL'}, '{org_name}', false, NOW())
+    """)
+    
+    print(f'[Notification] Sent to user {user_id} and admins')
+
 def create_word_document(pab_data: Dict) -> BytesIO:
     '''Создание Word документа ПАБ'''
     doc = Document()
@@ -169,17 +208,37 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             cur.execute(f"SELECT id, email, telegram_chat_id FROM {schema}.users WHERE fio = %s", (responsible_person,))
             resp_row = cur.fetchone()
             if resp_row:
+                responsible_user_id = resp_row[0]
+                
                 if resp_row[1]:
                     responsible_emails.add(resp_row[1])
                 
-                # Отправляем Telegram уведомление
+                # Отправляем уведомление в локальный чат (всегда)
+                notification_title = f"📋 Новое наблюдение ПАБ #{doc_number}"
+                notification_message = f"""Поступило новое наблюдение ПАБ
+
+Номер: {doc_number}
+Дата: {body.get('date', '')}
+
+Описание:
+{obs.get('description', '')}
+
+Мероприятия:
+{obs.get('measures', '')}
+
+Срок выполнения: {obs.get('deadline', 'не указан')}
+Ответственный: {responsible_person}"""
+                
+                send_notification(cur, responsible_user_id, notification_title, notification_message, 'pab')
+                
+                # Отправляем Telegram уведомление (если привязан)
                 if resp_row[2]:
                     import urllib.request
                     import urllib.parse
                     
                     bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
                     if bot_token:
-                        message = f"""🔔 <b>Новое наблюдение ПАБ</b>
+                        telegram_message = f"""🔔 <b>Новое наблюдение ПАБ</b>
 
 📋 Номер: {doc_number}
 📅 Дата: {body.get('date', '')}
@@ -196,13 +255,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         send_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
                         data = urllib.parse.urlencode({
                             'chat_id': resp_row[2],
-                            'text': message,
+                            'text': telegram_message,
                             'parse_mode': 'HTML'
                         }).encode()
                         
                         try:
                             urllib.request.urlopen(send_url, data=data, timeout=5)
-                            print(f'[Telegram] Sent PAB notification to user {resp_row[0]}')
+                            print(f'[Telegram] Sent PAB notification to user {responsible_user_id}')
                         except Exception as e:
                             print(f'[Telegram] Failed to send PAB: {e}')
         
