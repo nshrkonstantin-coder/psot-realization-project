@@ -105,25 +105,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             tables = cur.fetchall()
             table_count = len(tables)
             
-            backup_data = []
             total_rows = 0
+            total_size_bytes = 0
             
             for (table_name,) in tables:
                 cur.execute(f"SELECT COUNT(*) FROM {table_name}")
                 row_count = cur.fetchone()[0]
                 total_rows += row_count
                 
-                cur.execute(f"SELECT * FROM {table_name} LIMIT 5")
-                sample_rows = cur.fetchall()
-                
-                backup_data.append({
-                    'table': table_name,
-                    'rows': row_count,
-                    'sample': str(sample_rows)[:200]
-                })
+                cur.execute(f"""
+                    SELECT pg_total_relation_size('{table_name}')
+                """)
+                table_size = cur.fetchone()[0]
+                total_size_bytes += table_size if table_size else 0
             
-            estimated_size_mb = (total_rows * 0.05) + (table_count * 0.1)
-            size_text = f'{estimated_size_mb:.1f} МБ'
+            size_mb = total_size_bytes / (1024 * 1024)
+            
+            if size_mb < 0.1:
+                size_kb = total_size_bytes / 1024
+                size_text = f'{size_kb:.1f} КБ'
+            else:
+                size_text = f'{size_mb:.1f} МБ'
             
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             backup_filename = f'backup_{timestamp}.sql'
@@ -134,7 +136,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 INSERT INTO backup_history 
                 (backup_id, filename, file_size, size_text, table_count, backup_date, backup_time, status)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (timestamp, backup_filename, int(estimated_size_mb * 1024 * 1024), 
+            """, (timestamp, backup_filename, int(total_size_bytes), 
                   size_text, table_count, backup_date, backup_time, 'success'))
             
             cur.execute("""
