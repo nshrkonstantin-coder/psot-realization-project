@@ -127,10 +127,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             else:
                 size_text = f'{size_mb:.1f} МБ'
             
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            body_str = event.get('body', '{}')
+            if body_str and body_str.strip():
+                try:
+                    body_data = json.loads(body_str)
+                    client_timestamp = body_data.get('timestamp')
+                except json.JSONDecodeError:
+                    client_timestamp = None
+            else:
+                client_timestamp = None
+            
+            if client_timestamp:
+                client_dt = datetime.fromtimestamp(client_timestamp / 1000)
+                timestamp = client_dt.strftime('%Y%m%d_%H%M%S')
+                backup_date = client_dt.date()
+                backup_time = client_dt.strftime('%H:%M')
+            else:
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                backup_date = datetime.now().date()
+                backup_time = datetime.now().strftime('%H:%M')
+            
             backup_filename = f'backup_{timestamp}.sql'
-            backup_date = datetime.now().date()
-            backup_time = datetime.now().strftime('%H:%M')
             
             cur.execute("""
                 INSERT INTO backup_history 
