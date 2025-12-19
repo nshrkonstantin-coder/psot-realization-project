@@ -24,7 +24,20 @@ const OtipbDepartmentPage = () => {
   }, [navigate]);
 
   const startWorkDay = async () => {
-    const greetingText = `Доброе утро, ${userName}! Желаю вам отличного и продуктивного рабочего дня!`;
+    const hour = new Date().getHours();
+    let timeGreeting = '';
+    
+    if (hour >= 6 && hour < 12) {
+      timeGreeting = 'Доброе утро';
+    } else if (hour >= 12 && hour < 18) {
+      timeGreeting = 'Добрый день';
+    } else if (hour >= 18 && hour < 23) {
+      timeGreeting = 'Добрый вечер';
+    } else {
+      timeGreeting = 'Доброй ночи';
+    }
+    
+    const greetingText = `${timeGreeting}, ${userName}! Желаю вам отличного и продуктивного рабочего дня!`;
     
     try {
       const response = await fetch('https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53', {
