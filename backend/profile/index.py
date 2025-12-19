@@ -48,7 +48,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             SELECT u.id, u.email, u.fio, u.company, u.subdivision, u.position, u.role, u.created_at,
                    COALESCE(s.registered_count, 0) as registered_count,
                    COALESCE(s.online_count, 0) as online_count,
-                   COALESCE(s.offline_count, 0) as offline_count
+                   COALESCE(s.offline_count, 0) as offline_count,
+                   u.telegram_chat_id, u.telegram_username, u.telegram_linked_at
             FROM t_p80499285_psot_realization_pro.users u
             LEFT JOIN t_p80499285_psot_realization_pro.user_stats s ON u.id = s.user_id
             WHERE u.id = %s
@@ -82,7 +83,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'registered_count': result[8],
                 'online_count': result[9],
                 'offline_count': result[10]
-            }
+            },
+            'telegram_chat_id': result[11],
+            'telegram_username': result[12],
+            'telegram_linked_at': result[13].isoformat() if result[13] else None
         }
         
         cur.close()
@@ -126,7 +130,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             position = body_data.get('position')
             
             cur.execute("""
-                UPDATE users 
+                UPDATE t_p80499285_psot_realization_pro.users 
                 SET fio = %s, company = %s, subdivision = %s, position = %s 
                 WHERE id = %s
             """, (fio, company, subdivision, position, user_id))
@@ -138,7 +142,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             current_hash = hashlib.sha256(current_password.encode()).hexdigest()
             
-            cur.execute("SELECT password_hash FROM users WHERE id = %s", (user_id,))
+            cur.execute("SELECT password_hash FROM t_p80499285_psot_realization_pro.users WHERE id = %s", (user_id,))
             result = cur.fetchone()
             
             if not result or result[0] != current_hash:
@@ -155,7 +159,43 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             new_hash = hashlib.sha256(new_password.encode()).hexdigest()
-            cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (new_hash, user_id))
+            cur.execute("UPDATE t_p80499285_psot_realization_pro.users SET password_hash = %s WHERE id = %s", (new_hash, user_id))
+            conn.commit()
+            
+        elif action == 'generate_telegram_code':
+            import random
+            import string
+            
+            link_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            
+            cur.execute("""
+                UPDATE t_p80499285_psot_realization_pro.users 
+                SET telegram_link_code = %s 
+                WHERE id = %s
+            """, (link_code, user_id))
+            conn.commit()
+            
+            cur.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({'success': True, 'linkCode': link_code})
+            }
+            
+        elif action == 'unlink_telegram':
+            cur.execute("""
+                UPDATE t_p80499285_psot_realization_pro.users 
+                SET telegram_chat_id = NULL, 
+                    telegram_username = NULL, 
+                    telegram_linked_at = NULL 
+                WHERE id = %s
+            """, (user_id,))
             conn.commit()
         
         cur.close()

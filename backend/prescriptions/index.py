@@ -213,6 +213,45 @@ def create_violation(conn, body: Dict) -> Dict:
     
     violation_id = cursor.fetchone()[0]
     conn.commit()
+    
+    cursor.execute(f'''
+        SELECT u.telegram_chat_id, p.prescription_number, p.created_at
+        FROM {schema}.users u
+        JOIN {schema}.production_prescriptions p ON p.id = %s
+        WHERE u.id = %s AND u.telegram_chat_id IS NOT NULL
+    ''', (body['prescription_id'], body['assigned_user_id']))
+    
+    user_tg = cursor.fetchone()
+    
+    if user_tg and user_tg[0]:
+        import urllib.request
+        import urllib.parse
+        
+        bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+        if bot_token:
+            message = f"""🔔 <b>Новое предписание</b>
+
+📋 Номер: {user_tg[1]}
+📅 Дата: {user_tg[2].strftime('%d.%m.%Y')}
+
+⚠️ Нарушение:
+{body['violation_text']}
+
+⏰ Срок: {body['deadline']}
+👤 Ответственный: {body['assigned_user_fio']}"""
+            
+            send_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            data = urllib.parse.urlencode({
+                'chat_id': user_tg[0],
+                'text': message,
+                'parse_mode': 'HTML'
+            }).encode()
+            
+            try:
+                urllib.request.urlopen(send_url, data=data)
+            except Exception as e:
+                print(f"Telegram notification error: {e}")
+    
     cursor.close()
     
     return {

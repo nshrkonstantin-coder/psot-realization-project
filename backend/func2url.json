@@ -1,4 +1,6 @@
 {
+  "telegram-webhook": "https://functions.poehali.dev/28daa1ef-2c9b-48c5-a6a7-55e9c5d0b71e",
+  "telegram-notify": "https://functions.poehali.dev/7be47c70-7bcf-4dd2-afb2-e3c88479c25f",
   "backup": "https://functions.poehali.dev/0db6a684-73f7-4cf9-a021-84707a3a53bf",
   "pab-schedule": "https://functions.poehali.dev/cc7008bb-bac7-47aa-9eef-b6ae9032d4c4",
   "pc-update-violation-status": "https://functions.poehali.dev/8f65bf78-c12a-4ffc-9c9e-fd8f4fc4c6a7",

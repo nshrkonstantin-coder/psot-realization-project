@@ -18,6 +18,9 @@ interface UserProfile {
   position: string;
   role: string;
   created_at: string;
+  telegram_chat_id?: number;
+  telegram_username?: string;
+  telegram_linked_at?: string;
   stats: {
     registered_count: number;
     online_count: number;
@@ -40,6 +43,8 @@ const Profile = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [telegramCode, setTelegramCode] = useState<string | null>(null);
+  const [loadingTelegram, setLoadingTelegram] = useState(false);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -241,10 +246,14 @@ const Profile = () => {
         </div>
 
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 border border-yellow-600/30">
+          <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border border-yellow-600/30">
             <TabsTrigger value="profile" className="data-[state=active]:bg-yellow-600">
               <Icon name="User" size={18} className="mr-2" />
               Профиль
+            </TabsTrigger>
+            <TabsTrigger value="telegram" className="data-[state=active]:bg-yellow-600">
+              <Icon name="Send" size={18} className="mr-2" />
+              Telegram
             </TabsTrigger>
             <TabsTrigger value="security" className="data-[state=active]:bg-yellow-600">
               <Icon name="Lock" size={18} className="mr-2" />
@@ -362,6 +371,145 @@ const Profile = () => {
                     </>
                   )}
                 </div>
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="telegram">
+            <Card className="bg-slate-800/50 border-yellow-600/30 p-6">
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="bg-gradient-to-br from-blue-600 to-cyan-700 p-3 rounded-xl">
+                    <Icon name="Send" size={32} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Уведомления Telegram</h2>
+                    <p className="text-gray-400 text-sm">Получай мгновенные уведомления о предписаниях</p>
+                  </div>
+                </div>
+
+                {profile.telegram_chat_id ? (
+                  <div className="space-y-4">
+                    <div className="bg-green-900/20 border border-green-600/30 rounded-lg p-4">
+                      <div className="flex items-center gap-3">
+                        <Icon name="CheckCircle" size={24} className="text-green-500" />
+                        <div>
+                          <p className="text-white font-semibold">Telegram подключён</p>
+                          {profile.telegram_username && (
+                            <p className="text-gray-400 text-sm">@{profile.telegram_username}</p>
+                          )}
+                          <p className="text-gray-400 text-xs">
+                            Подключено: {new Date(profile.telegram_linked_at!).toLocaleString('ru-RU')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={async () => {
+                        const userId = localStorage.getItem('userId');
+                        if (!userId) return;
+                        
+                        try {
+                          await fetch('https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              action: 'unlink_telegram',
+                              userId,
+                            }),
+                          });
+                          
+                          toast({ title: 'Telegram отключён' });
+                          loadProfile(userId);
+                        } catch (error) {
+                          toast({ title: 'Ошибка отключения', variant: 'destructive' });
+                        }
+                      }}
+                      variant="outline"
+                      className="border-red-600/50 text-red-400 hover:bg-red-600/10"
+                    >
+                      <Icon name="Unlink" size={20} className="mr-2" />
+                      Отключить Telegram
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="bg-blue-900/20 border border-blue-600/30 rounded-lg p-4">
+                      <h3 className="text-white font-semibold mb-2">Как подключить:</h3>
+                      <ol className="text-gray-300 text-sm space-y-2">
+                        <li>1. Нажми кнопку "Получить код привязки"</li>
+                        <li>2. Открой Telegram и найди бота (ссылка появится)</li>
+                        <li>3. Отправь боту команду: <code className="bg-slate-700 px-2 py-1 rounded">/start КОД</code></li>
+                        <li>4. Готово! Теперь ты будешь получать уведомления</li>
+                      </ol>
+                    </div>
+
+                    {telegramCode ? (
+                      <div className="space-y-4">
+                        <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-4">
+                          <p className="text-white font-semibold mb-2">Твой код привязки:</p>
+                          <div className="flex items-center gap-2">
+                            <code className="bg-slate-700 px-4 py-2 rounded text-yellow-400 text-2xl font-mono flex-1 text-center">
+                              {telegramCode}
+                            </code>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(telegramCode);
+                                toast({ title: 'Код скопирован!' });
+                              }}
+                              className="bg-slate-700 hover:bg-slate-600"
+                            >
+                              <Icon name="Copy" size={16} />
+                            </Button>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            window.open(`https://t.me/YOUR_BOT_USERNAME?start=${telegramCode}`, '_blank');
+                          }}
+                          className="w-full bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800"
+                        >
+                          <Icon name="Send" size={20} className="mr-2" />
+                          Открыть бота в Telegram
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={async () => {
+                          const userId = localStorage.getItem('userId');
+                          if (!userId) return;
+                          
+                          setLoadingTelegram(true);
+                          try {
+                            const response = await fetch('https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f', {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                action: 'generate_telegram_code',
+                                userId,
+                              }),
+                            });
+                            
+                            const data = await response.json();
+                            if (data.success && data.linkCode) {
+                              setTelegramCode(data.linkCode);
+                            }
+                          } catch (error) {
+                            toast({ title: 'Ошибка генерации кода', variant: 'destructive' });
+                          } finally {
+                            setLoadingTelegram(false);
+                          }
+                        }}
+                        disabled={loadingTelegram}
+                        className="w-full bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800"
+                      >
+                        <Icon name="Key" size={20} className="mr-2" />
+                        {loadingTelegram ? 'Генерация...' : 'Получить код привязки'}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             </Card>
           </TabsContent>
