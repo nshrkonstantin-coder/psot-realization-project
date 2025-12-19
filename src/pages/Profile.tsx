@@ -466,7 +466,7 @@ const Profile = () => {
                         </div>
                         <Button
                           onClick={() => {
-                            window.open(`https://t.me/YOUR_BOT_USERNAME?start=${telegramCode}`, '_blank');
+                            window.open(`https://t.me/ASUBT_bot?start=${telegramCode}`, '_blank');
                           }}
                           className="w-full bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800"
                         >
