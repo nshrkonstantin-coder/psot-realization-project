@@ -1,4 +1,5 @@
 {
+  "pab-schedule": "https://functions.poehali.dev/cc7008bb-bac7-47aa-9eef-b6ae9032d4c4",
   "pc-update-violation-status": "https://functions.poehali.dev/8f65bf78-c12a-4ffc-9c9e-fd8f4fc4c6a7",
   "pc-delete-violation": "https://functions.poehali.dev/d4845ec4-7998-43f8-8eb7-9833d64cd9ec",
   "pab-update-observation-status": "https://functions.poehali.dev/9829c5e0-a504-482d-bcc5-733cf62bd9e6",

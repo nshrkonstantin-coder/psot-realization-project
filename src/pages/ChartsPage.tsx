@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
+import func2url from '../../backend/func2url.json';
 
 interface PositionData {
   id: number;
@@ -42,33 +43,53 @@ const ChartsPage = () => {
     }
     setUserRole(role || '');
 
-    const savedFiles = localStorage.getItem('chartsUploadedFiles');
-    const savedSheetsData = localStorage.getItem('chartsSheetsData');
-    const savedSheetNames = localStorage.getItem('chartsSheetNames');
-    const savedCategory = localStorage.getItem('chartsSelectedCategory');
-    const savedEditMode = localStorage.getItem('chartsEditMode');
-
-    if (savedFiles) {
-      setUploadedFiles(JSON.parse(savedFiles));
-    }
-    if (savedSheetsData) {
-      const data = JSON.parse(savedSheetsData);
-      setSheetsData(data);
-    }
-    if (savedSheetNames) {
-      const names = JSON.parse(savedSheetNames);
-      setSheetNames(names);
-      if (names.length > 0 && !savedCategory) {
-        setSelectedCategory(names[0]);
-      }
-    }
-    if (savedCategory) {
-      setSelectedCategory(savedCategory);
-    }
-    if (savedEditMode) {
-      setIsEditMode(JSON.parse(savedEditMode));
-    }
+    // Загрузить данные из БД вместо localStorage
+    loadScheduleFromDB();
   }, [navigate]);
+
+  const loadScheduleFromDB = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(func2url['pab-schedule'], {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId || ''
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.file) {
+          const fileData = data.file.data;
+          
+          setUploadedFiles([{
+            id: data.file.id,
+            name: data.file.name,
+            date: new Date(data.file.uploadedAt).toLocaleString('ru-RU', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit'
+            })
+          }]);
+          
+          setSheetsData(fileData.sheetsData || {});
+          setSheetNames(fileData.sheetNames || []);
+          
+          if (fileData.sheetNames && fileData.sheetNames.length > 0) {
+            setSelectedCategory(fileData.sheetNames[0]);
+          }
+          
+          setIsEditMode(false);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load schedule from DB:', error);
+    }
+  };
 
   useEffect(() => {
     if (selectedCategory && sheetsData[selectedCategory]) {
@@ -177,28 +198,43 @@ const ChartsPage = () => {
     }
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedFiles.length === 0) return;
     
-    setUploadedFiles(uploadedFiles.filter(f => !selectedFiles.includes(f.id)));
-    setSelectedFiles([]);
-    
-    setSheetsData({});
-    setSheetNames([]);
-    setPositionsData([]);
-    setSelectedCategory('');
-    setIsEditMode(false);
-    
-    localStorage.removeItem('chartsUploadedFiles');
-    localStorage.removeItem('chartsSheetsData');
-    localStorage.removeItem('chartsSheetNames');
-    localStorage.removeItem('chartsSelectedCategory');
-    localStorage.removeItem('chartsEditMode');
-    
-    toast({
-      title: "Файлы удалены",
-      description: `Удалено файлов: ${selectedFiles.length}. Все данные очищены.`,
-    });
+    try {
+      const userId = localStorage.getItem('userId');
+      
+      for (const fileId of selectedFiles) {
+        await fetch(`${func2url['pab-schedule']}?file_id=${fileId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId || ''
+          }
+        });
+      }
+      
+      setUploadedFiles([]);
+      setSelectedFiles([]);
+      setSheetsData({});
+      setSheetNames([]);
+      setPositionsData([]);
+      setSelectedCategory('');
+      setIsEditMode(false);
+      
+      toast({
+        title: "Файлы удалены",
+        description: `Удалено файлов: ${selectedFiles.length}. Все данные очищены.`,
+      });
+      
+      await loadScheduleFromDB();
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось удалить файлы",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDataChange = (id: number, field: 'audits' | 'observations', value: string) => {
@@ -225,24 +261,55 @@ const ChartsPage = () => {
     }
   };
 
-  const handleSaveFile = () => {
-    localStorage.setItem('chartsUploadedFiles', JSON.stringify(uploadedFiles));
-    localStorage.setItem('chartsSheetsData', JSON.stringify(sheetsData));
-    localStorage.setItem('chartsSheetNames', JSON.stringify(sheetNames));
-    localStorage.setItem('chartsSelectedCategory', selectedCategory);
-    localStorage.setItem('chartsEditMode', JSON.stringify(false));
-    
-    setIsEditMode(false);
-    
-    toast({
-      title: "Файл сохранён",
-      description: "Изменения успешно сохранены и заблокированы для редактирования",
-    });
+  const handleSaveFile = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      const fileName = uploadedFiles[0]?.name || 'График ПАБ';
+      
+      const response = await fetch(func2url['pab-schedule'], {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId || ''
+        },
+        body: JSON.stringify({
+          fileName: fileName,
+          fileData: {
+            sheetNames,
+            sheetsData
+          }
+        })
+      });
+
+      if (response.ok) {
+        setIsEditMode(false);
+        
+        toast({
+          title: "График сохранён",
+          description: "Все пользователи теперь видят актуальный график",
+        });
+        
+        // Обновить список файлов
+        await loadScheduleFromDB();
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Ошибка сохранения",
+          description: error.error || "Не удалось сохранить файл",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось сохранить файл в базу данных",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleEditText = () => {
     setIsEditMode(true);
-    localStorage.setItem('chartsEditMode', JSON.stringify(true));
     toast({
       title: "Режим редактирования",
       description: "Теперь вы можете редактировать таблицу",
@@ -251,7 +318,6 @@ const ChartsPage = () => {
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
-    localStorage.setItem('chartsSelectedCategory', category);
   };
 
   const handlePrint = useReactToPrint({
@@ -291,7 +357,7 @@ const ChartsPage = () => {
         <Card className="bg-white p-6 mb-6 shadow-sm">
           <h2 className="text-lg font-bold text-gray-900 mb-2">Загрузка графика (Excel)</h2>
           <p className="text-sm text-gray-600 mb-4">
-            Загрузите актуальный файл .xlsx или .xls. После изменений перезагрузите обновлённую версию.
+            Загрузите актуальный файл .xlsx или .xls. После загрузки и редактирования нажмите "Сохранить файл" - все пользователи увидят обновлённый график.
           </p>
           <label htmlFor="excel-upload">
             <Button 
@@ -364,6 +430,14 @@ const ChartsPage = () => {
 
         {/* Таблица для заполнения */}
         <Card className="bg-white p-6 shadow-sm">
+          {!isAdmin && uploadedFiles.length > 0 && (
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-800">
+                <Icon name="Info" size={16} className="inline mr-2" />
+                График загружен главным администратором: <strong>{uploadedFiles[0].name}</strong> ({uploadedFiles[0].date})
+              </p>
+            </div>
+          )}
           <div ref={printRef}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-900">Таблица для заполнения</h2>
