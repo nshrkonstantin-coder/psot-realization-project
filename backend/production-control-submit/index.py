@@ -170,7 +170,50 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                              deadline, status)
                             VALUES ({prescription_id}, '{violation_text}', {final_user_id}, 
                                     '{responsible_fio}', {deadline_sql}, 'in_work')
+                            RETURNING id
                         """)
+                        violation_id = cur.fetchone()[0]
+                        
+                        # Отправляем уведомление в Telegram
+                        cur.execute(f"""
+                            SELECT u.telegram_chat_id, u.telegram_username
+                            FROM t_p80499285_psot_realization_pro.users u
+                            WHERE u.id = {final_user_id} AND u.telegram_chat_id IS NOT NULL
+                        """)
+                        user_tg = cur.fetchone()
+                        
+                        if user_tg and user_tg[0]:
+                            import urllib.request
+                            import urllib.parse
+                            
+                            bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+                            if bot_token:
+                                message = f"""🔔 <b>Новое предписание</b>
+
+📋 Номер: {doc_number}
+📅 Дата: {issue_date}
+
+⚠️ Нарушение:
+{description}
+
+💡 Меры:
+{measures}
+
+⏰ Срок: {deadline if deadline else 'не указан'}
+👤 Ответственный: {responsible_fio}"""
+                                
+                                send_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                                data = urllib.parse.urlencode({
+                                    'chat_id': user_tg[0],
+                                    'text': message,
+                                    'parse_mode': 'HTML'
+                                }).encode()
+                                
+                                try:
+                                    urllib.request.urlopen(send_url, data=data, timeout=5)
+                                    print(f'[Telegram] Sent notification to user {final_user_id}')
+                                except Exception as e:
+                                    print(f'[Telegram] Failed to send: {e}')
             
             conn.commit()
             
