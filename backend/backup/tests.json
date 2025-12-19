@@ -1,0 +1,47 @@
+{
+  "tests": [
+    {
+      "name": "Get backup configuration and history",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "config": {
+          "autoBackup": "boolean",
+          "dayOfWeek": "string",
+          "time": "string"
+        },
+        "history": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Create manual backup",
+      "method": "POST",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "message": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Update backup configuration",
+      "method": "PUT",
+      "path": "/",
+      "body": {
+        "autoBackup": true,
+        "dayOfWeek": "monday",
+        "time": "03:00"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "message": "string",
+        "config": {
+          "autoBackup": "boolean"
+        }
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
