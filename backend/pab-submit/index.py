@@ -248,13 +248,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     smtp_host = os.environ.get('SMTP_HOST')
     smtp_port = os.environ.get('SMTP_PORT', '587')
     smtp_user = os.environ.get('SMTP_USER')
-    smtp_password = os.environ.get('YANDEX_SMTP_PASSWORD', os.environ.get('SMTP_PASSWORD'))
+    smtp_password = os.environ.get('SMTP_PASSWORD')
     admin_email = os.environ.get('ADMIN_EMAIL')
-    
-    # Debug: проверяем какой пароль используется
-    print(f"DEBUG: YANDEX_SMTP_PASSWORD exists: {bool(os.environ.get('YANDEX_SMTP_PASSWORD'))}")
-    print(f"DEBUG: Password source: {'YANDEX_SMTP_PASSWORD' if os.environ.get('YANDEX_SMTP_PASSWORD') else 'SMTP_PASSWORD'}")
-    print(f"DEBUG: Password length: {len(smtp_password) if smtp_password else 0}")
     
     # Получаем email пользователя из базы
     user_email = None
