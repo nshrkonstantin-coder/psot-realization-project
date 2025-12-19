@@ -32,6 +32,12 @@ import KBTProtocolsPage from "./pages/KBTProtocolsPage";
 import KBTReportsPage from "./pages/KBTReportsPage";
 import KBTProgramsPage from "./pages/KBTProgramsPage";
 import OtipbDepartmentPage from "./pages/OtipbDepartmentPage";
+import OtipbInstructionsPage from "./pages/OtipbInstructionsPage";
+import OtipbInspectionsPage from "./pages/OtipbInspectionsPage";
+import OtipbIncidentsPage from "./pages/OtipbIncidentsPage";
+import OtipbPPEPage from "./pages/OtipbPPEPage";
+import OtipbDocumentsPage from "./pages/OtipbDocumentsPage";
+import OtipbAnalyticsPage from "./pages/OtipbAnalyticsPage";
 import OrganizationsManagementPage from "./pages/OrganizationsManagementPage";
 import CreateOrganizationPage from "./pages/CreateOrganizationPage";
 import OrganizationSettingsPage from "./pages/OrganizationSettingsPage";
@@ -104,6 +110,12 @@ const App = () => (
           <Route path="/kbt-reports" element={<KBTReportsPage />} />
           <Route path="/kbt-programs" element={<KBTProgramsPage />} />
           <Route path="/otipb-department" element={<OtipbDepartmentPage />} />
+          <Route path="/otipb-instructions" element={<OtipbInstructionsPage />} />
+          <Route path="/otipb-inspections" element={<OtipbInspectionsPage />} />
+          <Route path="/otipb-incidents" element={<OtipbIncidentsPage />} />
+          <Route path="/otipb-ppe" element={<OtipbPPEPage />} />
+          <Route path="/otipb-documents" element={<OtipbDocumentsPage />} />
+          <Route path="/otipb-analytics" element={<OtipbAnalyticsPage />} />
           <Route path="/production-control" element={<ProductionControlPage />} />
           <Route path="/organizations-management" element={<OrganizationsManagementPage />} />
           <Route path="/create-organization" element={<CreateOrganizationPage />} />
