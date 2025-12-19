@@ -163,13 +163,48 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             except Exception as e:
                 print(f"Error uploading photo for observation {idx}: {e}")
         
-        # Получаем email ответственного лица
+        # Получаем email и telegram ответственного лица
         responsible_person = obs.get('responsible')
         if responsible_person:
-            cur.execute(f"SELECT email FROM {schema}.users WHERE fio = %s", (responsible_person,))
+            cur.execute(f"SELECT id, email, telegram_chat_id FROM {schema}.users WHERE fio = %s", (responsible_person,))
             resp_row = cur.fetchone()
-            if resp_row and resp_row[0]:
-                responsible_emails.add(resp_row[0])
+            if resp_row:
+                if resp_row[1]:
+                    responsible_emails.add(resp_row[1])
+                
+                # Отправляем Telegram уведомление
+                if resp_row[2]:
+                    import urllib.request
+                    import urllib.parse
+                    
+                    bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+                    if bot_token:
+                        message = f"""🔔 <b>Новое наблюдение ПАБ</b>
+
+📋 Номер: {doc_number}
+📅 Дата: {body.get('date', '')}
+
+⚠️ Описание:
+{obs.get('description', '')}
+
+💡 Мероприятия:
+{obs.get('measures', '')}
+
+⏰ Срок: {obs.get('deadline', 'не указан')}
+👤 Ответственный: {responsible_person}"""
+                        
+                        send_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                        data = urllib.parse.urlencode({
+                            'chat_id': resp_row[2],
+                            'text': message,
+                            'parse_mode': 'HTML'
+                        }).encode()
+                        
+                        try:
+                            urllib.request.urlopen(send_url, data=data, timeout=5)
+                            print(f'[Telegram] Sent PAB notification to user {resp_row[0]}')
+                        except Exception as e:
+                            print(f'[Telegram] Failed to send PAB: {e}')
         
         cur.execute(
             f"""INSERT INTO {schema}.pab_observations 
