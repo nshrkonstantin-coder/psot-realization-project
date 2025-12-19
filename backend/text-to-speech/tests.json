@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "Test speech synthesis",
+      "method": "POST",
+      "body": {
+        "text": "Добрый день! Это тестовое приветствие.",
+        "voice": "alena"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "audio": "string",
+        "format": "mp3"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

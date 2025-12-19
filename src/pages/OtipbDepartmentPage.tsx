@@ -23,44 +23,38 @@ const OtipbDepartmentPage = () => {
     setHasAccess(department === 'ОТиПБ' || department === 'Отдел ОТиПБ');
   }, [navigate]);
 
-  const startWorkDay = () => {
+  const startWorkDay = async () => {
     const greetingText = `Доброе утро, ${userName}! Желаю вам отличного и продуктивного рабочего дня!`;
     
-    const loadVoicesAndSpeak = () => {
-      const voices = speechSynthesis.getVoices();
-      
-      const femaleVoice = voices.find(voice => 
-        voice.lang.startsWith('ru') && (
-          voice.name.includes('Google') ||
-          voice.name.includes('Milena') ||
-          voice.name.includes('Катя') ||
-          voice.name.includes('Алёна') ||
-          voice.name.includes('Premium') ||
-          voice.name.includes('Enhanced')
-        )
-      ) || voices.find(voice => voice.lang.startsWith('ru'));
-      
-      const utterance = new SpeechSynthesisUtterance(greetingText);
-      utterance.voice = femaleVoice || voices[0];
-      utterance.lang = 'ru-RU';
-      utterance.rate = 0.95;
-      utterance.pitch = 1.15;
-      utterance.volume = 1.0;
+    try {
+      const response = await fetch('https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: greetingText,
+          voice: 'alena'
+        })
+      });
 
-      utterance.onend = () => {
+      const data = await response.json();
+      
+      if (data.success && data.audio) {
+        const audioBlob = await fetch(`data:audio/mp3;base64,${data.audio}`).then(r => r.blob());
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          navigate('/otipb-workspace');
+        };
+        
+        audio.play();
+      } else {
         navigate('/otipb-workspace');
-      };
-
-      speechSynthesis.speak(utterance);
-    };
-
-    if (speechSynthesis.getVoices().length === 0) {
-      speechSynthesis.onvoiceschanged = () => {
-        loadVoicesAndSpeak();
-        speechSynthesis.onvoiceschanged = null;
-      };
-    } else {
-      loadVoicesAndSpeak();
+      }
+    } catch (error) {
+      console.error('Speech synthesis error:', error);
+      navigate('/otipb-workspace');
     }
 
     const alertDiv = document.createElement('div');
