@@ -33,13 +33,8 @@ def send_notification(cur, user_id: int, title: str, message: str, notification_
     title_esc = str(title).replace("'", "''")
     message_esc = str(message).replace("'", "''")
     
-    # Получаем название организации
+    # Используем стандартное название организации
     org_name = 'АО "ГРК "Западная"'
-    if org_id:
-        cur.execute(f"SELECT org_name FROM t_p80499285_psot_realization_pro.organizations WHERE id = {org_id}")
-        org_row = cur.fetchone()
-        if org_row:
-            org_name = str(org_row[0]).replace("'", "''")
     
     # Отправляем системное уведомление администраторам
     cur.execute(f"""
