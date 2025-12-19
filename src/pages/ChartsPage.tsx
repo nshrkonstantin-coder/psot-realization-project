@@ -147,8 +147,8 @@ const ChartsPage = () => {
               })
             };
             
-            const updatedFiles = [...uploadedFiles, newFile];
-            setUploadedFiles(updatedFiles);
+            // Заменяем старый файл новым (только один активный файл)
+            setUploadedFiles([newFile]);
             setSheetsData(newSheetsData);
             setSheetNames(newSheetNames);
             
@@ -324,7 +324,7 @@ const ChartsPage = () => {
     content: () => printRef.current,
   });
 
-  const isAdmin = userRole === 'admin' || userRole === 'mainAdmin';
+  const isAdmin = userRole === 'admin' || userRole === 'main_admin' || userRole === 'super_admin';
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -354,16 +354,27 @@ const ChartsPage = () => {
 
         {/* Секция загрузки файла - только для админов */}
         {isAdmin && (
-        <Card className="bg-white p-6 mb-6 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-900 mb-2">Загрузка графика (Excel)</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Загрузите актуальный файл .xlsx или .xls. После загрузки и редактирования нажмите "Сохранить файл" - все пользователи увидят обновлённый график.
-          </p>
+        <Card className="bg-white p-6 mb-6 shadow-sm border-2 border-blue-200">
+          <div className="flex items-start gap-4 mb-4">
+            <div className="bg-blue-100 p-3 rounded-full">
+              <Icon name="Upload" size={24} className="text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-bold text-gray-900 mb-2">Загрузка графика ПАБ (Excel)</h2>
+              <div className="text-sm text-gray-600 space-y-2">
+                <p><strong>Шаг 1:</strong> Нажмите "Загрузить Excel" и выберите файл .xlsx или .xls</p>
+                <p><strong>Шаг 2:</strong> При необходимости отредактируйте данные в таблице</p>
+                <p><strong>Шаг 3:</strong> Нажмите зелёную кнопку "✓ Сохранить файл для всех"</p>
+                <p className="text-green-700 font-medium">✓ После сохранения ВСЕ пользователи организации увидят актуальный график</p>
+              </div>
+            </div>
+          </div>
           <label htmlFor="excel-upload">
             <Button 
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6"
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-8 py-3 text-base font-semibold"
               onClick={() => document.getElementById('excel-upload')?.click()}
             >
+              <Icon name="FileSpreadsheet" size={20} className="inline mr-2" />
               Загрузить Excel
             </Button>
           </label>
@@ -416,11 +427,22 @@ const ChartsPage = () => {
                       checked={selectedFiles.includes(file.id)}
                       onCheckedChange={(checked) => handleSelectFile(file.id, checked as boolean)}
                     />
-                    <a href="#" className="text-blue-600 hover:underline text-sm">
-                      {file.name}
-                    </a>
+                    <Icon name="FileSpreadsheet" size={20} className="text-green-600" />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-900">{file.name}</span>
+                      <span className="text-xs text-gray-500">{file.date}</span>
+                    </div>
                   </div>
-                  <span className="text-sm text-gray-500">{file.date}</span>
+                  {!isEditMode && (
+                    <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">
+                      ✓ Сохранён и виден всем
+                    </span>
+                  )}
+                  {isEditMode && (
+                    <span className="text-xs bg-amber-100 text-amber-700 px-3 py-1 rounded-full font-medium">
+                      ⚠ Не сохранён
+                    </span>
+                  )}
                 </div>
               ))
             )}
@@ -435,6 +457,14 @@ const ChartsPage = () => {
               <p className="text-sm text-blue-800">
                 <Icon name="Info" size={16} className="inline mr-2" />
                 График загружен главным администратором: <strong>{uploadedFiles[0].name}</strong> ({uploadedFiles[0].date})
+              </p>
+            </div>
+          )}
+          {isAdmin && isEditMode && (
+            <div className="mb-4 p-4 bg-amber-50 rounded-lg border-2 border-amber-400">
+              <p className="text-sm text-amber-900 font-medium">
+                <Icon name="AlertTriangle" size={18} className="inline mr-2" />
+                Файл загружен, но НЕ СОХРАНЁН! Нажмите кнопку "Сохранить файл" чтобы все пользователи увидели обновлённый график.
               </p>
             </div>
           )}
@@ -469,11 +499,15 @@ const ChartsPage = () => {
                 Редактировать текст
               </Button>
               <Button 
-                className="bg-blue-600 hover:bg-blue-700 text-white rounded px-6 text-sm"
+                className={`rounded px-6 text-sm text-white ${
+                  isEditMode 
+                    ? 'bg-green-600 hover:bg-green-700 animate-pulse' 
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
                 onClick={handleSaveFile}
                 disabled={positionsData.length === 0 || !isEditMode}
               >
-                Сохранить файл
+                {isEditMode ? '✓ Сохранить файл для всех' : 'Файл сохранён'}
               </Button>
                 </>
               )}
@@ -486,8 +520,20 @@ const ChartsPage = () => {
 
           <div className="overflow-x-auto">
             {positionsData.length === 0 ? (
-              <div className="py-12 text-center text-gray-500">
-                Загрузите Excel файл для отображения данных
+              <div className="py-12 text-center">
+                {isAdmin ? (
+                  <div className="text-gray-500">
+                    <Icon name="FileSpreadsheet" size={48} className="mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg font-medium mb-2">График не загружен</p>
+                    <p className="text-sm">Загрузите Excel файл выше для отображения данных</p>
+                  </div>
+                ) : (
+                  <div className="text-gray-500">
+                    <Icon name="Clock" size={48} className="mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg font-medium mb-2">График пока не загружен</p>
+                    <p className="text-sm">Главный администратор ещё не загрузил график ПАБ</p>
+                  </div>
+                )}
               </div>
             ) : (
               <table className="w-full border-collapse">
