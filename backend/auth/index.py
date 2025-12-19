@@ -358,7 +358,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'success': True,
                         'userId': result[0],
                         'fio': result[1],
-                        'company': result[2],
+                        'subdivision': result[2],
                         'position': result[3],
                         'role': result[4],
                         'organizationId': result[5],
