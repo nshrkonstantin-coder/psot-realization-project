@@ -245,12 +245,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     user_email_sent = False
     email_error = None
     
-    smtp_host = os.environ.get('SMTP_HOST')
-    smtp_port = os.environ.get('SMTP_PORT', '587')
-    smtp_user = os.environ.get('SMTP_USER')
-    smtp_password = os.environ.get('SMTP_PASSWORD')
-    admin_email = os.environ.get('ADMIN_EMAIL')
-    
     # Получаем email пользователя из базы
     user_email = None
     if user_id:
@@ -259,7 +253,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if user_row and user_row[0]:
             user_email = user_row[0]
     
-    if smtp_host and smtp_user and smtp_password:
+    # Email отправка отключена временно
+    if False:
         pab_url = f"https://lk.psot-realization.pro/pab-view/{pab_id}"
         
         email_body = f"""Зарегистрирован новый ПАБ
