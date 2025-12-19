@@ -172,20 +172,62 @@ const StoragePage = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600"></div>
           </div>
         ) : folders.length === 0 ? (
-          <Card className="bg-slate-800/50 border-yellow-600/30 p-12 text-center">
-            <Icon name="FolderOpen" size={64} className="mx-auto text-slate-600 mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">Папок пока нет</h3>
-            <p className="text-slate-400 mb-6">Создайте первую папку для хранения файлов</p>
-            <Button
-              onClick={() => setIsCreateDialogOpen(true)}
-              className="bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white"
-            >
-              <Icon name="FolderPlus" size={20} className="mr-2" />
-              Создать папку
-            </Button>
-          </Card>
+          <>
+            <Card className="bg-slate-800/50 border-yellow-600/30 p-12 text-center mb-6">
+              <Icon name="FolderOpen" size={64} className="mx-auto text-slate-600 mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">Папок пока нет</h3>
+              <p className="text-slate-400 mb-6">Создайте первую папку для хранения файлов</p>
+              <Button
+                onClick={() => setIsCreateDialogOpen(true)}
+                className="bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white"
+              >
+                <Icon name="FolderPlus" size={20} className="mr-2" />
+                Создать папку
+              </Button>
+            </Card>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <Card
+                onClick={() => navigate('/kbt-report')}
+                className="group relative overflow-hidden cursor-pointer bg-slate-800/50 border-orange-600/30 hover:border-orange-600 transition-all hover:scale-105"
+              >
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="bg-gradient-to-br from-orange-600 to-orange-700 p-4 rounded-xl shadow-lg">
+                      <Icon name="ClipboardCheck" size={32} className="text-white" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-1">
+                    Отчет для КБТ
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Комитет по безопасности труда
+                  </p>
+                </div>
+              </Card>
+            </div>
+          </>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <Card
+              onClick={() => navigate('/kbt-report')}
+              className="group relative overflow-hidden cursor-pointer bg-slate-800/50 border-orange-600/30 hover:border-orange-600 transition-all hover:scale-105"
+            >
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="bg-gradient-to-br from-orange-600 to-orange-700 p-4 rounded-xl shadow-lg">
+                    <Icon name="ClipboardCheck" size={32} className="text-white" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-bold text-white mb-1">
+                  Отчет для КБТ
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Комитет по безопасности труда
+                </p>
+              </div>
+            </Card>
+            
             {folders.map((folder) => (
               <Card
                 key={folder.id}

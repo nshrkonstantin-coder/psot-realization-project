@@ -37,7 +37,6 @@ const Dashboard = () => {
     { label: 'Список ПК', icon: 'ClipboardList', color: 'from-emerald-500 to-emerald-600', route: '/pc-list' },
     { label: 'Аналитика ПК', icon: 'BarChart2', color: 'from-teal-500 to-teal-600', route: '/pc-analytics' },
     { label: 'Мои показатели', icon: 'TrendingUp', color: 'from-blue-500 to-blue-600', route: '/my-metrics' },
-    { label: 'Отчет для КБТ', icon: 'ClipboardCheck', color: 'from-orange-600 to-orange-700', route: '/kbt-report' },
     { label: 'Журнал поручений', icon: 'BookOpen', color: 'from-red-500 to-red-600', route: '/orders' },
     { label: 'Реестр предписаний', icon: 'ClipboardList', color: 'from-blue-600 to-cyan-600', route: '/prescriptions' },
     { label: 'Статистика нарушений', icon: 'BarChart3', color: 'from-blue-600 to-cyan-600', route: '/violations-stats' },
