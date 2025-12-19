@@ -59,21 +59,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cur.execute(f"""
-                    SELECT id, company, department, head_name, period_from, period_to, sick_count, suspended, injuries,
-                           micro_injuries, sick_leave, accidents, acts_count, inspector, violations_count,
-                           responsible_person, fixed_count, in_progress_count, overdue_count, reasons,
-                           actions_taken, internal_checks_count, internal_violations_count, internal_responsible,
-                           internal_fixed_count, internal_in_progress_count, internal_overdue_count, internal_reasons,
-                           internal_actions_taken, gov_agency, act_number, gov_violations, gov_responsible,
-                           gov_fixed_count, gov_in_progress_count, gov_overdue_count, gov_reasons,
-                           pab_plan_department, pab_fact_department, pab_diff_department, pab_reason_department,
-                           pab_plan_personal, pab_fact_personal, pab_diff_personal, pab_reason_personal,
-                           tools_condition, workplaces_condition, improvement_measures,
-                           involved_workers_count, involved_workers_list, not_involved_workers_count,
-                           involved_engineers_count, involved_engineers_list, not_involved_engineers_count,
-                           involvement_work, user_id, organization_id, word_file_url, created_at
-                    FROM t_p80499285_psot_realization_pro.kbt_reports
-                    WHERE id = {report_id} AND organization_id = {organization_id} AND user_id = {user_id}
+                    SELECT r.id, o.name as company, r.department, r.head_name, r.period_from, r.period_to, r.sick_count, r.suspended, r.injuries,
+                           r.micro_injuries, r.sick_leave, r.accidents, r.acts_count, r.inspector, r.violations_count,
+                           r.responsible_person, r.fixed_count, r.in_progress_count, r.overdue_count, r.reasons,
+                           r.actions_taken, r.internal_checks_count, r.internal_violations_count, r.internal_responsible,
+                           r.internal_fixed_count, r.internal_in_progress_count, r.internal_overdue_count, r.internal_reasons,
+                           r.internal_actions_taken, r.gov_agency, r.act_number, r.gov_violations, r.gov_responsible,
+                           r.gov_fixed_count, r.gov_in_progress_count, r.gov_overdue_count, r.gov_reasons,
+                           r.pab_plan_department, r.pab_fact_department, r.pab_diff_department, r.pab_reason_department,
+                           r.pab_plan_personal, r.pab_fact_personal, r.pab_diff_personal, r.pab_reason_personal,
+                           r.tools_condition, r.workplaces_condition, r.improvement_measures,
+                           r.involved_workers_count, r.involved_workers_list, r.not_involved_workers_count,
+                           r.involved_engineers_count, r.involved_engineers_list, r.not_involved_engineers_count,
+                           r.involvement_work, r.user_id, r.organization_id, r.word_file_url, r.created_at
+                    FROM t_p80499285_psot_realization_pro.kbt_reports r
+                    LEFT JOIN t_p80499285_psot_realization_pro.organizations o ON r.organization_id = o.id
+                    WHERE r.id = {report_id} AND r.organization_id = {organization_id} AND r.user_id = {user_id}
                 """)
                 row = cur.fetchone()
                 if not row:
@@ -123,10 +124,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cur.execute(f"""
-                    SELECT id, company, department, head_name, period_from, period_to, user_id, organization_id, created_at
-                    FROM t_p80499285_psot_realization_pro.kbt_reports
-                    WHERE organization_id = {organization_id} AND user_id = {user_id}
-                    ORDER BY created_at DESC
+                    SELECT r.id, o.name as company, r.department, r.head_name, r.period_from, r.period_to, r.user_id, r.organization_id, r.created_at
+                    FROM t_p80499285_psot_realization_pro.kbt_reports r
+                    LEFT JOIN t_p80499285_psot_realization_pro.organizations o ON r.organization_id = o.id
+                    WHERE r.organization_id = {organization_id} AND r.user_id = {user_id}
+                    ORDER BY r.created_at DESC
                 """)
                 
                 rows = cur.fetchall()
