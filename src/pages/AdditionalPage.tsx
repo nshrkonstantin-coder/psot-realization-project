@@ -76,6 +76,13 @@ const AdditionalPage = () => {
       route: '/kbt',
       description: 'Комитет по безопасности труда'
     },
+    { 
+      label: 'Отдел ОТиПБ', 
+      icon: 'ShieldAlert', 
+      color: 'from-red-600 to-orange-600', 
+      route: '/otipb-department',
+      description: 'Отдел охраны труда и пожарной безопасности'
+    },
   ];
 
   return (

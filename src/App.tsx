@@ -31,6 +31,7 @@ import KBTReportFormPage from "./pages/KBTReportFormPage";
 import KBTProtocolsPage from "./pages/KBTProtocolsPage";
 import KBTReportsPage from "./pages/KBTReportsPage";
 import KBTProgramsPage from "./pages/KBTProgramsPage";
+import OtipbDepartmentPage from "./pages/OtipbDepartmentPage";
 import OrganizationsManagementPage from "./pages/OrganizationsManagementPage";
 import CreateOrganizationPage from "./pages/CreateOrganizationPage";
 import OrganizationSettingsPage from "./pages/OrganizationSettingsPage";
@@ -102,6 +103,7 @@ const App = () => (
           <Route path="/kbt-protocols" element={<KBTProtocolsPage />} />
           <Route path="/kbt-reports" element={<KBTReportsPage />} />
           <Route path="/kbt-programs" element={<KBTProgramsPage />} />
+          <Route path="/otipb-department" element={<OtipbDepartmentPage />} />
           <Route path="/production-control" element={<ProductionControlPage />} />
           <Route path="/organizations-management" element={<OrganizationsManagementPage />} />
           <Route path="/create-organization" element={<CreateOrganizationPage />} />
