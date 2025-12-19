@@ -16,12 +16,135 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type',
                 'Access-Control-Max-Age': '86400'
             },
             'body': ''
         }
+    
+    if method == 'GET':
+        import psycopg2
+        
+        params = event.get('queryStringParameters', {})
+        organization_id = params.get('organization_id')
+        report_id = params.get('report_id')
+        
+        if not organization_id:
+            return {
+                'statusCode': 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({'success': False, 'error': 'organization_id required'})
+            }
+        
+        conn = psycopg2.connect(os.environ['DATABASE_URL'])
+        cur = conn.cursor()
+        
+        try:
+            if report_id:
+                cur.execute(f"""
+                    SELECT id, department, head_name, period_from, period_to, sick_count, suspended, injuries,
+                           micro_injuries, sick_leave, accidents, acts_count, inspector, violations_count,
+                           responsible_person, fixed_count, in_progress_count, overdue_count, reasons,
+                           actions_taken, internal_checks_count, internal_violations_count, internal_responsible,
+                           internal_fixed_count, internal_in_progress_count, internal_overdue_count, internal_reasons,
+                           internal_actions_taken, gov_agency, act_number, gov_violations, gov_responsible,
+                           gov_fixed_count, gov_in_progress_count, gov_overdue_count, gov_reasons,
+                           pab_plan_department, pab_fact_department, pab_diff_department, pab_reason_department,
+                           pab_plan_personal, pab_fact_personal, pab_diff_personal, pab_reason_personal,
+                           tools_condition, workplaces_condition, improvement_measures,
+                           involved_workers_count, involved_workers_list, not_involved_workers_count,
+                           involved_engineers_count, involved_engineers_list, not_involved_engineers_count,
+                           involvement_work, user_id, organization_id, word_file_url, created_at
+                    FROM t_p80499285_psot_realization_pro.kbt_reports
+                    WHERE id = {report_id} AND organization_id = {organization_id}
+                """)
+                row = cur.fetchone()
+                if not row:
+                    return {
+                        'statusCode': 404,
+                        'headers': {
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
+                        },
+                        'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'Report not found'})
+                    }
+                
+                columns = [desc[0] for desc in cur.description]
+                report_data = dict(zip(columns, row))
+                
+                if report_data.get('created_at'):
+                    report_data['created_at'] = str(report_data['created_at'])
+                if report_data.get('period_from'):
+                    report_data['period_from'] = str(report_data['period_from'])
+                if report_data.get('period_to'):
+                    report_data['period_to'] = str(report_data['period_to'])
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({
+                        'success': True,
+                        'report': report_data
+                    })
+                }
+            else:
+                cur.execute(f"""
+                    SELECT id, department, head_name, period_from, period_to, user_id, organization_id, created_at
+                    FROM t_p80499285_psot_realization_pro.kbt_reports
+                    WHERE organization_id = {organization_id}
+                    ORDER BY created_at DESC
+                """)
+                
+                rows = cur.fetchall()
+                columns = [desc[0] for desc in cur.description]
+                reports = []
+                
+                for row in rows:
+                    report = dict(zip(columns, row))
+                    if report.get('created_at'):
+                        report['created_at'] = str(report['created_at'])
+                    if report.get('period_from'):
+                        report['period_from'] = str(report['period_from'])
+                    if report.get('period_to'):
+                        report['period_to'] = str(report['period_to'])
+                    reports.append(report)
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({
+                        'success': True,
+                        'reports': reports
+                    })
+                }
+        except Exception as e:
+            print(f'Error loading KBT reports: {str(e)}')
+            return {
+                'statusCode': 500,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({'success': False, 'error': str(e)})
+            }
+        finally:
+            cur.close()
+            conn.close()
     
     if method == 'POST':
         import psycopg2

@@ -28,6 +28,7 @@ import ProductionControlPage from "./pages/ProductionControlPage";
 import KBTReportPage from "./pages/KBTReportPage";
 import KBTMainPage from "./pages/KBTMainPage";
 import KBTReportFormPage from "./pages/KBTReportFormPage";
+import KBTReportViewPage from "./pages/KBTReportViewPage";
 import KBTProtocolsPage from "./pages/KBTProtocolsPage";
 import KBTReportsPage from "./pages/KBTReportsPage";
 import KBTProgramsPage from "./pages/KBTProgramsPage";
@@ -108,6 +109,7 @@ const App = () => (
           <Route path="/kbt-report" element={<KBTReportPage />} />
           <Route path="/kbt" element={<KBTMainPage />} />
           <Route path="/kbt-report-form" element={<KBTReportFormPage />} />
+          <Route path="/kbt-report-view/:id" element={<KBTReportViewPage />} />
           <Route path="/kbt-protocols" element={<KBTProtocolsPage />} />
           <Route path="/kbt-reports" element={<KBTReportsPage />} />
           <Route path="/kbt-programs" element={<KBTProgramsPage />} />
