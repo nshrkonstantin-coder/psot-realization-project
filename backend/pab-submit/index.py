@@ -134,6 +134,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
     )
     
+    # Собираем email-адреса ответственных лиц
+    responsible_emails = set()
+    
     for idx, obs in enumerate(observations_data, 1):
         photo_url = None
         
@@ -159,6 +162,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 photo_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{photo_key}"
             except Exception as e:
                 print(f"Error uploading photo for observation {idx}: {e}")
+        
+        # Получаем email ответственного лица
+        responsible_person = obs.get('responsible')
+        if responsible_person:
+            cur.execute(f"SELECT email FROM {schema}.users WHERE fio = %s", (responsible_person,))
+            resp_row = cur.fetchone()
+            if resp_row and resp_row[0]:
+                responsible_emails.add(resp_row[0])
         
         cur.execute(
             f"""INSERT INTO {schema}.pab_observations 
@@ -335,6 +346,46 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 else:
                     email_error = f"User email error: {str(e)}"
                 print(f"User email error: {e}")
+        
+        # Отправка ответственным лицам
+        for responsible_email in responsible_emails:
+            if responsible_email and responsible_email not in [admin_email, user_email]:
+                try:
+                    msg_resp = MIMEMultipart()
+                    msg_resp['From'] = smtp_user
+                    msg_resp['To'] = responsible_email
+                    msg_resp['Subject'] = f"Назначено мероприятие по ПАБ: {doc_number}"
+                    
+                    resp_email_body = f"""Вам назначено мероприятие по ПАБ
+
+Номер ПАБ: {doc_number}
+Дата: {body['date']}
+Проверяющий: {body['inspectorName']}
+Подразделение: {body.get('subdivision', '')}
+
+Просмотреть ПАБ и мероприятия: {pab_url}
+
+Во вложении находится полный документ с вашими задачами.
+"""
+                    
+                    msg_resp.attach(MIMEText(resp_email_body, 'plain', 'utf-8'))
+                    
+                    part_resp = MIMEBase('application', 'vnd.openxmlformats-officedocument.wordprocessingml.document')
+                    part_resp.set_payload(word_doc.getvalue())
+                    encoders.encode_base64(part_resp)
+                    part_resp.add_header('Content-Disposition', f'attachment; filename={doc_filename}')
+                    msg_resp.attach(part_resp)
+                    
+                    server_resp = smtplib.SMTP(smtp_host, int(smtp_port))
+                    server_resp.starttls()
+                    server_resp.login(smtp_user, smtp_password)
+                    server_resp.send_message(msg_resp)
+                    server_resp.quit()
+                    
+                    print(f"Email sent to responsible: {responsible_email}")
+                    
+                except Exception as e:
+                    print(f"Error sending email to responsible {responsible_email}: {e}")
     else:
         print("Email credentials not configured")
     
