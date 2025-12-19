@@ -160,6 +160,39 @@ export default function BackupPage() {
     }
   };
 
+  const handleDeleteBackup = async (backupId: string) => {
+    if (!confirm('Удалить эту резервную копию? Восстановить её будет невозможно.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('https://functions.poehali.dev/0db6a684-73f7-4cf9-a021-84707a3a53bf', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ backupId })
+      });
+
+      if (response.ok) {
+        toast({
+          title: '✅ Копия удалена',
+          description: 'Резервная копия успешно удалена',
+        });
+        loadBackupHistory();
+      } else {
+        const data = await response.json();
+        throw new Error(data.error || 'Ошибка удаления');
+      }
+    } catch (error) {
+      toast({
+        title: '❌ Ошибка удаления',
+        description: error instanceof Error ? error.message : 'Не удалось удалить резервную копию',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const getDayName = (day: string) => {
     const days: Record<string, string> = {
       monday: 'понедельник',
@@ -333,7 +366,7 @@ export default function BackupPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {backupHistory.map((backup) => (
+              {backupHistory.map((backup, index) => (
                 <div
                   key={backup.id}
                   className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -349,19 +382,37 @@ export default function BackupPage() {
                     <div>
                       <p className="font-medium text-gray-900">
                         {backup.date} в {backup.time}
+                        {index === 0 && (
+                          <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                            Последняя
+                          </span>
+                        )}
                       </p>
                       <p className="text-sm text-gray-600">Размер: {backup.size}</p>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDownloadBackup(backup.id, `backup_${backup.id}.sql`)}
-                    className="rounded-full"
-                  >
-                    <Icon name="Download" size={16} className="mr-2" />
-                    Скачать
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadBackup(backup.id, `backup_${backup.id}.sql`)}
+                      className="rounded-full"
+                    >
+                      <Icon name="Download" size={16} className="mr-2" />
+                      Скачать
+                    </Button>
+                    {index !== 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteBackup(backup.id)}
+                        className="rounded-full text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200"
+                      >
+                        <Icon name="Trash2" size={16} className="mr-2" />
+                        Удалить
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

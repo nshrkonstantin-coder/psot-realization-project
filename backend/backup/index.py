@@ -12,6 +12,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     GET /backup - получить конфигурацию и историю бэкапов
     POST /backup - создать резервную копию БД с сохранением в таблицу
     PUT /backup - обновить конфигурацию автокопирования
+    DELETE /backup - удалить резервную копию (кроме самой свежей)
     '''
     
     method: str = event.get('httpMethod', 'GET')
@@ -238,6 +239,75 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'statusCode': 500,
                 'headers': headers,
                 'body': json.dumps({'error': f'Ошибка сохранения настроек: {str(e)}'}),
+                'isBase64Encoded': False
+            }
+    
+    if method == 'DELETE':
+        try:
+            body_data = json.loads(event.get('body', '{}'))
+            backup_id = body_data.get('backupId')
+            
+            if not backup_id:
+                return {
+                    'statusCode': 400,
+                    'headers': headers,
+                    'body': json.dumps({'error': 'Не указан ID резервной копии'}),
+                    'isBase64Encoded': False
+                }
+            
+            conn = psycopg2.connect(database_url)
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            
+            cur.execute("""
+                SELECT backup_id, backup_date, backup_time 
+                FROM backup_history 
+                ORDER BY backup_date DESC, backup_time DESC 
+                LIMIT 1
+            """)
+            latest_backup = cur.fetchone()
+            
+            if latest_backup and latest_backup['backup_id'] == backup_id:
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 403,
+                    'headers': headers,
+                    'body': json.dumps({'error': 'Нельзя удалить самую свежую резервную копию'}),
+                    'isBase64Encoded': False
+                }
+            
+            cur.execute("""
+                DELETE FROM backup_history 
+                WHERE backup_id = %s
+            """, (backup_id,))
+            
+            if cur.rowcount == 0:
+                conn.close()
+                return {
+                    'statusCode': 404,
+                    'headers': headers,
+                    'body': json.dumps({'error': 'Резервная копия не найдена'}),
+                    'isBase64Encoded': False
+                }
+            
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200,
+                'headers': headers,
+                'body': json.dumps({'message': 'Резервная копия удалена'}),
+                'isBase64Encoded': False
+            }
+            
+        except Exception as e:
+            if 'conn' in locals():
+                conn.rollback()
+            return {
+                'statusCode': 500,
+                'headers': headers,
+                'body': json.dumps({'error': f'Ошибка удаления: {str(e)}'}),
                 'isBase64Encoded': False
             }
     
