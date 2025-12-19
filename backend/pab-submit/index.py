@@ -291,8 +291,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 msg.attach(part)
                 
                 server = smtplib.SMTP(smtp_host, int(smtp_port))
+                server.set_debuglevel(1)
                 server.starttls()
                 server.login(smtp_user, smtp_password)
+                print(f"✅ SMTP login successful!")
                 server.send_message(msg)
                 server.quit()
                 
@@ -332,8 +334,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 msg_user.attach(part_user)
                 
                 server_user = smtplib.SMTP(smtp_host, int(smtp_port))
+                server_user.set_debuglevel(1)
                 server_user.starttls()
                 server_user.login(smtp_user, smtp_password)
+                print(f"✅ User SMTP login successful!")
                 server_user.send_message(msg_user)
                 server_user.quit()
                 
