@@ -245,6 +245,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     user_email_sent = False
     email_error = None
     
+    smtp_host = 'smtp.yandex.ru'
+    smtp_port = 587
+    smtp_user = 'ACYBT@yandex.ru'
+    smtp_password = 'lxsqlxpdckxrleap'
+    admin_email = 'ACYBT@yandex.ru'
+    
     # Получаем email пользователя из базы
     user_email = None
     if user_id:
@@ -253,8 +259,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if user_row and user_row[0]:
             user_email = user_row[0]
     
-    # Email отправка отключена временно
-    if False:
+    if smtp_host and smtp_user and smtp_password:
         pab_url = f"https://lk.psot-realization.pro/pab-view/{pab_id}"
         
         email_body = f"""Зарегистрирован новый ПАБ
