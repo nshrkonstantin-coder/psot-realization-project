@@ -29,14 +29,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body_data = json.loads(event.get('body', '{}'))
         action = body_data.get('action')
         
-        conn = psycopg2.connect(os.environ['DATABASE_URL'])
-        cur = conn.cursor()
-        
-        # Получаем текущую схему из search_path
-        cur.execute("SELECT current_schema()")
-        current_schema = cur.fetchone()[0]
-        
         try:
+            conn = psycopg2.connect(os.environ['DATABASE_URL'])
+            cur = conn.cursor()
+            
+            # Получаем текущую схему из search_path
+            cur.execute("SELECT current_schema()")
+            current_schema = cur.fetchone()[0]
             if action == 'list_tables':
                 # Получаем список всех таблиц
                 cur.execute(f"""
@@ -169,6 +168,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
         except Exception as e:
             print(f'Error in database-info: {str(e)}')
+            try:
+                if 'cur' in locals():
+                    cur.close()
+                if 'conn' in locals():
+                    conn.close()
+            except:
+                pass
             return {
                 'statusCode': 500,
                 'headers': {
@@ -176,11 +182,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'Access-Control-Allow-Origin': '*'
                 },
                 'isBase64Encoded': False,
-                'body': json.dumps({'error': str(e)})
+                'body': json.dumps({'error': str(e), 'details': 'Database connection error'})
             }
-        finally:
-            cur.close()
-            conn.close()
     
     return {
         'statusCode': 405,

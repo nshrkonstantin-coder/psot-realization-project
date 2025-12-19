@@ -62,7 +62,7 @@ export default function DatabasePage() {
     setLoading(true);
     try {
       // Получаем список всех таблиц с количеством строк
-      const response = await fetch('https://functions.poehali.dev/database-info', {
+      const response = await fetch('https://functions.poehali.dev/0d86335d-9fae-4e7c-9a8c-d3432936edae', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -75,11 +75,13 @@ export default function DatabasePage() {
         setTables(data.tables || []);
         setSchemaName(data.schema || '');
       } else {
-        toast.error('Ошибка загрузки списка таблиц');
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(`Ошибка загрузки списка таблиц: ${errorData.error || response.statusText}`);
+        console.error('Response error:', errorData);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading tables:', error);
-      toast.error('Ошибка соединения');
+      toast.error(`Ошибка соединения: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -91,7 +93,7 @@ export default function DatabasePage() {
     
     try {
       // Получаем структуру таблицы
-      const columnsResponse = await fetch('https://functions.poehali.dev/database-info', {
+      const columnsResponse = await fetch('https://functions.poehali.dev/0d86335d-9fae-4e7c-9a8c-d3432936edae', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -103,10 +105,13 @@ export default function DatabasePage() {
       if (columnsResponse.ok) {
         const columnsData = await columnsResponse.json();
         setColumns(columnsData.columns || []);
+      } else {
+        const errorData = await columnsResponse.json().catch(() => ({}));
+        toast.error(`Ошибка загрузки структуры: ${errorData.error || ''}`);
       }
 
       // Получаем данные таблицы
-      const dataResponse = await fetch('https://functions.poehali.dev/database-info', {
+      const dataResponse = await fetch('https://functions.poehali.dev/0d86335d-9fae-4e7c-9a8c-d3432936edae', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -120,10 +125,13 @@ export default function DatabasePage() {
       if (dataResponse.ok) {
         const data = await dataResponse.json();
         setTableData(data.rows || []);
+      } else {
+        const errorData = await dataResponse.json().catch(() => ({}));
+        toast.error(`Ошибка загрузки данных: ${errorData.error || ''}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading table data:', error);
-      toast.error('Ошибка загрузки данных таблицы');
+      toast.error(`Ошибка загрузки данных таблицы: ${error.message}`);
     } finally {
       setLoading(false);
     }
