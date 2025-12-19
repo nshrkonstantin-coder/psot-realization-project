@@ -7,9 +7,13 @@ import Icon from '@/components/ui/icon';
 const OtipbDepartmentPage = () => {
   const navigate = useNavigate();
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+  const [userName, setUserName] = useState<string>('');
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
+    const storedUserName = localStorage.getItem('userName') || 'Коллега';
+    setUserName(storedUserName);
+
     if (!userId) {
       navigate('/');
       return;
@@ -18,6 +22,52 @@ const OtipbDepartmentPage = () => {
     const department = localStorage.getItem('userDepartment');
     setHasAccess(department === 'ОТиПБ' || department === 'Отдел ОТиПБ');
   }, [navigate]);
+
+  const startWorkDay = () => {
+    const greetingText = `Я Вас приветствую ${userName}, желаю отличного и продуктивного рабочего дня!!!`;
+    
+    const utterance = new SpeechSynthesisUtterance(greetingText);
+    utterance.lang = 'ru-RU';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.2;
+    utterance.volume = 1.0;
+
+    const voices = speechSynthesis.getVoices();
+    const femaleVoice = voices.find(voice => 
+      voice.lang.includes('ru') && voice.name.toLowerCase().includes('female')
+    ) || voices.find(voice => voice.lang.includes('ru'));
+    
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
+    }
+
+    utterance.onend = () => {
+      navigate('/otipb-workspace');
+    };
+
+    speechSynthesis.speak(utterance);
+
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'fixed inset-0 flex items-center justify-center z-50 bg-black/70 animate-fadeIn';
+    alertDiv.innerHTML = `
+      <div class="bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-blue-500 rounded-2xl p-8 max-w-md shadow-2xl animate-scaleIn">
+        <div class="flex flex-col items-center text-center gap-4">
+          <div class="bg-gradient-to-br from-blue-500 to-cyan-500 p-4 rounded-full">
+            <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h3 class="text-2xl font-bold text-white">Приветствие</h3>
+          <p class="text-lg text-slate-300">${greetingText}</p>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(alertDiv);
+
+    setTimeout(() => {
+      alertDiv.remove();
+    }, 5000);
+  };
 
   if (hasAccess === null) {
     return null;
@@ -82,7 +132,30 @@ const OtipbDepartmentPage = () => {
           </div>
         </div>
 
-        <div className="max-w-md mx-auto">
+        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card
+            onClick={startWorkDay}
+            className="group relative overflow-hidden cursor-pointer bg-slate-800/50 border-blue-500/30 hover:border-blue-500 transition-all hover:scale-105 hover:shadow-2xl"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-cyan-600 opacity-0 group-hover:opacity-10 transition-opacity" />
+            
+            <div className="p-8 relative z-10">
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="bg-gradient-to-br from-blue-600 to-cyan-600 p-6 rounded-2xl shadow-lg transform group-hover:scale-110 transition-transform">
+                  <Icon name="Briefcase" size={40} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors mb-2">
+                    Начать рабочий день
+                  </h3>
+                  <p className="text-sm text-slate-400">Открыть рабочий стол специалиста</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-cyan-600 transform scale-x-0 group-hover:scale-x-100 transition-transform" />
+          </Card>
+
           <Card
             onClick={() => navigate('/otipb-additional-directions')}
             className="group relative overflow-hidden cursor-pointer bg-slate-800/50 border-red-500/30 hover:border-red-500 transition-all hover:scale-105 hover:shadow-2xl"
