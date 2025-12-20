@@ -134,6 +134,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         elif action == 'user_cabinet':
             user_id = params.get('userId')
+            start_date = params.get('startDate')  # формат YYYY-MM-DD
+            end_date = params.get('endDate')      # формат YYYY-MM-DD
             
             if not user_id:
                 return {
@@ -145,6 +147,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False,
                     'body': json.dumps({'success': False, 'error': 'User ID required'})
                 }
+            
+            # Формируем условия для фильтрации по периоду
+            date_filter_pab = ""
+            date_filter_obs = ""
+            date_filter_presc = ""
+            date_filter_pc = ""
+            
+            if start_date and end_date:
+                date_filter_pab = f" AND pr.audit_date BETWEEN '{start_date}' AND '{end_date}'"
+                date_filter_obs = f" AND obs.created_at::date BETWEEN '{start_date}' AND '{end_date}'"
+                date_filter_presc = f" AND created_at::date BETWEEN '{start_date}' AND '{end_date}'"
+                date_filter_pc = f" AND v.created_at::date BETWEEN '{start_date}' AND '{end_date}'"
             
             # Получаем базовые данные пользователя
             cur.execute(f"""
@@ -195,7 +209,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     COUNT(DISTINCT CASE WHEN pr.status = 'overdue' THEN pr.id END) as overdue
                 FROM t_p80499285_psot_realization_pro.pab_records pr
                 JOIN t_p80499285_psot_realization_pro.users u ON LOWER(pr.inspector_fio) = LOWER(u.fio)
-                WHERE u.id = {user_id}
+                WHERE u.id = {user_id}{date_filter_pab}
             """)
             pab_stats = cur.fetchone()
             
@@ -209,7 +223,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 FROM t_p80499285_psot_realization_pro.pab_observations obs
                 JOIN t_p80499285_psot_realization_pro.pab_records pr ON obs.pab_record_id = pr.id
                 JOIN t_p80499285_psot_realization_pro.users u ON LOWER(pr.inspector_fio) = LOWER(u.fio)
-                WHERE u.id = {user_id}
+                WHERE u.id = {user_id}{date_filter_obs}
             """)
             obs_stats = cur.fetchone()
             
@@ -221,7 +235,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     COUNT(CASE WHEN status = 'in_work' AND deadline >= CURRENT_DATE THEN 1 END) as in_progress,
                     COUNT(CASE WHEN deadline < CURRENT_DATE AND status != 'completed' THEN 1 END) as overdue
                 FROM t_p80499285_psot_realization_pro.production_prescription_violations
-                WHERE assigned_user_id = {user_id}
+                WHERE assigned_user_id = {user_id}{date_filter_presc}
             """)
             presc_stats = cur.fetchone()
             
@@ -233,7 +247,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     COUNT(CASE WHEN v.status IN ('in_progress', 'new') THEN 1 END) as in_progress,
                     COUNT(CASE WHEN v.deadline < CURRENT_DATE AND v.status != 'completed' THEN 1 END) as overdue
                 FROM t_p80499285_psot_realization_pro.production_control_violations v
-                WHERE v.responsible_user_id = {user_id}
+                WHERE v.responsible_user_id = {user_id}{date_filter_pc}
             """)
             pc_violations_stats = cur.fetchone()
             
@@ -241,9 +255,37 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             cur.execute(f"""
                 SELECT COUNT(*)
                 FROM t_p80499285_psot_realization_pro.pab_records
-                WHERE user_id = {user_id}
+                WHERE user_id = {user_id}{date_filter_pab}
             """)
             audits_conducted = cur.fetchone()[0] or 0
+            
+            # Получаем плановые показатели из таблицы pab_schedule_files
+            user_position = row[6] or ''  # position пользователя
+            plan_audits = None
+            plan_observations = None
+            
+            cur.execute("""
+                SELECT file_data
+                FROM t_p80499285_psot_realization_pro.pab_schedule_files
+                WHERE is_active = true
+                LIMIT 1
+            """)
+            
+            schedule_row = cur.fetchone()
+            if schedule_row and user_position:
+                import json as json_module
+                file_data = schedule_row[0]
+                sheets_data = file_data.get('sheetsData', {})
+                
+                # Ищем должность пользователя во всех листах
+                for sheet_name, positions in sheets_data.items():
+                    for pos_data in positions:
+                        if pos_data.get('position', '').strip().lower() == user_position.strip().lower():
+                            plan_audits = pos_data.get('audits')
+                            plan_observations = pos_data.get('observations')
+                            break
+                    if plan_audits is not None:
+                        break
             
             stats = {
                 'user_id': row[0],
@@ -272,7 +314,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'pc_violations_completed': pc_violations_stats[1] or 0,
                 'pc_violations_in_progress': pc_violations_stats[2] or 0,
                 'pc_violations_overdue': pc_violations_stats[3] or 0,
-                'audits_conducted': audits_conducted
+                'audits_conducted': audits_conducted,
+                'plan_audits': plan_audits,
+                'plan_observations': plan_observations
             }
             
             cur.close()

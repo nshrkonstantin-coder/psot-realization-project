@@ -86,6 +86,8 @@ const UserCabinet = () => {
   const [selectedPCViolationItem, setSelectedPCViolationItem] = useState<any | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [userRole, setUserRole] = useState<string>('user');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -117,7 +119,13 @@ const UserCabinet = () => {
   const loadUserStats = async () => {
     try {
       const userId = localStorage.getItem('userId');
-      const response = await fetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=user_cabinet&userId=${userId}`);
+      let url = `https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=user_cabinet&userId=${userId}`;
+      
+      if (startDate && endDate) {
+        url += `&startDate=${startDate}&endDate=${endDate}`;
+      }
+      
+      const response = await fetch(url);
       const data = await response.json();
       
       if (data.success) {
@@ -479,6 +487,61 @@ const UserCabinet = () => {
           </div>
         </div>
 
+        {/* Period Filter */}
+        <Card className="bg-slate-800/50 border-blue-600/30 p-6 mb-6">
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <Icon name="Calendar" size={24} className="text-blue-500" />
+            Выбор периода
+          </h2>
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-sm text-slate-400 mb-2 block">Дата начала</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-sm text-slate-400 mb-2 block">Дата окончания</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <Button
+              onClick={() => {
+                if (startDate && endDate) {
+                  loadUserStats();
+                  toast({ title: 'Данные обновлены', description: `Показаны данные с ${startDate} по ${endDate}` });
+                } else {
+                  toast({ title: 'Выберите период', description: 'Укажите обе даты для фильтрации', variant: 'destructive' });
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Icon name="Filter" size={20} className="mr-2" />
+              Применить
+            </Button>
+            <Button
+              onClick={() => {
+                setStartDate('');
+                setEndDate('');
+                loadUserStats();
+                toast({ title: 'Фильтр сброшен', description: 'Показаны все данные' });
+              }}
+              variant="outline"
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+            >
+              <Icon name="X" size={20} className="mr-2" />
+              Сбросить
+            </Button>
+          </div>
+        </Card>
+
         {/* User Info Card */}
         <Card className="bg-slate-800/50 border-yellow-600/30 p-6 mb-6">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
@@ -558,51 +621,31 @@ const UserCabinet = () => {
           </Card>
         </div>
 
-        {/* 
-          My Audits and Observations Statistics
-          Data source: pab_records (audits) + pab_observations (observations)
-          Logic: User conducts audits (inspector_fio) with multiple observations (1 audit : 3 observations for regular users)
-          - All Audits: COUNT(DISTINCT pab_records) by inspector_fio
-          - All Observations: COUNT(pab_observations) linked to user's audits
-          - Fact Audits: completed audits
-          - Fact Observations: completed observations
-        */}
+        {/* Personal PAB Indicators */}
         <Card className="bg-slate-800/50 border-yellow-600/30 p-6 mb-6">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Icon name="FileText" size={24} className="text-yellow-500" />
-            Мои проведенные аудиты и наблюдения
+            Мои личные показатели ПАБ
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div 
-              className="bg-slate-700/50 p-4 rounded-lg cursor-pointer hover:bg-slate-600/50 transition-colors"
-              onClick={() => loadPabDetails('all')}
-            >
-              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                Всего аудитов
-                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
-              </p>
-              <p className="text-2xl font-bold text-white">{stats.pab_total}</p>
-            </div>
-            
-            <div 
-              className="bg-slate-700/50 p-4 rounded-lg cursor-pointer hover:bg-slate-600/50 transition-colors"
-              onClick={() => loadObservationsDetails('all')}
-            >
-              <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                Всего наблюдений
-                <Icon name="MousePointerClick" size={16} className="text-slate-500" />
-              </p>
-              <p className="text-2xl font-bold text-white">{stats.observations_issued}</p>
-            </div>
-
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-600/30">
               <p className="text-sm text-slate-400 mb-1">План Аудиты</p>
-              <p className="text-2xl font-bold text-blue-500">{stats.plan_audits || 0}</p>
+              <p className="text-2xl font-bold text-blue-500">
+                {stats.plan_audits !== null && stats.plan_audits !== undefined ? stats.plan_audits : '—'}
+              </p>
+              {(stats.plan_audits === null || stats.plan_audits === undefined) && (
+                <p className="text-xs text-slate-500 mt-1">Должность не найдена в таблице</p>
+              )}
             </div>
 
             <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-600/30">
               <p className="text-sm text-slate-400 mb-1">План Наблюдения</p>
-              <p className="text-2xl font-bold text-blue-500">{stats.plan_observations || 0}</p>
+              <p className="text-2xl font-bold text-blue-500">
+                {stats.plan_observations !== null && stats.plan_observations !== undefined ? stats.plan_observations : '—'}
+              </p>
+              {(stats.plan_observations === null || stats.plan_observations === undefined) && (
+                <p className="text-xs text-slate-500 mt-1">Должность не найдена в таблице</p>
+              )}
             </div>
 
             <div 
