@@ -5,11 +5,15 @@ import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { TechnicalSupport } from '@/components/TechnicalSupport';
 import OrganizationLogo from '@/components/OrganizationLogo';
+import { ImpersonationBanner } from '@/components/ImpersonationBanner';
+import { useImpersonationState } from '@/hooks/useImpersonationState';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [userFio, setUserFio] = useState('');
   const [userCompany, setUserCompany] = useState('');
+  
+  useImpersonationState();
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -43,11 +47,13 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
+    <>
+      <ImpersonationBanner />
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+        {/* Header */}
+        <div className="max-w-7xl mx-auto mb-8">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
             <OrganizationLogo size={56} showCompanyName={false} />
             <div>
               <h1 className="text-3xl font-bold text-white">АСУБТ</h1>
@@ -100,12 +106,13 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Mining Background Effects */}
-      <div className="fixed inset-0 pointer-events-none opacity-5">
-        <div className="absolute top-20 left-10 w-64 h-64 bg-yellow-600 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-orange-700 rounded-full blur-3xl animate-pulse" />
+        {/* Mining Background Effects */}
+        <div className="fixed inset-0 pointer-events-none opacity-5">
+          <div className="absolute top-20 left-10 w-64 h-64 bg-yellow-600 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-orange-700 rounded-full blur-3xl animate-pulse" />
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

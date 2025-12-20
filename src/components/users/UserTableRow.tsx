@@ -26,6 +26,7 @@ interface UserTableRowProps {
   onEditProfile: (user: User) => void;
   onEditCredentials: (user: User) => void;
   onDelete: (userId: number) => void;
+  onLoginAs: (userId: number, userRole: string) => void;
   getRoleBadgeColor: (role: string) => string;
   getRoleLabel: (role: string) => string;
 }
@@ -37,6 +38,7 @@ export const UserTableRow = ({
   onEditProfile,
   onEditCredentials,
   onDelete,
+  onLoginAs,
   getRoleBadgeColor,
   getRoleLabel,
 }: UserTableRowProps) => {
@@ -99,6 +101,15 @@ export const UserTableRow = ({
           </Button>
           {isSuperAdmin && (
             <>
+              <Button
+                onClick={() => onLoginAs(user.id, user.role)}
+                variant="outline"
+                size="sm"
+                className="border-green-600/50 text-green-500 hover:bg-green-600/10 text-xs h-7 px-2"
+              >
+                <Icon name="LogIn" size={12} className="mr-1" />
+                Вход в ЛК
+              </Button>
               <Button
                 onClick={() => onEditCredentials(user)}
                 variant="outline"

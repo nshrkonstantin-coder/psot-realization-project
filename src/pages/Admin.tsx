@@ -5,10 +5,14 @@ import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { TechnicalSupport } from '@/components/TechnicalSupport';
 import OrganizationLogo from '@/components/OrganizationLogo';
+import { ImpersonationBanner } from '@/components/ImpersonationBanner';
+import { useImpersonationState } from '@/hooks/useImpersonationState';
 
 const Admin = () => {
   const navigate = useNavigate();
   const [userFio, setUserFio] = useState('');
+  
+  useImpersonationState();
 
   useEffect(() => {
     const role = localStorage.getItem('userRole');
@@ -61,8 +65,10 @@ const Admin = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 p-6">
-      <div className="max-w-7xl mx-auto mb-8">
+    <>
+      <ImpersonationBanner />
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 p-6">
+        <div className="max-w-7xl mx-auto mb-8">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
             <OrganizationLogo size={56} showCompanyName={true} />
@@ -112,11 +118,12 @@ const Admin = () => {
         </div>
       </div>
 
-      <div className="fixed inset-0 pointer-events-none opacity-5">
-        <div className="absolute top-20 left-10 w-64 h-64 bg-blue-600 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-700 rounded-full blur-3xl animate-pulse" />
+        <div className="fixed inset-0 pointer-events-none opacity-5">
+          <div className="absolute top-20 left-10 w-64 h-64 bg-blue-600 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-700 rounded-full blur-3xl animate-pulse" />
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

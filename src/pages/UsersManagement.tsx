@@ -161,6 +161,32 @@ const UsersManagement = () => {
     }
   };
 
+  const handleLoginAs = (userId: number, targetRole: string) => {
+    const currentUserId = localStorage.getItem('userId');
+    const currentUserRole = localStorage.getItem('userRole');
+    const currentUserEmail = localStorage.getItem('userEmail');
+    const currentPath = window.location.pathname;
+
+    localStorage.setItem('impersonation_original_user_id', currentUserId || '');
+    localStorage.setItem('impersonation_original_user_role', currentUserRole || '');
+    localStorage.setItem('impersonation_original_user_email', currentUserEmail || '');
+    localStorage.setItem('impersonation_return_path', currentPath);
+
+    localStorage.setItem('userId', String(userId));
+    localStorage.setItem('userRole', targetRole);
+    localStorage.setItem('isImpersonating', 'true');
+
+    if (targetRole === 'superadmin') {
+      navigate('/superadmin');
+    } else if (targetRole === 'admin') {
+      navigate('/admin');
+    } else {
+      navigate('/dashboard');
+    }
+
+    toast({ title: 'Вход выполнен', description: 'Вы вошли в личный кабинет пользователя' });
+  };
+
   const handleChangeCredentials = async () => {
     if (!editCredentials) return;
 
@@ -350,6 +376,7 @@ const UsersManagement = () => {
                       })
                     }
                     onDelete={handleDeleteUser}
+                    onLoginAs={handleLoginAs}
                     getRoleBadgeColor={getRoleBadgeColor}
                     getRoleLabel={getRoleLabel}
                   />
