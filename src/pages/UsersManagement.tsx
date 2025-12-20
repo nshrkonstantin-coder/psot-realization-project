@@ -37,6 +37,7 @@ const UsersManagement = () => {
   const [editCredentials, setEditCredentials] = useState<{ id: number; email: string; newEmail: string; newPassword: string } | null>(null);
   const [userRole, setUserRole] = useState('');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [highlightedUserId, setHighlightedUserId] = useState<number | null>(null);
 
   useEffect(() => {
     const role = localStorage.getItem('userRole');
@@ -139,6 +140,8 @@ const UsersManagement = () => {
         // Если компания изменилась, перемещаем пользователя в новую компанию
         if (oldCompany !== editUser.company) {
           setSearchQuery(editUser.company);
+          setHighlightedUserId(editUser.id);
+          setTimeout(() => setHighlightedUserId(null), 3000);
         }
         
         setEditUser(null);
@@ -387,6 +390,7 @@ const UsersManagement = () => {
                     onLoginAs={handleLoginAs}
                     getRoleBadgeColor={getRoleBadgeColor}
                     getRoleLabel={getRoleLabel}
+                    isHighlighted={highlightedUserId === user.id}
                   />
                 ))}
               </tbody>

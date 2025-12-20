@@ -29,6 +29,7 @@ interface UserTableRowProps {
   onLoginAs: (userId: number, userRole: string) => void;
   getRoleBadgeColor: (role: string) => string;
   getRoleLabel: (role: string) => string;
+  isHighlighted?: boolean;
 }
 
 export const UserTableRow = ({
@@ -41,9 +42,12 @@ export const UserTableRow = ({
   onLoginAs,
   getRoleBadgeColor,
   getRoleLabel,
+  isHighlighted = false,
 }: UserTableRowProps) => {
   return (
-    <tr className="border-b border-slate-700 hover:bg-slate-700/30">
+    <tr className={`border-b border-slate-700 hover:bg-slate-700/30 transition-all duration-500 ${
+      isHighlighted ? 'bg-blue-600/20 shadow-[0_0_20px_rgba(59,130,246,0.3)] animate-pulse' : ''
+    }`}>
       <td className="px-2 py-3 text-slate-300 text-sm truncate">
         {user.display_name || `ID№${String(user.id).padStart(5, '0')}`}
       </td>
