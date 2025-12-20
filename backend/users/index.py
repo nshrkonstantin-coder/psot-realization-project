@@ -213,7 +213,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             """)
             pab_stats = cur.fetchone()
             
-            # Статистика наблюдений (созданные пользователем в его аудитах через inspector_fio)
+            # Статистика наблюдений (выписанных на пользователя как ответственного через responsible_person)
             cur.execute(f"""
                 SELECT 
                     COUNT(obs.id) as total,
@@ -221,8 +221,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     COUNT(CASE WHEN obs.status IN ('in_work', 'new') THEN 1 END) as in_progress,
                     COUNT(CASE WHEN obs.status = 'overdue' OR (obs.deadline < CURRENT_DATE AND obs.status != 'completed') THEN 1 END) as overdue
                 FROM t_p80499285_psot_realization_pro.pab_observations obs
-                JOIN t_p80499285_psot_realization_pro.pab_records pr ON obs.pab_record_id = pr.id
-                JOIN t_p80499285_psot_realization_pro.users u ON LOWER(pr.inspector_fio) = LOWER(u.fio)
+                JOIN t_p80499285_psot_realization_pro.users u ON LOWER(obs.responsible_person) = LOWER(u.fio)
                 WHERE u.id = {user_id}{date_filter_obs}
             """)
             obs_stats = cur.fetchone()
