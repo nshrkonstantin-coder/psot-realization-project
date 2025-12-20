@@ -651,9 +651,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             subdivision_sql = f"'{subdivision_escaped}'" if subdivision else 'NULL'
             position_sql = f"'{position_escaped}'" if position else 'NULL'
             
+            # Получаем organization_id для новой компании
+            organization_id = None
+            if company:
+                cur.execute(f"""
+                    SELECT id FROM t_p80499285_psot_realization_pro.organizations 
+                    WHERE LOWER(name) = LOWER('{company_escaped}')
+                """)
+                org_row = cur.fetchone()
+                organization_id = org_row[0] if org_row else None
+            
+            # Обновляем пользователя включая organization_id
+            org_sql = str(organization_id) if organization_id is not None else 'NULL'
             cur.execute(f"""
                 UPDATE t_p80499285_psot_realization_pro.users 
-                SET fio = {fio_sql}, company = {company_sql}, subdivision = {subdivision_sql}, position = {position_sql} 
+                SET fio = {fio_sql}, 
+                    company = {company_sql}, 
+                    subdivision = {subdivision_sql}, 
+                    position = {position_sql},
+                    organization_id = {org_sql}
                 WHERE id = {user_id}
             """)
             conn.commit()
