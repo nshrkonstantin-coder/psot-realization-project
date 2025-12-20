@@ -649,7 +649,7 @@ const UserCabinet = () => {
             </div>
 
             <div 
-              className="bg-green-900/20 p-4 rounded-lg border border-green-600/30 cursor-pointer hover:bg-green-900/30 transition-colors"
+              className="bg-green-900/20 p-4 rounded-lg border border-green-600/30 cursor-pointer hover:bg-green-900/30 transition-colors min-h-[120px] flex flex-col"
               onClick={() => loadPabDetails('all')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
@@ -657,10 +657,34 @@ const UserCabinet = () => {
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
               <p className="text-2xl font-bold text-green-500">{stats.pab_total || 0}</p>
+              {stats.plan_audits !== null && stats.plan_audits !== undefined && stats.plan_audits > 0 && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                    <span>План: {stats.plan_audits}</span>
+                    <span className={`font-semibold ${
+                      ((stats.pab_total || 0) / stats.plan_audits * 100) >= 100 ? 'text-green-400' :
+                      ((stats.pab_total || 0) / stats.plan_audits * 100) >= 80 ? 'text-yellow-400' :
+                      'text-orange-400'
+                    }`}>
+                      {Math.round((stats.pab_total || 0) / stats.plan_audits * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all ${
+                        ((stats.pab_total || 0) / stats.plan_audits * 100) >= 100 ? 'bg-green-500' :
+                        ((stats.pab_total || 0) / stats.plan_audits * 100) >= 80 ? 'bg-yellow-500' :
+                        'bg-orange-500'
+                      }`}
+                      style={{ width: `${Math.min(((stats.pab_total || 0) / stats.plan_audits * 100), 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div 
-              className="bg-green-900/20 p-4 rounded-lg border border-green-600/30 cursor-pointer hover:bg-green-900/30 transition-colors"
+              className="bg-green-900/20 p-4 rounded-lg border border-green-600/30 cursor-pointer hover:bg-green-900/30 transition-colors min-h-[120px] flex flex-col"
               onClick={() => loadObservationsDetails('all')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
@@ -668,6 +692,30 @@ const UserCabinet = () => {
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
               <p className="text-2xl font-bold text-green-500">{stats.observations_issued || 0}</p>
+              {stats.plan_observations !== null && stats.plan_observations !== undefined && stats.plan_observations > 0 && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                    <span>План: {stats.plan_observations}</span>
+                    <span className={`font-semibold ${
+                      ((stats.observations_issued || 0) / stats.plan_observations * 100) >= 100 ? 'text-green-400' :
+                      ((stats.observations_issued || 0) / stats.plan_observations * 100) >= 80 ? 'text-yellow-400' :
+                      'text-orange-400'
+                    }`}>
+                      {Math.round((stats.observations_issued || 0) / stats.plan_observations * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all ${
+                        ((stats.observations_issued || 0) / stats.plan_observations * 100) >= 100 ? 'bg-green-500' :
+                        ((stats.observations_issued || 0) / stats.plan_observations * 100) >= 80 ? 'bg-yellow-500' :
+                        'bg-orange-500'
+                      }`}
+                      style={{ width: `${Math.min(((stats.observations_issued || 0) / stats.plan_observations * 100), 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </Card>
