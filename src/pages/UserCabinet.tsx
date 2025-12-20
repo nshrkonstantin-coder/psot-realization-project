@@ -650,24 +650,24 @@ const UserCabinet = () => {
 
             <div 
               className="bg-green-900/20 p-4 rounded-lg border border-green-600/30 cursor-pointer hover:bg-green-900/30 transition-colors"
-              onClick={() => loadPabDetails('completed')}
+              onClick={() => loadPabDetails('all')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
                 Факт Аудиты
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
-              <p className="text-2xl font-bold text-green-500">{stats.pab_completed}</p>
+              <p className="text-2xl font-bold text-green-500">{stats.pab_total || 0}</p>
             </div>
 
             <div 
               className="bg-green-900/20 p-4 rounded-lg border border-green-600/30 cursor-pointer hover:bg-green-900/30 transition-colors"
-              onClick={() => loadObservationsDetails('completed')}
+              onClick={() => loadObservationsDetails('all')}
             >
               <p className="text-sm text-slate-400 mb-1 flex items-center gap-2">
                 Факт Наблюдения
                 <Icon name="MousePointerClick" size={16} className="text-slate-500" />
               </p>
-              <p className="text-2xl font-bold text-green-500">{stats.observations_completed}</p>
+              <p className="text-2xl font-bold text-green-500">{stats.observations_issued || 0}</p>
             </div>
           </div>
         </Card>
@@ -1001,7 +1001,7 @@ const UserCabinet = () => {
           <DialogHeader>
             <DialogTitle className="text-2xl text-yellow-500 flex items-center gap-2">
               <Icon name="FileText" size={28} />
-              Мои ПАБ - {
+              Факт Аудиты - {
                 filterStatus === 'all' ? 'Все' :
                 filterStatus === 'completed' ? 'Завершено' :
                 filterStatus === 'in_progress' ? 'В работе' :
@@ -1009,7 +1009,7 @@ const UserCabinet = () => {
               }
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Нажмите на карточку ПАБ для открытия полной информации
+              ПАБ аудиты, где Вы указаны как Проверяющий
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 mt-4">
@@ -1071,7 +1071,7 @@ const UserCabinet = () => {
           <DialogHeader>
             <DialogTitle className="text-2xl text-yellow-500 flex items-center gap-2">
               <Icon name="Eye" size={28} />
-              Наблюдения - {
+              Факт Наблюдения - {
                 filterStatus === 'all' ? 'Все' :
                 filterStatus === 'completed' ? 'Устранено' :
                 filterStatus === 'in_progress' ? 'В работе' :
@@ -1079,7 +1079,7 @@ const UserCabinet = () => {
               }
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Нажмите на наблюдение для открытия полной информации
+              Наблюдения из Ваших ПАБ аудитов (где Вы — Проверяющий)
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 mt-4">

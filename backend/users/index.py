@@ -440,14 +440,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             user_fio = user_row[0]
             
-            # Получаем наблюдения где responsible_person совпадает с ФИО
+            # Получаем наблюдения из ПАБ, где пользователь — проверяющий (inspector_fio)
             cur.execute(f"""
-                SELECT id, pab_record_id, observation_number, description, category, 
-                       conditions_actions, hazard_factors, measures, responsible_person, 
-                       deadline, status, photo_url, created_at
-                FROM t_p80499285_psot_realization_pro.pab_observations
-                WHERE LOWER(responsible_person) = LOWER('{user_fio.replace("'", "''")}')
-                ORDER BY created_at DESC
+                SELECT obs.id, obs.pab_record_id, obs.observation_number, obs.description, obs.category, 
+                       obs.conditions_actions, obs.hazard_factors, obs.measures, obs.responsible_person, 
+                       obs.deadline, obs.status, obs.photo_url, obs.created_at
+                FROM t_p80499285_psot_realization_pro.pab_observations obs
+                JOIN t_p80499285_psot_realization_pro.pab_records pr ON obs.pab_record_id = pr.id
+                WHERE LOWER(pr.inspector_fio) = LOWER('{user_fio.replace("'", "''")}')
+                ORDER BY obs.created_at DESC
             """)
             
             observations = []
