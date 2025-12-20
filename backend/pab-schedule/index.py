@@ -165,11 +165,11 @@ def upload_file(conn, user_id: str, body_data: Dict[str, Any], headers: Dict[str
                 'isBase64Encoded': False
             }
         
-        if user_row['role'] not in ['main_admin', 'super_admin']:
+        if user_row['role'] not in ['main_admin', 'super_admin', 'admin']:
             return {
                 'statusCode': 403,
                 'headers': headers,
-                'body': json.dumps({'error': 'Only main admin can upload files'}),
+                'body': json.dumps({'error': 'Only administrators can upload files'}),
                 'isBase64Encoded': False
             }
         
@@ -242,11 +242,11 @@ def delete_file(conn, user_id: str, file_id: str, headers: Dict[str, str]) -> Di
                 'isBase64Encoded': False
             }
         
-        if user_row['role'] not in ['main_admin', 'super_admin']:
+        if user_row['role'] not in ['main_admin', 'super_admin', 'admin']:
             return {
                 'statusCode': 403,
                 'headers': headers,
-                'body': json.dumps({'error': 'Only main admin can delete files'}),
+                'body': json.dumps({'error': 'Only administrators can delete files'}),
                 'isBase64Encoded': False
             }
         
