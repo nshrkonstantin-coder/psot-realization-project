@@ -566,23 +566,22 @@ const MyMetricsPage = () => {
                     Удалить
                   </Button>
                 )}
-                <label>
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    disabled={isUploading}
-                  />
-                  <Button
-                    as="span"
-                    disabled={isUploading}
-                    className="bg-yellow-600 hover:bg-yellow-700 text-white cursor-pointer"
-                  >
-                    <Icon name="Upload" size={18} className="mr-2" />
-                    {isUploading ? 'Загрузка...' : 'Загрузить Excel'}
-                  </Button>
-                </label>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleFileUpload}
+                  id="excel-upload"
+                  className="hidden"
+                  disabled={isUploading}
+                />
+                <Button
+                  onClick={() => document.getElementById('excel-upload')?.click()}
+                  disabled={isUploading}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                >
+                  <Icon name="Upload" size={18} className="mr-2" />
+                  {isUploading ? 'Загрузка...' : 'Загрузить Excel'}
+                </Button>
               </div>
             </div>
           </Card>
