@@ -36,7 +36,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         try:
             body_data = json.loads(event.get('body', '{}'))
             file_base64 = body_data.get('file')
-            filename = body_data.get('filename', 'metrics-chart.xlsx')
+            org_id = body_data.get('org_id', 'global')
+            filename = 'metrics-chart.xlsx'
             
             if not file_base64:
                 return {
@@ -51,7 +52,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             file_data = base64.b64decode(file_base64)
             
-            key = f'metrics/charts/{filename}'
+            key = f'metrics/charts/org_{org_id}/{filename}'
             s3.put_object(
                 Bucket='files',
                 Key=key,
@@ -70,7 +71,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'body': json.dumps({
                     'success': True,
                     'url': cdn_url,
-                    'filename': filename
+                    'filename': filename,
+                    'org_id': org_id
                 }),
                 'isBase64Encoded': False
             }
@@ -87,7 +89,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     if method == 'GET':
         try:
-            key = 'metrics/charts/metrics-chart.xlsx'
+            params = event.get('queryStringParameters', {})
+            org_id = params.get('org_id', 'global')
+            key = f'metrics/charts/org_{org_id}/metrics-chart.xlsx'
             
             try:
                 s3.head_object(Bucket='files', Key=key)
@@ -100,7 +104,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     },
                     'body': json.dumps({
                         'exists': True,
-                        'url': cdn_url
+                        'url': cdn_url,
+                        'org_id': org_id
                     }),
                     'isBase64Encoded': False
                 }
@@ -112,7 +117,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'Access-Control-Allow-Origin': '*'
                     },
                     'body': json.dumps({
-                        'exists': False
+                        'exists': False,
+                        'org_id': org_id
                     }),
                     'isBase64Encoded': False
                 }
@@ -129,7 +135,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     if method == 'DELETE':
         try:
-            key = 'metrics/charts/metrics-chart.xlsx'
+            body_data = json.loads(event.get('body', '{}'))
+            org_id = body_data.get('org_id', 'global')
+            key = f'metrics/charts/org_{org_id}/metrics-chart.xlsx'
             s3.delete_object(Bucket='files', Key=key)
             
             return {
@@ -138,7 +146,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*'
                 },
-                'body': json.dumps({'success': True}),
+                'body': json.dumps({'success': True, 'org_id': org_id}),
                 'isBase64Encoded': False
             }
         except Exception as e:

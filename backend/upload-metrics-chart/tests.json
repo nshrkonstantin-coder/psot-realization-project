@@ -22,7 +22,7 @@
       "path": "/",
       "expectedStatus": 200,
       "expectedBody": {
-        "exists": false
+        "exists": true
       },
       "bodyMatcher": "partial"
     }

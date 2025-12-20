@@ -52,6 +52,7 @@ const MyMetricsPage = () => {
   const [chartUrl, setChartUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [userRole, setUserRole] = useState('');
+  const [orgId, setOrgId] = useState('');
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -62,6 +63,8 @@ const MyMetricsPage = () => {
 
     setUserCompany(localStorage.getItem('userCompany') || '');
     setUserRole(localStorage.getItem('userRole') || '');
+    const currentOrgId = localStorage.getItem('organizationId') || 'global';
+    setOrgId(currentOrgId);
 
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -70,17 +73,19 @@ const MyMetricsPage = () => {
 
     loadMetrics(firstDayOfMonth.toISOString().split('T')[0], today.toISOString().split('T')[0]);
     loadPkMetrics(firstDayOfMonth.toISOString().split('T')[0], today.toISOString().split('T')[0]);
-    loadChart();
+    loadChart(currentOrgId);
   }, [navigate]);
 
-  const loadChart = async () => {
+  const loadChart = async (currentOrgId: string) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/f75c6d34-b244-49c1-a03d-9c3473e0189e', {
+      const response = await fetch(`https://functions.poehali.dev/f75c6d34-b244-49c1-a03d-9c3473e0189e?org_id=${currentOrgId}`, {
         method: 'GET',
       });
       const data = await response.json();
       if (data.exists && data.url) {
         setChartUrl(data.url);
+      } else {
+        setChartUrl(null);
       }
     } catch (error) {
       console.error('Error loading chart:', error);
@@ -114,18 +119,21 @@ const MyMetricsPage = () => {
           },
           body: JSON.stringify({
             file: base64,
-            filename: 'metrics-chart.xlsx',
+            org_id: orgId,
           }),
         });
 
         const data = await response.json();
         if (response.ok && data.success) {
           setChartUrl(data.url);
-          toast.success('График успешно загружен и доступен всем пользователям');
+          toast.success('График успешно загружен и доступен всем пользователям вашей организации');
         } else {
           toast.error(data.error || 'Ошибка загрузки файла');
         }
         setIsUploading(false);
+        if (event.target) {
+          event.target.value = '';
+        }
       };
       reader.readAsDataURL(file);
     } catch (error) {
@@ -136,13 +144,19 @@ const MyMetricsPage = () => {
   };
 
   const handleDeleteChart = async () => {
-    if (!window.confirm('Вы уверены, что хотите удалить график? Он исчезнет у всех пользователей.')) {
+    if (!window.confirm('Вы уверены, что хотите удалить график? Он исчезнет у всех пользователей организации.')) {
       return;
     }
 
     try {
       const response = await fetch('https://functions.poehali.dev/f75c6d34-b244-49c1-a03d-9c3473e0189e', {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          org_id: orgId,
+        }),
       });
       const data = await response.json();
       if (response.ok && data.success) {
@@ -543,7 +557,7 @@ const MyMetricsPage = () => {
 
         <MetricsTabSwitcher activeTab={activeTab} onTabChange={setActiveTab} />
 
-        {userRole === 'super_admin' && (
+        {(userRole === 'super_admin' || userRole === 'admin') && (
           <Card className="mb-6 p-6 bg-slate-800/50 border-yellow-600/30">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -552,7 +566,7 @@ const MyMetricsPage = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-white">График личных показателей ПАБ</h3>
-                  <p className="text-slate-400 text-sm">Загрузите Excel-файл с графиком для отображения всем пользователям</p>
+                  <p className="text-slate-400 text-sm">Загрузите Excel-файл с графиком для отображения всем пользователям вашей организации</p>
                 </div>
               </div>
               <div className="flex gap-3">
