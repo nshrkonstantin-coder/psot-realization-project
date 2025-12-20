@@ -8,6 +8,7 @@ import { MetricsDateFilter } from '@/components/metrics/MetricsDateFilter';
 import { MetricsTabSwitcher } from '@/components/metrics/MetricsTabSwitcher';
 import { MetricsCards } from '@/components/metrics/MetricsCards';
 import { ObservationsDialog } from '@/components/metrics/ObservationsDialog';
+import { Card } from '@/components/ui/card';
 
 interface Observation {
   id: number;
@@ -48,6 +49,9 @@ const MyMetricsPage = () => {
   const [selectedObservations, setSelectedObservations] = useState<Observation[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTitle, setDialogTitle] = useState('');
+  const [chartUrl, setChartUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [userRole, setUserRole] = useState('');
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -57,6 +61,7 @@ const MyMetricsPage = () => {
     }
 
     setUserCompany(localStorage.getItem('userCompany') || '');
+    setUserRole(localStorage.getItem('userRole') || '');
 
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -65,7 +70,92 @@ const MyMetricsPage = () => {
 
     loadMetrics(firstDayOfMonth.toISOString().split('T')[0], today.toISOString().split('T')[0]);
     loadPkMetrics(firstDayOfMonth.toISOString().split('T')[0], today.toISOString().split('T')[0]);
+    loadChart();
   }, [navigate]);
+
+  const loadChart = async () => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/f75c6d34-b244-49c1-a03d-9c3473e0189e', {
+        method: 'GET',
+      });
+      const data = await response.json();
+      if (data.exists && data.url) {
+        setChartUrl(data.url);
+      }
+    } catch (error) {
+      console.error('Error loading chart:', error);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      toast.error('Пожалуйста, загрузите Excel файл (.xlsx или .xls)');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = e.target?.result?.toString().split(',')[1];
+        if (!base64) {
+          toast.error('Ошибка чтения файла');
+          setIsUploading(false);
+          return;
+        }
+
+        const response = await fetch('https://functions.poehali.dev/f75c6d34-b244-49c1-a03d-9c3473e0189e', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            file: base64,
+            filename: 'metrics-chart.xlsx',
+          }),
+        });
+
+        const data = await response.json();
+        if (response.ok && data.success) {
+          setChartUrl(data.url);
+          toast.success('График успешно загружен и доступен всем пользователям');
+        } else {
+          toast.error(data.error || 'Ошибка загрузки файла');
+        }
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast.error('Ошибка загрузки файла');
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeleteChart = async () => {
+    if (!window.confirm('Вы уверены, что хотите удалить график? Он исчезнет у всех пользователей.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('https://functions.poehali.dev/f75c6d34-b244-49c1-a03d-9c3473e0189e', {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setChartUrl(null);
+        toast.success('График успешно удален');
+      } else {
+        toast.error(data.error || 'Ошибка удаления файла');
+      }
+    } catch (error) {
+      console.error('Error deleting chart:', error);
+      toast.error('Ошибка удаления файла');
+    }
+  };
 
   const loadPkMetrics = async (from: string, to: string) => {
     try {
@@ -452,6 +542,70 @@ const MyMetricsPage = () => {
         />
 
         <MetricsTabSwitcher activeTab={activeTab} onTabChange={setActiveTab} />
+
+        {userRole === 'super_admin' && (
+          <Card className="mb-6 p-6 bg-slate-800/50 border-yellow-600/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="bg-yellow-600/20 p-3 rounded-lg">
+                  <Icon name="BarChart3" size={24} className="text-yellow-500" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">График личных показателей ПАБ</h3>
+                  <p className="text-slate-400 text-sm">Загрузите Excel-файл с графиком для отображения всем пользователям</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                {chartUrl && (
+                  <Button
+                    onClick={handleDeleteChart}
+                    variant="outline"
+                    className="border-red-600/50 text-red-500 hover:bg-red-600/10"
+                  >
+                    <Icon name="Trash2" size={18} className="mr-2" />
+                    Удалить
+                  </Button>
+                )}
+                <label>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    disabled={isUploading}
+                  />
+                  <Button
+                    as="span"
+                    disabled={isUploading}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white cursor-pointer"
+                  >
+                    <Icon name="Upload" size={18} className="mr-2" />
+                    {isUploading ? 'Загрузка...' : 'Загрузить Excel'}
+                  </Button>
+                </label>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {chartUrl && (
+          <Card className="mb-6 p-6 bg-slate-800/50 border-blue-600/30">
+            <div className="flex items-center gap-3 mb-4">
+              <Icon name="FileSpreadsheet" size={24} className="text-blue-500" />
+              <h3 className="text-lg font-semibold text-white">График личных показателей ПАБ</h3>
+            </div>
+            <a
+              href={chartUrl}
+              download="metrics-chart.xlsx"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            >
+              <Icon name="Download" size={18} />
+              Скачать график
+            </a>
+          </Card>
+        )}
 
         {activeTab === 'pab' && (
           <MetricsCards type="pab" metrics={metrics} onMetricClick={handleMetricClick} />

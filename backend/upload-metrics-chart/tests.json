@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "Проверка загрузки файла",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "file": "UEsDBBQACAgIAAAAIQAAAAAAAAAAAAAAAA==",
+        "filename": "test-chart.xlsx"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "url": "string",
+        "filename": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Проверка получения информации о файле",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "exists": false
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
