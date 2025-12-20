@@ -115,6 +115,8 @@ const UsersManagement = () => {
   const handleUpdateProfile = async () => {
     if (!editUser) return;
 
+    const oldCompany = users.find(u => u.id === editUser.id)?.company;
+
     try {
       const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
         method: 'PUT',
@@ -132,7 +134,13 @@ const UsersManagement = () => {
       const data = await response.json();
       if (data.success) {
         toast({ title: 'Профиль обновлён' });
-        loadUsers();
+        await loadUsers();
+        
+        // Если компания изменилась, перемещаем пользователя в новую компанию
+        if (oldCompany !== editUser.company) {
+          setSearchQuery(editUser.company);
+        }
+        
         setEditUser(null);
       }
     } catch (error) {
