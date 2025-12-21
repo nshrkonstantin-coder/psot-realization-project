@@ -211,7 +211,7 @@ export default function PcListPage() {
     
     if (total === 0) {
       return (
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center" title="Нарушений не обнаружено">
           <span className="text-2xl font-bold text-gray-400">0</span>
         </div>
       );
@@ -229,23 +229,34 @@ export default function PcListPage() {
     let bgColor = '';
     let textColor = '';
     let shouldBlink = false;
+    let statusText = '';
     
     if (isOverdue) {
       bgColor = 'bg-red-100';
       textColor = 'text-red-700';
       shouldBlink = true;
+      statusText = `Просрочено! Дедлайн: ${deadlineDate?.toLocaleDateString('ru-RU')}`;
     } else if (isInProgress) {
       bgColor = 'bg-yellow-100';
       textColor = 'text-yellow-800';
+      statusText = deadlineDate 
+        ? `В работе. Срок до: ${deadlineDate.toLocaleDateString('ru-RU')}`
+        : 'В работе';
     }
     
     if (isFresh && !isOverdue) {
       bgColor = 'bg-blue-100';
       textColor = 'text-blue-700';
+      statusText = `Свежая запись (создана ${createdDate.toLocaleDateString('ru-RU')})`;
     }
     
+    const tooltipText = `${total} ${total === 1 ? 'нарушение' : total < 5 ? 'нарушения' : 'нарушений'}\n${statusText}`;
+    
     return (
-      <div className={`flex items-center justify-center px-4 py-2 rounded-lg ${bgColor} ${shouldBlink ? 'animate-pulse' : ''}`}>
+      <div 
+        className={`flex items-center justify-center px-4 py-2 rounded-lg ${bgColor} ${shouldBlink ? 'animate-pulse' : ''} cursor-help transition-transform hover:scale-105`}
+        title={tooltipText}
+      >
         <span className={`text-2xl font-bold ${textColor}`}>
           {total}
         </span>
