@@ -12,6 +12,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [userFio, setUserFio] = useState('');
   const [userCompany, setUserCompany] = useState('');
+  const [userRole, setUserRole] = useState('');
   
   useImpersonationState();
 
@@ -23,6 +24,7 @@ const Dashboard = () => {
     }
     setUserFio(localStorage.getItem('userFio') || '');
     setUserCompany(localStorage.getItem('userCompany') || '');
+    setUserRole(localStorage.getItem('userRole') || '');
   }, [navigate]);
 
   const handleLogout = () => {
@@ -37,6 +39,7 @@ const Dashboard = () => {
     { label: 'Регистрация ПАБ', icon: 'FileText', color: 'from-red-500 to-red-600', route: '/pab-registration' },
     { label: 'Список ПАБ', icon: 'List', color: 'from-green-500 to-green-600', route: '/pab-list' },
     { label: 'Реестр пользователя ПАБ', icon: 'Users', color: 'from-indigo-500 to-indigo-600', route: '/pab-user-registry' },
+    { label: 'Реестр всех пользователей ПАБ', icon: 'UsersRound', color: 'from-violet-500 to-violet-600', route: '/admin-pab-registry' },
     { label: 'Производственный контроль', icon: 'Shield', color: 'from-red-600 to-red-700', route: '/production-control' },
     { label: 'Список ПК', icon: 'ClipboardList', color: 'from-emerald-500 to-emerald-600', route: '/pc-list' },
     { label: 'Аналитика ПК', icon: 'BarChart2', color: 'from-teal-500 to-teal-600', route: '/pc-analytics' },
@@ -80,7 +83,11 @@ const Dashboard = () => {
       {/* Navigation Grid */}
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {navigationButtons.map((button, index) => (
+          {navigationButtons.map((button, index) => {
+            if (button.route === '/admin-pab-registry' && !['superadmin', 'org_admin', 'org_mini_admin'].includes(userRole)) {
+              return null;
+            }
+            return (
             <Card
               key={index}
               onClick={() => navigate(button.route)}
@@ -102,7 +109,8 @@ const Dashboard = () => {
               {/* 3D Border Effect */}
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-600 to-orange-600 transform scale-x-0 group-hover:scale-x-100 transition-transform" />
             </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
 

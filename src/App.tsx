@@ -27,6 +27,7 @@ const PabDictionariesPage = lazy(() => import("./pages/PabDictionariesPage"));
 const PabListPage = lazy(() => import("./pages/PabListPage"));
 const PabViewPage = lazy(() => import("./pages/PabViewPage"));
 const PabUserRegistryPage = lazy(() => import("./pages/PabUserRegistryPage"));
+const AdminPabRegistryPage = lazy(() => import("./pages/AdminPabRegistryPage"));
 const ProductionControlPage = lazy(() => import("./pages/ProductionControlPage"));
 const KBTReportPage = lazy(() => import("./pages/KBTReportPage"));
 const KBTMainPage = lazy(() => import("./pages/KBTMainPage"));
@@ -127,6 +128,7 @@ const App = () => (
           <Route path="/pab-list" element={<PabListPage />} />
           <Route path="/pab-view/:id" element={<PabViewPage />} />
           <Route path="/pab-user-registry" element={<PabUserRegistryPage />} />
+          <Route path="/admin-pab-registry" element={<AdminPabRegistryPage />} />
           <Route path="/kbt-report" element={<KBTReportPage />} />
           <Route path="/kbt" element={<KBTMainPage />} />
           <Route path="/kbt-report-form" element={<KBTReportFormPage />} />

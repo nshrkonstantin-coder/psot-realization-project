@@ -55,7 +55,60 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Получение записей реестра с данными из users и pab_records
             params = event.get('queryStringParameters') or {}
             user_id = params.get('user_id')
+            detailed = params.get('detailed') == 'true'
             
+            if detailed and user_id:
+                # Детальная информация по аудитам конкретного пользователя
+                query = """
+                    SELECT 
+                        pr.id,
+                        pr.doc_number,
+                        pr.doc_date,
+                        pr.department,
+                        pr.location,
+                        pr.checked_object,
+                        COUNT(po.id) as observations_count
+                    FROM t_p80499285_psot_realization_pro.pab_records pr
+                    LEFT JOIN t_p80499285_psot_realization_pro.pab_observations po ON po.pab_record_id = pr.id
+                    LEFT JOIN t_p80499285_psot_realization_pro.users u ON u.fio = pr.inspector_fio
+                    WHERE u.id = %s
+                    GROUP BY pr.id, pr.doc_number, pr.doc_date, pr.department, pr.location, pr.checked_object
+                    ORDER BY pr.doc_date DESC
+                """
+                cursor.execute(query, (user_id,))
+                rows = cursor.fetchall()
+                
+                audits = []
+                total_observations = 0
+                
+                for row in rows:
+                    obs_count = row[6] or 0
+                    total_observations += obs_count
+                    audits.append({
+                        'id': row[0],
+                        'doc_number': row[1],
+                        'doc_date': row[2].isoformat() if row[2] else None,
+                        'department': row[3],
+                        'location': row[4],
+                        'checked_object': row[5],
+                        'observations_count': obs_count,
+                    })
+                
+                cursor.close()
+                conn.close()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': cors_headers,
+                    'body': json.dumps({
+                        'audits': audits,
+                        'total_audits': len(audits),
+                        'total_observations': total_observations
+                    }),
+                    'isBase64Encoded': False
+                }
+            
+            # Общая информация по всем пользователям или одному
             query = """
                 SELECT 
                     u.id as user_id,

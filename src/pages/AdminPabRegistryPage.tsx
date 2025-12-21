@@ -28,22 +28,12 @@ interface RegistryRecord {
   observations_made: number;
 }
 
-interface AuditDetail {
-  id: number;
-  doc_number: string;
-  doc_date: string;
-  department: string;
-  location: string;
-  checked_object: string;
-  observations_count: number;
-}
-
-export default function PabUserRegistryPage() {
+export default function AdminPabRegistryPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [audits, setAudits] = useState<AuditDetail[]>([]);
+  const [records, setRecords] = useState<RegistryRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userInfo, setUserInfo] = useState({ fio: '', totalAudits: 0, totalObservations: 0 });
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadRegistryData();
@@ -52,22 +42,15 @@ export default function PabUserRegistryPage() {
   const loadRegistryData = async () => {
     try {
       setLoading(true);
-      const userId = localStorage.getItem('userId');
-      const userFio = localStorage.getItem('userFio') || 'Пользователь';
       
-      const response = await fetch(`https://functions.poehali.dev/4c14a615-c04d-48ce-89ab-139999fefa5c?user_id=${userId}&detailed=true`);
+      const response = await fetch('https://functions.poehali.dev/4c14a615-c04d-48ce-89ab-139999fefa5c');
       
       if (!response.ok) {
         throw new Error('Ошибка загрузки данных');
       }
       
       const data = await response.json();
-      setAudits(data.audits || []);
-      setUserInfo({
-        fio: userFio,
-        totalAudits: data.total_audits || 0,
-        totalObservations: data.total_observations || 0
-      });
+      setRecords(data.records || []);
     } catch (error) {
       console.error('Ошибка загрузки данных реестра:', error);
       toast({
@@ -79,6 +62,14 @@ export default function PabUserRegistryPage() {
       setLoading(false);
     }
   };
+
+  const filteredRecords = records.filter(
+    (record) =>
+      record.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.pab_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.department.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -100,9 +91,9 @@ export default function PabUserRegistryPage() {
               <Icon name="ArrowLeft" size={20} />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Реестр пользователя ({userInfo.fio})</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Реестр всех пользователей ПАБ</h1>
               <p className="text-sm text-gray-600 mt-1">
-                Детальная информация по всем аудитам и наблюдениям
+                Информация по всем пользователям, аудитам и наблюдениям
               </p>
             </div>
           </div>
@@ -115,12 +106,31 @@ export default function PabUserRegistryPage() {
           </Button>
         </div>
 
+        {/* Search */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="relative">
+              <Icon
+                name="Search"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={18}
+              />
+              <Input
+                placeholder="Поиск по ФИО, email, № ПАБ, подразделению..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Registry Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Все аудиты по датам</CardTitle>
+            <CardTitle>Реестр всех пользователей</CardTitle>
             <CardDescription>
-              Всего аудитов: {audits.length} | Всего наблюдений: {userInfo.totalObservations}
+              Всего записей: {filteredRecords.length}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -128,41 +138,51 @@ export default function PabUserRegistryPage() {
               <div className="flex items-center justify-center py-12">
                 <Icon name="Loader2" className="animate-spin text-blue-600" size={48} />
               </div>
-            ) : audits.length === 0 ? (
+            ) : filteredRecords.length === 0 ? (
               <div className="text-center py-12">
                 <Icon name="FolderOpen" className="mx-auto text-gray-400 mb-4" size={48} />
-                <p className="text-gray-600">У вас пока нет проведенных аудитов</p>
+                <p className="text-gray-600">Записи не найдены</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[80px]">№</TableHead>
-                      <TableHead className="min-w-[150px]">№ Документа</TableHead>
+                      <TableHead className="w-[80px]">ID№</TableHead>
+                      <TableHead className="min-w-[200px]">ФИО</TableHead>
+                      <TableHead className="min-w-[200px]">E-mail</TableHead>
+                      <TableHead className="min-w-[180px]">Компания</TableHead>
+                      <TableHead className="min-w-[150px]">Подразделение</TableHead>
+                      <TableHead className="min-w-[180px]">Должность</TableHead>
+                      <TableHead className="w-[120px]">№ ПАБ</TableHead>
                       <TableHead className="w-[130px]">Дата проведения</TableHead>
-                      <TableHead className="min-w-[180px]">Подразделение</TableHead>
-                      <TableHead className="min-w-[200px]">Место проведения</TableHead>
-                      <TableHead className="min-w-[200px]">Проверяемый объект</TableHead>
-                      <TableHead className="w-[150px] text-center">Наблюдений выписано</TableHead>
+                      <TableHead className="w-[120px] text-center">Сделано Аудитов</TableHead>
+                      <TableHead className="w-[130px] text-center">Выписано наблюдений</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {audits.map((audit, index) => (
-                      <TableRow key={audit.id} className="hover:bg-blue-50/50">
-                        <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell className="font-medium">
+                    {filteredRecords.map((record) => (
+                      <TableRow key={record.id} className="hover:bg-blue-50/50">
+                        <TableCell className="font-medium">{record.id}</TableCell>
+                        <TableCell className="font-medium">{record.full_name}</TableCell>
+                        <TableCell>{record.email}</TableCell>
+                        <TableCell>{record.company}</TableCell>
+                        <TableCell>{record.department}</TableCell>
+                        <TableCell>{record.position}</TableCell>
+                        <TableCell>
                           <span className="inline-flex items-center px-2 py-1 rounded-md bg-blue-100 text-blue-800 text-sm font-medium">
-                            {audit.doc_number}
+                            {record.pab_number}
                           </span>
                         </TableCell>
-                        <TableCell>{formatDate(audit.doc_date)}</TableCell>
-                        <TableCell>{audit.department}</TableCell>
-                        <TableCell>{audit.location}</TableCell>
-                        <TableCell>{audit.checked_object}</TableCell>
+                        <TableCell>{formatDate(record.audit_date)}</TableCell>
+                        <TableCell className="text-center">
+                          <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-100 text-green-800 font-bold">
+                            {record.audits_completed}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-center">
                           <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 text-amber-800 font-bold">
-                            {audit.observations_count}
+                            {record.observations_made}
                           </span>
                         </TableCell>
                       </TableRow>
@@ -175,17 +195,17 @@ export default function PabUserRegistryPage() {
         </Card>
 
         {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-gray-600">
-                Всего проведено аудитов
+                Всего пользователей
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
-                <Icon name="CheckCircle" className="text-green-600" size={32} />
-                <span className="text-3xl font-bold text-gray-900">{userInfo.totalAudits}</span>
+                <Icon name="Users" className="text-blue-600" size={32} />
+                <span className="text-3xl font-bold text-gray-900">{records.length}</span>
               </div>
             </CardContent>
           </Card>
@@ -193,13 +213,31 @@ export default function PabUserRegistryPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-gray-600">
-                Всего выписано наблюдений
+                Всего аудитов
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3">
+                <Icon name="CheckCircle" className="text-green-600" size={32} />
+                <span className="text-3xl font-bold text-gray-900">
+                  {records.reduce((sum, r) => sum + r.audits_completed, 0)}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Всего наблюдений
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
                 <Icon name="Eye" className="text-amber-600" size={32} />
-                <span className="text-3xl font-bold text-gray-900">{userInfo.totalObservations}</span>
+                <span className="text-3xl font-bold text-gray-900">
+                  {records.reduce((sum, r) => sum + r.observations_made, 0)}
+                </span>
               </div>
             </CardContent>
           </Card>
