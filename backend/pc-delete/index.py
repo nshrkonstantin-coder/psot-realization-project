@@ -70,6 +70,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     continue
             
             cur.execute(
+                'DELETE FROM t_p80499285_psot_realization_pro.production_control_photos WHERE report_id = %s',
+                (pc_id,)
+            )
+            
+            cur.execute(
+                'DELETE FROM t_p80499285_psot_realization_pro.production_control_signatures WHERE report_id = %s',
+                (pc_id,)
+            )
+            
+            cur.execute(
                 'DELETE FROM t_p80499285_psot_realization_pro.production_control_violations WHERE report_id = %s',
                 (pc_id,)
             )
