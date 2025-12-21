@@ -56,6 +56,8 @@ export default function PabUserRegistryPage() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedDocNumber, setSelectedDocNumber] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [docExists, setDocExists] = useState(false);
+  const [currentFileUrl, setCurrentFileUrl] = useState('');
 
   useEffect(() => {
     loadRegistryData();
@@ -97,17 +99,24 @@ export default function PabUserRegistryPage() {
     return date.toLocaleDateString('ru-RU');
   };
 
-  const handleDocClick = async (docNumber: string) => {
+  const handleDocClick = async (docNumber: string, openImmediately = true) => {
     try {
-      // Проверяем существует ли документ
       const response = await fetch(`https://functions.poehali.dev/7839a471-e953-4453-9358-b035f047f6e9?doc_number=${docNumber}`);
       const data = await response.json();
       
       if (data.exists && data.file_url) {
-        // Открываем документ в новой вкладке
-        window.open(data.file_url, '_blank');
+        setDocExists(true);
+        setCurrentFileUrl(data.file_url);
+        
+        if (openImmediately) {
+          window.open(data.file_url, '_blank');
+        } else {
+          setSelectedDocNumber(docNumber);
+          setUploadDialogOpen(true);
+        }
       } else {
-        // Документ не найден - предлагаем загрузить
+        setDocExists(false);
+        setCurrentFileUrl('');
         setSelectedDocNumber(docNumber);
         setUploadDialogOpen(true);
       }
@@ -169,6 +178,8 @@ export default function PabUserRegistryPage() {
 
       setUploadDialogOpen(false);
       setSelectedFile(null);
+      setDocExists(true);
+      setCurrentFileUrl(data.file_url);
       
       // Открываем загруженный документ
       if (data.file_url) {
@@ -179,6 +190,39 @@ export default function PabUserRegistryPage() {
       toast({
         title: 'Ошибка',
         description: 'Не удалось загрузить документ',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteDocument = async () => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/c64d4831-6849-4d98-b3af-f2453a7e8dc0', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          doc_number: selectedDocNumber,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка удаления документа');
+      }
+
+      toast({
+        title: 'Успешно',
+        description: 'Документ успешно удален',
+      });
+
+      setDocExists(false);
+      setCurrentFileUrl('');
+    } catch (error) {
+      console.error('Ошибка удаления документа:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось удалить документ',
         variant: 'destructive',
       });
     }
@@ -249,13 +293,25 @@ export default function PabUserRegistryPage() {
                       <TableRow key={audit.id} className="hover:bg-blue-50/50">
                         <TableCell className="font-medium text-gray-600">{index + 1}</TableCell>
                         <TableCell className="font-medium">
-                          <button
-                            onClick={() => handleDocClick(audit.doc_number)}
-                            className="inline-flex items-center px-3 py-1.5 rounded-md bg-blue-100 text-blue-800 text-sm font-medium hover:bg-blue-200 transition-colors cursor-pointer"
-                          >
-                            <Icon name="FileText" size={14} className="mr-1.5" />
-                            {audit.doc_number}
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleDocClick(audit.doc_number)}
+                              className="inline-flex items-center px-3 py-1.5 rounded-md bg-blue-100 text-blue-800 text-sm font-medium hover:bg-blue-200 transition-colors cursor-pointer"
+                            >
+                              <Icon name="FileText" size={14} className="mr-1.5" />
+                              {audit.doc_number}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDocClick(audit.doc_number, false);
+                              }}
+                              className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                              title="Управление документом"
+                            >
+                              <Icon name="Settings" size={14} />
+                            </button>
+                          </div>
                         </TableCell>
                         <TableCell className="text-sm text-gray-700">{formatDate(audit.doc_date)}</TableCell>
                         <TableCell className="text-sm text-gray-700">{audit.department}</TableCell>
@@ -305,20 +361,57 @@ export default function PabUserRegistryPage() {
         </div>
       </div>
 
-      {/* Upload Dialog */}
+      {/* Upload/Manage Dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
-            <DialogTitle>Документ не найден</DialogTitle>
+            <DialogTitle>
+              {docExists ? 'Управление документом' : 'Документ не найден'}
+            </DialogTitle>
             <DialogDescription>
-              Документ <strong>{selectedDocNumber}</strong> отсутствует в системе.
-              <br />
-              Загрузите файл ПАБ (PDF, Word, Excel), чтобы сохранить его в системе.
+              {docExists ? (
+                <>
+                  Документ <strong>{selectedDocNumber}</strong> уже загружен в системе.
+                  <br />
+                  Вы можете открыть, заменить или удалить его.
+                </>
+              ) : (
+                <>
+                  Документ <strong>{selectedDocNumber}</strong> отсутствует в системе.
+                  <br />
+                  Загрузите файл ПАБ (PDF, Word, Excel), чтобы сохранить его в системе.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {docExists && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Icon name="CheckCircle" size={24} className="text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-900">Документ загружен</p>
+                      <p className="text-sm text-green-700 mt-0.5">Файл доступен для просмотра</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(currentFileUrl, '_blank')}
+                    className="border-green-300 hover:bg-green-100"
+                  >
+                    <Icon name="ExternalLink" size={14} className="mr-2" />
+                    Открыть
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-2">
-              <Label htmlFor="file-upload">Выберите файл документа ПАБ</Label>
+              <Label htmlFor="file-upload">
+                {docExists ? 'Загрузить новый файл (заменить текущий)' : 'Выберите файл документа ПАБ'}
+              </Label>
               <div className="flex items-center gap-3">
                 <Input
                   id="file-upload"
@@ -336,6 +429,7 @@ export default function PabUserRegistryPage() {
                 </div>
               )}
             </div>
+            
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <Icon name="Info" size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
@@ -347,14 +441,31 @@ export default function PabUserRegistryPage() {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>
-              Отмена
-            </Button>
-            <Button onClick={handleFileUpload} disabled={!selectedFile} className="bg-blue-600 hover:bg-blue-700">
-              <Icon name="Upload" size={16} className="mr-2" />
-              Загрузить документ
-            </Button>
+          <DialogFooter className="flex items-center justify-between">
+            <div>
+              {docExists && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDeleteDocument}
+                  className="mr-auto"
+                >
+                  <Icon name="Trash2" size={14} className="mr-2" />
+                  Удалить документ
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>
+                Закрыть
+              </Button>
+              {selectedFile && (
+                <Button onClick={handleFileUpload} className="bg-blue-600 hover:bg-blue-700">
+                  <Icon name="Upload" size={16} className="mr-2" />
+                  {docExists ? 'Заменить документ' : 'Загрузить документ'}
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
