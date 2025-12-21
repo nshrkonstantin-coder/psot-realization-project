@@ -1,4 +1,4 @@
-
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,72 +8,80 @@ import OfflineNotification from "@/components/OfflineNotification";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 import MessageNotifications from "@/components/MessageNotifications";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import OrganizationLogin from "./pages/OrganizationLogin";
-import Dashboard from "./pages/Dashboard";
-import Admin from "./pages/Admin";
-import SuperAdmin from "./pages/SuperAdmin";
-import UsersManagement from "./pages/UsersManagement";
-import CreateUser from "./pages/CreateUser";
-import Profile from "./pages/Profile";
-import AdditionalPage from "./pages/AdditionalPage";
-import StoragePage from "./pages/StoragePage";
-import FolderViewPage from "./pages/FolderViewPage";
-import PabRegistrationPage from "./pages/PabRegistrationPage";
-import PabDictionariesPage from "./pages/PabDictionariesPage";
-import PabListPage from "./pages/PabListPage";
-import PabViewPage from "./pages/PabViewPage";
-import ProductionControlPage from "./pages/ProductionControlPage";
-import KBTReportPage from "./pages/KBTReportPage";
-import KBTMainPage from "./pages/KBTMainPage";
-import KBTReportFormPage from "./pages/KBTReportFormPage";
-import KBTReportViewPage from "./pages/KBTReportViewPage";
-import KBTProtocolsPage from "./pages/KBTProtocolsPage";
-import KBTReportsPage from "./pages/KBTReportsPage";
-import KBTProgramsPage from "./pages/KBTProgramsPage";
-import OtipbDepartmentPage from "./pages/OtipbDepartmentPage";
-import OtipbInstructionsPage from "./pages/OtipbInstructionsPage";
-import OtipbInspectionsPage from "./pages/OtipbInspectionsPage";
-import OtipbIncidentsPage from "./pages/OtipbIncidentsPage";
-import OtipbPPEPage from "./pages/OtipbPPEPage";
-import OtipbDocumentsPage from "./pages/OtipbDocumentsPage";
-import OtipbAnalyticsPage from "./pages/OtipbAnalyticsPage";
-import OtipbAdditionalDirectionsPage from "./pages/OtipbAdditionalDirectionsPage";
-import OtipbWorkspacePage from "./pages/OtipbWorkspacePage";
-import OrganizationsManagementPage from "./pages/OrganizationsManagementPage";
-import CreateOrganizationPage from "./pages/CreateOrganizationPage";
-import OrganizationSettingsPage from "./pages/OrganizationSettingsPage";
-import OrganizationUsersPage from "./pages/OrganizationUsersPage";
-import LogoLibraryPage from "./pages/LogoLibraryPage";
-import SubscriptionPlansPage from "./pages/SubscriptionPlansPage";
-import SubscriptionPlanEditPage from "./pages/SubscriptionPlanEditPage";
-import PointsRulesPage from "./pages/PointsRulesPage";
-import TariffManagementPage from "./pages/TariffManagementPage";
-import OrganizationModulesPage from "./pages/OrganizationModulesPage";
-import MyMetricsPage from "./pages/MyMetricsPage";
-import SystemSettings from "./pages/SystemSettings";
-import UserCabinet from "./pages/UserCabinet";
-import ChatHistory from "./pages/ChatHistory";
-import OrgMiniAdmin from "./pages/OrgMiniAdmin";
-import AssignMiniAdmin from "./pages/AssignMiniAdmin";
-import HashCalculator from "./pages/HashCalculator";
-import EmailTestPage from "./pages/EmailTestPage";
-import EmailConfigPage from "./pages/EmailConfigPage";
-import SystemNotificationsPage from "./pages/SystemNotificationsPage";
-import DatabasePage from "./pages/DatabasePage";
-import PabAnalyticsPage from "./pages/PabAnalyticsPage";
-import PcListPage from "./pages/PcListPage";
-import PcViewPage from "./pages/PcViewPage";
-import PcAnalyticsPage from "./pages/PcAnalyticsPage";
-import PcRegistryPage from "./pages/PcRegistryPage";
-import PrescriptionsPage from "./pages/PrescriptionsPage";
-import Integration1CPage from "./pages/Integration1CPage";
-import AdminMessagesPage from "./pages/AdminMessagesPage";
-import VideoConferencePage from "./pages/VideoConferencePage";
-import ChartsPage from "./pages/ChartsPage";
-import BackupPage from "./pages/BackupPage";
-import NotFound from "./pages/NotFound";
+import Icon from "@/components/ui/icon";
+
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const OrganizationLogin = lazy(() => import("./pages/OrganizationLogin"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Admin = lazy(() => import("./pages/Admin"));
+const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
+const UsersManagement = lazy(() => import("./pages/UsersManagement"));
+const CreateUser = lazy(() => import("./pages/CreateUser"));
+const Profile = lazy(() => import("./pages/Profile"));
+const AdditionalPage = lazy(() => import("./pages/AdditionalPage"));
+const StoragePage = lazy(() => import("./pages/StoragePage"));
+const FolderViewPage = lazy(() => import("./pages/FolderViewPage"));
+const PabRegistrationPage = lazy(() => import("./pages/PabRegistrationPage"));
+const PabDictionariesPage = lazy(() => import("./pages/PabDictionariesPage"));
+const PabListPage = lazy(() => import("./pages/PabListPage"));
+const PabViewPage = lazy(() => import("./pages/PabViewPage"));
+const ProductionControlPage = lazy(() => import("./pages/ProductionControlPage"));
+const KBTReportPage = lazy(() => import("./pages/KBTReportPage"));
+const KBTMainPage = lazy(() => import("./pages/KBTMainPage"));
+const KBTReportFormPage = lazy(() => import("./pages/KBTReportFormPage"));
+const KBTReportViewPage = lazy(() => import("./pages/KBTReportViewPage"));
+const KBTProtocolsPage = lazy(() => import("./pages/KBTProtocolsPage"));
+const KBTReportsPage = lazy(() => import("./pages/KBTReportsPage"));
+const KBTProgramsPage = lazy(() => import("./pages/KBTProgramsPage"));
+const OtipbDepartmentPage = lazy(() => import("./pages/OtipbDepartmentPage"));
+const OtipbInstructionsPage = lazy(() => import("./pages/OtipbInstructionsPage"));
+const OtipbInspectionsPage = lazy(() => import("./pages/OtipbInspectionsPage"));
+const OtipbIncidentsPage = lazy(() => import("./pages/OtipbIncidentsPage"));
+const OtipbPPEPage = lazy(() => import("./pages/OtipbPPEPage"));
+const OtipbDocumentsPage = lazy(() => import("./pages/OtipbDocumentsPage"));
+const OtipbAnalyticsPage = lazy(() => import("./pages/OtipbAnalyticsPage"));
+const OtipbAdditionalDirectionsPage = lazy(() => import("./pages/OtipbAdditionalDirectionsPage"));
+const OtipbWorkspacePage = lazy(() => import("./pages/OtipbWorkspacePage"));
+const OrganizationsManagementPage = lazy(() => import("./pages/OrganizationsManagementPage"));
+const CreateOrganizationPage = lazy(() => import("./pages/CreateOrganizationPage"));
+const OrganizationSettingsPage = lazy(() => import("./pages/OrganizationSettingsPage"));
+const OrganizationUsersPage = lazy(() => import("./pages/OrganizationUsersPage"));
+const LogoLibraryPage = lazy(() => import("./pages/LogoLibraryPage"));
+const SubscriptionPlansPage = lazy(() => import("./pages/SubscriptionPlansPage"));
+const SubscriptionPlanEditPage = lazy(() => import("./pages/SubscriptionPlanEditPage"));
+const PointsRulesPage = lazy(() => import("./pages/PointsRulesPage"));
+const TariffManagementPage = lazy(() => import("./pages/TariffManagementPage"));
+const OrganizationModulesPage = lazy(() => import("./pages/OrganizationModulesPage"));
+const MyMetricsPage = lazy(() => import("./pages/MyMetricsPage"));
+const SystemSettings = lazy(() => import("./pages/SystemSettings"));
+const UserCabinet = lazy(() => import("./pages/UserCabinet"));
+const ChatHistory = lazy(() => import("./pages/ChatHistory"));
+const OrgMiniAdmin = lazy(() => import("./pages/OrgMiniAdmin"));
+const AssignMiniAdmin = lazy(() => import("./pages/AssignMiniAdmin"));
+const HashCalculator = lazy(() => import("./pages/HashCalculator"));
+const EmailTestPage = lazy(() => import("./pages/EmailTestPage"));
+const EmailConfigPage = lazy(() => import("./pages/EmailConfigPage"));
+const SystemNotificationsPage = lazy(() => import("./pages/SystemNotificationsPage"));
+const DatabasePage = lazy(() => import("./pages/DatabasePage"));
+const PabAnalyticsPage = lazy(() => import("./pages/PabAnalyticsPage"));
+const PcListPage = lazy(() => import("./pages/PcListPage"));
+const PcViewPage = lazy(() => import("./pages/PcViewPage"));
+const PcAnalyticsPage = lazy(() => import("./pages/PcAnalyticsPage"));
+const PcRegistryPage = lazy(() => import("./pages/PcRegistryPage"));
+const PrescriptionsPage = lazy(() => import("./pages/PrescriptionsPage"));
+const Integration1CPage = lazy(() => import("./pages/Integration1CPage"));
+const AdminMessagesPage = lazy(() => import("./pages/AdminMessagesPage"));
+const VideoConferencePage = lazy(() => import("./pages/VideoConferencePage"));
+const ChartsPage = lazy(() => import("./pages/ChartsPage"));
+const BackupPage = lazy(() => import("./pages/BackupPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+const LoadingScreen = () => (
+  <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+    <Icon name="Loader2" className="animate-spin text-indigo-600" size={48} />
+  </div>
+);
 
 const queryClient = new QueryClient();
 
@@ -89,6 +97,7 @@ const App = () => (
         </div>
         <BrowserRouter>
           <MessageNotifications />
+        <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -158,6 +167,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

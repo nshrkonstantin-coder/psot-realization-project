@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Icon from '@/components/ui/icon';
@@ -40,9 +40,9 @@ export default function PabAnalyticsPage() {
 
   useEffect(() => {
     loadAnalytics();
-  }, [period]);
+  }, [loadAnalytics]);
 
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     if (!organizationId) {
       toast.error('Организация не выбрана');
       return;
@@ -61,7 +61,7 @@ export default function PabAnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId, period]);
 
   if (loading) {
     return (
@@ -86,7 +86,8 @@ export default function PabAnalyticsPage() {
     );
   }
 
-  const getTrendIcon = () => {
+  const trendIcon = useMemo(() => {
+    if (!data) return null;
     switch (data.trend.direction) {
       case 'up':
         return <Icon name="TrendingUp" className="text-red-500" size={24} />;
@@ -95,9 +96,10 @@ export default function PabAnalyticsPage() {
       default:
         return <Icon name="Minus" className="text-gray-500" size={24} />;
     }
-  };
+  }, [data?.trend.direction]);
 
-  const getTrendColor = () => {
+  const trendColor = useMemo(() => {
+    if (!data) return 'text-gray-500';
     switch (data.trend.direction) {
       case 'up':
         return 'text-red-500';
@@ -106,7 +108,7 @@ export default function PabAnalyticsPage() {
       default:
         return 'text-gray-500';
     }
-  };
+  }, [data?.trend.direction]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -169,7 +171,7 @@ export default function PabAnalyticsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {getTrendIcon()}
+              {trendIcon}
               Тренд и прогноз
             </CardTitle>
             <CardDescription>Анализ динамики создания ПАБ</CardDescription>
@@ -178,7 +180,7 @@ export default function PabAnalyticsPage() {
             <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
               <div>
                 <p className="text-sm text-muted-foreground">Изменение</p>
-                <p className={`text-2xl font-bold ${getTrendColor()}`}>
+                <p className={`text-2xl font-bold ${trendColor}`}>
                   {data.trend.change_percent > 0 ? '+' : ''}
                   {data.trend.change_percent}%
                 </p>

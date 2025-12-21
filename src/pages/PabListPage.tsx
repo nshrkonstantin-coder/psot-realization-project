@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -44,7 +44,7 @@ export default function PabListPage() {
     setUserRole(localStorage.getItem('userRole') || '');
   }, []);
 
-  const loadRecords = async () => {
+  const loadRecords = useCallback(async () => {
     try {
       const response = await fetch('https://functions.poehali.dev/bb1de74c-2e60-4e49-838e-7c640186dc5c');
       const data = await response.json();
@@ -55,7 +55,7 @@ export default function PabListPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const updateStatus = async (id: number, newStatus: string) => {
     try {
@@ -201,7 +201,7 @@ export default function PabListPage() {
     }
   };
 
-  const getStatusIndicator = (record: PabRecord) => {
+  const getStatusIndicator = useMemo(() => (record: PabRecord) => {
     const total = record.total_observations || 0;
     const completed = record.completed_observations || 0;
     
@@ -227,16 +227,17 @@ export default function PabListPage() {
     }
     
     return <div className="flex items-center gap-1">{indicators}</div>;
-  };
+  }, []);
 
-  const filteredRecords = records.filter((record) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      record.doc_number.toLowerCase().includes(query) ||
-      record.inspector_fio.toLowerCase().includes(query) ||
-      record.department.toLowerCase().includes(query)
-    );
-  });
+  const filteredRecords = useMemo(() => 
+    records.filter((record) => {
+      const query = searchQuery.toLowerCase();
+      return (
+        record.doc_number.toLowerCase().includes(query) ||
+        record.inspector_fio.toLowerCase().includes(query) ||
+        record.department.toLowerCase().includes(query)
+      );
+    }), [records, searchQuery]);
 
   const isAdmin = userRole === 'admin' || userRole === 'superadmin' || userRole === 'miniadmin';
 
