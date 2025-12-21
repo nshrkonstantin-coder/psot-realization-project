@@ -1,4 +1,6 @@
 {
+  "pab-document-check": "https://functions.poehali.dev/7839a471-e953-4453-9358-b035f047f6e9",
+  "pab-document-upload": "https://functions.poehali.dev/f4b1dbb0-b077-4805-9da3-9b1661dc86da",
   "pab-registry": "https://functions.poehali.dev/4c14a615-c04d-48ce-89ab-139999fefa5c",
   "pc-restore": "https://functions.poehali.dev/8dd8d682-7f79-4156-b808-7815d40e333c",
   "pc-archived-list": "https://functions.poehali.dev/758b1b55-dab9-4e6c-821a-9654c4478aba",

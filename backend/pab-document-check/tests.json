@@ -1,0 +1,25 @@
+{
+  "tests": [
+    {
+      "name": "Проверка отсутствующего документа",
+      "method": "GET",
+      "path": "/?doc_number=PAB-9999",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "exists": false,
+        "doc_number": "PAB-9999"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Проверка без номера документа",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
