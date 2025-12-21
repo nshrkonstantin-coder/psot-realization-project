@@ -1,4 +1,5 @@
 {
+  "pc-delete": "https://functions.poehali.dev/49007de7-4bc2-4b98-875a-faa2756abd6e",
   "upload-metrics-chart": "https://functions.poehali.dev/f75c6d34-b244-49c1-a03d-9c3473e0189e",
   "text-to-speech": "https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53",
   "telegram-webhook": "https://functions.poehali.dev/28daa1ef-2c9b-48c5-a6a7-55e9c5d0b71e",

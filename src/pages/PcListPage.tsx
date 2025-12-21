@@ -144,7 +144,7 @@ export default function PcListPage() {
     }
 
     try {
-      const response = await fetch('https://functions.poehali.dev/pc-delete-placeholder', {
+      const response = await fetch('https://functions.poehali.dev/49007de7-4bc2-4b98-875a-faa2756abd6e', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pc_ids: selectedIds })
@@ -155,7 +155,8 @@ export default function PcListPage() {
         setSelectedIds([]);
         loadRecords();
       } else {
-        toast.error('Ошибка удаления');
+        const errorData = await response.json();
+        toast.error('Ошибка удаления: ' + (errorData.error || 'неизвестная ошибка'));
       }
     } catch (error) {
       console.error('Error deleting:', error);
