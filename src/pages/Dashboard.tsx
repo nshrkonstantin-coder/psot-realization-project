@@ -25,10 +25,60 @@ const Dashboard = () => {
     setUserFio(localStorage.getItem('userFio') || '');
     setUserCompany(localStorage.getItem('userCompany') || '');
     setUserRole(localStorage.getItem('userRole') || '');
+    
+    // Проверяем, было ли уже воспроизведено приветствие в этой сессии
+    const greetingPlayed = sessionStorage.getItem('greetingPlayed');
+    if (!greetingPlayed) {
+      playWelcomeGreeting();
+      sessionStorage.setItem('greetingPlayed', 'true');
+    }
   }, [navigate]);
+
+  const getTimeOfDay = () => {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 12) return 'утра';
+    if (hour >= 12 && hour < 18) return 'дня';
+    return 'вечера';
+  };
+
+  const playWelcomeGreeting = async () => {
+    try {
+      const timeOfDay = getTimeOfDay();
+      const greetingText = `Дорогой коллега! Вас приветствует Автоматизированная система управления безопасностью труда АСУБТ, хорошего Вам ${timeOfDay}, приятной работы в нашей системе.`;
+      
+      const response = await fetch('https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: greetingText,
+          voice: 'alena'
+        }),
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (data.success && data.audio) {
+        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+        audio.volume = 0.7;
+        
+        // Небольшая задержка перед воспроизведением
+        setTimeout(() => {
+          audio.play().catch(err => {
+            console.log('Autoplay prevented:', err);
+          });
+        }, 500);
+      }
+    } catch (error) {
+      console.error('Ошибка воспроизведения приветствия:', error);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.clear();
+    sessionStorage.clear();
     navigate('/');
   };
 
