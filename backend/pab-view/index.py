@@ -66,11 +66,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     cur.execute("""
         SELECT 
-            id, observation_number, description, category, conditions_actions,
-            hazard_factors, measures, responsible_person, deadline, status, photo_url
-        FROM t_p80499285_psot_realization_pro.pab_observations
-        WHERE pab_record_id = %s
-        ORDER BY observation_number
+            po.id, po.observation_number, po.description, po.category, po.conditions_actions,
+            po.hazard_factors, po.measures, po.responsible_person, po.deadline, po.status, po.photo_url,
+            u.position as responsible_position
+        FROM t_p80499285_psot_realization_pro.pab_observations po
+        LEFT JOIN t_p80499285_psot_realization_pro.users u ON LOWER(po.responsible_person) = LOWER(u.fio)
+        WHERE po.pab_record_id = %s
+        ORDER BY po.observation_number
     """, (pab_id,))
     
     observations = cur.fetchall()

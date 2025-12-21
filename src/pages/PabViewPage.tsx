@@ -16,6 +16,7 @@ interface Observation {
   hazard_factors: string;
   measures: string;
   responsible_person: string;
+  responsible_position?: string;
   deadline: string;
   status: 'new' | 'in_progress' | 'completed' | 'overdue';
   photo_url?: string;
@@ -376,6 +377,9 @@ export default function PabViewPage() {
               </div>
               <div>
                 <span className="font-semibold">Ответственный:</span> {obs.responsible_person}
+                {obs.responsible_position && (
+                  <span className="ml-2 text-gray-500">({obs.responsible_position})</span>
+                )}
               </div>
               <div>
                 <span className="font-semibold">Срок:</span> {formatDate(obs.deadline)}

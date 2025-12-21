@@ -25,6 +25,9 @@ interface PabRecord {
   max_deadline?: string;
   total_observations?: number;
   completed_observations?: number;
+  overdue_observations?: number;
+  responsible_fio?: string;
+  responsible_position?: string;
 }
 
 export default function PabListPage() {
@@ -377,6 +380,18 @@ export default function PabListPage() {
                             <span className="font-semibold">Объект:</span> {record.checked_object}
                           </div>
                         )}
+                        {record.responsible_fio && (
+                          <>
+                            <div className="md:col-span-2 border-t border-gray-200 mt-2 pt-2">
+                              <span className="font-semibold text-indigo-700">Ответственный за выполнение:</span> {record.responsible_fio}
+                            </div>
+                            {record.responsible_position && (
+                              <div className="md:col-span-2">
+                                <span className="font-semibold">Должность ответственного:</span> {record.responsible_position}
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
                       <div className="mt-3 text-xs text-gray-500">
                         Создано: {formatDate(record.created_at)}
@@ -385,6 +400,11 @@ export default function PabListPage() {
                             Срок выполнения: {formatDate(record.max_deadline)}
                           </span>
                         )}
+                      </div>
+                      <div className="mt-2 flex gap-4 text-xs">
+                        <span className="text-gray-600">Всего наблюдений: <strong>{record.total_observations || 0}</strong></span>
+                        <span className="text-green-600">Выполнено: <strong>{record.completed_observations || 0}</strong></span>
+                        <span className="text-red-600">Просрочено: <strong>{record.overdue_observations || 0}</strong></span>
                       </div>
                       
                       {isAdmin && (

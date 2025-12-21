@@ -34,7 +34,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             pr.photo_url,
             MAX(po.deadline) as max_deadline,
             COUNT(po.id) as total_observations,
-            COUNT(CASE WHEN po.status = 'completed' THEN 1 END) as completed_observations
+            COUNT(CASE WHEN po.status = 'completed' THEN 1 END) as completed_observations,
+            COUNT(CASE WHEN po.deadline < CURRENT_DATE AND po.status != 'completed' THEN 1 END) as overdue_observations,
+            (SELECT DISTINCT po2.responsible_person 
+             FROM pab_observations po2 
+             WHERE po2.pab_record_id = pr.id 
+             LIMIT 1) as responsible_fio,
+            (SELECT u.position 
+             FROM users u 
+             WHERE LOWER(u.fio) = LOWER(
+                 (SELECT DISTINCT po3.responsible_person 
+                  FROM pab_observations po3 
+                  WHERE po3.pab_record_id = pr.id 
+                  LIMIT 1)
+             ) LIMIT 1) as responsible_position
         FROM pab_records pr
         LEFT JOIN pab_observations po ON pr.id = po.pab_record_id
         GROUP BY pr.id, pr.doc_number, pr.doc_date, pr.inspector_fio, pr.inspector_position,
