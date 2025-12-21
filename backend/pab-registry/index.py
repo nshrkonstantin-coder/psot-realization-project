@@ -91,11 +91,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             rows = cursor.fetchall()
             records = []
             
-            for idx, row in enumerate(rows, 1):
-                pab_number = f'ПАБ-{str(row[0]).zfill(4)}'
+            for row in rows:
+                user_id = row[0]
+                pab_number = f'ПАБ-{str(user_id).zfill(4)}'
                 records.append({
-                    'id': idx,
-                    'user_id': row[0],
+                    'id': user_id,
+                    'user_id': user_id,
                     'full_name': row[1],
                     'email': row[2] or '',
                     'company': row[3] or '',
