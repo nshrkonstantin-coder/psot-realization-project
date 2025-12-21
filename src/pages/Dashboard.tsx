@@ -36,7 +36,7 @@ const Dashboard = () => {
     { label: 'Дополнительно', icon: 'Plus', color: 'from-yellow-500 to-yellow-600', route: '/additional' },
     { label: 'Регистрация ПАБ', icon: 'FileText', color: 'from-red-500 to-red-600', route: '/pab-registration' },
     { label: 'Список ПАБ', icon: 'List', color: 'from-green-500 to-green-600', route: '/pab-list' },
-    { label: 'Аналитика ПАБ', icon: 'LineChart', color: 'from-indigo-500 to-indigo-600', route: '/pab-analytics' },
+    { label: 'Реестр пользователя ПАБ', icon: 'Users', color: 'from-indigo-500 to-indigo-600', route: '/pab-user-registry' },
     { label: 'Производственный контроль', icon: 'Shield', color: 'from-red-600 to-red-700', route: '/production-control' },
     { label: 'Список ПК', icon: 'ClipboardList', color: 'from-emerald-500 to-emerald-600', route: '/pc-list' },
     { label: 'Аналитика ПК', icon: 'BarChart2', color: 'from-teal-500 to-teal-600', route: '/pc-analytics' },

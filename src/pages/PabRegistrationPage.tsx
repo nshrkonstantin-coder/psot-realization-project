@@ -227,6 +227,23 @@ export default function PabRegistrationPage() {
       
       if (response.ok) {
         toast.success('ПАБ успешно зарегистрирован и отправлен');
+        
+        await fetch('https://functions.poehali.dev/4c14a615-c04d-48ce-89ab-139999fefa5c', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: userId,
+            full_name: inspectorName,
+            email: localStorage.getItem('userEmail') || '',
+            company: localStorage.getItem('userCompany') || '',
+            department: subdivision,
+            position: inspectorPosition,
+            pab_number: pabNumber,
+            audits_increment: 1,
+            observations_increment: observations.length
+          })
+        });
+        
         navigate('/pab-list');
       } else {
         const errorData = await response.json();

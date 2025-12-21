@@ -1,0 +1,43 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS request returns CORS headers",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET all registry records",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "records": "array",
+        "count": "number"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "POST create new registry record",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "user_id": 999,
+        "full_name": "Тестовый Пользователь",
+        "email": "test@test.ru",
+        "company": "Тестовая компания",
+        "department": "Тестовый отдел",
+        "position": "Тестовая должность",
+        "pab_number": "ПАБ-TEST",
+        "audits_increment": 1,
+        "observations_increment": 2
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "message": "string",
+        "id": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
