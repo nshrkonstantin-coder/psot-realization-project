@@ -1394,6 +1394,17 @@ const UserCabinet = () => {
               )}
               <div className="flex gap-2 pt-4">
                 <Button
+                  onClick={() => {
+                    setSelectedPCViolationItem(null);
+                    setShowPCViolationsDetails(false);
+                    navigate('/pc-list');
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Icon name="ExternalLink" size={20} className="mr-2" />
+                  Открыть
+                </Button>
+                <Button
                   onClick={() => setSelectedPCViolationItem(null)}
                   variant="outline"
                   className="border-slate-600 text-white hover:bg-slate-700"
@@ -1567,6 +1578,17 @@ const UserCabinet = () => {
                     Отметить устраненным
                   </Button>
                 )}
+                <Button
+                  onClick={() => {
+                    setSelectedPrescriptionItem(null);
+                    setShowPrescriptionsDetails(false);
+                    navigate('/pc-list');
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Icon name="ExternalLink" size={20} className="mr-2" />
+                  Открыть
+                </Button>
                 <Button
                   onClick={() => setSelectedPrescriptionItem(null)}
                   variant="outline"
