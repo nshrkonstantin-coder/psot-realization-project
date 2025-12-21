@@ -52,48 +52,59 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cursor = conn.cursor()
         
         if method == 'GET':
-            # Получение записей реестра
+            # Получение записей реестра с данными из users и pab_records
             params = event.get('queryStringParameters') or {}
             user_id = params.get('user_id')
             
+            query = """
+                SELECT 
+                    u.id as user_id,
+                    u.fio,
+                    u.email,
+                    COALESCE(o.name, u.company) as company,
+                    u.subdivision,
+                    u.position,
+                    COUNT(DISTINCT pr.id) as audits_completed,
+                    COUNT(po.id) as observations_made,
+                    MAX(pr.doc_date) as last_audit_date
+                FROM t_p80499285_psot_realization_pro.users u
+                LEFT JOIN t_p80499285_psot_realization_pro.organizations o ON u.organization_id = o.id
+                LEFT JOIN t_p80499285_psot_realization_pro.pab_records pr ON pr.inspector_fio = u.fio
+                LEFT JOIN t_p80499285_psot_realization_pro.pab_observations po ON po.pab_record_id = pr.id
+                WHERE 1=1
+            """
+            
             if user_id:
-                query = """
-                    SELECT id, user_id, full_name, email, company, department, 
-                           position, pab_number, audit_date, audits_completed, 
-                           observations_made, created_at, updated_at
-                    FROM t_p80499285_psot_realization_pro.user_pab_registry
-                    WHERE user_id = %s
-                    ORDER BY audit_date DESC
+                query += " AND u.id = %s"
+                query += """
+                    GROUP BY u.id, u.fio, u.email, o.name, u.company, u.subdivision, u.position
+                    ORDER BY last_audit_date DESC NULLS LAST
                 """
                 cursor.execute(query, (user_id,))
             else:
-                query = """
-                    SELECT id, user_id, full_name, email, company, department, 
-                           position, pab_number, audit_date, audits_completed, 
-                           observations_made, created_at, updated_at
-                    FROM t_p80499285_psot_realization_pro.user_pab_registry
-                    ORDER BY audit_date DESC
+                query += """
+                    GROUP BY u.id, u.fio, u.email, o.name, u.company, u.subdivision, u.position
+                    ORDER BY last_audit_date DESC NULLS LAST
                 """
                 cursor.execute(query)
             
             rows = cursor.fetchall()
             records = []
             
-            for row in rows:
+            for idx, row in enumerate(rows, 1):
+                pab_number = f'ПАБ-{str(row[0]).zfill(4)}'
                 records.append({
-                    'id': row[0],
-                    'user_id': row[1],
-                    'full_name': row[2],
-                    'email': row[3],
-                    'company': row[4],
-                    'department': row[5],
-                    'position': row[6],
-                    'pab_number': row[7],
-                    'audit_date': row[8].isoformat() if row[8] else None,
-                    'audits_completed': row[9],
-                    'observations_made': row[10],
-                    'created_at': row[11].isoformat() if row[11] else None,
-                    'updated_at': row[12].isoformat() if row[12] else None,
+                    'id': idx,
+                    'user_id': row[0],
+                    'full_name': row[1],
+                    'email': row[2] or '',
+                    'company': row[3] or '',
+                    'department': row[4] or '',
+                    'position': row[5] or '',
+                    'pab_number': pab_number,
+                    'audit_date': row[8].isoformat() if row[8] else datetime.now().isoformat(),
+                    'audits_completed': row[6] or 0,
+                    'observations_made': row[7] or 0,
                 })
             
             cursor.close()
