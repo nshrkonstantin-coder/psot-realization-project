@@ -127,6 +127,13 @@ export default function PcRegistryPage() {
             <div className="flex items-center justify-between">
               <CardTitle>Все записи производственного контроля</CardTitle>
               <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/pc-archived')}
+                >
+                  <Icon name="Archive" size={16} className="mr-2" />
+                  Архив
+                </Button>
                 <Input
                   placeholder="Поиск по организации, объекту, ответственному..."
                   value={searchTerm}

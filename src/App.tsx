@@ -69,6 +69,7 @@ const PcListPage = lazy(() => import("./pages/PcListPage"));
 const PcViewPage = lazy(() => import("./pages/PcViewPage"));
 const PcAnalyticsPage = lazy(() => import("./pages/PcAnalyticsPage"));
 const PcRegistryPage = lazy(() => import("./pages/PcRegistryPage"));
+const PcArchivedPage = lazy(() => import("./pages/PcArchivedPage"));
 const PrescriptionsPage = lazy(() => import("./pages/PrescriptionsPage"));
 const Integration1CPage = lazy(() => import("./pages/Integration1CPage"));
 const AdminMessagesPage = lazy(() => import("./pages/AdminMessagesPage"));
@@ -167,6 +168,7 @@ const App = () => (
           <Route path="/pc-view/:id" element={<PcViewPage />} />
           <Route path="/pc-analytics" element={<PcAnalyticsPage />} />
           <Route path="/pc-registry" element={<PcRegistryPage />} />
+          <Route path="/pc-archived" element={<PcArchivedPage />} />
           <Route path="/prescriptions" element={<PrescriptionsPage />} />
           <Route path="/integration-1c" element={<Integration1CPage />} />
           <Route path="/admin-messages" element={<AdminMessagesPage />} />

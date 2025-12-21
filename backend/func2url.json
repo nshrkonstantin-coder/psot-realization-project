@@ -1,4 +1,6 @@
 {
+  "pc-restore": "https://functions.poehali.dev/8dd8d682-7f79-4156-b808-7815d40e333c",
+  "pc-archived-list": "https://functions.poehali.dev/758b1b55-dab9-4e6c-821a-9654c4478aba",
   "pc-delete": "https://functions.poehali.dev/49007de7-4bc2-4b98-875a-faa2756abd6e",
   "upload-metrics-chart": "https://functions.poehali.dev/f75c6d34-b244-49c1-a03d-9c3473e0189e",
   "text-to-speech": "https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53",

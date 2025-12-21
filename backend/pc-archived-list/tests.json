@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "Get archived PC list",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "records": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
