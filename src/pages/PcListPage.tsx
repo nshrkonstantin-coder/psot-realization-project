@@ -144,14 +144,23 @@ export default function PcListPage() {
     }
 
     try {
+      const organizationId = localStorage.getItem('organizationId');
       const response = await fetch('https://functions.poehali.dev/49007de7-4bc2-4b98-875a-faa2756abd6e', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pc_ids: selectedIds })
+        body: JSON.stringify({ 
+          pc_ids: selectedIds,
+          organization_id: organizationId ? parseInt(organizationId) : undefined
+        })
       });
       
       if (response.ok) {
-        toast.success('Записи ПК удалены');
+        const result = await response.json();
+        if (result.deleted_count > 0) {
+          toast.success(`Удалено записей: ${result.deleted_count}`);
+        } else {
+          toast.warning('Не удалось удалить записи (возможно они не принадлежат вашей организации)');
+        }
         setSelectedIds([]);
         loadRecords();
       } else {
@@ -160,7 +169,7 @@ export default function PcListPage() {
       }
     } catch (error) {
       console.error('Error deleting:', error);
-      toast.error('Ошибка удаления');
+      toast.error('Ошибка удаления: ' + (error instanceof Error ? error.message : 'неизвестная ошибка'));
     }
   };
 

@@ -39,6 +39,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body = '{}'
     body_data = json.loads(body)
     pc_ids: List[int] = body_data.get('pc_ids', [])
+    organization_id = body_data.get('organization_id')
     
     if not pc_ids or not isinstance(pc_ids, list):
         return {
@@ -52,38 +53,60 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     dsn = os.environ.get('DATABASE_URL')
-    conn = psycopg2.connect(dsn)
-    cur = conn.cursor()
     
-    deleted_count = 0
-    
-    for pc_id in pc_ids:
-        cur.execute(
-            'DELETE FROM t_p80499285_psot_realization_pro.production_control_violations WHERE report_id = %s',
-            (pc_id,)
-        )
+    try:
+        conn = psycopg2.connect(dsn)
+        cur = conn.cursor()
         
-        cur.execute(
-            'DELETE FROM t_p80499285_psot_realization_pro.production_control_reports WHERE id = %s',
-            (pc_id,)
-        )
+        deleted_count = 0
         
-        deleted_count += cur.rowcount
-    
-    conn.commit()
-    cur.close()
-    conn.close()
-    
-    return {
-        'statusCode': 200,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-        },
-        'body': json.dumps({
-            'success': True,
-            'deleted_count': deleted_count,
-            'deleted_ids': pc_ids
-        }, ensure_ascii=False),
-        'isBase64Encoded': False
-    }
+        for pc_id in pc_ids:
+            if organization_id:
+                cur.execute(
+                    'SELECT id FROM t_p80499285_psot_realization_pro.production_control_reports WHERE id = %s AND organization_id = %s',
+                    (pc_id, organization_id)
+                )
+                if not cur.fetchone():
+                    continue
+            
+            cur.execute(
+                'DELETE FROM t_p80499285_psot_realization_pro.production_control_violations WHERE report_id = %s',
+                (pc_id,)
+            )
+            
+            cur.execute(
+                'DELETE FROM t_p80499285_psot_realization_pro.production_control_reports WHERE id = %s',
+                (pc_id,)
+            )
+            
+            deleted_count += cur.rowcount
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'success': True,
+                'deleted_count': deleted_count,
+                'deleted_ids': pc_ids
+            }, ensure_ascii=False),
+            'isBase64Encoded': False
+        }
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'error': f'Database error: {str(e)}'
+            }, ensure_ascii=False),
+            'isBase64Encoded': False
+        }
