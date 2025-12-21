@@ -45,6 +45,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             MAX(v.deadline) as max_deadline
         FROM t_p80499285_psot_realization_pro.production_control_reports r
         LEFT JOIN t_p80499285_psot_realization_pro.production_control_violations v ON r.id = v.report_id
+        WHERE r.archived = FALSE OR r.archived IS NULL
         GROUP BY r.id, r.doc_number, r.doc_date, r.issuer_name, r.issuer_position, r.department, r.recipient_name, r.created_at
         ORDER BY r.created_at DESC
     """)

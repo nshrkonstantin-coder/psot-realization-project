@@ -82,20 +82,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             ids_str = ','.join(str(id) for id in valid_ids)
         
+        # Используем soft delete (архивирование) вместо физического удаления
         cur.execute(f"""
-            DELETE FROM production_control_photos WHERE report_id IN ({ids_str})
-        """)
-        
-        cur.execute(f"""
-            DELETE FROM production_control_signatures WHERE report_id IN ({ids_str})
-        """)
-        
-        cur.execute(f"""
-            DELETE FROM production_control_violations WHERE report_id IN ({ids_str})
-        """)
-        
-        cur.execute(f"""
-            DELETE FROM production_control_reports WHERE id IN ({ids_str})
+            UPDATE production_control_reports 
+            SET archived = TRUE, archived_at = NOW()
+            WHERE id IN ({ids_str}) AND archived = FALSE
         """)
         
         deleted_count = cur.rowcount
