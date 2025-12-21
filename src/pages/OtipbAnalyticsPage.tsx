@@ -29,10 +29,10 @@ const OtipbAnalyticsPage = () => {
   }
 
   const kpiCards = [
-    { label: 'Инструктажи за месяц', value: 245, change: '+12%', icon: 'GraduationCap', color: 'blue' },
-    { label: 'Проведено проверок', value: 18, change: '+3', icon: 'ClipboardCheck', color: 'green' },
-    { label: 'Выявлено нарушений', value: 7, change: '-5', icon: 'AlertTriangle', color: 'orange' },
-    { label: 'Выдано СИЗ', value: 156, change: '+24', icon: 'HardHat', color: 'purple' },
+    { label: 'Инструктажи за месяц', value: 245, change: '+12%', icon: 'GraduationCap', bgColor: 'from-blue-500 to-blue-600' },
+    { label: 'Проведено проверок', value: 18, change: '+3', icon: 'ClipboardCheck', bgColor: 'from-green-500 to-green-600' },
+    { label: 'Выявлено нарушений', value: 7, change: '-5', icon: 'AlertTriangle', bgColor: 'from-orange-500 to-orange-600' },
+    { label: 'Выдано СИЗ', value: 156, change: '+24', icon: 'HardHat', bgColor: 'from-purple-500 to-purple-600' },
   ];
 
   const reportTypes = [
@@ -77,7 +77,7 @@ const OtipbAnalyticsPage = () => {
           {kpiCards.map((kpi, index) => (
             <Card key={index} className="bg-slate-800/50 border-cyan-500/30 p-6">
               <div className="flex items-start justify-between mb-3">
-                <div className={`bg-gradient-to-br from-${kpi.color}-500 to-${kpi.color}-600 p-3 rounded-xl`}>
+                <div className={`bg-gradient-to-br ${kpi.bgColor} p-3 rounded-xl`}>
                   <Icon name={kpi.icon} size={24} className="text-white" />
                 </div>
                 <span className={`text-sm font-medium ${kpi.change.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
