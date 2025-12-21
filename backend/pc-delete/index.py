@@ -1,45 +1,45 @@
 import json
 import os
+from typing import Dict, Any
 import psycopg2
-from typing import Dict, Any, List
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
     Удаление записей производственного контроля
-    Удаляет записи ПК и все связанные нарушения каскадно
+    Удаляет записи ПК и все связанные данные
     '''
-    method: str = event.get('httpMethod', 'POST')
     
-    if method == 'OPTIONS':
+    if event.get('httpMethod') == 'OPTIONS':
         return {
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
                 'Access-Control-Max-Age': '86400'
             },
             'body': '',
             'isBase64Encoded': False
         }
     
-    if method != 'POST':
+    try:
+        body_str = event.get('body', '{}')
+        if not body_str or body_str.strip() == '':
+            body_str = '{}'
+        body = json.loads(body_str)
+    except json.JSONDecodeError:
         return {
-            'statusCode': 405,
+            'statusCode': 400,
             'headers': {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
-            'body': json.dumps({'error': 'Method not allowed'}),
+            'body': json.dumps({'error': 'Invalid JSON in request body'}, ensure_ascii=False),
             'isBase64Encoded': False
         }
     
-    body = event.get('body', '{}')
-    if not body or body == '':
-        body = '{}'
-    body_data = json.loads(body)
-    pc_ids: List[int] = body_data.get('pc_ids', [])
-    organization_id = body_data.get('organization_id')
+    pc_ids = body.get('pc_ids', [])
+    organization_id = body.get('organization_id')
     
     if not pc_ids or not isinstance(pc_ids, list):
         return {
@@ -48,7 +48,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
-            'body': json.dumps({'error': 'pc_ids array is required'}),
+            'body': json.dumps({'error': 'Missing or invalid pc_ids'}, ensure_ascii=False),
             'isBase64Encoded': False
         }
     
@@ -58,38 +58,47 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = psycopg2.connect(dsn)
         cur = conn.cursor()
         
-        deleted_count = 0
+        ids_str = ','.join(str(id) for id in pc_ids)
         
-        for pc_id in pc_ids:
-            if organization_id:
-                cur.execute(
-                    'SELECT id FROM t_p80499285_psot_realization_pro.production_control_reports WHERE id = %s AND organization_id = %s',
-                    (pc_id, organization_id)
-                )
-                if not cur.fetchone():
-                    continue
-            
-            cur.execute(
-                'DELETE FROM t_p80499285_psot_realization_pro.production_control_photos WHERE report_id = %s',
-                (pc_id,)
-            )
-            
-            cur.execute(
-                'DELETE FROM t_p80499285_psot_realization_pro.production_control_signatures WHERE report_id = %s',
-                (pc_id,)
-            )
-            
-            cur.execute(
-                'DELETE FROM t_p80499285_psot_realization_pro.production_control_violations WHERE report_id = %s',
-                (pc_id,)
-            )
-            
-            cur.execute(
-                'DELETE FROM t_p80499285_psot_realization_pro.production_control_reports WHERE id = %s',
-                (pc_id,)
-            )
-            
-            deleted_count += cur.rowcount
+        if organization_id:
+            cur.execute(f"""
+                SELECT id FROM production_control_reports 
+                WHERE id IN ({ids_str}) AND organization_id = {organization_id}
+            """)
+            valid_ids = [row[0] for row in cur.fetchall()]
+            if not valid_ids:
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({
+                        'success': True,
+                        'deleted_count': 0
+                    }, ensure_ascii=False),
+                    'isBase64Encoded': False
+                }
+            ids_str = ','.join(str(id) for id in valid_ids)
+        
+        cur.execute(f"""
+            DELETE FROM production_control_photos WHERE report_id IN ({ids_str})
+        """)
+        
+        cur.execute(f"""
+            DELETE FROM production_control_signatures WHERE report_id IN ({ids_str})
+        """)
+        
+        cur.execute(f"""
+            DELETE FROM production_control_violations WHERE report_id IN ({ids_str})
+        """)
+        
+        cur.execute(f"""
+            DELETE FROM production_control_reports WHERE id IN ({ids_str})
+        """)
+        
+        deleted_count = cur.rowcount
         
         conn.commit()
         cur.close()
@@ -103,8 +112,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             },
             'body': json.dumps({
                 'success': True,
-                'deleted_count': deleted_count,
-                'deleted_ids': pc_ids
+                'deleted_count': deleted_count
+            }, ensure_ascii=False),
+            'isBase64Encoded': False
+        }
+    except psycopg2.Error as e:
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'error': f'Database error: {str(e)}. ВНИМАНИЕ: Возможно у пользователя БД нет прав на удаление этих таблиц. Обратитесь к администратору системы.'
             }, ensure_ascii=False),
             'isBase64Encoded': False
         }
@@ -116,7 +136,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'Access-Control-Allow-Origin': '*'
             },
             'body': json.dumps({
-                'error': f'Database error: {str(e)}'
+                'error': f'Unexpected error: {str(e)}'
             }, ensure_ascii=False),
             'isBase64Encoded': False
         }
