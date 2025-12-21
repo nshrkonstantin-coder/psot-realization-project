@@ -38,10 +38,6 @@ export default function PabAnalyticsPage() {
 
   const organizationId = localStorage.getItem('organizationId') || '';
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [loadAnalytics]);
-
   const loadAnalytics = useCallback(async () => {
     if (!organizationId) {
       toast.error('Организация не выбрана');
@@ -62,6 +58,10 @@ export default function PabAnalyticsPage() {
       setLoading(false);
     }
   }, [organizationId, period]);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
 
   if (loading) {
     return (
