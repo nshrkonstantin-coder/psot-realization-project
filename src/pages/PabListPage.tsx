@@ -436,6 +436,37 @@ export default function PabListPage() {
                       <Icon name="Eye" size={16} className="mr-2" />
                       Просмотр
                     </Button>
+                    {isAdmin && selectedIds.includes(record.id) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (confirm(`Удалить ПАБ № ${record.doc_number}? Это действие нельзя отменить.`)) {
+                            try {
+                              const response = await fetch('https://functions.poehali.dev/b7991444-b3cb-4160-8fed-6d25fe399a0c', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ pab_ids: [record.id] })
+                              });
+                              if (response.ok) {
+                                toast.success('ПАБ удалён');
+                                setSelectedIds([]);
+                                loadRecords();
+                              } else {
+                                toast.error('Ошибка удаления');
+                              }
+                            } catch {
+                              toast.error('Ошибка удаления');
+                            }
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Icon name="Trash2" size={16} className="mr-2" />
+                        Удалить
+                      </Button>
+                    )}
                     {record.photo_url && (
                       <Button
                         variant="outline"
