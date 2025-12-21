@@ -206,32 +206,51 @@ export default function PcListPage() {
     }
   };
 
-  const getStatusIndicator = (record: PcRecord) => {
-    const total = record.total_violations || 3;
-    const completed = record.completed_violations || 0;
+  const getViolationsDisplay = (record: PcRecord) => {
+    const total = record.total_violations || 0;
     
-    const indicators = [];
-    for (let i = 0; i < total; i++) {
-      if (i < completed) {
-        indicators.push(
-          <div key={i} className="w-3 h-3 rounded-full bg-green-500 shadow-lg" />
-        );
-      } else {
-        const isOverdue = record.max_deadline && new Date(record.max_deadline) < new Date();
-        if (isOverdue) {
-          indicators.push(
-            <div key={i} className="w-3 h-3 rounded-full bg-red-600 shadow-lg animate-pulse" 
-                 style={{ animation: 'pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
-          );
-        } else {
-          indicators.push(
-            <div key={i} className="w-3 h-3 rounded-full bg-blue-500 shadow-lg" />
-          );
-        }
-      }
+    if (total === 0) {
+      return (
+        <div className="flex items-center justify-center">
+          <span className="text-2xl font-bold text-gray-400">0</span>
+        </div>
+      );
+    }
+
+    const now = new Date();
+    const createdDate = new Date(record.created_at);
+    const deadlineDate = record.max_deadline ? new Date(record.max_deadline) : null;
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    
+    const isOverdue = deadlineDate && deadlineDate < now;
+    const isInProgress = !isOverdue;
+    const isFresh = createdDate > threeDaysAgo;
+    
+    let bgColor = '';
+    let textColor = '';
+    let shouldBlink = false;
+    
+    if (isOverdue) {
+      bgColor = 'bg-red-100';
+      textColor = 'text-red-700';
+      shouldBlink = true;
+    } else if (isInProgress) {
+      bgColor = 'bg-yellow-100';
+      textColor = 'text-yellow-800';
     }
     
-    return <div className="flex items-center gap-1">{indicators}</div>;
+    if (isFresh && !isOverdue) {
+      bgColor = 'bg-blue-100';
+      textColor = 'text-blue-700';
+    }
+    
+    return (
+      <div className={`flex items-center justify-center px-4 py-2 rounded-lg ${bgColor} ${shouldBlink ? 'animate-pulse' : ''}`}>
+        <span className={`text-2xl font-bold ${textColor}`}>
+          {total}
+        </span>
+      </div>
+    );
   };
 
   const filteredRecords = records.filter((record) => {
@@ -354,7 +373,7 @@ export default function PcListPage() {
                         <td className="p-4">{record.inspector_position}</td>
                         <td className="p-4">{record.checked_object}</td>
                         <td className="p-4">{record.responsible_person}</td>
-                        <td className="p-4">{getStatusIndicator(record)}</td>
+                        <td className="p-4">{getViolationsDisplay(record)}</td>
                         <td className="p-4">
                           {record.max_deadline ? (
                             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
