@@ -78,7 +78,9 @@ ID пользователя: {user_id}
             smtp_port = int(os.environ.get('SMTP_PORT_NEW', 587))
             smtp_user = os.environ.get('SMTP_USER_NEW', 'ACYBT@yandex.ru')
             smtp_password = os.environ.get('SMTP_PASSWORD_NEW')
-            admin_email = 'ACYBT@yandex.ru'
+            admin_email = 'bezop.truda@yandex.ru'
+            
+            print(f'SMTP config: host={smtp_host}, port={smtp_port}, user={smtp_user}, pass_len={len(smtp_password) if smtp_password else 0}')
             
             if not all([smtp_host, smtp_user, smtp_password]):
                 return {
@@ -98,10 +100,15 @@ ID пользователя: {user_id}
             
             msg.attach(MIMEText(email_body, 'plain', 'utf-8'))
             
+            print(f'Connecting to SMTP...')
             with smtplib.SMTP(smtp_host, smtp_port) as server:
+                print(f'Starting TLS...')
                 server.starttls()
+                print(f'Logging in...')
                 server.login(smtp_user, smtp_password)
+                print(f'Sending message to {admin_email}...')
                 server.send_message(msg)
+                print(f'Email sent successfully!')
             
             return {
                 'statusCode': 200,
