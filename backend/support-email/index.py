@@ -74,10 +74,10 @@ ID пользователя: {user_id}
 """
         
         try:
-            smtp_host = os.environ.get('SMTP_HOST')
-            smtp_port = int(os.environ.get('SMTP_PORT', 465))
-            smtp_user = os.environ.get('SMTP_USER')
-            smtp_password = os.environ.get('SMTP_PASSWORD')
+            smtp_host = os.environ.get('SMTP_HOST_NEW', 'smtp.yandex.ru')
+            smtp_port = int(os.environ.get('SMTP_PORT_NEW', 587))
+            smtp_user = os.environ.get('SMTP_USER_NEW', 'ACYBT@yandex.ru')
+            smtp_password = os.environ.get('SMTP_PASSWORD_NEW')
             admin_email = 'ACYBT@yandex.ru'
             
             if not all([smtp_host, smtp_user, smtp_password]):
@@ -98,15 +98,10 @@ ID пользователя: {user_id}
             
             msg.attach(MIMEText(email_body, 'plain', 'utf-8'))
             
-            if smtp_port == 465:
-                with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
-                    server.login(smtp_user, smtp_password)
-                    server.send_message(msg)
-            else:
-                with smtplib.SMTP(smtp_host, smtp_port) as server:
-                    server.starttls()
-                    server.login(smtp_user, smtp_password)
-                    server.send_message(msg)
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.send_message(msg)
             
             return {
                 'statusCode': 200,
