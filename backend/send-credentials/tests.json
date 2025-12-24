@@ -1,0 +1,47 @@
+{
+  "tests": [
+    {
+      "name": "Send credentials to single user",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "users": [
+          {
+            "email": "test@example.com",
+            "password": "TestPassword123"
+          }
+        ]
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "sent_count": 1,
+        "total_count": 1
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Send credentials to multiple users",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "users": [
+          {
+            "email": "user1@example.com",
+            "password": "Password1"
+          },
+          {
+            "email": "user2@example.com",
+            "password": "Password2"
+          }
+        ]
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "total_count": 2
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

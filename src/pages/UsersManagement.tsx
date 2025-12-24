@@ -8,6 +8,7 @@ import { UsersStatsCards } from '@/components/users/UsersStatsCards';
 import { UsersTableHeader } from '@/components/users/UsersTableHeader';
 import { UserTableRow } from '@/components/users/UserTableRow';
 import { UserEditDialogs } from '@/components/users/UserEditDialogs';
+import { PasswordManagementTab } from '@/components/users/PasswordManagementTab';
 
 interface User {
   id: number;
@@ -38,6 +39,7 @@ const UsersManagement = () => {
   const [userRole, setUserRole] = useState('');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [highlightedUserId, setHighlightedUserId] = useState<number | null>(null);
+  const [showPasswordManagement, setShowPasswordManagement] = useState(false);
 
   useEffect(() => {
     const role = localStorage.getItem('userRole');
@@ -328,20 +330,29 @@ const UsersManagement = () => {
             </div>
             <h1 className="text-3xl font-bold text-white">Управление пользователями</h1>
           </div>
-          <Button
-            onClick={() => {
-              if (isSuperAdmin) {
-                navigate('/superadmin');
-              } else {
-                navigate('/admin');
-              }
-            }}
-            variant="outline"
-            className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
-          >
-            <Icon name="ArrowLeft" size={20} className="mr-2" />
-            Назад
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => setShowPasswordManagement(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Icon name="Key" size={20} className="mr-2" />
+              Управление паролями
+            </Button>
+            <Button
+              onClick={() => {
+                if (isSuperAdmin) {
+                  navigate('/superadmin');
+                } else {
+                  navigate('/admin');
+                }
+              }}
+              variant="outline"
+              className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
+            >
+              <Icon name="ArrowLeft" size={20} className="mr-2" />
+              Назад
+            </Button>
+          </div>
         </div>
 
         <UsersStatsCards stats={stats} />
@@ -414,6 +425,17 @@ const UsersManagement = () => {
         onUpdateProfile={handleUpdateProfile}
         onChangeCredentials={handleChangeCredentials}
       />
+
+      {showPasswordManagement && (
+        <div className="fixed inset-0 bg-black/80 z-50 overflow-y-auto">
+          <div className="min-h-screen p-6">
+            <PasswordManagementTab
+              users={users}
+              onClose={() => setShowPasswordManagement(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
