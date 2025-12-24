@@ -69,9 +69,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         sent_count = 0
         failed_emails = []
+        
+        print(f'[INFO] Starting to send credentials to {len(request_data.users)} users')
+        print(f'[INFO] SMTP config: host={smtp_host}, port={smtp_port}, user={smtp_user}')
 
         for user_cred in request_data.users:
             try:
+                print(f'[INFO] Preparing email for {user_cred.email}')
                 msg = MIMEMultipart('alternative')
                 msg['Subject'] = 'Ваши учётные данные для доступа к системе'
                 msg['From'] = smtp_user
@@ -115,14 +119,19 @@ Email: {user_cred.email}
                 msg.attach(part_text)
                 msg.attach(part_html)
 
+                print(f'[INFO] Connecting to SMTP server for {user_cred.email}')
                 with smtplib.SMTP(smtp_host, smtp_port) as server:
                     server.starttls()
+                    print(f'[INFO] Logging in to SMTP...')
                     server.login(smtp_user, smtp_password)
+                    print(f'[INFO] Sending message to {user_cred.email}')
                     server.send_message(msg)
+                    print(f'[SUCCESS] Email sent to {user_cred.email}')
 
                 sent_count += 1
 
             except Exception as email_error:
+                print(f'[ERROR] Failed to send email to {user_cred.email}: {str(email_error)}')
                 failed_emails.append({'email': user_cred.email, 'error': str(email_error)})
 
         response_data = {
@@ -131,6 +140,8 @@ Email: {user_cred.email}
             'total_count': len(request_data.users),
             'failed_emails': failed_emails
         }
+        
+        print(f'[INFO] Finished: sent={sent_count}, failed={len(failed_emails)}')
 
         return {
             'statusCode': 200,
