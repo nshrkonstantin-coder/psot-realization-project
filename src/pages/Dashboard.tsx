@@ -44,7 +44,7 @@ const Dashboard = () => {
   const playWelcomeGreeting = async () => {
     try {
       const timeOfDay = getTimeOfDay();
-      const greetingText = `Дорогой коллега! Вас приветствует Автоматизированная система управления безопасностью труда А+, Су+, Бэ+, Тэ+, хорошего Вам ${timeOfDay}, приятной работы в нашей системе.`;
+      const greetingText = `Дорогой коллега! Вас приветствует Автоматизированная система управления безопасностью труда А. Су. Бэ. Тэ, хорошего Вам ${timeOfDay}, приятной работы в нашей системе.`;
       
       const response = await fetch('https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53', {
         method: 'POST',
