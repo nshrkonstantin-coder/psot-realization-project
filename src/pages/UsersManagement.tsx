@@ -382,7 +382,7 @@ const UsersManagement = () => {
                       setEditCredentials({
                         id: user.id,
                         email: user.email,
-                        newEmail: '',
+                        newEmail: user.email,
                         newPassword: '',
                       })
                     }

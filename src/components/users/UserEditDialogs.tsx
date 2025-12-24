@@ -107,7 +107,7 @@ export const UserEditDialogs = ({
                 />
               </div>
               <div>
-                <Label className="text-slate-300">Новый Email (оставьте пустым, если не нужно менять)</Label>
+                <Label className="text-slate-300">Новый Email</Label>
                 <Input
                   type="email"
                   value={editCredentials.newEmail}
@@ -117,12 +117,12 @@ export const UserEditDialogs = ({
                       newEmail: e.target.value,
                     })
                   }
-                  placeholder="Введите новый email"
+                  placeholder="Текущий email"
                   className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
               <div>
-                <Label className="text-slate-300">Новый пароль (оставьте пустым, если не нужно менять)</Label>
+                <Label className="text-slate-300">Новый пароль</Label>
                 <Input
                   type="password"
                   value={editCredentials.newPassword}
@@ -132,7 +132,7 @@ export const UserEditDialogs = ({
                       newPassword: e.target.value,
                     })
                   }
-                  placeholder="Введите новый пароль"
+                  placeholder="Текущий пароль (если установлен)"
                   className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
