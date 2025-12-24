@@ -1,4 +1,5 @@
 {
+  "test-smtp": "https://functions.poehali.dev/30a69add-0278-47c9-aba9-f263b5049804",
   "send-credentials": "https://functions.poehali.dev/b00816fd-60cd-4a53-9b44-802868bfbb11",
   "pab-document-delete": "https://functions.poehali.dev/c64d4831-6849-4d98-b3af-f2453a7e8dc0",
   "pab-document-check": "https://functions.poehali.dev/7839a471-e953-4453-9358-b035f047f6e9",

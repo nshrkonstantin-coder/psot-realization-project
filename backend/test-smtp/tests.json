@@ -1,0 +1,10 @@
+{
+  "tests": [
+    {
+      "name": "Test SMTP connection",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
