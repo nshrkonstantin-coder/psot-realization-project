@@ -51,10 +51,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body_data = json.loads(event.get('body', '{}'))
         request_data = SendCredentialsRequest(**body_data)
 
-        smtp_host = os.environ.get('SMTP_HOST', 'smtp.yandex.ru')
-        smtp_port = int(os.environ.get('SMTP_PORT', '587'))
-        smtp_user = os.environ.get('SMTP_USER')
-        smtp_password = os.environ.get('SMTP_PASSWORD_NEW') or os.environ.get('SMTP_PASSWORD')
+        smtp_host = os.environ.get('SMTP_HOST_NEW', 'smtp.yandex.ru')
+        smtp_port = int(os.environ.get('SMTP_PORT_NEW', 587))
+        smtp_user = os.environ.get('SMTP_USER_NEW', 'ACYBT@yandex.ru')
+        smtp_password = os.environ.get('SMTP_PASSWORD_NEW')
 
         if not smtp_user or not smtp_password:
             return {
