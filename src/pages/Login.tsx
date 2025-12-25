@@ -58,8 +58,8 @@ export default function Login() {
         localStorage.setItem('userId', data.userId);
         localStorage.setItem('userFio', data.fio || fio);
         localStorage.setItem('userRole', data.role || 'user');
-        // Для superadmin и admin НЕ сохраняем organizationId при входе через основную страницу
-        if (data.organizationId && data.role !== 'superadmin' && data.role !== 'admin') {
+        // Сохраняем organizationId для ВСЕХ пользователей, чтобы отображался логотип
+        if (data.organizationId) {
           localStorage.setItem('organizationId', data.organizationId);
         }
         if (data.company) {
