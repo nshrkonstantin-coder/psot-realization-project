@@ -463,29 +463,70 @@ const VideoConferencePage = () => {
   const startCall = async (conference: Conference) => {
     try {
       setLoading(true);
-      const participantsNum = conference.participants.length;
-      setParticipantsCount(participantsNum);
-      
-      const constraints = getOptimalMediaConstraints(participantsNum);
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-
-      localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
-
       setCurrentConference(conference);
       setInCall(true);
-      monitorNetworkQuality();
-      toast({ title: 'Подключение к конференции...' });
+      
+      // Загружаем Jitsi Meet API
+      const script = document.createElement('script');
+      script.src = 'https://meet.jit.si/external_api.js';
+      script.async = true;
+      document.body.appendChild(script);
+      
+      script.onload = () => {
+        const domain = 'meet.jit.si';
+        const options = {
+          roomName: conference.id,
+          width: '100%',
+          height: '100%',
+          parentNode: document.querySelector('#jitsi-container'),
+          userInfo: {
+            displayName: userFio
+          },
+          configOverwrite: {
+            startWithAudioMuted: false,
+            startWithVideoMuted: false,
+            enableWelcomePage: false,
+            prejoinPageEnabled: false,
+            disableDeepLinking: true
+          },
+          interfaceConfigOverwrite: {
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false,
+            DEFAULT_BACKGROUND: '#1e293b',
+            DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
+            TOOLBAR_BUTTONS: [
+              'microphone', 'camera', 'closedcaptions', 'desktop', 
+              'fullscreen', 'fodeviceselection', 'hangup', 'profile',
+              'chat', 'recording', 'livestreaming', 'etherpad', 'sharedvideo',
+              'settings', 'raisehand', 'videoquality', 'filmstrip',
+              'feedback', 'stats', 'shortcuts', 'tileview', 'videobackgroundblur',
+              'download', 'help', 'mute-everyone', 'security'
+            ]
+          }
+        };
+        
+        const api = new (window as any).JitsiMeetExternalAPI(domain, options);
+        
+        api.addEventListener('videoConferenceJoined', () => {
+          toast({ title: '✅ Вы подключились к конференции' });
+          setLoading(false);
+        });
+        
+        api.addEventListener('videoConferenceLeft', () => {
+          endCall();
+        });
+        
+        // Сохраняем API для управления
+        (window as any).jitsiApi = api;
+      };
+      
     } catch (error) {
-      console.error('Ошибка доступа к камере/микрофону:', error);
+      console.error('Ошибка подключения к конференции:', error);
       toast({ 
-        title: 'Ошибка доступа к устройствам', 
-        description: 'Проверьте разрешения браузера',
+        title: 'Ошибка подключения', 
+        description: 'Не удалось подключиться к конференции',
         variant: 'destructive' 
       });
-    } finally {
       setLoading(false);
     }
   };
@@ -727,6 +768,12 @@ const VideoConferencePage = () => {
   };
 
   const endCall = async () => {
+    // Завершаем Jitsi сессию
+    if ((window as any).jitsiApi) {
+      (window as any).jitsiApi.dispose();
+      (window as any).jitsiApi = null;
+    }
+    
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
@@ -823,166 +870,106 @@ const VideoConferencePage = () => {
               <Icon name="Video" size={24} className="text-pink-500" />
               <div>
                 <h2 className="text-white font-semibold">{currentConference.name}</h2>
-                <div className="flex items-center gap-3">
-                  <p className="text-slate-400 text-sm">{currentConference.participants.length} участников</p>
-                  <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${
-                      networkQuality === 'high' ? 'bg-green-500' :
-                      networkQuality === 'medium' ? 'bg-yellow-500' : 'bg-red-500'
-                    }`} />
-                    <span className="text-xs text-slate-400">
-                      {networkQuality === 'high' ? 'HD' :
-                       networkQuality === 'medium' ? 'SD' : 'Низкое'}
-                    </span>
-                  </div>
-                </div>
+                <p className="text-slate-400 text-sm">{currentConference.participants.length} участников</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={toggleMute} variant={isMuted ? 'destructive' : 'outline'}>
-                <Icon name={isMuted ? 'MicOff' : 'Mic'} size={20} />
-              </Button>
-              <Button onClick={toggleVideo} variant={isVideoOff ? 'destructive' : 'outline'}>
-                <Icon name={isVideoOff ? 'VideoOff' : 'Video'} size={20} />
-              </Button>
-              <Button 
-                onClick={toggleScreenShare} 
-                variant={isScreenSharing ? 'default' : 'outline'}
-                className={isScreenSharing ? 'bg-green-600 hover:bg-green-700' : ''}
-              >
-                <Icon name="Monitor" size={20} className={isScreenSharing ? 'mr-2' : ''} />
-                {isScreenSharing && 'Остановить'}
-              </Button>
               <Button onClick={() => copyRoomLink(currentConference.id)} variant="outline">
-                <Icon name="Share2" size={20} />
+                <Icon name="Share2" size={20} className="mr-2" />
+                Пригласить
               </Button>
               <Button onClick={endCall} variant="destructive">
                 <Icon name="PhoneOff" size={20} className="mr-2" />
-                Завершить
+                Покинуть
               </Button>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 p-6">
-          {isScreenSharing ? (
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-full">
-              <div className="lg:col-span-3 relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
-                <video
-                  ref={screenShareRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-contain"
-                />
-                <div className="absolute top-4 left-4 bg-green-600/90 px-4 py-2 rounded flex items-center gap-2">
-                  <Icon name="Monitor" size={20} className="text-white" />
-                  <span className="text-white font-semibold">Демонстрация экрана</span>
-                </div>
-              </div>
-
-              <div className="lg:col-span-1 space-y-4">
-                <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl h-[45%]">
-                  <video
-                    ref={remoteVideoRef}
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute bottom-2 left-2 bg-slate-900/80 px-2 py-1 rounded text-white text-sm">
-                    Собеседник
-                  </div>
-                </div>
-
-                <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl h-[45%]">
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover mirror"
-                  />
-                  <div className="absolute bottom-2 left-2 bg-slate-900/80 px-2 py-1 rounded text-white text-sm">
-                    Вы
-                  </div>
-                  {isVideoOff && (
-                    <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
-                      <Icon name="VideoOff" size={32} className="text-slate-600" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-4 left-4 bg-slate-900/80 px-3 py-1 rounded text-white">
-                  Собеседник
-                </div>
-              </div>
-
-              <div className="relative bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover mirror"
-                />
-                <div className="absolute bottom-4 left-4 bg-slate-900/80 px-3 py-1 rounded text-white">
-                  Вы ({userFio})
-                </div>
-                {isVideoOff && (
-                  <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
-                    <Icon name="VideoOff" size={64} className="text-slate-600" />
-                  </div>
-                )}
+        <div className="flex-1 relative">
+          <div id="jitsi-container" className="w-full h-full"></div>
+          {loading && (
+            <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mb-4"></div>
+                <p className="text-white text-lg">Подключение к конференции...</p>
               </div>
             </div>
           )}
         </div>
-
-        <style>{`
-          .mirror {
-            transform: scaleX(-1);
-          }
-        `}</style>
       </div>
     );
   }
 
+  // Остальной код страницы (список конференций)
+  if (showDeviceCheck && currentConference) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Icon name="Settings" size={24} />
+              Проверка устройств
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-slate-600">
+              Настройте камеру и микрофон перед входом в конференцию
+            </p>
+            <div className="bg-slate-100 rounded-lg p-4 aspect-video flex items-center justify-center">
+              <Icon name="Video" size={48} className="text-slate-400" />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => {
+                  setShowDeviceCheck(false);
+                  startCall(currentConference);
+                }}
+                className="flex-1"
+              >
+                <Icon name="Video" size={20} className="mr-2" />
+                Присоединиться
+              </Button>
+              <Button 
+                onClick={() => {
+                  setShowDeviceCheck(false);
+                  setCurrentConference(null);
+                }}
+                variant="outline"
+              >
+                Отмена
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Основная страница со списком конференций
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-pink-900 to-slate-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
-            <Button onClick={() => navigate(-1)} variant="outline" className="border-pink-600/50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate(-1)}
+              className="text-white hover:bg-white/10"
+            >
               <Icon name="ArrowLeft" size={20} />
             </Button>
-            <OrganizationLogo size={48} showCompanyName={false} />
+            <OrganizationLogo size="sm" />
             <div>
-              <h1 className="text-3xl font-bold text-white">Видео конференция</h1>
-              <p className="text-pink-400">Создавайте и присоединяйтесь к видеозвонкам</p>
+              <h1 className="text-2xl font-bold text-white">Видео конференция</h1>
+              <p className="text-slate-300 text-sm">Создавайте и присоединяйтесь к видеозвонкам</p>
             </div>
           </div>
           <div className="flex gap-2">
-            <Button 
-              onClick={handleOpenDeviceCheck}
-              variant="outline"
-              className="border-pink-600/50 text-pink-400"
-            >
-              <Icon name="Settings" size={20} className="mr-2" />
-              Проверить устройства
+            <Button onClick={() => setShowDeviceCheck(true)} variant="outline">
+              <Icon name="Settings" size={20} />
             </Button>
-            <Button 
-              onClick={() => setShowCreateDialog(true)}
-              className="bg-pink-600 hover:bg-pink-700"
-            >
+            <Button onClick={() => setShowCreateDialog(true)}>
               <Icon name="Plus" size={20} className="mr-2" />
               Создать конференцию
             </Button>
