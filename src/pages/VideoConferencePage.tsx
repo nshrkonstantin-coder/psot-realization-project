@@ -89,8 +89,6 @@ const VideoConferencePage = () => {
   const ORGANIZATIONS_URL = 'https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b';
   const SEND_EMAIL_URL = 'https://functions.poehali.dev/ca9e0986-48d7-46a1-b0be-7a98ddf4c429';
   const VIDEO_CONFERENCES_URL = 'https://functions.poehali.dev/89376b31-2594-4167-8f41-b49d7df5ed40';
-  const DAILY_ROOMS_URL = 'https://functions.poehali.dev/ff4282c8-66c2-4291-9da9-c508883f64a9';
-  const DAILY_ROOMS_URL = 'https://functions.poehali.dev/ff4282c8-66c2-4291-9da9-c508883f64a9';
 
   useEffect(() => {
     const id = localStorage.getItem('userId');
@@ -475,24 +473,14 @@ const VideoConferencePage = () => {
       const container = document.querySelector('#jitsi-container');
       if (!container) return;
       
-      // Создаём комнату в Daily.co
-      const dailyResponse = await fetch(DAILY_ROOMS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room_name: conference.id })
-      });
+      // Используем Whereby - просто комната по ID
+      const roomUrl = `https://whereby.com/${conference.id}?embed&background=off&minimal&displayName=${encodeURIComponent(userFio)}`;
       
-      const dailyData = await dailyResponse.json();
+      console.log('Whereby комната:', roomUrl);
       
-      if (!dailyData.success) {
-        throw new Error('Не удалось создать комнату');
-      }
-      
-      console.log('Daily.co комната:', dailyData.room_url);
-      
-      // Встраиваем Daily.co через iframe
+      // Встраиваем Whereby через iframe
       const iframe = document.createElement('iframe');
-      iframe.src = dailyData.room_url;
+      iframe.src = roomUrl;
       iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay';
       iframe.style.width = '100%';
       iframe.style.height = '100%';
@@ -505,13 +493,13 @@ const VideoConferencePage = () => {
       iframe.onload = () => {
         setTimeout(() => {
           setLoading(false);
-          toast({ title: '🎥 Конференция запущена!', description: 'Daily.co обеспечивает HD качество' });
+          toast({ title: '🎥 Конференция запущена!', description: 'Whereby обеспечивает HD качество' });
         }, 1000);
       };
       
       setTimeout(() => setLoading(false), 4000);
       
-      (window as any).dailyIframe = iframe;
+      (window as any).wherebyIframe = iframe;
       
     } catch (error) {
       console.error('Ошибка подключения:', error);
@@ -783,13 +771,13 @@ const VideoConferencePage = () => {
   };
 
   const endCall = async () => {
-    // Очищаем Daily iframe
-    if ((window as any).dailyIframe) {
+    // Очищаем Whereby iframe
+    if ((window as any).wherebyIframe) {
       const container = document.querySelector('#jitsi-container');
       if (container) {
         container.innerHTML = '';
       }
-      (window as any).dailyIframe = null;
+      (window as any).wherebyIframe = null;
     }
     
     if (localStreamRef.current) {
@@ -893,14 +881,9 @@ const VideoConferencePage = () => {
             </div>
             <div className="flex gap-2">
               <Button 
-                onClick={async () => {
-                  const res = await fetch(DAILY_ROOMS_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room_name: currentConference.id })
-                  });
-                  const data = await res.json();
-                  if (data.success) window.open(data.room_url, '_blank');
+                onClick={() => {
+                  const roomUrl = `https://whereby.com/${currentConference.id}?displayName=${encodeURIComponent(userFio)}`;
+                  window.open(roomUrl, '_blank');
                 }}
                 variant="outline"
               >
@@ -937,10 +920,10 @@ const VideoConferencePage = () => {
                     <div className="flex items-start gap-2">
                       <Icon name="Info" size={20} className="text-blue-400 mt-0.5 flex-shrink-0" />
                       <div className="text-xs text-slate-300 space-y-1">
-                        <p className="font-semibold text-blue-300">💡 Daily.co - профессиональное качество:</p>
+                        <p className="font-semibold text-blue-300">💡 Whereby - профессиональное качество:</p>
                         <p>• Разрешите доступ к камере и микрофону</p>
-                        <p>• HD качество видео до 200 участников</p>
-                        <p>• Все участники подключаются мгновенно</p>
+                        <p>• HD качество видео и кристальный звук</p>
+                        <p>• Быстрое подключение без регистрации</p>
                       </div>
                     </div>
                   </div>
