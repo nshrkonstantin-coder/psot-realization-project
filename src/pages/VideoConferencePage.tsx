@@ -466,59 +466,82 @@ const VideoConferencePage = () => {
       setCurrentConference(conference);
       setInCall(true);
       
-      // Загружаем Jitsi Meet API
-      const script = document.createElement('script');
-      script.src = 'https://meet.jit.si/external_api.js';
-      script.async = true;
-      document.body.appendChild(script);
+      // Используем iframe для быстрой загрузки (быстрее чем API)
+      const container = document.querySelector('#jitsi-container');
+      if (!container) return;
       
-      script.onload = () => {
-        const domain = 'meet.jit.si';
-        const options = {
-          roomName: conference.id,
-          width: '100%',
-          height: '100%',
-          parentNode: document.querySelector('#jitsi-container'),
-          userInfo: {
-            displayName: userFio
-          },
-          configOverwrite: {
-            startWithAudioMuted: false,
-            startWithVideoMuted: false,
-            enableWelcomePage: false,
-            prejoinPageEnabled: false,
-            disableDeepLinking: true
-          },
-          interfaceConfigOverwrite: {
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_WATERMARK_FOR_GUESTS: false,
-            DEFAULT_BACKGROUND: '#1e293b',
-            DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
-            TOOLBAR_BUTTONS: [
-              'microphone', 'camera', 'closedcaptions', 'desktop', 
-              'fullscreen', 'fodeviceselection', 'hangup', 'profile',
-              'chat', 'recording', 'livestreaming', 'etherpad', 'sharedvideo',
-              'settings', 'raisehand', 'videoquality', 'filmstrip',
-              'feedback', 'stats', 'shortcuts', 'tileview', 'videobackgroundblur',
-              'download', 'help', 'mute-everyone', 'security'
-            ]
+      // Параметры для высокого качества и быстрой загрузки
+      const config = {
+        startWithAudioMuted: false,
+        startWithVideoMuted: false,
+        prejoinPageEnabled: false,
+        disableDeepLinking: true,
+        
+        // HD качество видео
+        resolution: 720,
+        constraints: {
+          video: {
+            height: { ideal: 720, max: 1080, min: 360 },
+            width: { ideal: 1280, max: 1920, min: 640 },
+            frameRate: { ideal: 30, max: 30 }
           }
-        };
+        },
         
-        const api = new (window as any).JitsiMeetExternalAPI(domain, options);
+        // Оптимизации производительности
+        enableLayerSuspension: true,
+        maxFullResolutionParticipants: 5,
+        channelLastN: 20,
+        startBitrate: 800,
         
-        api.addEventListener('videoConferenceJoined', () => {
-          toast({ title: '✅ Вы подключились к конференции' });
-          setLoading(false);
-        });
+        // Аудио оптимизации
+        disableAP: false,
+        stereo: true,
         
-        api.addEventListener('videoConferenceLeft', () => {
-          endCall();
-        });
+        // UI минимизация для быстрой загрузки
+        hideConferenceSubject: true,
+        hideConferenceTimer: false,
         
-        // Сохраняем API для управления
-        (window as any).jitsiApi = api;
+        // Отключаем лишнее для скорости
+        disableProfile: true,
+        disableInviteFunctions: false,
+        
+        // Авто-детект качества сети
+        enableTalkWhileMuted: true,
+        enableNoAudioDetection: true,
+        enableNoisyMicDetection: true
       };
+      
+      const configString = Object.entries(config)
+        .map(([key, value]) => `config.${key}=${value}`)
+        .join('&');
+      
+      const iframeUrl = `https://meet.jit.si/${conference.id}#` + 
+        `${configString}&userInfo.displayName=${encodeURIComponent(userFio)}`;
+      
+      const iframe = document.createElement('iframe');
+      iframe.src = iframeUrl;
+      iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay';
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.border = 'none';
+      
+      container.innerHTML = '';
+      container.appendChild(iframe);
+      
+      // Отслеживаем реальную загрузку iframe
+      iframe.onload = () => {
+        setTimeout(() => {
+          setLoading(false);
+        }, 800); // Даём ещё 800ms на инициализацию Jitsi
+      };
+      
+      // Страховка на случай если onload не сработает
+      setTimeout(() => {
+        setLoading(false);
+      }, 3000);
+      
+      // Сохраняем iframe для очистки
+      (window as any).jitsiIframe = iframe;
       
     } catch (error) {
       console.error('Ошибка подключения к конференции:', error);
@@ -774,6 +797,15 @@ const VideoConferencePage = () => {
       (window as any).jitsiApi = null;
     }
     
+    // Очищаем iframe
+    if ((window as any).jitsiIframe) {
+      const container = document.querySelector('#jitsi-container');
+      if (container) {
+        container.innerHTML = '';
+      }
+      (window as any).jitsiIframe = null;
+    }
+    
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
@@ -889,10 +921,17 @@ const VideoConferencePage = () => {
         <div className="flex-1 relative">
           <div id="jitsi-container" className="w-full h-full"></div>
           {loading && (
-            <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center">
-              <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mb-4"></div>
-                <p className="text-white text-lg">Подключение к конференции...</p>
+            <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <div className="relative w-20 h-20 mx-auto">
+                  <div className="absolute inset-0 rounded-full border-4 border-pink-500/30"></div>
+                  <div className="absolute inset-0 rounded-full border-4 border-pink-500 border-t-transparent animate-spin"></div>
+                  <Icon name="Video" size={32} className="text-pink-500 absolute inset-0 m-auto" />
+                </div>
+                <div>
+                  <p className="text-white text-xl font-semibold mb-2">Загрузка конференции</p>
+                  <p className="text-slate-400 text-sm">Подготовка HD видео и аудио...</p>
+                </div>
               </div>
             </div>
           )}
