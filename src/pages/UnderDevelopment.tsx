@@ -78,13 +78,6 @@ const UnderDevelopment = () => {
             <span className="text-sm">Улучшения</span>
           </div>
         </div>
-
-        {/* Информация о пути */}
-        <div className="mt-8 p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border border-gray-200 dark:border-slate-700">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Запрошенный путь: <code className="text-yellow-600 dark:text-yellow-500 font-mono">{location.pathname}</code>
-          </p>
-        </div>
       </div>
     </div>
   );
