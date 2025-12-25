@@ -138,7 +138,13 @@ const VideoConferencePage = () => {
       });
       const data = await response.json();
       if (data.users) {
-        setUsers(data.users);
+        // Сортируем по названию компании, затем по ФИО
+        const sortedUsers = [...data.users].sort((a, b) => {
+          const companyCompare = (a.company_name || '').localeCompare(b.company_name || '', 'ru');
+          if (companyCompare !== 0) return companyCompare;
+          return a.fio.localeCompare(b.fio, 'ru');
+        });
+        setUsers(sortedUsers);
       }
     } catch (error) {
       console.error('Ошибка загрузки пользователей:', error);
