@@ -85,20 +85,20 @@ export default function ViolationsTable({ violations, setViolations, orgUsers }:
 
   return (
     <div className="violations-section mb-6">
-      <p className="font-semibold text-slate-900 dark:!text-slate-900 mb-3">Необходимо устранить следующие нарушения в указанные сроки:</p>
-      <table className="w-full border-collapse border border-slate-300 dark:!border-slate-300">
+      <p className="font-semibold text-slate-900 mb-3">Необходимо устранить следующие нарушения в указанные сроки:</p>
+      <table className="w-full border-collapse border border-slate-300">
         <thead>
-          <tr className="bg-slate-100 dark:!bg-slate-100">
-            <th className="border border-slate-300 dark:!border-slate-300 p-2 w-12 dark:!text-slate-900">п/п</th>
-            <th className="border border-slate-300 dark:!border-slate-300 p-2 dark:!text-slate-900">Краткое изложение выявленных нарушений с указанием места обнаружения (при необходимости вкладывать фото)</th>
-            <th className="border border-slate-300 dark:!border-slate-300 p-2 dark:!text-slate-900">Предлагаемые меры, ответственные за выполнение и срок устранения нарушений</th>
+          <tr className="bg-slate-100">
+            <th className="border border-slate-300 p-2 w-12">п/п</th>
+            <th className="border border-slate-300 p-2">Краткое изложение выявленных нарушений с указанием места обнаружения (при необходимости вкладывать фото)</th>
+            <th className="border border-slate-300 p-2">Предлагаемые меры, ответственные за выполнение и срок устранения нарушений</th>
           </tr>
         </thead>
         <tbody>
           {violations.map((item, index) => (
             <tr key={index}>
-              <td className="border border-slate-300 dark:!border-slate-300 p-2 text-center dark:!text-slate-900">{item.item_number}.</td>
-              <td className={`border border-slate-300 dark:!border-slate-300 p-2 transition-colors ${item.description.trim() ? 'bg-green-100' : ''}`}>
+              <td className="border border-slate-300 p-2 text-center">{item.item_number}.</td>
+              <td className={`border border-slate-300 p-2 transition-colors ${item.description.trim() ? 'bg-green-100' : ''}`}>
                 <Textarea
                   value={item.description}
                   onChange={(e) => handleTextareaChange(index, 'description', e.target.value, e)}
@@ -139,16 +139,16 @@ export default function ViolationsTable({ violations, setViolations, orgUsers }:
                   />
                 </div>
               </td>
-              <td className={`border border-slate-300 dark:!border-slate-300 p-2 transition-colors ${item.measures.trim() ? 'bg-green-100' : ''}`}>
+              <td className={`border border-slate-300 p-2 transition-colors ${item.measures.trim() ? 'bg-green-100' : ''}`}>
                 <Textarea
                   value={item.measures}
                   onChange={(e) => handleTextareaChange(index, 'measures', e.target.value, e)}
-                  className="w-full min-h-[80px] resize-none border-none bg-transparent print:border-none dark:!text-slate-900"
+                  className="w-full min-h-[80px] resize-none border-none bg-transparent print:border-none"
                   placeholder="Меры и сроки устранения"
                 />
                 <div className="mt-2 pt-2 border-t border-slate-200 space-y-2">
                   <div>
-                    <label className="text-xs text-slate-600 dark:!text-slate-900 mb-1 block">Ответственный:</label>
+                    <label className="text-xs text-slate-600 mb-1 block">Ответственный:</label>
                     <Select 
                       value={item.responsible_user_id || ''} 
                       onValueChange={(value) => updateViolation(index, 'responsible_user_id', value)}
@@ -166,12 +166,12 @@ export default function ViolationsTable({ violations, setViolations, orgUsers }:
                     </Select>
                   </div>
                   <div>
-                    <label className="text-xs text-slate-600 dark:!text-slate-900 mb-1 block">Срок выполнения:</label>
+                    <label className="text-xs text-slate-600 mb-1 block">Срок выполнения:</label>
                     <input
                       type="date"
                       value={item.deadline}
                       onChange={(e) => updateViolation(index, 'deadline', e.target.value)}
-                      className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 print:border-none dark:!text-slate-900"
+                      className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 print:border-none"
                     />
                   </div>
                 </div>

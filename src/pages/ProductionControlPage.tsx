@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import OrganizationLogo from '@/components/OrganizationLogo';
+import LightThemeWrapper from '@/components/LightThemeWrapper';
 import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, ImageRun } from 'docx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -522,8 +523,9 @@ export default function ProductionControlPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:!bg-white p-6 print:bg-white">
-      <Card id="print-container" className="max-w-7xl mx-auto p-8 print:shadow-none bg-white dark:!bg-white dark:!text-slate-900">
+    <LightThemeWrapper>
+    <div className="min-h-screen p-6 print:bg-white">
+      <Card id="print-container" className="max-w-7xl mx-auto p-8 print:shadow-none">
         <ProductionControlForm
           currentDate={currentDate}
           setCurrentDate={setCurrentDate}
@@ -573,5 +575,6 @@ export default function ProductionControlPage() {
         </div>
       </Card>
     </div>
+    </LightThemeWrapper>
   );
 }

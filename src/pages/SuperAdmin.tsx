@@ -70,7 +70,7 @@ const SuperAdmin = () => {
   return (
     <>
       <ImpersonationBanner />
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 dark:from-slate-900 dark:via-purple-900 dark:to-slate-900 bg-slate-50 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 dark:from-slate-900 dark:via-purple-900 dark:to-slate-900 p-6">
         <div className="max-w-7xl mx-auto mb-8">
         <div className="flex justify-end mb-4">
           <ThemeToggle />
