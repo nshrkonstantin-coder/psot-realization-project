@@ -478,8 +478,21 @@ const VideoConferencePage = () => {
       const roomName = conference.id;
       const displayName = encodeURIComponent(userFio);
       
-      // Используем минимум параметров для надёжности
-      const iframeUrl = `https://meet.jit.si/${roomName}#userInfo.displayName="${displayName}"&config.prejoinPageEnabled=false`;
+      // Параметры для открытой конференции без паролей и лобби
+      const config = [
+        `userInfo.displayName="${displayName}"`,
+        'config.prejoinPageEnabled=false',
+        'config.startWithAudioMuted=false',
+        'config.startWithVideoMuted=false',
+        'config.enableLobbyChat=false',
+        'config.hideConferenceSubject=true',
+        'config.disableInviteFunctions=true',
+        'interfaceConfig.SHOW_JITSI_WATERMARK=false',
+        'interfaceConfig.SHOW_WATERMARK_FOR_GUESTS=false',
+        'interfaceConfig.DEFAULT_BACKGROUND="#1e293b"'
+      ].join('&');
+      
+      const iframeUrl = `https://meet.jit.si/${roomName}#${config}`;
       
       console.log('Открываем Jitsi комнату:', roomName, 'URL:', iframeUrl);
       
@@ -898,7 +911,13 @@ const VideoConferencePage = () => {
             <div className="flex gap-2">
               <Button 
                 onClick={() => {
-                  const url = `https://meet.jit.si/${currentConference.id}#userInfo.displayName="${encodeURIComponent(userFio)}"`;
+                  const config = [
+                    `userInfo.displayName="${encodeURIComponent(userFio)}"`,
+                    'config.prejoinPageEnabled=false',
+                    'config.startWithAudioMuted=false',
+                    'config.startWithVideoMuted=false'
+                  ].join('&');
+                  const url = `https://meet.jit.si/${currentConference.id}#${config}`;
                   window.open(url, '_blank');
                 }}
                 variant="outline"
@@ -922,7 +941,7 @@ const VideoConferencePage = () => {
           <div id="jitsi-container" className="w-full h-full"></div>
           {loading && (
             <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
-              <div className="text-center space-y-6 max-w-md mx-auto px-4">
+              <div className="text-center space-y-6 max-w-lg mx-auto px-4">
                 <div className="relative w-20 h-20 mx-auto">
                   <div className="absolute inset-0 rounded-full border-4 border-pink-500/30"></div>
                   <div className="absolute inset-0 rounded-full border-4 border-pink-500 border-t-transparent animate-spin"></div>
@@ -931,9 +950,18 @@ const VideoConferencePage = () => {
                 <div>
                   <p className="text-white text-xl font-semibold mb-2">Загрузка конференции</p>
                   <p className="text-slate-400 text-sm mb-4">Подготовка HD видео и аудио...</p>
-                  <p className="text-slate-500 text-xs">
-                    Если конференция не загружается, используйте кнопку "Открыть в новой вкладке" в шапке
-                  </p>
+                  
+                  <div className="bg-blue-900/30 border border-blue-500/30 rounded-lg p-4 text-left">
+                    <div className="flex items-start gap-2">
+                      <Icon name="Info" size={20} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-xs text-slate-300 space-y-1">
+                        <p className="font-semibold text-blue-300">💡 Важно для участников:</p>
+                        <p>• Разрешите доступ к камере и микрофону</p>
+                        <p>• Если видите "Ожидание входа" - напишите модератору чтобы впустил</p>
+                        <p>• Модератор - первый кто зашёл в комнату</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
