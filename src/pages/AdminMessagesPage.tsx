@@ -111,10 +111,7 @@ const AdminMessagesPage = () => {
         allCompanies = data.organizations;
       }
       
-      if (userRole && userRole !== 'admin' && userRole !== 'superadmin' && userOrgId) {
-        allCompanies = allCompanies.filter(c => c.id === userOrgId);
-      }
-      
+      // Фильтрация теперь происходит на бэкенде по X-User-Id
       setCompanies(allCompanies);
     } catch (error) {
       console.error('Ошибка загрузки предприятий:', error);

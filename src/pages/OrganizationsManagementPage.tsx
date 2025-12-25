@@ -51,7 +51,11 @@ const OrganizationsManagementPage = () => {
 
   const loadOrganizations = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b');
+      const response = await fetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b', {
+        headers: {
+          'X-User-Id': localStorage.getItem('userId') || ''
+        }
+      });
       if (!response.ok) throw new Error('Failed to load');
       const data = await response.json();
       setOrganizations(data);

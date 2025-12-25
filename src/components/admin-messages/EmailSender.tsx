@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -54,6 +54,13 @@ export const EmailSender = ({
   const [filterCompanyId, setFilterCompanyId] = useState<string>('all');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emailBodyRef = useRef<HTMLTextAreaElement>(null);
+
+  // Автоматически выбираем первое предприятие для user/minadmin
+  useEffect(() => {
+    if ((userRole === 'user' || userRole === 'minadmin') && companies.length > 0) {
+      setFilterCompanyId(String(companies[0].id));
+    }
+  }, [companies, userRole]);
 
   const getFilteredUsers = () => {
     return users.filter(u => {

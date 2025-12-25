@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -58,6 +58,13 @@ export const ChatsList = ({
   const [newChatUserIds, setNewChatUserIds] = useState<number[]>([]);
   const [newChatCompanyFilter, setNewChatCompanyFilter] = useState<string>('all');
   const [newChatSearch, setNewChatSearch] = useState('');
+
+  // Автоматически выбираем первое предприятие для user/minadmin
+  useEffect(() => {
+    if ((userRole === 'user' || userRole === 'minadmin') && companies.length > 0) {
+      setNewChatCompanyFilter(String(companies[0].id));
+    }
+  }, [companies, userRole]);
 
   const toggleNewChatUser = (id: number) => {
     setNewChatUserIds(prev =>
