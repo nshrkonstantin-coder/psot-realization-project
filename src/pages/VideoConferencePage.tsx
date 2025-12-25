@@ -473,14 +473,34 @@ const VideoConferencePage = () => {
       const container = document.querySelector('#jitsi-container');
       if (!container) return;
       
-      // Используем Whereby - просто комната по ID
-      const roomUrl = `https://whereby.com/${conference.id}?embed&background=off&minimal&displayName=${encodeURIComponent(userFio)}`;
+      // Используем Jitsi Meet - стабильный opensource сервис от 8x8
+      const roomName = conference.id;
+      const displayName = encodeURIComponent(userFio);
       
-      console.log('Whereby комната:', roomUrl);
+      // Параметры конфигурации Jitsi
+      const config = [
+        `userInfo.displayName="${displayName}"`,
+        'config.prejoinPageEnabled=false',
+        'config.startWithAudioMuted=false',
+        'config.startWithVideoMuted=false',
+        'config.enableWelcomePage=false',
+        'config.enableClosePage=false',
+        'config.disableDeepLinking=true',
+        'config.toolbarButtons=["microphone","camera","desktop","fullscreen","hangup","chat","raisehand","participants-pane","tileview"]',
+        'interfaceConfig.SHOW_JITSI_WATERMARK=false',
+        'interfaceConfig.SHOW_WATERMARK_FOR_GUESTS=false',
+        'interfaceConfig.DEFAULT_BACKGROUND="#1e293b"',
+        'interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true',
+        'interfaceConfig.MOBILE_APP_PROMO=false'
+      ].join('&');
       
-      // Встраиваем Whereby через iframe
+      const iframeUrl = `https://meet.jit.si/${roomName}#${config}`;
+      
+      console.log('Jitsi Meet комната:', iframeUrl);
+      
+      // Встраиваем Jitsi через iframe
       const iframe = document.createElement('iframe');
-      iframe.src = roomUrl;
+      iframe.src = iframeUrl;
       iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay';
       iframe.style.width = '100%';
       iframe.style.height = '100%';
@@ -493,13 +513,13 @@ const VideoConferencePage = () => {
       iframe.onload = () => {
         setTimeout(() => {
           setLoading(false);
-          toast({ title: '🎥 Конференция запущена!', description: 'Whereby обеспечивает HD качество' });
+          toast({ title: '🎥 Конференция запущена!', description: 'Jitsi Meet - стабильная связь' });
         }, 1000);
       };
       
       setTimeout(() => setLoading(false), 4000);
       
-      (window as any).wherebyIframe = iframe;
+      (window as any).jitsiIframe = iframe;
       
     } catch (error) {
       console.error('Ошибка подключения:', error);
@@ -771,13 +791,13 @@ const VideoConferencePage = () => {
   };
 
   const endCall = async () => {
-    // Очищаем Whereby iframe
-    if ((window as any).wherebyIframe) {
+    // Очищаем Jitsi iframe
+    if ((window as any).jitsiIframe) {
       const container = document.querySelector('#jitsi-container');
       if (container) {
         container.innerHTML = '';
       }
-      (window as any).wherebyIframe = null;
+      (window as any).jitsiIframe = null;
     }
     
     if (localStreamRef.current) {
@@ -882,7 +902,7 @@ const VideoConferencePage = () => {
             <div className="flex gap-2">
               <Button 
                 onClick={() => {
-                  const roomUrl = `https://whereby.com/${currentConference.id}?displayName=${encodeURIComponent(userFio)}`;
+                  const roomUrl = `https://meet.jit.si/${currentConference.id}`;
                   window.open(roomUrl, '_blank');
                 }}
                 variant="outline"
@@ -920,10 +940,10 @@ const VideoConferencePage = () => {
                     <div className="flex items-start gap-2">
                       <Icon name="Info" size={20} className="text-blue-400 mt-0.5 flex-shrink-0" />
                       <div className="text-xs text-slate-300 space-y-1">
-                        <p className="font-semibold text-blue-300">💡 Whereby - профессиональное качество:</p>
+                        <p className="font-semibold text-blue-300">💡 Jitsi Meet - стабильная связь:</p>
                         <p>• Разрешите доступ к камере и микрофону</p>
-                        <p>• HD качество видео и кристальный звук</p>
-                        <p>• Быстрое подключение без регистрации</p>
+                        <p>• HD качество видео до 100+ участников</p>
+                        <p>• Opensource решение от 8x8 (Google)</p>
                       </div>
                     </div>
                   </div>
