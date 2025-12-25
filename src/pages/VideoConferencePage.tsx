@@ -89,6 +89,8 @@ const VideoConferencePage = () => {
   const ORGANIZATIONS_URL = 'https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b';
   const SEND_EMAIL_URL = 'https://functions.poehali.dev/ca9e0986-48d7-46a1-b0be-7a98ddf4c429';
   const VIDEO_CONFERENCES_URL = 'https://functions.poehali.dev/89376b31-2594-4167-8f41-b49d7df5ed40';
+  const DAILY_ROOMS_URL = 'https://functions.poehali.dev/ff4282c8-66c2-4291-9da9-c508883f64a9';
+  const DAILY_ROOMS_URL = 'https://functions.poehali.dev/ff4282c8-66c2-4291-9da9-c508883f64a9';
 
   useEffect(() => {
     const id = localStorage.getItem('userId');
@@ -470,35 +472,28 @@ const VideoConferencePage = () => {
       setCurrentConference(conference);
       setInCall(true);
       
-      // Используем iframe для быстрой загрузки (быстрее чем API)
       const container = document.querySelector('#jitsi-container');
       if (!container) return;
       
-      // ID конференции уже чистый (только буквы и цифры)
-      const roomName = conference.id;
-      const displayName = encodeURIComponent(userFio);
+      // Создаём комнату в Daily.co
+      const dailyResponse = await fetch(DAILY_ROOMS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ room_name: conference.id })
+      });
       
-      // Параметры для открытой конференции без паролей и лобби
-      const config = [
-        `userInfo.displayName="${displayName}"`,
-        'config.prejoinPageEnabled=false',
-        'config.startWithAudioMuted=false',
-        'config.startWithVideoMuted=false',
-        'config.enableLobbyChat=false',
-        'config.hideConferenceSubject=true',
-        'config.disableInviteFunctions=true',
-        'interfaceConfig.SHOW_JITSI_WATERMARK=false',
-        'interfaceConfig.SHOW_WATERMARK_FOR_GUESTS=false',
-        'interfaceConfig.DEFAULT_BACKGROUND="#1e293b"'
-      ].join('&');
+      const dailyData = await dailyResponse.json();
       
-      const iframeUrl = `https://meet.jit.si/${roomName}#${config}`;
+      if (!dailyData.success) {
+        throw new Error('Не удалось создать комнату');
+      }
       
-      console.log('Открываем Jitsi комнату:', roomName, 'URL:', iframeUrl);
+      console.log('Daily.co комната:', dailyData.room_url);
       
+      // Встраиваем Daily.co через iframe
       const iframe = document.createElement('iframe');
-      iframe.src = iframeUrl;
-      iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay; clipboard-write';
+      iframe.src = dailyData.room_url;
+      iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay';
       iframe.style.width = '100%';
       iframe.style.height = '100%';
       iframe.style.border = 'none';
@@ -507,25 +502,19 @@ const VideoConferencePage = () => {
       container.innerHTML = '';
       container.appendChild(iframe);
       
-      // Отслеживаем загрузку iframe
       iframe.onload = () => {
-        console.log('Iframe загружен');
         setTimeout(() => {
           setLoading(false);
-          toast({ title: '🎥 Конференция открыта!', description: 'Jitsi может запросить доступ к камере и микрофону' });
-        }, 1500); // Даём 1.5 секунды на инициализацию Jitsi
+          toast({ title: '🎥 Конференция запущена!', description: 'Daily.co обеспечивает HD качество' });
+        }, 1000);
       };
       
-      // Страховка - скрываем загрузку через 5 секунд в любом случае
-      setTimeout(() => {
-        setLoading(false);
-      }, 5000);
+      setTimeout(() => setLoading(false), 4000);
       
-      // Сохраняем iframe для очистки
-      (window as any).jitsiIframe = iframe;
+      (window as any).dailyIframe = iframe;
       
     } catch (error) {
-      console.error('Ошибка подключения к конференции:', error);
+      console.error('Ошибка подключения:', error);
       toast({ 
         title: 'Ошибка подключения', 
         description: 'Не удалось подключиться к конференции',
@@ -794,19 +783,13 @@ const VideoConferencePage = () => {
   };
 
   const endCall = async () => {
-    // Завершаем Jitsi сессию
-    if ((window as any).jitsiApi) {
-      (window as any).jitsiApi.dispose();
-      (window as any).jitsiApi = null;
-    }
-    
-    // Очищаем iframe
-    if ((window as any).jitsiIframe) {
+    // Очищаем Daily iframe
+    if ((window as any).dailyIframe) {
       const container = document.querySelector('#jitsi-container');
       if (container) {
         container.innerHTML = '';
       }
-      (window as any).jitsiIframe = null;
+      (window as any).dailyIframe = null;
     }
     
     if (localStreamRef.current) {
@@ -910,15 +893,14 @@ const VideoConferencePage = () => {
             </div>
             <div className="flex gap-2">
               <Button 
-                onClick={() => {
-                  const config = [
-                    `userInfo.displayName="${encodeURIComponent(userFio)}"`,
-                    'config.prejoinPageEnabled=false',
-                    'config.startWithAudioMuted=false',
-                    'config.startWithVideoMuted=false'
-                  ].join('&');
-                  const url = `https://meet.jit.si/${currentConference.id}#${config}`;
-                  window.open(url, '_blank');
+                onClick={async () => {
+                  const res = await fetch(DAILY_ROOMS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_name: currentConference.id })
+                  });
+                  const data = await res.json();
+                  if (data.success) window.open(data.room_url, '_blank');
                 }}
                 variant="outline"
               >
@@ -955,10 +937,10 @@ const VideoConferencePage = () => {
                     <div className="flex items-start gap-2">
                       <Icon name="Info" size={20} className="text-blue-400 mt-0.5 flex-shrink-0" />
                       <div className="text-xs text-slate-300 space-y-1">
-                        <p className="font-semibold text-blue-300">💡 Важно для участников:</p>
+                        <p className="font-semibold text-blue-300">💡 Daily.co - профессиональное качество:</p>
                         <p>• Разрешите доступ к камере и микрофону</p>
-                        <p>• Если видите "Ожидание входа" - напишите модератору чтобы впустил</p>
-                        <p>• Модератор - первый кто зашёл в комнату</p>
+                        <p>• HD качество видео до 200 участников</p>
+                        <p>• Все участники подключаются мгновенно</p>
                       </div>
                     </div>
                   </div>
