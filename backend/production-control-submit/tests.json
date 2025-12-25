@@ -34,7 +34,9 @@
       "expectedStatus": 200,
       "expectedBody": {
         "success": true,
-        "report_id": "number"
+        "report_id": "number",
+        "adminEmailSent": "boolean",
+        "userEmailSent": "boolean"
       },
       "bodyMatcher": "partial"
     }

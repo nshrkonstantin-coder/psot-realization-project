@@ -1,5 +1,10 @@
 import json
 import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 from typing import Dict, Any
 
 def send_notification(cur, user_id: int, title: str, message: str, notification_type: str = 'info'):
@@ -290,6 +295,179 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         else:
                             print(f'[DEBUG] No Telegram for user {final_user_id}')
             
+            # Отправка email уведомлений
+            admin_email_sent = False
+            user_email_sent = False
+            responsible_emails_sent = {}
+            email_error = None
+            
+            smtp_host = os.environ.get('SMTP_HOST', 'smtp.yandex.ru')
+            smtp_port = os.environ.get('SMTP_PORT', '587')
+            smtp_user = os.environ.get('SMTP_USER', 'ACYBT@yandex.ru')
+            smtp_password = os.environ.get('SMTP_PASSWORD_NEW') or os.environ.get('YANDEX_SMTP_PASSWORD')
+            admin_email = os.environ.get('ADMIN_EMAIL', 'ACYBT@yandex.ru')
+            
+            # Получаем email пользователя
+            user_email = None
+            if user_id:
+                cur.execute(f"SELECT email FROM t_p80499285_psot_realization_pro.users WHERE id = {user_id}")
+                user_row = cur.fetchone()
+                if user_row and user_row[0]:
+                    user_email = user_row[0]
+            
+            # URL для просмотра акта
+            pc_url = f"https://otpbru.ru/pc-view/{report_id}"
+            
+            if smtp_host and smtp_user and smtp_password:
+                # Формируем список нарушений для email
+                violations_text = ""
+                for idx, violation in enumerate(violations, 1):
+                    violations_text += f"""\n--- Нарушение №{idx} ---
+Описание: {violation.get('description', '')}
+Мероприятия: {violation.get('measures', '')}
+Срок выполнения: {violation.get('deadline', 'не указан')}
+"""
+                
+                # 1. Отправка администратору
+                if admin_email:
+                    try:
+                        msg = MIMEMultipart()
+                        msg['From'] = smtp_user
+                        msg['To'] = admin_email
+                        msg['Subject'] = f"Новый акт ПК: {doc_number}"
+                        
+                        email_body = f"""Зарегистрирован новый акт производственного контроля
+
+Номер: {doc_number}
+Дата: {doc_date}
+Выдающий: {issuer_name}
+Подразделение: {department}
+Получатель: {recipient_name if recipient_name else 'Не указан'}
+
+Нарушения:{violations_text}
+
+Просмотреть акт: {pc_url}
+"""
+                        
+                        msg.attach(MIMEText(email_body, 'plain', 'utf-8'))
+                        
+                        server = smtplib.SMTP(smtp_host, int(smtp_port))
+                        server.starttls()
+                        server.login(smtp_user, smtp_password)
+                        server.send_message(msg)
+                        server.quit()
+                        
+                        admin_email_sent = True
+                        print(f"Email sent to admin: {admin_email}")
+                        
+                    except Exception as e:
+                        email_error = f"Admin email error: {str(e)}"
+                        print(f"Admin email error: {e}")
+                
+                # 2. Отправка пользователю (создателю акта)
+                if user_email:
+                    try:
+                        msg_user = MIMEMultipart()
+                        msg_user['From'] = smtp_user
+                        msg_user['To'] = user_email
+                        msg_user['Subject'] = f"Ваш акт ПК зарегистрирован: {doc_number}"
+                        
+                        user_email_body = f"""Ваш акт производственного контроля успешно зарегистрирован
+
+Номер: {doc_number}
+Дата: {doc_date}
+Подразделение: {department}
+Получатель: {recipient_name if recipient_name else 'Не указан'}
+
+Нарушения:{violations_text}
+
+Просмотреть акт: {pc_url}
+"""
+                        
+                        msg_user.attach(MIMEText(user_email_body, 'plain', 'utf-8'))
+                        
+                        server_user = smtplib.SMTP(smtp_host, int(smtp_port))
+                        server_user.starttls()
+                        server_user.login(smtp_user, smtp_password)
+                        server_user.send_message(msg_user)
+                        server_user.quit()
+                        
+                        user_email_sent = True
+                        print(f"Email sent to user: {user_email}")
+                        
+                    except Exception as e:
+                        if email_error:
+                            email_error += f"; User email error: {str(e)}"
+                        else:
+                            email_error = f"User email error: {str(e)}"
+                        print(f"User email error: {e}")
+                
+                # 3. Отправка ответственным лицам
+                # Группируем нарушения по ответственным
+                responsible_violations = {}
+                for violation in violations:
+                    responsible_id = violation.get('responsible_user_id')
+                    if responsible_id:
+                        if responsible_id not in responsible_violations:
+                            responsible_violations[responsible_id] = []
+                        responsible_violations[responsible_id].append(violation)
+                
+                for resp_user_id, resp_violations in responsible_violations.items():
+                    cur.execute(f"SELECT email, fio FROM t_p80499285_psot_realization_pro.users WHERE id = {resp_user_id}")
+                    resp_user_row = cur.fetchone()
+                    
+                    if resp_user_row and resp_user_row[0]:
+                        resp_email = resp_user_row[0]
+                        resp_fio = resp_user_row[1]
+                        
+                        # Пропускаем если это админ или создатель акта
+                        if resp_email in [admin_email, user_email]:
+                            continue
+                        
+                        try:
+                            msg_resp = MIMEMultipart()
+                            msg_resp['From'] = smtp_user
+                            msg_resp['To'] = resp_email
+                            msg_resp['Subject'] = f"Назначено устранение нарушений по акту ПК: {doc_number}"
+                            
+                            # Формируем список нарушений для конкретного ответственного
+                            resp_violations_text = ""
+                            for idx, viol in enumerate(resp_violations, 1):
+                                resp_violations_text += f"""\n--- Нарушение №{idx} ---
+Описание: {viol.get('description', '')}
+Мероприятия: {viol.get('measures', '')}
+Срок выполнения: {viol.get('deadline', 'не указан')}
+"""
+                            
+                            resp_email_body = f"""Вам назначено устранение нарушений по акту производственного контроля
+
+Номер акта: {doc_number}
+Дата: {doc_date}
+Выдающий: {issuer_name}
+Подразделение: {department}
+
+Ваши нарушения:{resp_violations_text}
+
+Просмотреть акт: {pc_url}
+"""
+                            
+                            msg_resp.attach(MIMEText(resp_email_body, 'plain', 'utf-8'))
+                            
+                            server_resp = smtplib.SMTP(smtp_host, int(smtp_port))
+                            server_resp.starttls()
+                            server_resp.login(smtp_user, smtp_password)
+                            server_resp.send_message(msg_resp)
+                            server_resp.quit()
+                            
+                            responsible_emails_sent[resp_email] = True
+                            print(f"Email sent to responsible: {resp_email}")
+                            
+                        except Exception as e:
+                            responsible_emails_sent[resp_email] = False
+                            print(f"Error sending email to responsible {resp_email}: {e}")
+            else:
+                print("Email credentials not configured")
+            
             conn.commit()
             
             return {
@@ -301,7 +479,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False,
                 'body': json.dumps({
                     'success': True,
-                    'report_id': report_id
+                    'report_id': report_id,
+                    'adminEmailSent': admin_email_sent,
+                    'userEmailSent': user_email_sent,
+                    'userEmail': user_email,
+                    'responsibleEmailsSent': responsible_emails_sent,
+                    'emailError': email_error
                 })
             }
         except Exception as e:
