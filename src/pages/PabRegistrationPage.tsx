@@ -242,16 +242,16 @@ export default function PabRegistrationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-white dark:!bg-white py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="mb-6">
-          <Button variant="ghost" onClick={() => navigate('/pab-list')} className="mb-4">
-            <Icon name="ArrowLeft" className="mr-2 h-4 w-4" />
+          <Button variant="ghost" onClick={() => navigate('/pab-list')} className="mb-4 text-slate-900">
+            <Icon name="ArrowLeft" className="mr-2 h-4 w-4 text-slate-900" />
             Назад к списку ПАБ
           </Button>
           <div className="flex items-center justify-center gap-4 mb-8">
             <OrganizationLogo size={56} showCompanyName={false} />
-            <h1 className="text-3xl font-bold text-gray-900">Регистрация ПАБ</h1>
+            <h1 className="text-3xl font-bold text-slate-900 dark:!text-slate-900">Регистрация ПАБ</h1>
           </div>
         </div>
 

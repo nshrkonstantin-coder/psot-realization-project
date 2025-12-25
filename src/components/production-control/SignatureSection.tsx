@@ -52,19 +52,19 @@ export default function SignatureSection({
 
   return (
     <>
-      <p className="text-slate-900 mb-6">
+      <p className="text-slate-900 dark:!text-slate-900 mb-6">
         О выполнении настоящего предписания прошу предоставить письменное
         уведомление в отдел ОТ и ПБ <strong>согласно дат, указанных в пунктах.</strong>
       </p>
 
       <div className="signature-area space-y-4 mb-6">
-        <div className="flex justify-between items-center border-t border-slate-300 pt-4">
+        <div className="flex justify-between items-center border-t border-slate-300 dark:!border-slate-300 pt-4">
           <div>
-            <strong>Предписание выдал:</strong>
-            <p className="text-slate-700">{issuerName}, {issuerPosition}</p>
+            <strong className="dark:!text-slate-900">Предписание выдал:</strong>
+            <p className="text-slate-700 dark:!text-slate-700">{issuerName}, {issuerPosition}</p>
           </div>
           <div>
-            <Label className="font-semibold">Дата:</Label>
+            <Label className="font-semibold dark:!text-slate-900">Дата:</Label>
             <Input
               type="date"
               value={issueDate}
@@ -74,8 +74,8 @@ export default function SignatureSection({
           </div>
         </div>
 
-        <div className="border-t border-slate-300 pt-4">
-          <strong className="block mb-3">Предписание принял:</strong>
+        <div className="border-t border-slate-300 dark:!border-slate-300 pt-4">
+          <strong className="block mb-3 dark:!text-slate-900">Предписание принял:</strong>
           {acceptorSignatures.map((sig, index) => (
             <div key={index} className="flex justify-between items-center gap-4 mb-3">
               <Select value={sig.userId} onValueChange={(value) => updateSignature(index, value)} disabled={orgUsers.length === 0}>

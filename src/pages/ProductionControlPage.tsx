@@ -522,8 +522,8 @@ export default function ProductionControlPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 print:bg-white">
-      <Card id="print-container" className="max-w-7xl mx-auto p-8 print:shadow-none bg-white">
+    <div className="min-h-screen bg-white dark:!bg-white p-6 print:bg-white">
+      <Card id="print-container" className="max-w-7xl mx-auto p-8 print:shadow-none bg-white dark:!bg-white dark:!text-slate-900">
         <ProductionControlForm
           currentDate={currentDate}
           setCurrentDate={setCurrentDate}
