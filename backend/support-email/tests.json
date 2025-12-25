@@ -11,12 +11,14 @@
       "method": "POST",
       "path": "/",
       "body": {
+        "action": "send_request",
         "requestType": "problem",
         "description": "Тестовое сообщение техподдержки",
         "userFio": "Тестов Тест Тестович",
         "userCompany": "ООО Тест",
         "userEmail": "test@test.com",
-        "userId": "1"
+        "userId": "1",
+        "attachments": []
       },
       "expectedStatus": 200,
       "expectedBody": {

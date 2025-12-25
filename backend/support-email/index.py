@@ -1,15 +1,18 @@
 import json
 import os
 import smtplib
+import base64
+import boto3
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Dict, Any
 from datetime import datetime
+import uuid
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Business: Отправка запросов техподдержки на email администратора
-    Args: event - dict с httpMethod, body (requestType, description, userFio, userCompany, userEmail, userId)
+    Business: Отправка запросов техподдержки на email администратора с поддержкой загрузки файлов
+    Args: event - dict с httpMethod, body (action, requestType, description, userFio, userCompany, userEmail, userId, attachments OR fileName, fileData, fileType)
           context - object с атрибутами: request_id, function_name
     Returns: HTTP response dict
     '''
@@ -30,13 +33,86 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     if method == 'POST':
         body_data = json.loads(event.get('body', '{}'))
+        action = body_data.get('action', 'send_request')
         
+        # Загрузка файла в S3
+        if action == 'upload_file':
+            try:
+                file_name = body_data.get('fileName', '')
+                file_data = body_data.get('fileData', '')
+                file_type = body_data.get('fileType', 'application/octet-stream')
+                
+                if not file_name or not file_data:
+                    return {
+                        'statusCode': 400,
+                        'headers': {
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
+                        },
+                        'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'Отсутствуют данные файла'})
+                    }
+                
+                # Декодируем base64
+                file_bytes = base64.b64decode(file_data)
+                
+                # Генерируем уникальное имя файла
+                file_ext = os.path.splitext(file_name)[1]
+                unique_name = f"support/{uuid.uuid4()}{file_ext}"
+                
+                # Загружаем в S3
+                s3 = boto3.client('s3',
+                    endpoint_url='https://bucket.poehali.dev',
+                    aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+                    aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+                )
+                
+                s3.put_object(
+                    Bucket='files',
+                    Key=unique_name,
+                    Body=file_bytes,
+                    ContentType=file_type
+                )
+                
+                # Генерируем CDN URL
+                cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{unique_name}"
+                
+                print(f'File uploaded: {file_name} -> {cdn_url}')
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({
+                        'success': True,
+                        'fileUrl': cdn_url,
+                        'fileName': file_name
+                    })
+                }
+                
+            except Exception as e:
+                print(f'File upload error: {str(e)}')
+                return {
+                    'statusCode': 500,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': f'Ошибка загрузки файла: {str(e)}'})
+                }
+        
+        # Отправка запроса техподдержки
         request_type = body_data.get('requestType', 'problem')
         description = body_data.get('description', '')
         user_fio = body_data.get('userFio', 'Неизвестный пользователь')
         user_company = body_data.get('userCompany', 'Не указана')
         user_email = body_data.get('userEmail', 'Не указан')
         user_id = body_data.get('userId', 'Не указан')
+        attachments = body_data.get('attachments', [])
         
         if not description.strip():
             return {
@@ -57,6 +133,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         request_type_label = request_types.get(request_type, 'Неизвестный тип')
         
+        attachments_text = ''
+        if attachments:
+            attachments_text = '\n\nПрикрепленные файлы:\n'
+            for idx, att in enumerate(attachments, 1):
+                attachments_text += f"{idx}. {att.get('name', 'Файл')} ({att.get('size', 0) / 1024:.1f} КБ)\n   {att.get('url', '')}\n"
+        
         email_body = f"""
 Новый запрос в техническую поддержку АСУБТ
 
@@ -68,7 +150,7 @@ ID пользователя: {user_id}
 Тип запроса: {request_type_label}
 
 Описание:
-{description}
+{description}{attachments_text}
 
 Дата: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}
 """
