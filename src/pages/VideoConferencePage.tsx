@@ -474,75 +474,39 @@ const VideoConferencePage = () => {
       const container = document.querySelector('#jitsi-container');
       if (!container) return;
       
-      // Параметры для высокого качества и быстрой загрузки
-      const config = {
-        startWithAudioMuted: false,
-        startWithVideoMuted: false,
-        prejoinPageEnabled: false,
-        disableDeepLinking: true,
-        
-        // HD качество видео
-        resolution: 720,
-        constraints: {
-          video: {
-            height: { ideal: 720, max: 1080, min: 360 },
-            width: { ideal: 1280, max: 1920, min: 640 },
-            frameRate: { ideal: 30, max: 30 }
-          }
-        },
-        
-        // Оптимизации производительности
-        enableLayerSuspension: true,
-        maxFullResolutionParticipants: 5,
-        channelLastN: 20,
-        startBitrate: 800,
-        
-        // Аудио оптимизации
-        disableAP: false,
-        stereo: true,
-        
-        // UI минимизация для быстрой загрузки
-        hideConferenceSubject: true,
-        hideConferenceTimer: false,
-        
-        // Отключаем лишнее для скорости
-        disableProfile: true,
-        disableInviteFunctions: false,
-        
-        // Авто-детект качества сети
-        enableTalkWhileMuted: true,
-        enableNoAudioDetection: true,
-        enableNoisyMicDetection: true
-      };
+      // Простой подход - просто открываем комнату Jitsi с именем пользователя
+      const roomName = conference.id.replace(/[^a-zA-Z0-9]/g, ''); // Убираем спецсимволы
+      const displayName = encodeURIComponent(userFio);
       
-      const configString = Object.entries(config)
-        .map(([key, value]) => `config.${key}=${value}`)
-        .join('&');
+      // Используем минимум параметров для надёжности
+      const iframeUrl = `https://meet.jit.si/${roomName}#userInfo.displayName="${displayName}"&config.prejoinPageEnabled=false`;
       
-      const iframeUrl = `https://meet.jit.si/${conference.id}#` + 
-        `${configString}&userInfo.displayName=${encodeURIComponent(userFio)}`;
+      console.log('Открываем Jitsi URL:', iframeUrl);
       
       const iframe = document.createElement('iframe');
       iframe.src = iframeUrl;
-      iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay';
+      iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay; clipboard-write';
       iframe.style.width = '100%';
       iframe.style.height = '100%';
       iframe.style.border = 'none';
+      iframe.setAttribute('allowfullscreen', 'true');
       
       container.innerHTML = '';
       container.appendChild(iframe);
       
-      // Отслеживаем реальную загрузку iframe
+      // Отслеживаем загрузку iframe
       iframe.onload = () => {
+        console.log('Iframe загружен');
         setTimeout(() => {
           setLoading(false);
-        }, 800); // Даём ещё 800ms на инициализацию Jitsi
+          toast({ title: '🎥 Конференция открыта!', description: 'Jitsi может запросить доступ к камере и микрофону' });
+        }, 1500); // Даём 1.5 секунды на инициализацию Jitsi
       };
       
-      // Страховка на случай если onload не сработает
+      // Страховка - скрываем загрузку через 5 секунд в любом случае
       setTimeout(() => {
         setLoading(false);
-      }, 3000);
+      }, 5000);
       
       // Сохраняем iframe для очистки
       (window as any).jitsiIframe = iframe;
@@ -929,6 +893,17 @@ const VideoConferencePage = () => {
               </div>
             </div>
             <div className="flex gap-2">
+              <Button 
+                onClick={() => {
+                  const roomName = currentConference.id.replace(/[^a-zA-Z0-9]/g, '');
+                  const url = `https://meet.jit.si/${roomName}#userInfo.displayName="${encodeURIComponent(userFio)}"`;
+                  window.open(url, '_blank');
+                }}
+                variant="outline"
+              >
+                <Icon name="ExternalLink" size={20} className="mr-2" />
+                Открыть в новой вкладке
+              </Button>
               <Button onClick={() => copyRoomLink(currentConference.id)} variant="outline">
                 <Icon name="Share2" size={20} className="mr-2" />
                 Пригласить
@@ -945,7 +920,7 @@ const VideoConferencePage = () => {
           <div id="jitsi-container" className="w-full h-full"></div>
           {loading && (
             <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
-              <div className="text-center space-y-4">
+              <div className="text-center space-y-6 max-w-md mx-auto px-4">
                 <div className="relative w-20 h-20 mx-auto">
                   <div className="absolute inset-0 rounded-full border-4 border-pink-500/30"></div>
                   <div className="absolute inset-0 rounded-full border-4 border-pink-500 border-t-transparent animate-spin"></div>
@@ -953,7 +928,10 @@ const VideoConferencePage = () => {
                 </div>
                 <div>
                   <p className="text-white text-xl font-semibold mb-2">Загрузка конференции</p>
-                  <p className="text-slate-400 text-sm">Подготовка HD видео и аудио...</p>
+                  <p className="text-slate-400 text-sm mb-4">Подготовка HD видео и аудио...</p>
+                  <p className="text-slate-500 text-xs">
+                    Если конференция не загружается, используйте кнопку "Открыть в новой вкладке" в шапке
+                  </p>
                 </div>
               </div>
             </div>
