@@ -7,7 +7,6 @@ import { TechnicalSupport } from '@/components/TechnicalSupport';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { useImpersonationState } from '@/hooks/useImpersonationState';
-import ThemeToggle from '@/components/ThemeToggle';
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -70,9 +69,6 @@ const Admin = () => {
       <ImpersonationBanner />
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:via-indigo-900 dark:to-slate-900 p-6">
         <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex justify-end mb-4">
-          <ThemeToggle />
-        </div>
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
             <OrganizationLogo size={56} showCompanyName={true} />

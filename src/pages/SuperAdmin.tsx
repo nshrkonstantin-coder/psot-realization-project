@@ -6,7 +6,6 @@ import Icon from '@/components/ui/icon';
 import { TechnicalSupport } from '@/components/TechnicalSupport';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { useImpersonationState } from '@/hooks/useImpersonationState';
-import ThemeToggle from '@/components/ThemeToggle';
 
 const SuperAdmin = () => {
   const navigate = useNavigate();
@@ -72,9 +71,6 @@ const SuperAdmin = () => {
       <ImpersonationBanner />
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 dark:from-slate-900 dark:via-purple-900 dark:to-slate-900 p-6">
         <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex justify-end mb-4">
-          <ThemeToggle />
-        </div>
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
             <div className="bg-gradient-to-br from-purple-600 to-pink-700 p-3 rounded-xl shadow-lg">

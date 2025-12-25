@@ -11,6 +11,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import Icon from "@/components/ui/icon";
 import { useOrganizationSync } from "@/hooks/useOrganizationSync";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import GlobalThemeToggle from "@/components/GlobalThemeToggle";
 
 const Login = lazy(() => import("./pages/Login.tsx"));
 const Register = lazy(() => import("./pages/Register.tsx"));
@@ -111,7 +112,8 @@ const App = () => {
             <Toaster />
             <Sonner />
             <OfflineNotification />
-            <div className="fixed top-4 right-4 z-50">
+            <GlobalThemeToggle />
+            <div className="fixed top-4 right-20 z-50">
               <OnlineStatusIndicator />
             </div>
             <BrowserRouter>
