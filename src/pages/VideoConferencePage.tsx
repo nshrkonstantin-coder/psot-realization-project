@@ -226,6 +226,8 @@ const VideoConferencePage = () => {
 
   const joinConferenceByRoom = async (roomId: string, currentUserId: number) => {
     try {
+      console.log('Присоединение к конференции:', roomId);
+      
       // Загружаем конференцию из базы данных
       const response = await fetch(`${VIDEO_CONFERENCES_URL}?action=get&id=${roomId}`, {
         headers: { 'X-User-Id': String(currentUserId) }
@@ -241,6 +243,7 @@ const VideoConferencePage = () => {
       }
       
       const conf = await response.json();
+      console.log('Конференция загружена:', conf);
       
       // Добавляем пользователя как участника
       await fetch(`${VIDEO_CONFERENCES_URL}?action=join`, {
@@ -252,8 +255,9 @@ const VideoConferencePage = () => {
         body: JSON.stringify({ conference_id: roomId })
       });
       
-      setShowDeviceCheck(true);
+      // Сразу подключаемся без проверки устройств (Jitsi сам всё проверит)
       setCurrentConference(conf);
+      startCall(conf);
     } catch (error) {
       console.error('Ошибка загрузки конференции:', error);
       toast({ 
@@ -959,50 +963,7 @@ const VideoConferencePage = () => {
     );
   }
 
-  // Остальной код страницы (список конференций)
-  if (showDeviceCheck && currentConference) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Icon name="Settings" size={24} />
-              Проверка устройств
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-slate-600">
-              Настройте камеру и микрофон перед входом в конференцию
-            </p>
-            <div className="bg-slate-100 rounded-lg p-4 aspect-video flex items-center justify-center">
-              <Icon name="Video" size={48} className="text-slate-400" />
-            </div>
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => {
-                  setShowDeviceCheck(false);
-                  startCall(currentConference);
-                }}
-                className="flex-1"
-              >
-                <Icon name="Video" size={20} className="mr-2" />
-                Присоединиться
-              </Button>
-              <Button 
-                onClick={() => {
-                  setShowDeviceCheck(false);
-                  setCurrentConference(null);
-                }}
-                variant="outline"
-              >
-                Отмена
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+
 
   // Основная страница со списком конференций
   return (
@@ -1023,15 +984,10 @@ const VideoConferencePage = () => {
               <p className="text-slate-300 text-sm">Создавайте и присоединяйтесь к видеозвонкам</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={() => setShowDeviceCheck(true)} variant="outline">
-              <Icon name="Settings" size={20} />
-            </Button>
-            <Button onClick={() => setShowCreateDialog(true)}>
-              <Icon name="Plus" size={20} className="mr-2" />
-              Создать конференцию
-            </Button>
-          </div>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Icon name="Plus" size={20} className="mr-2" />
+            Создать конференцию
+          </Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -1417,16 +1373,6 @@ const VideoConferencePage = () => {
                   className="flex-1 border-slate-600"
                 >
                   Закрыть
-                </Button>
-                <Button
-                  onClick={() => {
-                    handleCloseDeviceCheck();
-                    setShowCreateDialog(true);
-                  }}
-                  className="flex-1 bg-pink-600 hover:bg-pink-700"
-                >
-                  <Icon name="Check" size={20} className="mr-2" />
-                  Всё готово, создать конференцию
                 </Button>
               </div>
             </div>
