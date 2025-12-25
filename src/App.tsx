@@ -10,6 +10,7 @@ import MessageNotifications from "@/components/MessageNotifications";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Icon from "@/components/ui/icon";
 import { useOrganizationSync } from "@/hooks/useOrganizationSync";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 
 const Login = lazy(() => import("./pages/Login.tsx"));
 const Register = lazy(() => import("./pages/Register.tsx"));
@@ -104,16 +105,17 @@ const App = () => {
   
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <OfflineNotification />
-          <div className="fixed top-4 right-4 z-50">
-            <OnlineStatusIndicator />
-          </div>
-          <BrowserRouter>
-            <MessageNotifications />
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <OfflineNotification />
+            <div className="fixed top-4 right-4 z-50">
+              <OnlineStatusIndicator />
+            </div>
+            <BrowserRouter>
+              <MessageNotifications />
         <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<Login />} />
@@ -191,6 +193,7 @@ const App = () => {
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
+  </ThemeProvider>
   </ErrorBoundary>
   );
 };

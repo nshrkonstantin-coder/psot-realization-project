@@ -7,12 +7,15 @@ import { TechnicalSupport } from '@/components/TechnicalSupport';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { useImpersonationState } from '@/hooks/useImpersonationState';
+import ThemeToggle from '@/components/ThemeToggle';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [userFio, setUserFio] = useState('');
   const [userCompany, setUserCompany] = useState('');
   const [userRole, setUserRole] = useState('');
+  const { showGreeting } = useTheme();
   
   useImpersonationState();
 
@@ -28,11 +31,11 @@ const Dashboard = () => {
     
     // Проверяем, было ли уже воспроизведено приветствие в этой сессии
     const greetingPlayed = sessionStorage.getItem('greetingPlayed');
-    if (!greetingPlayed) {
+    if (!greetingPlayed && showGreeting) {
       playWelcomeGreeting();
       sessionStorage.setItem('greetingPlayed', 'true');
     }
-  }, [navigate]);
+  }, [navigate, showGreeting]);
 
   const getTimeOfDay = () => {
     const hour = new Date().getHours();
@@ -102,18 +105,23 @@ const Dashboard = () => {
   return (
     <>
       <ImpersonationBanner />
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 bg-slate-50 p-6">
         {/* Header */}
         <div className="max-w-7xl mx-auto mb-8">
+          {/* Переключатели темы и приветствия */}
+          <div className="flex justify-end mb-4">
+            <ThemeToggle />
+          </div>
+          
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
             <OrganizationLogo size={56} showCompanyName={false} />
             <div>
-              <h1 className="text-3xl font-bold text-white">АСУБТ</h1>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">АСУБТ</h1>
               {userCompany && (
-                <p className="text-blue-400 font-semibold text-lg">{userCompany}</p>
+                <p className="text-blue-600 dark:text-blue-400 font-semibold text-lg">{userCompany}</p>
               )}
-              <p className="text-yellow-500">Добро пожаловать, {userFio}</p>
+              <p className="text-yellow-600 dark:text-yellow-500">Добро пожаловать, {userFio}</p>
             </div>
           </div>
           <div className="flex gap-3 items-center">
@@ -121,7 +129,7 @@ const Dashboard = () => {
             <Button
               onClick={handleLogout}
               variant="outline"
-              className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
+              className="border-yellow-600/50 text-yellow-600 dark:text-yellow-500 hover:bg-yellow-600/10"
             >
               <Icon name="LogOut" size={20} className="mr-2" />
               Выход
@@ -141,7 +149,7 @@ const Dashboard = () => {
             <Card
               key={index}
               onClick={() => navigate(button.route)}
-              className="group relative overflow-hidden cursor-pointer bg-slate-800/50 border-yellow-600/30 hover:border-yellow-600 transition-all hover:scale-105 hover:shadow-2xl"
+              className="group relative overflow-hidden cursor-pointer bg-white dark:bg-slate-800/50 border-yellow-600/30 hover:border-yellow-600 transition-all hover:scale-105 hover:shadow-2xl"
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${button.color} opacity-0 group-hover:opacity-10 transition-opacity`} />
               
@@ -150,7 +158,7 @@ const Dashboard = () => {
                   <div className={`bg-gradient-to-br ${button.color} p-6 rounded-2xl shadow-lg transform group-hover:scale-110 transition-transform`}>
                     <Icon name={button.icon} size={40} className="text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-white group-hover:text-yellow-400 transition-colors">
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-yellow-600 dark:group-hover:text-yellow-400 transition-colors">
                     {button.label}
                   </h3>
                 </div>

@@ -6,6 +6,7 @@ import Icon from '@/components/ui/icon';
 import { TechnicalSupport } from '@/components/TechnicalSupport';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { useImpersonationState } from '@/hooks/useImpersonationState';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const SuperAdmin = () => {
   const navigate = useNavigate();
@@ -69,16 +70,19 @@ const SuperAdmin = () => {
   return (
     <>
       <ImpersonationBanner />
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 dark:from-slate-900 dark:via-purple-900 dark:to-slate-900 bg-slate-50 p-6">
         <div className="max-w-7xl mx-auto mb-8">
+        <div className="flex justify-end mb-4">
+          <ThemeToggle />
+        </div>
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
             <div className="bg-gradient-to-br from-purple-600 to-pink-700 p-3 rounded-xl shadow-lg">
               <Icon name="Crown" size={32} className="text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Главный администратор</h1>
-              <p className="text-purple-400">{userFio}</p>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Главный администратор</h1>
+              <p className="text-purple-600 dark:text-purple-400">{userFio}</p>
             </div>
           </div>
           <div className="flex gap-3">
@@ -86,7 +90,7 @@ const SuperAdmin = () => {
             <Button
               onClick={handleLogout}
               variant="outline"
-              className="border-purple-600/50 text-purple-400 hover:bg-purple-600/10"
+              className="border-purple-600/50 text-purple-600 dark:text-purple-400 hover:bg-purple-600/10"
             >
               <Icon name="LogOut" size={20} className="mr-2" />
               Выход
@@ -101,7 +105,7 @@ const SuperAdmin = () => {
             <Card
               key={index}
               onClick={() => navigate(button.route)}
-              className="group relative overflow-hidden cursor-pointer bg-slate-800/50 border-purple-600/30 hover:border-purple-600 transition-all hover:scale-105 hover:shadow-2xl"
+              className="group relative overflow-hidden cursor-pointer bg-white dark:bg-slate-800/50 border-purple-600/30 hover:border-purple-600 transition-all hover:scale-105 hover:shadow-2xl"
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${button.color} opacity-0 group-hover:opacity-10 transition-opacity`} />
               
@@ -110,7 +114,7 @@ const SuperAdmin = () => {
                   <div className={`bg-gradient-to-br ${button.color} p-6 rounded-2xl shadow-lg transform group-hover:scale-110 transition-transform`}>
                     <Icon name={button.icon} size={40} className="text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-white group-hover:text-purple-400 transition-colors">
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                     {button.label}
                   </h3>
                 </div>
