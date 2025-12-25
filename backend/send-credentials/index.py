@@ -14,6 +14,7 @@ class UserCredentials(BaseModel):
 
 class SendCredentialsRequest(BaseModel):
     users: List[UserCredentials]
+    loginUrl: str = Field(default='')
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -50,6 +51,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         body_data = json.loads(event.get('body', '{}'))
         request_data = SendCredentialsRequest(**body_data)
+        login_url = request_data.loginUrl or ''
 
         smtp_host = os.environ.get('SMTP_HOST_NEW', 'smtp.yandex.ru')
         smtp_port = int(os.environ.get('SMTP_PORT_NEW', 587))
@@ -81,6 +83,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 msg['From'] = smtp_user
                 msg['To'] = user_cred.email
 
+                login_link_html = f'<p style="margin: 5px 0;"><strong>Ссылка для входа/регистрации:</strong> <a href="{login_url}" style="color: #2563eb;">{login_url}</a></p>' if login_url else ''
+                
                 html_body = f'''
                 <html>
                   <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -91,14 +95,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                       <div style="background-color: #f3f4f6; padding: 15px; border-radius: 6px; margin: 20px 0;">
                         <p style="margin: 5px 0;"><strong>Email:</strong> {user_cred.email}</p>
                         <p style="margin: 5px 0;"><strong>Пароль:</strong> <code style="background-color: #e5e7eb; padding: 2px 6px; border-radius: 3px;">{user_cred.password}</code></p>
+                        {login_link_html}
                       </div>
-                      <p style="color: #dc2626; font-size: 14px;">⚠️ Рекомендуем сменить пароль после первого входа в систему.</p>
-                      <p style="margin-top: 30px; color: #6b7280; font-size: 12px;">Если вы не регистрировались в системе, проигнорируйте это письмо.</p>
+                      <p>Для входа необходимо ввести эти данные, после входа сможете при необходимости поменять пароль.</p>
+                      <p style="margin-top: 20px; color: #6b7280; font-size: 12px;">Если вы не регистрировались в системе, проигнорируйте это письмо.</p>
                     </div>
                   </body>
                 </html>
                 '''
 
+                login_link_text = f'\nСсылка для входа/регистрации: {login_url}\n' if login_url else ''
+                
                 text_body = f'''
 Доступ к системе
 
@@ -107,9 +114,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 Вам предоставлен доступ к системе. Ваши учётные данные:
 
 Email: {user_cred.email}
-Пароль: {user_cred.password}
-
-⚠️ Рекомендуем сменить пароль после первого входа в систему.
+Пароль: {user_cred.password}{login_link_text}
+Для входа необходимо ввести эти данные, после входа сможете при необходимости поменять пароль.
 
 Если вы не регистрировались в системе, проигнорируйте это письмо.
                 '''

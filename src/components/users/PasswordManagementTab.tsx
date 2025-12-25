@@ -42,6 +42,7 @@ export const PasswordManagementTab = ({ users, onClose }: PasswordManagementTabP
   const [searchQuery, setSearchQuery] = useState('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [loginUrl, setLoginUrl] = useState('https://preview--psot-realization-project.poehali.dev/login');
 
   const filteredUsers = users.filter(
     (user) =>
@@ -81,6 +82,15 @@ export const PasswordManagementTab = ({ users, onClose }: PasswordManagementTabP
       return;
     }
 
+    if (!loginUrl.trim()) {
+      toast({
+        title: 'Ошибка',
+        description: 'Укажите ссылку для входа',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSending(true);
     try {
       const response = await fetch('https://functions.poehali.dev/b00816fd-60cd-4a53-9b44-802868bfbb11', {
@@ -91,6 +101,7 @@ export const PasswordManagementTab = ({ users, onClose }: PasswordManagementTabP
             email: u.email,
             password: u.newPassword,
           })),
+          loginUrl: loginUrl,
         }),
       });
 
@@ -153,21 +164,34 @@ export const PasswordManagementTab = ({ users, onClose }: PasswordManagementTabP
             </Button>
           </div>
 
-          {selectedUsers.length > 0 && (
-            <div className="flex items-center justify-between p-4 bg-blue-900/30 border border-blue-700 rounded-lg">
-              <div className="text-white">
-                <strong>Выбрано пользователей: {selectedUsers.length}</strong>
-              </div>
-              <Button
-                onClick={() => setShowConfirmDialog(true)}
-                disabled={selectedUsers.some((u) => !u.newPassword.trim())}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Icon name="Send" size={20} className="mr-2" />
-                Отправить учётные данные
-              </Button>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-slate-300">Ссылка для входа/регистрации</Label>
+              <Input
+                type="url"
+                value={loginUrl}
+                onChange={(e) => setLoginUrl(e.target.value)}
+                placeholder="https://example.com/login"
+                className="bg-slate-700 border-slate-600 text-white mt-2"
+              />
             </div>
-          )}
+
+            {selectedUsers.length > 0 && (
+              <div className="flex items-center justify-between p-4 bg-blue-900/30 border border-blue-700 rounded-lg">
+                <div className="text-white">
+                  <strong>Выбрано пользователей: {selectedUsers.length}</strong>
+                </div>
+                <Button
+                  onClick={() => setShowConfirmDialog(true)}
+                  disabled={selectedUsers.some((u) => !u.newPassword.trim()) || !loginUrl.trim()}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Icon name="Send" size={20} className="mr-2" />
+                  Отправить учётные данные
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </Card>
 
