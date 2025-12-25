@@ -69,7 +69,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 conn.close()
                 return {
                     'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
+                    },
                     'body': json.dumps(result),
                     'isBase64Encoded': False
                 }
@@ -78,7 +83,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 conn.close()
                 return {
                     'statusCode': 404,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
+                    },
                     'body': json.dumps({'error': 'Организация не найдена'}),
                     'isBase64Encoded': False
                 }
@@ -168,10 +178,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cur.close()
         conn.close()
         
+        result = organizations[0] if org_id and organizations else organizations
         return {
             'statusCode': 200,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps(organizations[0] if org_id and organizations else organizations, ensure_ascii=False),
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
+            },
+            'body': json.dumps(result, ensure_ascii=False),
             'isBase64Encoded': False
         }
     
@@ -187,7 +203,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             conn.close()
             return {
                 'statusCode': 400,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
+                },
                 'body': json.dumps({'error': 'Missing name'}, ensure_ascii=False),
                 'isBase64Encoded': False
             }
@@ -240,7 +261,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         return {
             'statusCode': 201,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
+            },
             'body': json.dumps({
                 'id': org_id,
                 'name': name,
@@ -259,7 +285,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             conn.close()
             return {
                 'statusCode': 400,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
+                },
                 'body': json.dumps({'error': 'Missing id'}, ensure_ascii=False),
                 'isBase64Encoded': False
             }
@@ -298,7 +329,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         return {
             'statusCode': 200,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
+            },
             'body': json.dumps({'success': True}, ensure_ascii=False),
             'isBase64Encoded': False
         }
@@ -308,7 +344,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     return {
         'statusCode': 405,
-        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
+        },
         'body': json.dumps({'error': 'Method not allowed'}, ensure_ascii=False),
         'isBase64Encoded': False
     }
