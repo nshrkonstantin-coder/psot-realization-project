@@ -789,10 +789,6 @@ const VideoConferencePage = () => {
       stopPreview();
     };
   }, []);
-  
-  useEffect(() => {
-    saveConferencesToStorage();
-  }, [conferences, myRooms, favoriteRooms, historyRooms]);
 
   const copyRoomLink = (conferenceId: string) => {
     const link = `${window.location.origin}/video-conference?room=${conferenceId}`;
