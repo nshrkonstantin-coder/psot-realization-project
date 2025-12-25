@@ -9,6 +9,7 @@ import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 import MessageNotifications from "@/components/MessageNotifications";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Icon from "@/components/ui/icon";
+import { useOrganizationSync } from "@/hooks/useOrganizationSync";
 
 const Login = lazy(() => import("./pages/Login.tsx"));
 const Register = lazy(() => import("./pages/Register.tsx"));
@@ -97,18 +98,22 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => (
-  <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <OfflineNotification />
-        <div className="fixed top-4 right-4 z-50">
-          <OnlineStatusIndicator />
-        </div>
-        <BrowserRouter>
-          <MessageNotifications />
+const App = () => {
+  // Синхронизация organizationId для залогиненных пользователей
+  useOrganizationSync();
+  
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <OfflineNotification />
+          <div className="fixed top-4 right-4 z-50">
+            <OnlineStatusIndicator />
+          </div>
+          <BrowserRouter>
+            <MessageNotifications />
         <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<Login />} />
@@ -187,6 +192,7 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
   </ErrorBoundary>
-);
+  );
+};
 
 export default App;
