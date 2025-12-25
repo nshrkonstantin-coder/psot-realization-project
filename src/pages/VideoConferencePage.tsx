@@ -463,53 +463,37 @@ const VideoConferencePage = () => {
     setConferenceName('');
     setSelectedUserIds([]);
     
-    // Отправляем приглашения всем участникам
-    try {
-      const inviteLink = `${window.location.origin}/video-conference?room=${newConference.id}`;
-      console.log('Отправка приглашений:', { 
-        selectedUserIds, 
-        userId, 
-        conferenceName,
-        inviteLink 
+    // Отправляем приглашения всем участникам (асинхронно, не блокируем присоединение)
+    const inviteLink = `${window.location.origin}/video-conference?room=${newConference.id}`;
+    fetch(`${MESSAGING_URL}?action=mass_message`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Id': String(userId)
+      },
+      body: JSON.stringify({
+        user_ids: selectedUserIds,
+        message_text: `📞 ${userFio} приглашает вас на видеоконференцию "${conferenceName}". Присоединяйтесь: ${inviteLink}`,
+        delivery_type: 'internal'
+      })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          console.log(`✅ Приглашения отправлены ${data.sent_count} участникам`);
+        } else {
+          console.error('❌ Ошибка отправки приглашений:', data.error);
+        }
+      })
+      .catch(error => {
+        console.error('❌ Ошибка сети при отправке приглашений:', error);
       });
-      
-      const response = await fetch(`${MESSAGING_URL}?action=mass_message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': String(userId)
-        },
-        body: JSON.stringify({
-          user_ids: selectedUserIds,
-          message_text: `📞 ${userFio} приглашает вас на видеоконференцию "${conferenceName}". Присоединяйтесь: ${inviteLink}`,
-          delivery_type: 'internal'
-        })
-      });
-      
-      console.log('Ответ сервера:', response.status, response.statusText);
-      const data = await response.json();
-      console.log('Данные ответа:', data);
-      
-      if (data.success) {
-        toast({ 
-          title: 'Конференция создана!', 
-          description: `Приглашения отправлены ${data.sent_count} участникам` 
-        });
-      } else {
-        toast({ 
-          title: 'Конференция создана, но не удалось отправить приглашения', 
-          description: data.error || 'Неизвестная ошибка',
-          variant: 'destructive' 
-        });
-      }
-    } catch (error) {
-      console.error('Ошибка отправки приглашений:', error);
-      toast({ 
-        title: 'Конференция создана, но не удалось отправить приглашения', 
-        description: 'Проверьте подключение к интернету',
-        variant: 'destructive' 
-      });
-    }
+    
+    // Показываем уведомление и сразу присоединяемся
+    toast({ 
+      title: 'Конференция создана!', 
+      description: `Приглашения отправляются ${selectedUserIds.length} участникам` 
+    });
     
     await startCall(newConference);
   };
