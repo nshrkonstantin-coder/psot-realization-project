@@ -98,6 +98,7 @@ const OrganizationLogin = () => {
         
         localStorage.setItem('userId', data.userId);
         localStorage.setItem('userFio', data.fio);
+        localStorage.setItem('userEmail', email);
         localStorage.setItem('userPosition', data.position || '');
         localStorage.setItem('userDepartment', data.subdivision || '');
         localStorage.setItem('userRole', data.role || 'user');
