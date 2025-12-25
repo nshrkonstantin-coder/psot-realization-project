@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import OfflineNotification from "@/components/OfflineNotification";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 import MessageNotifications from "@/components/MessageNotifications";
@@ -90,6 +90,34 @@ const LoadingScreen = () => (
   </div>
 );
 
+/**
+ * Условное отображение глобальных контролов (тема, приветствие)
+ * Скрывает их на страницах входа и регистрации
+ */
+const ConditionalGlobalControls = () => {
+  const location = useLocation();
+  const hideOnPaths = ['/', '/register', '/org/'];
+  
+  // Проверяем, нужно ли скрывать контролы
+  const shouldHide = hideOnPaths.some(path => {
+    if (path === '/org/') {
+      return location.pathname.startsWith('/org/');
+    }
+    return location.pathname === path;
+  });
+  
+  if (shouldHide) return null;
+  
+  return (
+    <>
+      <GlobalThemeToggle />
+      <div className="fixed top-4 right-20 z-50">
+        <OnlineStatusIndicator />
+      </div>
+    </>
+  );
+};
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -113,11 +141,8 @@ const App = () => {
             <Toaster />
             <Sonner />
             <OfflineNotification />
-            <GlobalThemeToggle />
-            <div className="fixed top-4 right-20 z-50">
-              <OnlineStatusIndicator />
-            </div>
             <BrowserRouter>
+              <ConditionalGlobalControls />
               <MessageNotifications />
         <Suspense fallback={<LoadingScreen />}>
         <Routes>
