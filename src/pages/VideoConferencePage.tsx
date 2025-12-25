@@ -210,9 +210,42 @@ const VideoConferencePage = () => {
   };
 
   const joinConferenceByRoom = async (roomId: string) => {
-    const conf = conferences.find(c => c.id === roomId);
+    // Ищем конференцию во всех источниках
+    let conf = conferences.find(c => c.id === roomId);
+    
+    if (!conf) {
+      conf = myRooms.find(c => c.id === roomId);
+    }
+    
+    if (!conf) {
+      // Загружаем из localStorage
+      const savedConferences = localStorage.getItem('videoConferences');
+      const savedMyRooms = localStorage.getItem('myVideoRooms');
+      
+      if (savedConferences) {
+        const allConf = JSON.parse(savedConferences);
+        conf = allConf.find((c: Conference) => c.id === roomId);
+      }
+      
+      if (!conf && savedMyRooms) {
+        const myConf = JSON.parse(savedMyRooms);
+        conf = myConf.find((c: Conference) => c.id === roomId);
+      }
+    }
+    
     if (conf) {
-      await startCall(conf);
+      // Добавляем текущего пользователя в список участников если его там нет
+      if (!conf.participants.includes(userId!)) {
+        conf.participants.push(userId!);
+      }
+      setShowDeviceCheck(true);
+      setCurrentConference(conf);
+    } else {
+      toast({ 
+        title: 'Конференция не найдена', 
+        description: 'Возможно, она уже завершена',
+        variant: 'destructive' 
+      });
     }
   };
   
@@ -458,8 +491,16 @@ const VideoConferencePage = () => {
       status: 'active'
     };
 
-    setConferences([newConference, ...conferences]);
-    setMyRooms([newConference, ...myRooms]);
+    const updatedConferences = [newConference, ...conferences];
+    const updatedMyRooms = [newConference, ...myRooms];
+    
+    setConferences(updatedConferences);
+    setMyRooms(updatedMyRooms);
+    
+    // Сохраняем в localStorage сразу
+    localStorage.setItem('videoConferences', JSON.stringify(updatedConferences));
+    localStorage.setItem('myVideoRooms', JSON.stringify(updatedMyRooms));
+    
     setShowCreateDialog(false);
     setConferenceName('');
     setSelectedUserIds([]);
@@ -468,30 +509,32 @@ const VideoConferencePage = () => {
     const inviteLink = `${window.location.origin}/video-conference?room=${newConference.id}`;
     const messageText = `📞 ${userFio} приглашает вас на видеоконференцию "${conferenceName}". Присоединяйтесь: ${inviteLink}`;
     
-    // 1. Отправка в чат (внутренняя система сообщений)
-    fetch(`${MESSAGING_URL}?action=mass_message`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-User-Id': String(userId)
-      },
-      body: JSON.stringify({
-        user_ids: selectedUserIds,
-        message_text: messageText,
-        delivery_type: 'internal'
+    // 1. Отправка в чат (внутренняя система сообщений) - отправляем каждому участнику отдельно
+    selectedUserIds.forEach(participantId => {
+      fetch(`${MESSAGING_URL}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': String(userId)
+        },
+        body: JSON.stringify({
+          action: 'send_message',
+          recipient_id: participantId,
+          message: messageText
+        })
       })
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          console.log(`✅ Приглашения в чат отправлены ${data.sent_count} участникам`);
-        } else {
-          console.error('❌ Ошибка отправки приглашений в чат:', data.error);
-        }
-      })
-      .catch(error => {
-        console.error('❌ Ошибка сети при отправке приглашений в чат:', error);
-      });
+        .then(response => response.json())
+        .then(data => {
+          if (data.success || data.message_id) {
+            console.log(`✅ Приглашение в чат отправлено пользователю ${participantId}`);
+          } else {
+            console.error(`❌ Ошибка отправки приглашения в чат пользователю ${participantId}:`, data.error);
+          }
+        })
+        .catch(error => {
+          console.error(`❌ Ошибка сети при отправке приглашения в чат пользователю ${participantId}:`, error);
+        });
+    });
     
     // 2. Отправка email-уведомлений участникам
     const selectedUsersData = users.filter(u => selectedUserIds.includes(u.id));
