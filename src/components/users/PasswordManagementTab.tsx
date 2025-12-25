@@ -42,7 +42,7 @@ export const PasswordManagementTab = ({ users, onClose }: PasswordManagementTabP
   const [searchQuery, setSearchQuery] = useState('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [loginUrl, setLoginUrl] = useState('https://preview--psot-realization-project.poehali.dev/login');
+  const [loginUrl, setLoginUrl] = useState('https://otpbru.ru/org/W7XPT7QQGH');
 
   const filteredUsers = users.filter(
     (user) =>
