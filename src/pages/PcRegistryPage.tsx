@@ -101,7 +101,7 @@ export default function PcRegistryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:!bg-gradient-to-br dark:!from-blue-50 dark:!to-indigo-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
@@ -113,16 +113,16 @@ export default function PcRegistryPage() {
               <Icon name="ArrowLeft" size={20} />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-800 dark:!text-gray-900 flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-3">
                 <Icon name="FolderOpen" size={32} className="text-teal-600" />
                 Реестр производственного контроля
               </h1>
-              <p className="text-gray-600 dark:!text-gray-600 mt-1">Просмотр всех проверок по организациям</p>
+              <p className="text-gray-600 dark:text-gray-300 mt-1">Просмотр всех проверок по организациям</p>
             </div>
           </div>
         </div>
 
-        <Card className="dark:!bg-white">
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Все записи производственного контроля</CardTitle>
@@ -138,7 +138,7 @@ export default function PcRegistryPage() {
                   placeholder="Поиск по организации, объекту, ответственному..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-80 dark:!bg-white dark:!text-gray-900"
+                  className="w-80"
                 />
               </div>
             </div>

@@ -240,7 +240,7 @@ export default function PabViewPage() {
   const totalCount = pab.observations.length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:!bg-gradient-to-br dark:!from-blue-50 dark:!to-indigo-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-8 px-4">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <Button

@@ -229,7 +229,7 @@ export default function PabUserRegistryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:!bg-gradient-to-br dark:!from-blue-50 dark:!to-indigo-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-6">
       <div className="w-full px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -243,8 +243,8 @@ export default function PabUserRegistryPage() {
               <Icon name="ArrowLeft" size={20} />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:!text-gray-900">Реестр пользователя ({userInfo.fio})</h1>
-              <p className="text-sm text-gray-600 dark:!text-gray-600 mt-1">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Реестр пользователя ({userInfo.fio})</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                 Детальная информация по всем аудитам и наблюдениям
               </p>
             </div>
