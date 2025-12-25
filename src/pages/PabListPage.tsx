@@ -242,7 +242,7 @@ export default function PabListPage() {
   const isAdmin = userRole === 'admin' || userRole === 'superadmin' || userRole === 'miniadmin';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:!bg-gradient-to-br dark:!from-blue-50 dark:!to-indigo-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <Button
@@ -255,7 +255,7 @@ export default function PabListPage() {
           </Button>
           <div className="flex items-center gap-4">
             <OrganizationLogo size={56} showCompanyName={false} />
-            <h1 className="text-3xl font-bold text-gray-900">Список ПАБ</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:!text-gray-900">Список ПАБ</h1>
           </div>
           <div className="flex items-center gap-2">
             {selectedIds.length > 0 && (
@@ -300,7 +300,7 @@ export default function PabListPage() {
           </div>
         </div>
 
-        <Card className="p-6 mb-6 sticky top-0 z-10 bg-white shadow-md">
+        <Card className="p-6 mb-6 sticky top-0 z-10 bg-white dark:!bg-white shadow-md">
           <div className="flex items-center gap-4">
             {filteredRecords.length > 0 && (
               <div className="flex items-center gap-2">
@@ -308,15 +308,15 @@ export default function PabListPage() {
                   checked={selectedIds.length === filteredRecords.length && filteredRecords.length > 0}
                   onCheckedChange={toggleSelectAll}
                 />
-                <span className="text-sm text-gray-600">Выбрать все</span>
+                <span className="text-sm text-gray-600 dark:!text-gray-600">Выбрать все</span>
               </div>
             )}
-            <Icon name="Search" size={20} className="text-gray-400" />
+            <Icon name="Search" size={20} className="text-gray-400 dark:!text-gray-400" />
             <Input
               placeholder="Поиск по номеру ПАБ, проверяющему или подразделению..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1"
+              className="flex-1 dark:!bg-white dark:!text-gray-900"
             />
           </div>
         </Card>
@@ -326,9 +326,9 @@ export default function PabListPage() {
             <p className="text-gray-600">Загрузка...</p>
           </div>
         ) : filteredRecords.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Icon name="FileText" size={48} className="mx-auto mb-4 text-gray-400" />
-            <p className="text-gray-600 text-lg mb-4">
+          <Card className="p-12 text-center bg-white dark:!bg-white">
+            <Icon name="FileText" size={48} className="mx-auto mb-4 text-gray-400 dark:!text-gray-400" />
+            <p className="text-gray-600 dark:!text-gray-600 text-lg mb-4">
               {searchQuery ? 'Ничего не найдено' : 'Нет сохранённых записей ПАБ'}
             </p>
             {!searchQuery && (
@@ -340,7 +340,7 @@ export default function PabListPage() {
         ) : (
           <div className="grid gap-4">
             {filteredRecords.map((record) => (
-              <Card key={record.id} className="p-6 hover:shadow-lg transition-shadow">
+              <Card key={record.id} className="p-6 hover:shadow-lg transition-shadow bg-white dark:!bg-white">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3 flex-1">
                     <Checkbox
@@ -353,17 +353,17 @@ export default function PabListPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-xl font-bold text-gray-900">
+                        <h3 className="text-xl font-bold text-gray-900 dark:!text-gray-900">
                           {record.doc_number}
                         </h3>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-gray-500 dark:!text-gray-500">
                           {formatDate(record.doc_date)}
                         </span>
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusLabel(record.status).color}`}>
                           {getStatusLabel(record.status).label}
                         </span>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-700">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-700 dark:!text-gray-700">
                         <div>
                           <span className="font-semibold">Проверяющий:</span> {record.inspector_fio}
                         </div>

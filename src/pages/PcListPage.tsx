@@ -277,7 +277,7 @@ export default function PcListPage() {
   const isAdmin = userRole === 'admin' || userRole === 'superadmin' || userRole === 'miniadmin';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 dark:!bg-gradient-to-br dark:!from-blue-50 dark:!to-indigo-50 py-8 px-4">
       <div className="max-w-[1600px] mx-auto">
         <div className="flex items-center justify-between mb-8">
           <Button

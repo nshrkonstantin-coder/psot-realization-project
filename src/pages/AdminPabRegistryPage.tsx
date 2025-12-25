@@ -77,7 +77,7 @@ export default function AdminPabRegistryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:!bg-gradient-to-br dark:!from-blue-50 dark:!to-indigo-50 p-6">
       <div className="w-full px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -91,8 +91,8 @@ export default function AdminPabRegistryPage() {
               <Icon name="ArrowLeft" size={20} />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Реестр всех пользователей ПАБ</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-3xl font-bold text-gray-900 dark:!text-gray-900">Реестр всех пользователей ПАБ</h1>
+              <p className="text-sm text-gray-600 dark:!text-gray-600 mt-1">
                 Информация по всем пользователям, аудитам и наблюдениям
               </p>
             </div>
@@ -107,7 +107,7 @@ export default function AdminPabRegistryPage() {
         </div>
 
         {/* Search */}
-        <Card className="mb-6">
+        <Card className="dark:!bg-white mb-6">
           <CardContent className="pt-6">
             <div className="relative">
               <Icon
@@ -119,7 +119,7 @@ export default function AdminPabRegistryPage() {
                 placeholder="Поиск по ФИО, email, № ПАБ, подразделению..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 dark:!bg-white dark:!text-gray-900"
               />
             </div>
           </CardContent>

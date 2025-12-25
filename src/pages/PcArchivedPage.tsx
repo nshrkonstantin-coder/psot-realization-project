@@ -90,14 +90,14 @@ export default function PcArchivedPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:!bg-gradient-to-br dark:!from-blue-50 dark:!to-indigo-50 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => navigate('/pc-registry')}>
               <Icon name="ArrowLeft" size={20} />
             </Button>
-            <h1 className="text-3xl font-bold text-gray-900">Архив записей</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:!text-gray-900">Архив записей</h1>
           </div>
           {selectedIds.length > 0 && (
             <Button onClick={() => handleRestore(selectedIds)}>
@@ -112,12 +112,12 @@ export default function PcArchivedPage() {
             <Icon name="Loader2" className="animate-spin" size={48} />
           </div>
         ) : records.length === 0 ? (
-          <Card className="p-12 text-center">
+          <Card className="dark:!bg-white p-12 text-center">
             <Icon name="Archive" size={64} className="mx-auto mb-4 text-gray-400" />
             <p className="text-xl text-gray-600">Архив пуст</p>
           </Card>
         ) : (
-          <Card className="overflow-hidden">
+          <Card className="dark:!bg-white overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
