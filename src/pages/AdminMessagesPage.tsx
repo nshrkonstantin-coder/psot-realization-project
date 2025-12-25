@@ -76,7 +76,75 @@ const AdminMessagesPage = () => {
     loadUserInfo(Number(id));
     loadUsers();
     loadChats();
+    
+    // Проверка новых сообщений каждые 10 секунд
+    const checkInterval = setInterval(() => {
+      checkNewMessages(Number(id));
+    }, 10000);
+    
+    return () => clearInterval(checkInterval);
   }, [navigate]);
+  
+  const checkNewMessages = async (currentUserId: number) => {
+    try {
+      const response = await fetch(`${MESSAGING_URL}?action=list_chats`, {
+        headers: { 'X-User-Id': String(currentUserId) }
+      });
+      const data = await response.json();
+      const newChats = data.chats || [];
+      
+      // Проверяем, есть ли новые непрочитанные сообщения
+      const totalUnread = newChats.reduce((sum: number, chat: Chat) => sum + chat.unread_count, 0);
+      const oldTotalUnread = chats.reduce((sum, chat) => sum + chat.unread_count, 0);
+      
+      if (totalUnread > oldTotalUnread) {
+        // Находим чаты с новыми сообщениями
+        const chatsWithNewMessages = newChats.filter((newChat: Chat) => {
+          const oldChat = chats.find(c => c.id === newChat.id);
+          return newChat.unread_count > (oldChat?.unread_count || 0);
+        });
+        
+        // Показываем уведомление для каждого чата с новыми сообщениями
+        chatsWithNewMessages.forEach((chat: Chat) => {
+          toast({
+            title: '💬 Новое сообщение',
+            description: `В чате "${chat.name}": ${chat.last_message?.substring(0, 50)}${chat.last_message?.length > 50 ? '...' : ''}`,
+            duration: 5000
+          });
+        });
+        
+        // Воспроизводим звук уведомления
+        playNotificationSound();
+      }
+      
+      setChats(newChats);
+    } catch (error) {
+      console.error('Ошибка проверки новых сообщений:', error);
+    }
+  };
+  
+  const playNotificationSound = () => {
+    // Простой звуковой сигнал через Web Audio API
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (error) {
+      console.log('Не удалось воспроизвести звук уведомления');
+    }
+  };
 
   const loadUserInfo = async (id: number) => {
     try {

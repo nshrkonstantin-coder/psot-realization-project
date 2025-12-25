@@ -87,6 +87,7 @@ const VideoConferencePage = () => {
 
   const MESSAGING_URL = 'https://functions.poehali.dev/0bd87c15-af37-4e08-93fa-f921a3c18bee';
   const ORGANIZATIONS_URL = 'https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b';
+  const SEND_EMAIL_URL = 'https://functions.poehali.dev/ca9e0986-48d7-46a1-b0be-7a98ddf4c429';
 
   useEffect(() => {
     const id = localStorage.getItem('userId');
@@ -465,6 +466,9 @@ const VideoConferencePage = () => {
     
     // Отправляем приглашения всем участникам (асинхронно, не блокируем присоединение)
     const inviteLink = `${window.location.origin}/video-conference?room=${newConference.id}`;
+    const messageText = `📞 ${userFio} приглашает вас на видеоконференцию "${conferenceName}". Присоединяйтесь: ${inviteLink}`;
+    
+    // 1. Отправка в чат (внутренняя система сообщений)
     fetch(`${MESSAGING_URL}?action=mass_message`, {
       method: 'POST',
       headers: {
@@ -473,26 +477,92 @@ const VideoConferencePage = () => {
       },
       body: JSON.stringify({
         user_ids: selectedUserIds,
-        message_text: `📞 ${userFio} приглашает вас на видеоконференцию "${conferenceName}". Присоединяйтесь: ${inviteLink}`,
+        message_text: messageText,
         delivery_type: 'internal'
       })
     })
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          console.log(`✅ Приглашения отправлены ${data.sent_count} участникам`);
+          console.log(`✅ Приглашения в чат отправлены ${data.sent_count} участникам`);
         } else {
-          console.error('❌ Ошибка отправки приглашений:', data.error);
+          console.error('❌ Ошибка отправки приглашений в чат:', data.error);
         }
       })
       .catch(error => {
-        console.error('❌ Ошибка сети при отправке приглашений:', error);
+        console.error('❌ Ошибка сети при отправке приглашений в чат:', error);
       });
+    
+    // 2. Отправка email-уведомлений участникам
+    const selectedUsersData = users.filter(u => selectedUserIds.includes(u.id));
+    const recipientEmails = selectedUsersData.map(u => u.email).filter(email => email);
+    
+    if (recipientEmails.length > 0) {
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+          <div style="background-color: #ec4899; padding: 20px; border-radius: 10px 10px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0;">📞 Приглашение на видеоконференцию</h1>
+          </div>
+          <div style="background-color: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+              <strong>${userFio}</strong> приглашает вас на видеоконференцию:
+            </p>
+            <div style="background-color: #f0f0f0; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+              <h2 style="color: #ec4899; margin: 0 0 10px 0;">${conferenceName}</h2>
+            </div>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${inviteLink}" 
+                 style="display: inline-block; background-color: #ec4899; color: white; padding: 15px 40px; 
+                        text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold;">
+                🎥 Присоединиться к конференции
+              </a>
+            </div>
+            <p style="font-size: 14px; color: #666; text-align: center;">
+              Или скопируйте ссылку:<br>
+              <a href="${inviteLink}" style="color: #ec4899; word-break: break-all;">${inviteLink}</a>
+            </p>
+            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+            <p style="font-size: 12px; color: #999; text-align: center; margin: 0;">
+              Это автоматическое уведомление из системы АСУБТ
+            </p>
+          </div>
+        </div>
+      `;
+      
+      fetch(SEND_EMAIL_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          recipients: recipientEmails,
+          subject: `📞 Приглашение на видеоконференцию "${conferenceName}"`,
+          html_content: emailHtml,
+          sender_name: 'АСУБТ - Видеоконференции'
+        })
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            console.log(`✅ Email-приглашения отправлены на ${data.sent} адресов`);
+            toast({ 
+              title: 'Email-приглашения отправлены!', 
+              description: `Письма получат ${data.sent} участников`,
+              duration: 3000
+            });
+          } else {
+            console.error('❌ Ошибка отправки email:', data.error);
+          }
+        })
+        .catch(error => {
+          console.error('❌ Ошибка сети при отправке email:', error);
+        });
+    }
     
     // Показываем уведомление и сразу присоединяемся
     toast({ 
       title: 'Конференция создана!', 
-      description: `Приглашения отправляются ${selectedUserIds.length} участникам` 
+      description: `Приглашения отправляются ${selectedUserIds.length} участникам в чат и на email` 
     });
     
     await startCall(newConference);
