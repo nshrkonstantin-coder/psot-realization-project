@@ -168,8 +168,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
     )
     
-    # Собираем email-адреса ответственных лиц
-    responsible_emails = set()
+    # Собираем email-адреса ответственных лиц и их наблюдения
+    responsible_data = {}  # {email: [observations]}
     
     for idx, obs in enumerate(observations_data, 1):
         photo_url = None
@@ -206,7 +206,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 responsible_user_id = resp_row[0]
                 
                 if resp_row[1]:
-                    responsible_emails.add(resp_row[1])
+                    if resp_row[1] not in responsible_data:
+                        responsible_data[resp_row[1]] = []
+                    responsible_data[resp_row[1]].append({
+                        'number': idx,
+                        'description': obs.get('description', ''),
+                        'measures': obs.get('measures', ''),
+                        'deadline': obs.get('deadline', 'не указан')
+                    })
                 
                 # Отправляем уведомление в локальный чат (всегда)
                 notification_title = f"📋 Новое наблюдение ПАБ #{doc_number}"
@@ -350,9 +357,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     conn.commit()
     
-    # Отправка email администратору и пользователю
+    # Отправка email администратору, пользователю и ответственным
     admin_email_sent = False
     user_email_sent = False
+    responsible_email_sent = False
     email_error = None
     
     smtp_host = os.environ.get('SMTP_HOST', 'smtp.yandex.ru')
@@ -370,7 +378,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             user_email = user_row[0]
     
     if smtp_host and smtp_user and smtp_password:
-        pab_url = f"https://lk.psot-realization.pro/pab-view/{pab_id}"
+        pab_url = f"https://otpbru.ru/pab-view/{pab_id}"
         
         email_body = f"""Зарегистрирован новый ПАБ
 
@@ -462,13 +470,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 print(f"User email error: {e}")
         
         # Отправка ответственным лицам
-        for responsible_email in responsible_emails:
+        for responsible_email, observations_list in responsible_data.items():
             if responsible_email and responsible_email not in [admin_email, user_email]:
                 try:
                     msg_resp = MIMEMultipart()
                     msg_resp['From'] = smtp_user
                     msg_resp['To'] = responsible_email
                     msg_resp['Subject'] = f"Назначено мероприятие по ПАБ: {doc_number}"
+                    
+                    # Формируем список наблюдений для этого ответственного
+                    observations_text = ""
+                    for obs_item in observations_list:
+                        observations_text += f"""\n--- Наблюдение №{obs_item['number']} ---
+Описание: {obs_item['description']}
+Мероприятия: {obs_item['measures']}
+Срок выполнения: {obs_item['deadline']}
+"""
                     
                     resp_email_body = f"""Вам назначено мероприятие по ПАБ
 
@@ -477,9 +494,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 Проверяющий: {body['inspectorName']}
 Подразделение: {body.get('subdivision', '')}
 
-Просмотреть ПАБ и мероприятия: {pab_url}
+Ваши наблюдения:{observations_text}
 
-Во вложении находится полный документ с вашими задачами.
+Просмотреть ПАБ: {pab_url}
+
+Во вложении находится полный документ.
 """
                     
                     msg_resp.attach(MIMEText(resp_email_body, 'plain', 'utf-8'))
