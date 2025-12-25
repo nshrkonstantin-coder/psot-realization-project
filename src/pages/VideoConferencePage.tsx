@@ -43,6 +43,7 @@ const VideoConferencePage = () => {
   const [searchParams] = useSearchParams();
   const [userId, setUserId] = useState<number | null>(null);
   const [userFio, setUserFio] = useState('');
+  const [userRole, setUserRole] = useState<string>('');
   const [users, setUsers] = useState<User[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [conferences, setConferences] = useState<Conference[]>([]);
@@ -90,6 +91,7 @@ const VideoConferencePage = () => {
   useEffect(() => {
     const id = localStorage.getItem('userId');
     const fio = localStorage.getItem('userFio');
+    const role = localStorage.getItem('userRole');
     
     if (!id) {
       navigate('/');
@@ -98,6 +100,7 @@ const VideoConferencePage = () => {
 
     setUserId(Number(id));
     setUserFio(fio || '');
+    setUserRole(role || 'user');
     
     loadCompanies();
     loadUsers();
@@ -115,10 +118,13 @@ const VideoConferencePage = () => {
         headers: { 'X-User-Id': localStorage.getItem('userId')! }
       });
       const data = await response.json();
-      if (Array.isArray(data)) {
-        setCompanies(data);
-      } else if (data.organizations) {
-        setCompanies(data.organizations);
+      const companiesList = Array.isArray(data) ? data : data.organizations || [];
+      setCompanies(companiesList);
+      
+      // Для user и minadmin автоматически выбираем первое (единственное) предприятие
+      const role = localStorage.getItem('userRole') || 'user';
+      if ((role === 'user' || role === 'minadmin') && companiesList.length > 0) {
+        setSelectedCompanyId(String(companiesList[0].id));
       }
     } catch (error) {
       console.error('Ошибка загрузки предприятий:', error);
@@ -1249,7 +1255,9 @@ const VideoConferencePage = () => {
                     <SelectValue placeholder="Выберите предприятие" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Все предприятия</SelectItem>
+                    {(userRole === 'admin' || userRole === 'superadmin') && (
+                      <SelectItem value="all">Все предприятия</SelectItem>
+                    )}
                     {companies.map(c => (
                       <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                     ))}

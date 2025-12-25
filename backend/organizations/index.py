@@ -41,6 +41,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         org_id = params.get('id')
         org_code = params.get('code')
         
+        # Получаем ID пользователя из заголовка для фильтрации по роли
+        user_id = event.get('headers', {}).get('x-user-id') or event.get('headers', {}).get('X-User-Id')
+        
         # Если запрашивается список (action=list), игнорируем id и code
         if action == 'list':
             org_id = None
@@ -96,19 +99,53 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 GROUP BY o.id
             ''')
         else:
-            cur.execute('''
-                SELECT o.id, o.name, o.registration_code, o.created_at, o.trial_end_date, 
-                       o.subscription_type, o.is_active, o.logo_url,
-                       COUNT(DISTINCT u.id) as user_count,
-                       COUNT(DISTINCT om.module_id) as module_count,
-                       COUNT(DISTINCT op.page_id) as page_count
-                FROM t_p80499285_psot_realization_pro.organizations o
-                LEFT JOIN t_p80499285_psot_realization_pro.users u ON o.id = u.organization_id
-                LEFT JOIN t_p80499285_psot_realization_pro.organization_modules om ON o.id = om.organization_id
-                LEFT JOIN t_p80499285_psot_realization_pro.organization_pages op ON o.id = op.organization_id
-                GROUP BY o.id
-                ORDER BY o.created_at DESC
-            ''')
+            # Получаем роль и organization_id текущего пользователя для фильтрации
+            user_role = None
+            user_org_id = None
+            if user_id:
+                safe_user_id = int(user_id)
+                cur.execute(f'''
+                    SELECT role, organization_id 
+                    FROM t_p80499285_psot_realization_pro.users 
+                    WHERE id = {safe_user_id}
+                ''')
+                user_data = cur.fetchone()
+                if user_data:
+                    user_role, user_org_id = user_data
+            
+            # Фильтруем предприятия в зависимости от роли
+            # user и minadmin видят только свое предприятие
+            # admin и superadmin видят все
+            if user_role in ('user', 'minadmin') and user_org_id:
+                safe_user_org_id = int(user_org_id)
+                cur.execute(f'''
+                    SELECT o.id, o.name, o.registration_code, o.created_at, o.trial_end_date, 
+                           o.subscription_type, o.is_active, o.logo_url,
+                           COUNT(DISTINCT u.id) as user_count,
+                           COUNT(DISTINCT om.module_id) as module_count,
+                           COUNT(DISTINCT op.page_id) as page_count
+                    FROM t_p80499285_psot_realization_pro.organizations o
+                    LEFT JOIN t_p80499285_psot_realization_pro.users u ON o.id = u.organization_id
+                    LEFT JOIN t_p80499285_psot_realization_pro.organization_modules om ON o.id = om.organization_id
+                    LEFT JOIN t_p80499285_psot_realization_pro.organization_pages op ON o.id = op.organization_id
+                    WHERE o.id = {safe_user_org_id}
+                    GROUP BY o.id
+                    ORDER BY o.created_at DESC
+                ''')
+            else:
+                cur.execute('''
+                    SELECT o.id, o.name, o.registration_code, o.created_at, o.trial_end_date, 
+                           o.subscription_type, o.is_active, o.logo_url,
+                           COUNT(DISTINCT u.id) as user_count,
+                           COUNT(DISTINCT om.module_id) as module_count,
+                           COUNT(DISTINCT op.page_id) as page_count
+                    FROM t_p80499285_psot_realization_pro.organizations o
+                    LEFT JOIN t_p80499285_psot_realization_pro.users u ON o.id = u.organization_id
+                    LEFT JOIN t_p80499285_psot_realization_pro.organization_modules om ON o.id = om.organization_id
+                    LEFT JOIN t_p80499285_psot_realization_pro.organization_pages op ON o.id = op.organization_id
+                    GROUP BY o.id
+                    ORDER BY o.created_at DESC
+                ''')
         
         rows = cur.fetchall()
         organizations = []
