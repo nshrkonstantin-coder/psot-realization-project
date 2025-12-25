@@ -82,6 +82,7 @@ const VideoConferencePage = lazy(() => import("./pages/VideoConferencePage.tsx")
 const ChartsPage = lazy(() => import("./pages/ChartsPage.tsx"));
 const BackupPage = lazy(() => import("./pages/BackupPage.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const UnderDevelopment = lazy(() => import("./pages/UnderDevelopment.tsx"));
 
 const LoadingScreen = () => (
   <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
@@ -189,7 +190,7 @@ const App = () => {
           <Route path="/charts" element={<ChartsPage />} />
           <Route path="/backup" element={<BackupPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<UnderDevelopment />} />
         </Routes>
         </Suspense>
       </BrowserRouter>
