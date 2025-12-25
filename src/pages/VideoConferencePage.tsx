@@ -560,6 +560,8 @@ const VideoConferencePage = () => {
       return;
     }
 
+    setLoading(true);
+
     const newConference: Conference = {
       id: 'conf-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
       name: conferenceName,
@@ -571,6 +573,8 @@ const VideoConferencePage = () => {
     };
 
     try {
+      console.log('Создание конференции:', newConference);
+      
       // Сохраняем в базу данных
       const response = await fetch(`${VIDEO_CONFERENCES_URL}?action=create`, {
         method: 'POST',
@@ -581,9 +585,16 @@ const VideoConferencePage = () => {
         body: JSON.stringify(newConference)
       });
 
+      console.log('Ответ сервера:', response.status);
+
       if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Ошибка от сервера:', errorData);
         throw new Error('Ошибка создания конференции');
       }
+
+      const result = await response.json();
+      console.log('Результат:', result);
 
       // Обновляем локальное состояние
       const updatedConferences = [newConference, ...conferences];
@@ -593,10 +604,17 @@ const VideoConferencePage = () => {
       setMyRooms(updatedMyRooms);
       
       setShowCreateDialog(false);
+      const savedName = conferenceName;
       setConferenceName('');
       setSelectedUserIds([]);
       
-      toast({ title: '✅ Конференция создана!' });
+      toast({ title: '✅ Конференция создана!', description: `Подключение к "${savedName}"...` });
+      
+      // Автоматически присоединяемся к созданной конференции
+      setTimeout(() => {
+        startCall(newConference);
+      }, 500);
+      
     } catch (error) {
       console.error('Ошибка создания конференции:', error);
       toast({ 
@@ -604,6 +622,7 @@ const VideoConferencePage = () => {
         description: 'Не удалось создать конференцию',
         variant: 'destructive' 
       });
+      setLoading(false);
       return;
     }
     
