@@ -324,6 +324,10 @@ def send_mass_message(cursor, conn, body: Dict[str, Any], user_id: int, user_rol
     message_text = body.get('message_text', '').strip()
     delivery_type = body.get('delivery_type', 'internal')
     
+    print(f'[MASS_MESSAGE] Start: user_id={user_id}, role={user_role}, recipients={len(user_ids)}, delivery={delivery_type}')
+    print(f'[MASS_MESSAGE] Recipients: {user_ids}')
+    print(f'[MASS_MESSAGE] Message: {message_text[:100]}...')
+    
     if not user_ids or not message_text:
         raise ValueError('Требуется user_ids и message_text')
     
@@ -339,15 +343,20 @@ def send_mass_message(cursor, conn, body: Dict[str, Any], user_id: int, user_rol
         raise ValueError('Отправитель не найден')
     
     sender_company_id = sender_info['organization_id']
+    print(f'[MASS_MESSAGE] Sender company_id: {sender_company_id}')
     sent_count = 0
     
     for recipient_id in user_ids:
-        cursor.execute(f'SELECT organization_id FROM {SCHEMA}users WHERE id = %s', (recipient_id,))
+        print(f'[MASS_MESSAGE] Processing recipient_id={recipient_id}')
+        cursor.execute(f'SELECT organization_id, fio FROM {SCHEMA}users WHERE id = %s', (recipient_id,))
         recipient = cursor.fetchone()
         if not recipient:
+            print(f'[MASS_MESSAGE] Recipient {recipient_id} not found, skipping')
             continue
         
         recipient_company_id = recipient['organization_id']
+        recipient_name = recipient['fio']
+        print(f'[MASS_MESSAGE] Recipient {recipient_id}: {recipient_name}, company={recipient_company_id}')
         
         cursor.execute(f'''
             SELECT id FROM {SCHEMA}chats 
@@ -366,10 +375,8 @@ def send_mass_message(cursor, conn, body: Dict[str, Any], user_id: int, user_rol
         
         if existing_chat:
             chat_id = existing_chat['id']
+            print(f'[MASS_MESSAGE] Using existing chat_id={chat_id}')
         else:
-            cursor.execute(f'SELECT fio FROM {SCHEMA}users WHERE id = %s', (recipient_id,))
-            recipient_name = cursor.fetchone()['fio']
-            
             cursor.execute(f'''
                 INSERT INTO {SCHEMA}chats (name, type, organization_id, created_by)
                 VALUES (%s, 'direct', %s, %s)
@@ -377,18 +384,22 @@ def send_mass_message(cursor, conn, body: Dict[str, Any], user_id: int, user_rol
             ''', (f'Сообщение для {recipient_name}', sender_company_id, user_id))
             
             chat_id = cursor.fetchone()['id']
+            print(f'[MASS_MESSAGE] Created new chat_id={chat_id}')
             
             cursor.execute(f'''
                 INSERT INTO {SCHEMA}chat_participants (chat_id, user_id, organization_id)
                 VALUES (%s, %s, %s), (%s, %s, %s)
             ''', (chat_id, user_id, sender_company_id, chat_id, recipient_id, recipient_company_id))
+            print(f'[MASS_MESSAGE] Added participants to chat_id={chat_id}')
         
         cursor.execute(f'''
             INSERT INTO {SCHEMA}messages (chat_id, sender_id, sender_organization_id, message_text)
             VALUES (%s, %s, %s, %s)
         ''', (chat_id, user_id, sender_company_id, message_text))
+        print(f'[MASS_MESSAGE] Message sent to chat_id={chat_id}')
         
         sent_count += 1
     
     conn.commit()
+    print(f'[MASS_MESSAGE] Complete: sent_count={sent_count}')
     return {'success': True, 'sent_count': sent_count}
