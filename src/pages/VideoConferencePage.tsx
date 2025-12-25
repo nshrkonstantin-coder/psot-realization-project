@@ -474,14 +474,14 @@ const VideoConferencePage = () => {
       const container = document.querySelector('#jitsi-container');
       if (!container) return;
       
-      // Простой подход - просто открываем комнату Jitsi с именем пользователя
-      const roomName = conference.id.replace(/[^a-zA-Z0-9]/g, ''); // Убираем спецсимволы
+      // ID конференции уже чистый (только буквы и цифры)
+      const roomName = conference.id;
       const displayName = encodeURIComponent(userFio);
       
       // Используем минимум параметров для надёжности
       const iframeUrl = `https://meet.jit.si/${roomName}#userInfo.displayName="${displayName}"&config.prejoinPageEnabled=false`;
       
-      console.log('Открываем Jitsi URL:', iframeUrl);
+      console.log('Открываем Jitsi комнату:', roomName, 'URL:', iframeUrl);
       
       const iframe = document.createElement('iframe');
       iframe.src = iframeUrl;
@@ -530,8 +530,11 @@ const VideoConferencePage = () => {
 
     setLoading(true);
 
+    // Генерируем ID совместимый с Jitsi (только буквы и цифры)
+    const roomId = 'conf' + Date.now() + Math.random().toString(36).substr(2, 9).replace(/[^a-z0-9]/g, '');
+    
     const newConference: Conference = {
-      id: 'conf-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+      id: roomId,
       name: conferenceName,
       creator_id: userId!,
       creator_name: userFio,
@@ -895,8 +898,7 @@ const VideoConferencePage = () => {
             <div className="flex gap-2">
               <Button 
                 onClick={() => {
-                  const roomName = currentConference.id.replace(/[^a-zA-Z0-9]/g, '');
-                  const url = `https://meet.jit.si/${roomName}#userInfo.displayName="${encodeURIComponent(userFio)}"`;
+                  const url = `https://meet.jit.si/${currentConference.id}#userInfo.displayName="${encodeURIComponent(userFio)}"`;
                   window.open(url, '_blank');
                 }}
                 variant="outline"
