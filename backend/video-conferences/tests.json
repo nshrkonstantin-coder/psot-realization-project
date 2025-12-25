@@ -1,0 +1,43 @@
+{
+  "tests": [
+    {
+      "name": "Получение списка конференций",
+      "method": "GET",
+      "path": "/?action=list",
+      "headers": {
+        "X-User-Id": "1"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "conferences": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Создание конференции",
+      "method": "POST",
+      "path": "/?action=create",
+      "headers": {
+        "X-User-Id": "1",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "id": "test-conf-123",
+        "name": "Тестовая конференция",
+        "creator_name": "Тестовый пользователь",
+        "participants": [1, 2]
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Проверка OPTIONS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}

@@ -88,6 +88,7 @@ const VideoConferencePage = () => {
   const MESSAGING_URL = 'https://functions.poehali.dev/0bd87c15-af37-4e08-93fa-f921a3c18bee';
   const ORGANIZATIONS_URL = 'https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b';
   const SEND_EMAIL_URL = 'https://functions.poehali.dev/ca9e0986-48d7-46a1-b0be-7a98ddf4c429';
+  const VIDEO_CONFERENCES_URL = 'https://functions.poehali.dev/89376b31-2594-4167-8f41-b49d7df5ed40';
 
   useEffect(() => {
     const id = localStorage.getItem('userId');
@@ -107,9 +108,10 @@ const VideoConferencePage = () => {
     loadUsers();
     loadConferences();
 
+    // Проверяем, есть ли параметр room в URL
     const roomId = searchParams.get('room');
     if (roomId) {
-      joinConferenceByRoom(roomId);
+      joinConferenceByRoom(roomId, Number(id));
     }
   }, [navigate, searchParams]);
 
@@ -153,46 +155,59 @@ const VideoConferencePage = () => {
   };
 
   const loadConferences = async () => {
-    // Загружаем из localStorage
-    const savedConferences = localStorage.getItem('videoConferences');
-    const savedMyRooms = localStorage.getItem('myVideoRooms');
-    const savedFavorites = localStorage.getItem('favoriteVideoRooms');
-    const savedHistory = localStorage.getItem('videoHistory');
+    try {
+      const response = await fetch(`${VIDEO_CONFERENCES_URL}?action=list`, {
+        headers: { 'X-User-Id': localStorage.getItem('userId')! }
+      });
+      const data = await response.json();
+      const allConferences = data.conferences || [];
+      
+      // Разделяем на категории
+      const active = allConferences.filter((c: Conference) => c.status === 'active');
+      const myActive = active.filter((c: Conference) => c.creator_id === userId);
+      const favorites = allConferences.filter((c: Conference) => c.is_favorite);
+      const history = allConferences.filter((c: Conference) => c.status === 'ended');
+      
+      setConferences(active);
+      setMyRooms(myActive);
+      setFavoriteRooms(favorites);
+      setHistoryRooms(history);
+    } catch (error) {
+      console.error('Ошибка загрузки конференций:', error);
+    }
+  };
+  
+
+  
+  const toggleFavorite = async (confId: string) => {
+    const exists = favoriteRooms.find(c => c.id === confId);
+    const isFavorite = !exists;
     
-    if (savedConferences) {
-      setConferences(JSON.parse(savedConferences));
-    }
-    if (savedMyRooms) {
-      setMyRooms(JSON.parse(savedMyRooms));
-    }
-    if (savedFavorites) {
-      setFavoriteRooms(JSON.parse(savedFavorites));
-    }
-    if (savedHistory) {
-      setHistoryRooms(JSON.parse(savedHistory));
-    }
-  };
-  
-  const saveConferencesToStorage = () => {
-    localStorage.setItem('videoConferences', JSON.stringify(conferences));
-    localStorage.setItem('myVideoRooms', JSON.stringify(myRooms));
-    localStorage.setItem('favoriteVideoRooms', JSON.stringify(favoriteRooms));
-    localStorage.setItem('videoHistory', JSON.stringify(historyRooms));
-  };
-  
-  const toggleFavorite = (confId: string) => {
-    setFavoriteRooms(prev => {
-      const exists = prev.find(c => c.id === confId);
-      if (exists) {
-        return prev.filter(c => c.id !== confId);
-      } else {
+    try {
+      await fetch(`${VIDEO_CONFERENCES_URL}?action=favorite`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': String(userId)
+        },
+        body: JSON.stringify({
+          conference_id: confId,
+          is_favorite: isFavorite
+        })
+      });
+      
+      // Обновляем локальное состояние
+      if (isFavorite) {
         const conf = [...conferences, ...myRooms].find(c => c.id === confId);
         if (conf) {
-          return [...prev, { ...conf, is_favorite: true }];
+          setFavoriteRooms([...favoriteRooms, { ...conf, is_favorite: true }]);
         }
+      } else {
+        setFavoriteRooms(favoriteRooms.filter(c => c.id !== confId));
       }
-      return prev;
-    });
+    } catch (error) {
+      console.error('Ошибка обновления избранного:', error);
+    }
   };
   
   const addToHistory = (conference: Conference) => {
@@ -209,41 +224,41 @@ const VideoConferencePage = () => {
     });
   };
 
-  const joinConferenceByRoom = async (roomId: string) => {
-    // Ищем конференцию во всех источниках
-    let conf = conferences.find(c => c.id === roomId);
-    
-    if (!conf) {
-      conf = myRooms.find(c => c.id === roomId);
-    }
-    
-    if (!conf) {
-      // Загружаем из localStorage
-      const savedConferences = localStorage.getItem('videoConferences');
-      const savedMyRooms = localStorage.getItem('myVideoRooms');
+  const joinConferenceByRoom = async (roomId: string, currentUserId: number) => {
+    try {
+      // Загружаем конференцию из базы данных
+      const response = await fetch(`${VIDEO_CONFERENCES_URL}?action=get&id=${roomId}`, {
+        headers: { 'X-User-Id': String(currentUserId) }
+      });
       
-      if (savedConferences) {
-        const allConf = JSON.parse(savedConferences);
-        conf = allConf.find((c: Conference) => c.id === roomId);
+      if (!response.ok) {
+        toast({ 
+          title: 'Конференция не найдена', 
+          description: 'Возможно, она уже завершена или была удалена',
+          variant: 'destructive' 
+        });
+        return;
       }
       
-      if (!conf && savedMyRooms) {
-        const myConf = JSON.parse(savedMyRooms);
-        conf = myConf.find((c: Conference) => c.id === roomId);
-      }
-    }
-    
-    if (conf) {
-      // Добавляем текущего пользователя в список участников если его там нет
-      if (!conf.participants.includes(userId!)) {
-        conf.participants.push(userId!);
-      }
+      const conf = await response.json();
+      
+      // Добавляем пользователя как участника
+      await fetch(`${VIDEO_CONFERENCES_URL}?action=join`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': String(currentUserId)
+        },
+        body: JSON.stringify({ conference_id: roomId })
+      });
+      
       setShowDeviceCheck(true);
       setCurrentConference(conf);
-    } else {
+    } catch (error) {
+      console.error('Ошибка загрузки конференции:', error);
       toast({ 
-        title: 'Конференция не найдена', 
-        description: 'Возможно, она уже завершена',
+        title: 'Ошибка загрузки', 
+        description: 'Не удалось загрузить конференцию',
         variant: 'destructive' 
       });
     }
@@ -491,19 +506,42 @@ const VideoConferencePage = () => {
       status: 'active'
     };
 
-    const updatedConferences = [newConference, ...conferences];
-    const updatedMyRooms = [newConference, ...myRooms];
-    
-    setConferences(updatedConferences);
-    setMyRooms(updatedMyRooms);
-    
-    // Сохраняем в localStorage сразу
-    localStorage.setItem('videoConferences', JSON.stringify(updatedConferences));
-    localStorage.setItem('myVideoRooms', JSON.stringify(updatedMyRooms));
-    
-    setShowCreateDialog(false);
-    setConferenceName('');
-    setSelectedUserIds([]);
+    try {
+      // Сохраняем в базу данных
+      const response = await fetch(`${VIDEO_CONFERENCES_URL}?action=create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': String(userId)
+        },
+        body: JSON.stringify(newConference)
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка создания конференции');
+      }
+
+      // Обновляем локальное состояние
+      const updatedConferences = [newConference, ...conferences];
+      const updatedMyRooms = [newConference, ...myRooms];
+      
+      setConferences(updatedConferences);
+      setMyRooms(updatedMyRooms);
+      
+      setShowCreateDialog(false);
+      setConferenceName('');
+      setSelectedUserIds([]);
+      
+      toast({ title: '✅ Конференция создана!' });
+    } catch (error) {
+      console.error('Ошибка создания конференции:', error);
+      toast({ 
+        title: 'Ошибка создания', 
+        description: 'Не удалось создать конференцию',
+        variant: 'destructive' 
+      });
+      return;
+    }
     
     // Отправляем приглашения всем участникам (асинхронно, не блокируем присоединение)
     const inviteLink = `${window.location.origin}/video-conference?room=${newConference.id}`;
@@ -688,7 +726,7 @@ const VideoConferencePage = () => {
     }
   };
 
-  const endCall = () => {
+  const endCall = async () => {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
@@ -702,6 +740,25 @@ const VideoConferencePage = () => {
     if (qualityMonitorRef.current) {
       clearInterval(qualityMonitorRef.current);
       qualityMonitorRef.current = null;
+    }
+    
+    // Завершаем конференцию в базе данных (только создатель может завершить)
+    if (currentConference && currentConference.creator_id === userId) {
+      try {
+        await fetch(`${VIDEO_CONFERENCES_URL}?action=end`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': String(userId)
+          },
+          body: JSON.stringify({
+            id: currentConference.id,
+            duration: 0
+          })
+        });
+      } catch (error) {
+        console.error('Ошибка завершения конференции:', error);
+      }
     }
     
     // Добавляем в историю
