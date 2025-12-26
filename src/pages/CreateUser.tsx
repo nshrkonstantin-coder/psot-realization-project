@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
+import QRCode from 'qrcode';
 
 interface Organization {
   id: number;
@@ -32,6 +33,7 @@ const CreateUser = () => {
   const [sendEmail, setSendEmail] = useState(true);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [generatedLoginUrl, setGeneratedLoginUrl] = useState('');
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,18 +92,38 @@ const CreateUser = () => {
     loadOrganizations();
   }, []);
 
-  // Обновляем ссылку при изменении выбранной компании
+  // Обновляем ссылку и QR-код при изменении выбранной компании
   useEffect(() => {
-    if (company) {
-      const selectedOrg = organizations.find(org => org.name === company);
-      const orgCode = selectedOrg?.registration_code || '';
-      const loginUrl = orgCode 
-        ? `${window.location.origin}/org/${orgCode}`
-        : window.location.origin;
-      setGeneratedLoginUrl(loginUrl);
-    } else {
-      setGeneratedLoginUrl('');
-    }
+    const generateQrCode = async () => {
+      if (company) {
+        const selectedOrg = organizations.find(org => org.name === company);
+        const orgCode = selectedOrg?.registration_code || '';
+        const loginUrl = orgCode 
+          ? `${window.location.origin}/org/${orgCode}`
+          : window.location.origin;
+        setGeneratedLoginUrl(loginUrl);
+        
+        // Генерируем QR-код
+        try {
+          const qrDataUrl = await QRCode.toDataURL(loginUrl, {
+            width: 200,
+            margin: 2,
+            color: {
+              dark: '#9333ea',
+              light: '#ffffff'
+            }
+          });
+          setQrCodeDataUrl(qrDataUrl);
+        } catch (error) {
+          console.error('Ошибка генерации QR-кода:', error);
+        }
+      } else {
+        setGeneratedLoginUrl('');
+        setQrCodeDataUrl('');
+      }
+    };
+    
+    generateQrCode();
   }, [company, organizations]);
 
   const loadOrganizations = async () => {
@@ -139,6 +161,19 @@ const CreateUser = () => {
     toast({ title: 'Ссылка скопирована!', description: 'Ссылка для входа в буфере обмена' });
   };
 
+  const downloadQrCode = () => {
+    if (!qrCodeDataUrl) return;
+    
+    const link = document.createElement('a');
+    link.download = `qr-code-${company.replace(/\s+/g, '-')}.png`;
+    link.href = qrCodeDataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({ title: 'QR-код скачан!', description: 'Файл сохранён на устройстве' });
+  };
+
   const sendCredentialsByEmail = async (userEmail: string, userPassword: string) => {
     setSendingEmail(true);
     try {
@@ -152,7 +187,8 @@ const CreateUser = () => {
               password: userPassword
             }
           ],
-          loginUrl: generatedLoginUrl
+          loginUrl: generatedLoginUrl,
+          qrCodeDataUrl: qrCodeDataUrl
         })
       });
 
@@ -275,25 +311,49 @@ const CreateUser = () => {
                   
                   {generatedLoginUrl && (
                     <div className="mt-3 p-4 bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/40 rounded-lg">
-                      <div className="flex items-start gap-2 mb-2">
-                        <Icon name="Link" size={18} className="text-purple-400 mt-0.5" />
+                      <div className="flex gap-4">
                         <div className="flex-1">
-                          <p className="text-xs text-purple-300 font-semibold mb-1">Ссылка для входа с кодом предприятия:</p>
-                          <p className="text-sm text-white font-mono break-all bg-slate-800/50 px-2 py-1 rounded">{generatedLoginUrl}</p>
+                          <div className="flex items-start gap-2 mb-2">
+                            <Icon name="Link" size={18} className="text-purple-400 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-xs text-purple-300 font-semibold mb-1">Ссылка для входа с кодом предприятия:</p>
+                              <p className="text-sm text-white font-mono break-all bg-slate-800/50 px-2 py-1 rounded">{generatedLoginUrl}</p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={copyLoginLink}
+                            className="w-full mt-2 border-purple-500/50 hover:bg-purple-500/10"
+                          >
+                            <Icon name="Copy" size={16} className="mr-2" />
+                            Скопировать ссылку
+                          </Button>
                         </div>
+                        
+                        {qrCodeDataUrl && (
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="bg-white p-2 rounded-lg shadow-lg">
+                              <img src={qrCodeDataUrl} alt="QR Code" className="w-32 h-32" />
+                            </div>
+                            <p className="text-xs text-purple-300 text-center font-semibold">QR-код для<br/>быстрого входа</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={downloadQrCode}
+                              className="border-purple-500/50 hover:bg-purple-500/10 text-xs"
+                            >
+                              <Icon name="Download" size={14} className="mr-1" />
+                              Скачать QR
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={copyLoginLink}
-                        className="w-full mt-2 border-purple-500/50 hover:bg-purple-500/10"
-                      >
-                        <Icon name="Copy" size={16} className="mr-2" />
-                        Скопировать ссылку
-                      </Button>
-                      <p className="text-xs text-purple-300 mt-2 text-center">
-                        Эта ссылка будет отправлена пользователю вместе с паролем
+                      
+                      <p className="text-xs text-purple-300 mt-3 text-center">
+                        📱 Ссылка и QR-код будут отправлены пользователю на email
                       </p>
                     </div>
                   )}
