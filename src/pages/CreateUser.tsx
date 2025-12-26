@@ -11,6 +11,7 @@ import Icon from '@/components/ui/icon';
 interface Organization {
   id: number;
   name: string;
+  registration_code: string;
 }
 
 const CreateUser = () => {
@@ -51,14 +52,28 @@ const CreateUser = () => {
       const data = await response.json();
       
       if (data.success) {
-        const loginUrl = window.location.origin;
+        // Находим код регистрации выбранной организации
+        const selectedOrg = organizations.find(org => org.name === company);
+        const orgCode = selectedOrg?.registration_code || '';
+        
+        // Формируем ссылку с кодом предприятия
+        const loginUrl = orgCode 
+          ? `${window.location.origin}/org/${orgCode}`
+          : window.location.origin;
+        
+        const credentialsText = `Добро пожаловать в АСУБТ!\n\n` +
+          `Ваши данные для входа:\n` +
+          `Email: ${data.email}\n` +
+          `Пароль: ${password}\n\n` +
+          `Ссылка для входа: ${loginUrl}\n` +
+          `${orgCode ? `Код предприятия: ${orgCode}` : ''}`;
         
         toast({ 
           title: 'Пользователь создан!', 
-          description: `Ссылка для входа скопирована: ${loginUrl}` 
+          description: `Данные скопированы в буфер обмена` 
         });
         
-        navigator.clipboard.writeText(`Добро пожаловать в АСУБТ!\n\nВаши данные для входа:\nEmail: ${data.email}\nПароль: ${password}\n\nСсылка для входа: ${loginUrl}`);
+        navigator.clipboard.writeText(credentialsText);
         
         navigate('/users-management');
       } else {
@@ -103,6 +118,17 @@ const CreateUser = () => {
       pass += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setPassword(pass);
+  };
+
+  const copyLoginLink = () => {
+    const selectedOrg = organizations.find(org => org.name === company);
+    const orgCode = selectedOrg?.registration_code || '';
+    const loginUrl = orgCode 
+      ? `${window.location.origin}/org/${orgCode}`
+      : window.location.origin;
+    
+    navigator.clipboard.writeText(loginUrl);
+    toast({ title: 'Ссылка скопирована!', description: 'Ссылка для входа в буфере обмена' });
   };
 
   return (
@@ -246,13 +272,44 @@ const CreateUser = () => {
             <div className="bg-purple-900/20 border border-purple-600/30 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <Icon name="Info" size={20} className="text-purple-400 mt-1" />
-                <div className="text-sm text-gray-300">
-                  <p className="font-semibold text-white mb-1">После создания пользователя:</p>
-                  <ul className="list-disc list-inside space-y-1">
+                <div className="text-sm text-gray-300 w-full">
+                  <p className="font-semibold text-white mb-2">После создания пользователя:</p>
+                  <ul className="list-disc list-inside space-y-1 mb-3">
                     <li>Данные для входа будут скопированы в буфер обмена</li>
                     <li>Отправьте их пользователю на указанный email</li>
-                    <li>Ссылка для входа: <span className="text-purple-400">{window.location.origin}</span></li>
                   </ul>
+                  {company && organizations.find(org => org.name === company) && (
+                    <div className="mt-3 p-3 bg-slate-800/50 rounded border border-purple-500/30">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-gray-400">Ссылка для входа:</p>
+                        <Button
+                          type="button"
+                          onClick={copyLoginLink}
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-600/20"
+                        >
+                          <Icon name="Copy" size={12} className="mr-1" />
+                          Копировать
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <code className="text-purple-300 text-sm break-all">
+                          {window.location.origin}/org/{organizations.find(org => org.name === company)?.registration_code}
+                        </code>
+                        <Icon name="Link" size={16} className="text-purple-400 flex-shrink-0" />
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        Код предприятия: <span className="text-yellow-400 font-mono">{organizations.find(org => org.name === company)?.registration_code}</span>
+                      </p>
+                    </div>
+                  )}
+                  {!company && (
+                    <p className="text-yellow-400 text-xs mt-2 flex items-center gap-1">
+                      <Icon name="AlertCircle" size={14} />
+                      Выберите компанию для генерации ссылки
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
