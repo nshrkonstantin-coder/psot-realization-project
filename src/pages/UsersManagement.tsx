@@ -332,6 +332,13 @@ const UsersManagement = () => {
           </div>
           <div className="flex items-center gap-3">
             <Button
+              onClick={() => navigate('/create-user')}
+              className="bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800"
+            >
+              <Icon name="UserPlus" size={20} className="mr-2" />
+              Создать пользователя
+            </Button>
+            <Button
               onClick={() => setShowPasswordManagement(true)}
               className="bg-blue-600 hover:bg-blue-700"
             >

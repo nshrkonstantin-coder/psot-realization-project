@@ -44,6 +44,7 @@ const Admin = () => {
   };
 
   const adminButtons = [
+    { label: 'Создать пользователя', icon: 'UserPlus', color: 'from-purple-500 to-pink-600', route: '/create-user' },
     { label: 'Управление пользователями', icon: 'Users', color: 'from-blue-500 to-blue-600', route: '/users-management' },
     { label: 'Сообщения', icon: 'MessageSquare', color: 'from-violet-500 to-purple-600', route: '/admin-messages' },
     { label: 'Видео конференция', icon: 'Video', color: 'from-pink-500 to-rose-600', route: '/video-conference' },
