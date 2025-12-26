@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
 
@@ -28,6 +29,8 @@ const CreateUser = () => {
   const [loading, setLoading] = useState(false);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loadingOrgs, setLoadingOrgs] = useState(true);
+  const [sendEmail, setSendEmail] = useState(true);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +77,11 @@ const CreateUser = () => {
         });
         
         navigator.clipboard.writeText(credentialsText);
+
+        // Отправляем email, если выбрана опция
+        if (sendEmail) {
+          await sendCredentialsByEmail(email, password);
+        }
         
         navigate('/users-management');
       } else {
@@ -129,6 +137,55 @@ const CreateUser = () => {
     
     navigator.clipboard.writeText(loginUrl);
     toast({ title: 'Ссылка скопирована!', description: 'Ссылка для входа в буфере обмена' });
+  };
+
+  const sendCredentialsByEmail = async (userEmail: string, userPassword: string) => {
+    setSendingEmail(true);
+    try {
+      const selectedOrg = organizations.find(org => org.name === company);
+      const orgCode = selectedOrg?.registration_code || '';
+      const loginUrl = orgCode 
+        ? `${window.location.origin}/org/${orgCode}`
+        : window.location.origin;
+
+      const response = await fetch('https://functions.poehali.dev/b00816fd-60cd-4a53-9b44-802868bfbb11', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          users: [
+            {
+              email: userEmail,
+              password: userPassword
+            }
+          ],
+          loginUrl: loginUrl
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.sent_count > 0) {
+        toast({ 
+          title: '✉️ Email отправлен!', 
+          description: `Учётные данные отправлены на ${userEmail}` 
+        });
+      } else {
+        toast({ 
+          title: 'Ошибка отправки email', 
+          description: data.failed_emails?.[0]?.error || 'Неизвестная ошибка',
+          variant: 'destructive' 
+        });
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast({ 
+        title: 'Ошибка отправки email', 
+        description: 'Не удалось отправить письмо',
+        variant: 'destructive' 
+      });
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   return (
@@ -269,6 +326,27 @@ const CreateUser = () => {
               </Select>
             </div>
 
+            <div className="flex items-center space-x-3 p-4 bg-slate-700/30 border border-purple-600/30 rounded-lg">
+              <Checkbox 
+                id="send-email" 
+                checked={sendEmail} 
+                onCheckedChange={(checked) => setSendEmail(checked as boolean)}
+                className="border-purple-600/50"
+              />
+              <div className="flex-1">
+                <label
+                  htmlFor="send-email"
+                  className="text-sm font-medium text-white cursor-pointer flex items-center gap-2"
+                >
+                  <Icon name="Mail" size={16} className="text-purple-400" />
+                  Отправить учётные данные на email пользователя
+                </label>
+                <p className="text-xs text-gray-400 mt-1">
+                  После создания пользователя ему автоматически придёт письмо с паролем и ссылкой для входа
+                </p>
+              </div>
+            </div>
+
             <div className="bg-purple-900/20 border border-purple-600/30 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <Icon name="Info" size={20} className="text-purple-400 mt-1" />
@@ -317,11 +395,20 @@ const CreateUser = () => {
             <div className="flex gap-4 pt-4">
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || sendingEmail}
                 className="flex-1 bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800"
               >
-                <Icon name="UserPlus" size={20} className="mr-2" />
-                {loading ? 'Создание...' : 'Создать пользователя'}
+                {loading || sendingEmail ? (
+                  <>
+                    <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
+                    {sendingEmail ? 'Отправка email...' : 'Создание...'}
+                  </>
+                ) : (
+                  <>
+                    <Icon name="UserPlus" size={20} className="mr-2" />
+                    Создать пользователя
+                  </>
+                )}
               </Button>
               <Button
                 type="button"
