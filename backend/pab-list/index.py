@@ -7,7 +7,8 @@ from psycopg2.extras import RealDictCursor
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Получение списка всех записей ПАБ
+    Получение списка записей ПАБ для текущего пользователя
+    (выписанные им или назначенные на выполнение)
     '''
     
     if event.get('httpMethod') == 'OPTIONS':
@@ -16,10 +17,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Headers': 'Content-Type, X-User-Fio',
                 'Access-Control-Max-Age': '86400'
             },
             'body': '',
+            'isBase64Encoded': False
+        }
+    
+    # Получаем ФИО пользователя из заголовка
+    headers = event.get('headers', {})
+    user_fio = headers.get('X-User-Fio') or headers.get('x-user-fio') or ''
+    
+    if not user_fio:
+        return {
+            'statusCode': 400,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({'error': 'Не указан пользователь'}, ensure_ascii=False),
             'isBase64Encoded': False
         }
     
@@ -27,6 +43,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     conn = psycopg2.connect(dsn)
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
+    # Фильтруем ПАБ: только те, которые выписаны пользователем или назначены ему
     cur.execute("""
         SELECT 
             pr.id, pr.doc_number, pr.doc_date, pr.inspector_fio, pr.inspector_position,
@@ -50,10 +67,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
              ) LIMIT 1) as responsible_position
         FROM pab_records pr
         LEFT JOIN pab_observations po ON pr.id = po.pab_record_id
+        WHERE LOWER(pr.inspector_fio) = LOWER(%s)
+           OR EXISTS (
+               SELECT 1 FROM pab_observations po2 
+               WHERE po2.pab_record_id = pr.id 
+               AND LOWER(po2.responsible_person) = LOWER(%s)
+           )
         GROUP BY pr.id, pr.doc_number, pr.doc_date, pr.inspector_fio, pr.inspector_position,
                  pr.department, pr.location, pr.checked_object, pr.created_at, pr.status, pr.photo_url
         ORDER BY pr.created_at DESC
-    """)
+    """, (user_fio, user_fio))
     
     records = cur.fetchall()
     

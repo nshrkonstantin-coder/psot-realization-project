@@ -1,9 +1,12 @@
 {
   "tests": [
     {
-      "name": "Get PAB records list",
+      "name": "Get PAB records list for user",
       "method": "GET",
       "path": "/",
+      "headers": {
+        "X-User-Fio": "Иванов Иван Иванович"
+      },
       "expectedStatus": 200
     }
   ]

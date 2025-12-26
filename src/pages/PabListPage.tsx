@@ -46,7 +46,14 @@ export default function PabListPage() {
 
   const loadRecords = useCallback(async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/bb1de74c-2e60-4e49-838e-7c640186dc5c');
+      const userFio = localStorage.getItem('userFio') || '';
+      
+      const response = await fetch('https://functions.poehali.dev/bb1de74c-2e60-4e49-838e-7c640186dc5c', {
+        headers: {
+          'X-User-Fio': userFio
+        }
+      });
+      
       const data = await response.json();
       setRecords(data.records || []);
     } catch (error) {
