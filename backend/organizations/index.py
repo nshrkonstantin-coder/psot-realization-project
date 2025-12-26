@@ -178,7 +178,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cur.close()
         conn.close()
         
-        result = organizations[0] if org_id and organizations else organizations
+        # Если запрашивается конкретная организация, возвращаем объект
+        if org_id and organizations:
+            result = organizations[0]
+        # Если запрашивается список, оборачиваем в объект с success
+        elif action == 'list':
+            result = {'success': True, 'organizations': organizations}
+        # По умолчанию возвращаем массив (для обратной совместимости)
+        else:
+            result = organizations
+            
         return {
             'statusCode': 200,
             'headers': {

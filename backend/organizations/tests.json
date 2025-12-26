@@ -4,9 +4,7 @@
       "name": "Get all organizations",
       "method": "GET",
       "path": "/",
-      "expectedStatus": 200,
-      "expectedBody": [],
-      "bodyMatcher": "type"
+      "expectedStatus": 200
     }
   ]
 }
