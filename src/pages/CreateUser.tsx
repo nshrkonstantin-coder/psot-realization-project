@@ -97,10 +97,13 @@ const CreateUser = () => {
     const generateQrCode = async () => {
       if (company) {
         const selectedOrg = organizations.find(org => org.name === company);
+        console.log('🔍 Selected organization:', selectedOrg);
+        console.log('🔍 Registration code:', selectedOrg?.registration_code);
         const orgCode = selectedOrg?.registration_code || '';
         const loginUrl = orgCode 
           ? `${window.location.origin}/org/${orgCode}`
           : window.location.origin;
+        console.log('🔗 Generated login URL:', loginUrl);
         setGeneratedLoginUrl(loginUrl);
         
         // Генерируем QR-код
