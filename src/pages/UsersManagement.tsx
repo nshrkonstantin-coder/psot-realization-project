@@ -376,16 +376,16 @@ const UsersManagement = () => {
             <table className="w-full table-fixed">
               <thead>
                 <tr className="border-b border-slate-700">
-                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[6%]">ID</th>
-                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[12%]">ФИО</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[8%]">ID</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[11%]">ФИО</th>
                   <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[12%]">Email</th>
-                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[12%]">Компания</th>
-                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[11%]">Подразделение</th>
-                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[11%]">Должность</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[11%]">Компания</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[10%]">Подразделение</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[10%]">Должность</th>
                   <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[8%]">Роль</th>
                   <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[9%]">Дата регистрации</th>
                   <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[9%]">Статистика</th>
-                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[10%]">Действия</th>
+                  <th className="px-2 py-3 text-left text-slate-300 font-semibold w-[12%]">Действия</th>
                 </tr>
               </thead>
               <tbody>

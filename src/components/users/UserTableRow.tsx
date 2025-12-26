@@ -48,8 +48,13 @@ export const UserTableRow = ({
     <tr className={`border-b border-slate-700 hover:bg-slate-700/30 transition-all duration-500 ${
       isHighlighted ? 'bg-blue-600/20 shadow-[0_0_20px_rgba(59,130,246,0.3)] animate-pulse' : ''
     }`}>
-      <td className="px-2 py-3 text-slate-300 text-sm truncate">
-        {user.display_name || `ID№${String(user.id).padStart(5, '0')}`}
+      <td className="px-2 py-3">
+        <div className="flex flex-col items-start">
+          <span className="text-xs text-slate-400 font-semibold">ID</span>
+          <span className="text-sm text-slate-300 font-mono break-all">
+            {user.display_name || `№${String(user.id).padStart(5, '0')}`}
+          </span>
+        </div>
       </td>
       <td className="px-2 py-3 text-slate-300 text-sm truncate" title={user.fio}>{user.fio}</td>
       <td className="px-2 py-3 text-slate-300 text-sm truncate" title={user.email}>{user.email}</td>
