@@ -41,7 +41,14 @@ export default function PcListPage() {
 
   const loadRecords = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/633655fc-0da1-442f-9294-a2ab3ccce0da');
+      const userFio = localStorage.getItem('userFio') || '';
+      
+      const response = await fetch('https://functions.poehali.dev/633655fc-0da1-442f-9294-a2ab3ccce0da', {
+        headers: {
+          'X-User-Fio': userFio
+        }
+      });
+      
       const data = await response.json();
       setRecords(data.records || []);
     } catch (error) {

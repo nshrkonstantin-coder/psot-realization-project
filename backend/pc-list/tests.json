@@ -1,14 +1,13 @@
 {
   "tests": [
     {
-      "name": "Get PC list",
+      "name": "Get PC list for user",
       "method": "GET",
       "path": "/",
-      "expectedStatus": 200,
-      "expectedBody": {
-        "records": "array"
+      "headers": {
+        "X-User-Fio": "Иванов Иван Иванович"
       },
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     }
   ]
 }

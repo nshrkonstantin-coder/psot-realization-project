@@ -6,7 +6,8 @@ from psycopg2.extras import RealDictCursor
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Получение списка записей производственного контроля (ЭПК)
+    Получение списка записей производственного контроля для текущего пользователя
+    (выписанные им или назначенные на выполнение)
     '''
     
     if event.get('httpMethod') == 'OPTIONS':
@@ -15,10 +16,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Headers': 'Content-Type, X-User-Fio',
                 'Access-Control-Max-Age': '86400'
             },
             'body': '',
+            'isBase64Encoded': False
+        }
+    
+    # Получаем ФИО пользователя из заголовка
+    headers = event.get('headers', {})
+    user_fio = headers.get('X-User-Fio') or headers.get('x-user-fio') or ''
+    
+    if not user_fio:
+        return {
+            'statusCode': 400,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({'error': 'Не указан пользователь'}, ensure_ascii=False),
             'isBase64Encoded': False
         }
     
@@ -26,6 +42,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     conn = psycopg2.connect(dsn)
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
+    # Фильтруем записи: только те, которые выписаны пользователем или назначены ему
     cur.execute("""
         SELECT 
             r.id,
@@ -45,10 +62,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             MAX(v.deadline) as max_deadline
         FROM t_p80499285_psot_realization_pro.production_control_reports r
         LEFT JOIN t_p80499285_psot_realization_pro.production_control_violations v ON r.id = v.report_id
-        WHERE r.archived = FALSE OR r.archived IS NULL
+        WHERE (r.archived = FALSE OR r.archived IS NULL)
+          AND (LOWER(r.issuer_name) = LOWER(%s) OR LOWER(r.recipient_name) = LOWER(%s))
         GROUP BY r.id, r.doc_number, r.doc_date, r.issuer_name, r.issuer_position, r.department, r.recipient_name, r.created_at
         ORDER BY r.created_at DESC
-    """)
+    """, (user_fio, user_fio))
     
     records = cur.fetchall()
     
