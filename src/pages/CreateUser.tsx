@@ -31,6 +31,7 @@ const CreateUser = () => {
   const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [sendEmail, setSendEmail] = useState(true);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [generatedLoginUrl, setGeneratedLoginUrl] = useState('');
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,21 +56,12 @@ const CreateUser = () => {
       const data = await response.json();
       
       if (data.success) {
-        // Находим код регистрации выбранной организации
-        const selectedOrg = organizations.find(org => org.name === company);
-        const orgCode = selectedOrg?.registration_code || '';
-        
-        // Формируем ссылку с кодом предприятия
-        const loginUrl = orgCode 
-          ? `${window.location.origin}/org/${orgCode}`
-          : window.location.origin;
-        
         const credentialsText = `Добро пожаловать в АСУБТ!\n\n` +
           `Ваши данные для входа:\n` +
           `Email: ${data.email}\n` +
           `Пароль: ${password}\n\n` +
-          `Ссылка для входа: ${loginUrl}\n` +
-          `${orgCode ? `Код предприятия: ${orgCode}` : ''}`;
+          `Ссылка для входа: ${generatedLoginUrl}\n` +
+          `${generatedLoginUrl.includes('/org/') ? `Код предприятия: ${generatedLoginUrl.split('/org/')[1]}` : ''}`;
         
         toast({ 
           title: 'Пользователь создан!', 
@@ -97,6 +89,20 @@ const CreateUser = () => {
   useEffect(() => {
     loadOrganizations();
   }, []);
+
+  // Обновляем ссылку при изменении выбранной компании
+  useEffect(() => {
+    if (company) {
+      const selectedOrg = organizations.find(org => org.name === company);
+      const orgCode = selectedOrg?.registration_code || '';
+      const loginUrl = orgCode 
+        ? `${window.location.origin}/org/${orgCode}`
+        : window.location.origin;
+      setGeneratedLoginUrl(loginUrl);
+    } else {
+      setGeneratedLoginUrl('');
+    }
+  }, [company, organizations]);
 
   const loadOrganizations = async () => {
     try {
@@ -129,25 +135,13 @@ const CreateUser = () => {
   };
 
   const copyLoginLink = () => {
-    const selectedOrg = organizations.find(org => org.name === company);
-    const orgCode = selectedOrg?.registration_code || '';
-    const loginUrl = orgCode 
-      ? `${window.location.origin}/org/${orgCode}`
-      : window.location.origin;
-    
-    navigator.clipboard.writeText(loginUrl);
+    navigator.clipboard.writeText(generatedLoginUrl);
     toast({ title: 'Ссылка скопирована!', description: 'Ссылка для входа в буфере обмена' });
   };
 
   const sendCredentialsByEmail = async (userEmail: string, userPassword: string) => {
     setSendingEmail(true);
     try {
-      const selectedOrg = organizations.find(org => org.name === company);
-      const orgCode = selectedOrg?.registration_code || '';
-      const loginUrl = orgCode 
-        ? `${window.location.origin}/org/${orgCode}`
-        : window.location.origin;
-
       const response = await fetch('https://functions.poehali.dev/b00816fd-60cd-4a53-9b44-802868bfbb11', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -158,7 +152,7 @@ const CreateUser = () => {
               password: userPassword
             }
           ],
-          loginUrl: loginUrl
+          loginUrl: generatedLoginUrl
         })
       });
 
@@ -262,18 +256,48 @@ const CreateUser = () => {
                   <span className="text-gray-400 text-sm">Загрузка организаций...</span>
                 </div>
               ) : organizations.length > 0 ? (
-                <Select value={company} onValueChange={setCompany} required>
-                  <SelectTrigger className="bg-slate-700/50 border-purple-600/30 text-white">
-                    <SelectValue placeholder="Выберите предприятие" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {organizations.map((org) => (
-                      <SelectItem key={org.id} value={org.name}>
-                        {org.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select value={company} onValueChange={setCompany} required>
+                    <SelectTrigger className="bg-slate-700/50 border-purple-600/30 text-white">
+                      <SelectValue placeholder="Выберите предприятие" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizations.map((org) => (
+                        <SelectItem key={org.id} value={org.name}>
+                          {org.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Доступно {organizations.length} предприятий
+                  </p>
+                  
+                  {generatedLoginUrl && (
+                    <div className="mt-3 p-4 bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/40 rounded-lg">
+                      <div className="flex items-start gap-2 mb-2">
+                        <Icon name="Link" size={18} className="text-purple-400 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-xs text-purple-300 font-semibold mb-1">Ссылка для входа с кодом предприятия:</p>
+                          <p className="text-sm text-white font-mono break-all bg-slate-800/50 px-2 py-1 rounded">{generatedLoginUrl}</p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={copyLoginLink}
+                        className="w-full mt-2 border-purple-500/50 hover:bg-purple-500/10"
+                      >
+                        <Icon name="Copy" size={16} className="mr-2" />
+                        Скопировать ссылку
+                      </Button>
+                      <p className="text-xs text-purple-300 mt-2 text-center">
+                        Эта ссылка будет отправлена пользователю вместе с паролем
+                      </p>
+                    </div>
+                  )}
+                </>
               ) : (
                 <Input
                   value={company}
@@ -283,11 +307,6 @@ const CreateUser = () => {
                   required
                 />
               )}
-              <p className="text-xs text-gray-400 mt-1">
-                {organizations.length > 0 
-                  ? `Доступно ${organizations.length} предприятий` 
-                  : 'Организации не найдены. Введите вручную.'}
-              </p>
             </div>
 
             <div>
