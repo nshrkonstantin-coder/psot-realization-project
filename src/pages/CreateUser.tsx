@@ -174,6 +174,554 @@ const CreateUser = () => {
     toast({ title: 'QR-код скачан!', description: 'Файл сохранён на устройстве' });
   };
 
+  const printQrCode = () => {
+    if (!qrCodeDataUrl) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast({ title: 'Ошибка', description: 'Не удалось открыть окно печати', variant: 'destructive' });
+      return;
+    }
+    
+    const selectedOrg = organizations.find(org => org.name === company);
+    const orgCode = selectedOrg?.registration_code || '';
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>QR-код для входа - ${company}</title>
+          <meta charset="UTF-8">
+          <style>
+            @page {
+              size: A4;
+              margin: 15mm;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              font-family: 'Segoe UI', Arial, sans-serif;
+              padding: 20px;
+              background: white;
+            }
+            .container {
+              max-width: 700px;
+              margin: 0 auto;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 3px solid #9333ea;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              color: #9333ea;
+              font-size: 32px;
+              margin-bottom: 8px;
+              font-weight: 700;
+            }
+            .header h2 {
+              color: #333;
+              font-size: 22px;
+              font-weight: 500;
+            }
+            .content {
+              display: flex;
+              gap: 30px;
+              margin-bottom: 30px;
+              align-items: center;
+            }
+            .qr-section {
+              flex-shrink: 0;
+            }
+            .qr-container {
+              background: white;
+              border: 4px solid #9333ea;
+              border-radius: 16px;
+              padding: 15px;
+              box-shadow: 0 4px 12px rgba(147, 51, 234, 0.15);
+            }
+            .qr-container img {
+              display: block;
+              width: 250px;
+              height: 250px;
+            }
+            .qr-label {
+              text-align: center;
+              margin-top: 10px;
+              font-size: 14px;
+              color: #6b7280;
+              font-weight: 500;
+            }
+            .instructions {
+              flex: 1;
+            }
+            .instructions h3 {
+              color: #9333ea;
+              font-size: 20px;
+              margin-bottom: 15px;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .instructions ol {
+              margin-left: 20px;
+              line-height: 2;
+            }
+            .instructions li {
+              font-size: 15px;
+              color: #374151;
+              margin-bottom: 8px;
+            }
+            .details {
+              background: #f9fafb;
+              border: 2px solid #e5e7eb;
+              border-radius: 12px;
+              padding: 25px;
+              margin-bottom: 25px;
+            }
+            .details h3 {
+              color: #9333ea;
+              font-size: 18px;
+              margin-bottom: 15px;
+              font-weight: 600;
+            }
+            .detail-row {
+              display: flex;
+              padding: 12px 0;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .detail-row:last-child {
+              border-bottom: none;
+            }
+            .detail-label {
+              font-weight: 600;
+              color: #4b5563;
+              min-width: 160px;
+              font-size: 15px;
+            }
+            .detail-value {
+              color: #111827;
+              flex: 1;
+              font-size: 15px;
+            }
+            .code {
+              font-family: 'Courier New', monospace;
+              background: #e5e7eb;
+              padding: 6px 12px;
+              border-radius: 6px;
+              font-size: 16px;
+              font-weight: bold;
+              color: #9333ea;
+              display: inline-block;
+            }
+            .url {
+              word-break: break-all;
+              color: #2563eb;
+              font-weight: 500;
+            }
+            .footer {
+              text-align: center;
+              padding-top: 20px;
+              border-top: 2px solid #e5e7eb;
+              color: #6b7280;
+              font-size: 13px;
+            }
+            .footer-date {
+              font-weight: 600;
+              color: #374151;
+              margin-bottom: 5px;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🚀 Система АСУБТ</h1>
+              <h2>${company}</h2>
+            </div>
+            
+            <div class="content">
+              <div class="qr-section">
+                <div class="qr-container">
+                  <img src="${qrCodeDataUrl}" alt="QR Code" />
+                </div>
+                <div class="qr-label">📱 Сканируйте камерой</div>
+              </div>
+              
+              <div class="instructions">
+                <h3>📋 Инструкция по входу</h3>
+                <ol>
+                  <li>Откройте камеру телефона</li>
+                  <li>Наведите на QR-код</li>
+                  <li>Нажмите на уведомление</li>
+                  <li>Введите учётные данные</li>
+                </ol>
+              </div>
+            </div>
+            
+            <div class="details">
+              <h3>🔐 Данные для доступа</h3>
+              <div class="detail-row">
+                <div class="detail-label">🔗 Ссылка для входа:</div>
+                <div class="detail-value"><span class="url">${generatedLoginUrl}</span></div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">🏢 Код предприятия:</div>
+                <div class="detail-value"><span class="code">${orgCode}</span></div>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <div class="footer-date">Дата создания: ${new Date().toLocaleDateString('ru-RU', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}</div>
+              <div>Автоматизированная система управления безопасностью труда</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 300);
+    
+    toast({ title: '🖨️ Печать QR-кода', description: 'Открыто окно печати' });
+  };
+
+  const printCredentialsWithQr = () => {
+    if (!qrCodeDataUrl || !email || !password) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast({ title: 'Ошибка', description: 'Не удалось открыть окно печати', variant: 'destructive' });
+      return;
+    }
+    
+    const selectedOrg = organizations.find(org => org.name === company);
+    const orgCode = selectedOrg?.registration_code || '';
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Учётные данные - ${fio}</title>
+          <meta charset="UTF-8">
+          <style>
+            @page {
+              size: A4;
+              margin: 15mm;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              font-family: 'Segoe UI', Arial, sans-serif;
+              padding: 20px;
+              background: white;
+            }
+            .container {
+              max-width: 700px;
+              margin: 0 auto;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 3px solid #9333ea;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              color: #9333ea;
+              font-size: 32px;
+              margin-bottom: 8px;
+              font-weight: 700;
+            }
+            .header h2 {
+              color: #333;
+              font-size: 22px;
+              font-weight: 500;
+            }
+            .user-info {
+              background: linear-gradient(135deg, #9333ea15, #ec489915);
+              border: 2px solid #9333ea;
+              border-radius: 12px;
+              padding: 25px;
+              margin-bottom: 25px;
+              text-align: center;
+            }
+            .user-info h3 {
+              color: #9333ea;
+              font-size: 24px;
+              margin-bottom: 10px;
+            }
+            .user-info p {
+              color: #6b7280;
+              font-size: 16px;
+            }
+            .content {
+              display: flex;
+              gap: 30px;
+              margin-bottom: 30px;
+              align-items: flex-start;
+            }
+            .qr-section {
+              flex-shrink: 0;
+            }
+            .qr-container {
+              background: white;
+              border: 4px solid #9333ea;
+              border-radius: 16px;
+              padding: 15px;
+              box-shadow: 0 4px 12px rgba(147, 51, 234, 0.15);
+            }
+            .qr-container img {
+              display: block;
+              width: 220px;
+              height: 220px;
+            }
+            .qr-label {
+              text-align: center;
+              margin-top: 10px;
+              font-size: 14px;
+              color: #6b7280;
+              font-weight: 500;
+            }
+            .credentials {
+              flex: 1;
+            }
+            .credentials h3 {
+              color: #9333ea;
+              font-size: 20px;
+              margin-bottom: 15px;
+              font-weight: 600;
+            }
+            .credential-box {
+              background: #f9fafb;
+              border: 2px solid #e5e7eb;
+              border-radius: 8px;
+              padding: 15px;
+              margin-bottom: 12px;
+            }
+            .credential-label {
+              font-size: 12px;
+              color: #6b7280;
+              font-weight: 600;
+              text-transform: uppercase;
+              margin-bottom: 5px;
+            }
+            .credential-value {
+              font-size: 18px;
+              color: #111827;
+              font-weight: 600;
+              font-family: 'Courier New', monospace;
+              word-break: break-all;
+            }
+            .details {
+              background: #f9fafb;
+              border: 2px solid #e5e7eb;
+              border-radius: 12px;
+              padding: 25px;
+              margin-bottom: 25px;
+            }
+            .details h3 {
+              color: #9333ea;
+              font-size: 18px;
+              margin-bottom: 15px;
+              font-weight: 600;
+            }
+            .detail-row {
+              display: flex;
+              padding: 12px 0;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .detail-row:last-child {
+              border-bottom: none;
+            }
+            .detail-label {
+              font-weight: 600;
+              color: #4b5563;
+              min-width: 160px;
+              font-size: 15px;
+            }
+            .detail-value {
+              color: #111827;
+              flex: 1;
+              font-size: 15px;
+            }
+            .code {
+              font-family: 'Courier New', monospace;
+              background: #e5e7eb;
+              padding: 6px 12px;
+              border-radius: 6px;
+              font-size: 16px;
+              font-weight: bold;
+              color: #9333ea;
+              display: inline-block;
+            }
+            .url {
+              word-break: break-all;
+              color: #2563eb;
+              font-weight: 500;
+            }
+            .instructions {
+              background: #fffbeb;
+              border: 2px solid #fbbf24;
+              border-radius: 12px;
+              padding: 20px;
+              margin-bottom: 25px;
+            }
+            .instructions h3 {
+              color: #d97706;
+              font-size: 18px;
+              margin-bottom: 12px;
+              font-weight: 600;
+            }
+            .instructions ol {
+              margin-left: 20px;
+              line-height: 1.8;
+            }
+            .instructions li {
+              font-size: 15px;
+              color: #78350f;
+              margin-bottom: 6px;
+            }
+            .footer {
+              text-align: center;
+              padding-top: 20px;
+              border-top: 2px solid #e5e7eb;
+              color: #6b7280;
+              font-size: 13px;
+            }
+            .footer-date {
+              font-weight: 600;
+              color: #374151;
+              margin-bottom: 5px;
+            }
+            .security-notice {
+              background: #fef2f2;
+              border: 2px solid #fca5a5;
+              border-radius: 8px;
+              padding: 15px;
+              margin-top: 20px;
+              text-align: center;
+            }
+            .security-notice p {
+              color: #991b1b;
+              font-size: 13px;
+              font-weight: 600;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🚀 Система АСУБТ</h1>
+              <h2>${company}</h2>
+            </div>
+            
+            <div class="user-info">
+              <h3>👤 ${fio}</h3>
+              <p>${position} • ${subdivision}</p>
+            </div>
+            
+            <div class="content">
+              <div class="qr-section">
+                <div class="qr-container">
+                  <img src="${qrCodeDataUrl}" alt="QR Code" />
+                </div>
+                <div class="qr-label">📱 Сканируйте для входа</div>
+              </div>
+              
+              <div class="credentials">
+                <h3>🔐 Данные для входа</h3>
+                <div class="credential-box">
+                  <div class="credential-label">📧 Email (Логин)</div>
+                  <div class="credential-value">${email}</div>
+                </div>
+                <div class="credential-box">
+                  <div class="credential-label">🔑 Пароль</div>
+                  <div class="credential-value">${password}</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="details">
+              <h3>🌐 Информация для доступа</h3>
+              <div class="detail-row">
+                <div class="detail-label">🔗 Ссылка для входа:</div>
+                <div class="detail-value"><span class="url">${generatedLoginUrl}</span></div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">🏢 Код предприятия:</div>
+                <div class="detail-value"><span class="code">${orgCode}</span></div>
+              </div>
+            </div>
+            
+            <div class="instructions">
+              <h3>📋 Инструкция по первому входу</h3>
+              <ol>
+                <li><strong>Через QR-код:</strong> Откройте камеру телефона, наведите на QR-код и нажмите на уведомление</li>
+                <li><strong>Через браузер:</strong> Перейдите по ссылке выше или введите её в адресную строку</li>
+                <li>Введите ваш Email и Пароль из раздела "Данные для входа"</li>
+                <li>После первого входа рекомендуется сменить пароль в настройках профиля</li>
+              </ol>
+            </div>
+            
+            <div class="security-notice">
+              <p>⚠️ ВАЖНО: Храните эти данные в безопасном месте. Не передавайте пароль третьим лицам.</p>
+            </div>
+            
+            <div class="footer">
+              <div class="footer-date">Дата создания: ${new Date().toLocaleDateString('ru-RU', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}</div>
+              <div>Автоматизированная система управления безопасностью труда</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 300);
+    
+    toast({ title: '🖨️ Печать учётных данных', description: 'Открыто окно печати с полными данными пользователя' });
+  };
+
   const sendCredentialsByEmail = async (userEmail: string, userPassword: string) => {
     setSendingEmail(true);
     try {
@@ -338,16 +886,28 @@ const CreateUser = () => {
                               <img src={qrCodeDataUrl} alt="QR Code" className="w-32 h-32" />
                             </div>
                             <p className="text-xs text-purple-300 text-center font-semibold">QR-код для<br/>быстрого входа</p>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={downloadQrCode}
-                              className="border-purple-500/50 hover:bg-purple-500/10 text-xs"
-                            >
-                              <Icon name="Download" size={14} className="mr-1" />
-                              Скачать QR
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={downloadQrCode}
+                                className="border-purple-500/50 hover:bg-purple-500/10 text-xs flex-1"
+                              >
+                                <Icon name="Download" size={14} className="mr-1" />
+                                Скачать
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={printQrCode}
+                                className="border-purple-500/50 hover:bg-purple-500/10 text-xs flex-1"
+                              >
+                                <Icon name="Printer" size={14} className="mr-1" />
+                                Печать
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -471,11 +1031,11 @@ const CreateUser = () => {
               </div>
             </div>
 
-            <div className="flex gap-4 pt-4">
+            <div className="space-y-3 pt-4">
               <Button
                 type="submit"
                 disabled={loading || sendingEmail}
-                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800"
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800"
               >
                 {loading || sendingEmail ? (
                   <>
@@ -489,11 +1049,24 @@ const CreateUser = () => {
                   </>
                 )}
               </Button>
+              
+              {qrCodeDataUrl && email && password && (
+                <Button
+                  type="button"
+                  onClick={printCredentialsWithQr}
+                  variant="outline"
+                  className="w-full border-purple-500/50 hover:bg-purple-500/10"
+                >
+                  <Icon name="Printer" size={20} className="mr-2" />
+                  Распечатать учётные данные с QR-кодом
+                </Button>
+              )}
+              
               <Button
                 type="button"
                 onClick={() => navigate(-1)}
                 variant="outline"
-                className="border-red-600/50 text-red-400 hover:bg-red-600/10"
+                className="w-full border-red-600/50 text-red-400 hover:bg-red-600/10"
               >
                 <Icon name="X" size={20} className="mr-2" />
                 Отмена
