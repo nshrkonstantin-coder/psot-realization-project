@@ -77,12 +77,12 @@ import PcRegistryPage from "./pages/PcRegistryPage";
 import PcArchivedPage from "./pages/PcArchivedPage";
 import PrescriptionsPage from "./pages/PrescriptionsPage";
 import Integration1CPage from "./pages/Integration1CPage";
-const AdminMessagesPage = lazy(() => import("./pages/AdminMessagesPage"));
-const VideoConferencePage = lazy(() => import("./pages/VideoConferencePage"));
-const ChartsPage = lazy(() => import("./pages/ChartsPage"));
-const BackupPage = lazy(() => import("./pages/BackupPage"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const UnderDevelopment = lazy(() => import("./pages/UnderDevelopment"));
+import AdminMessagesPage from "./pages/AdminMessagesPage";
+import VideoConferencePage from "./pages/VideoConferencePage";
+import ChartsPage from "./pages/ChartsPage";
+import BackupPage from "./pages/BackupPage";
+import NotFound from "./pages/NotFound";
+import UnderDevelopment from "./pages/UnderDevelopment";
 
 const LoadingScreen = () => (
   <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
