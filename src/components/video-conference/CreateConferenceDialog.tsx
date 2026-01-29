@@ -55,8 +55,8 @@ const CreateConferenceDialog = ({
 }: CreateConferenceDialogProps) => {
   const filteredUsers = users.filter(user => {
     const matchesCompany = selectedCompanyId === 'all' || user.company_id === Number(selectedCompanyId);
-    const matchesSearch = user.fio.toLowerCase().includes(searchUser.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchUser.toLowerCase());
+    const matchesSearch = (user.fio || '').toLowerCase().includes((searchUser || '').toLowerCase()) ||
+                         (user.email || '').toLowerCase().includes((searchUser || '').toLowerCase());
     return matchesCompany && matchesSearch;
   });
 

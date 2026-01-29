@@ -74,8 +74,8 @@ export const ChatsList = ({
 
   const getNewChatFilteredUsers = () => {
     return users.filter(u => {
-      const matchesSearch = u.fio.toLowerCase().includes(newChatSearch.toLowerCase()) ||
-                           u.email.toLowerCase().includes(newChatSearch.toLowerCase());
+      const matchesSearch = (u.fio || '').toLowerCase().includes((newChatSearch || '').toLowerCase()) ||
+                           (u.email || '').toLowerCase().includes((newChatSearch || '').toLowerCase());
       const matchesCompany = newChatCompanyFilter === 'all' || u.company_id === Number(newChatCompanyFilter);
       return matchesSearch && matchesCompany;
     });

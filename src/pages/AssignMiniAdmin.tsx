@@ -178,8 +178,8 @@ const AssignMiniAdmin = () => {
   };
 
   const filteredUsers = users.filter(user =>
-    user.fio.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (user.fio || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    (user.email || '').toLowerCase().includes((searchTerm || '').toLowerCase())
   );
 
   return (

@@ -272,12 +272,12 @@ export default function PcListPage() {
   };
 
   const filteredRecords = records.filter((record) => {
-    const query = searchQuery.toLowerCase();
+    const query = (searchQuery || '').toLowerCase();
     return (
-      record.doc_number.toLowerCase().includes(query) ||
-      record.inspector_fio.toLowerCase().includes(query) ||
-      record.checked_object.toLowerCase().includes(query) ||
-      record.responsible_person.toLowerCase().includes(query)
+      (record.doc_number || '').toLowerCase().includes(query) ||
+      (record.inspector_fio || '').toLowerCase().includes(query) ||
+      (record.checked_object || '').toLowerCase().includes(query) ||
+      (record.responsible_person || '').toLowerCase().includes(query)
     );
   });
 

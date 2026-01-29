@@ -82,9 +82,9 @@ export default function PcRegistryPage() {
   };
 
   const filteredRecords = records.filter(record =>
-    record.organization_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    record.object_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    record.responsible_person.toLowerCase().includes(searchTerm.toLowerCase())
+    (record.organization_name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    (record.object_name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    (record.responsible_person || '').toLowerCase().includes((searchTerm || '').toLowerCase())
   );
 
   const getStatusColor = (status: string) => {

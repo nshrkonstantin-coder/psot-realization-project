@@ -65,10 +65,10 @@ export default function AdminPabRegistryPage() {
 
   const filteredRecords = records.filter(
     (record) =>
-      record.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.pab_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.department.toLowerCase().includes(searchTerm.toLowerCase())
+      (record.full_name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+      (record.email || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+      (record.pab_number || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+      (record.department || '').toLowerCase().includes((searchTerm || '').toLowerCase())
   );
 
   const formatDate = (dateString: string) => {

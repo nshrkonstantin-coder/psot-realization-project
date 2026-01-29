@@ -64,8 +64,8 @@ export const EmailSender = ({
 
   const getFilteredUsers = () => {
     return users.filter(u => {
-      const matchesSearch = u.fio.toLowerCase().includes(searchUsers.toLowerCase()) ||
-                           u.email.toLowerCase().includes(searchUsers.toLowerCase());
+      const matchesSearch = (u.fio || '').toLowerCase().includes((searchUsers || '').toLowerCase()) ||
+                           (u.email || '').toLowerCase().includes((searchUsers || '').toLowerCase());
       const matchesCompany = filterCompanyId === 'all' || u.company_id === Number(filterCompanyId);
       return matchesSearch && matchesCompany;
     });
@@ -74,14 +74,14 @@ export const EmailSender = ({
   const getUsersCountByCompany = (companyId: string) => {
     if (companyId === 'all') {
       return users.filter(u =>
-        u.fio.toLowerCase().includes(searchUsers.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchUsers.toLowerCase())
+        (u.fio || '').toLowerCase().includes((searchUsers || '').toLowerCase()) ||
+        (u.email || '').toLowerCase().includes((searchUsers || '').toLowerCase())
       ).length;
     }
     return users.filter(u => 
       u.company_id === Number(companyId) && 
-      (u.fio.toLowerCase().includes(searchUsers.toLowerCase()) ||
-       u.email.toLowerCase().includes(searchUsers.toLowerCase()))
+      ((u.fio || '').toLowerCase().includes((searchUsers || '').toLowerCase()) ||
+       (u.email || '').toLowerCase().includes((searchUsers || '').toLowerCase()))
     ).length;
   };
 

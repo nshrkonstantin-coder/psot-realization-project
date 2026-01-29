@@ -285,9 +285,9 @@ const UsersManagement = () => {
 
   const filteredUsers = users.filter(
     (user) =>
-      (user.fio || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.company || '').toLowerCase().includes(searchQuery.toLowerCase())
+      (user.fio || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+      (user.email || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+      (user.company || '').toLowerCase().includes((searchQuery || '').toLowerCase())
   );
 
   const getRoleBadgeColor = (role: string) => {

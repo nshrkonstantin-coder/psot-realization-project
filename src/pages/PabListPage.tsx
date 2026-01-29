@@ -238,11 +238,11 @@ export default function PabListPage() {
 
   const filteredRecords = useMemo(() => 
     records.filter((record) => {
-      const query = searchQuery.toLowerCase();
+      const query = (searchQuery || '').toLowerCase();
       return (
-        record.doc_number.toLowerCase().includes(query) ||
-        record.inspector_fio.toLowerCase().includes(query) ||
-        record.department.toLowerCase().includes(query)
+        (record.doc_number || '').toLowerCase().includes(query) ||
+        (record.inspector_fio || '').toLowerCase().includes(query) ||
+        (record.department || '').toLowerCase().includes(query)
       );
     }), [records, searchQuery]);
 
