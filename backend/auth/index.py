@@ -86,14 +86,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             try:
                 import psycopg2
                 
-                email = body_data.get('email')
-                password = body_data.get('password')
-                code = body_data.get('code')
-                full_name = body_data.get('full_name')
-                fio = body_data.get('fio') or full_name
-                company = body_data.get('company')
-                subdivision = body_data.get('subdivision')
-                position = body_data.get('position')
+                email = body_data.get('email', '').strip()
+                password = body_data.get('password', '').strip()
+                code = body_data.get('code', '').strip() if body_data.get('code') else None
+                full_name = body_data.get('full_name', '').strip() if body_data.get('full_name') else None
+                fio = (body_data.get('fio', '').strip() if body_data.get('fio') else None) or full_name
+                company = body_data.get('company', '').strip() if body_data.get('company') else None
+                subdivision = body_data.get('subdivision', '').strip() if body_data.get('subdivision') else None
+                position = body_data.get('position', '').strip() if body_data.get('position') else None
                 
                 print(f"[REGISTER DEBUG] Registration request: email={email}, code={code}, fio={fio}")
                 
@@ -243,8 +243,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         elif action == 'login':
             import psycopg2
             
-            email = body_data.get('email')
-            password = body_data.get('password')
+            email = body_data.get('email', '').strip()
+            password = body_data.get('password', '').strip()
             
             print(f"[AUTH DEBUG] Login attempt for email: {email}, password length: {len(password) if password else 0}")
             
