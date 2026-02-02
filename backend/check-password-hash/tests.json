@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Check password hash",
+    "event": {
+      "httpMethod": "POST",
+      "body": "{\"targetHash\":\"e7e69907ab207e2631f55730d46fdce493d18f58a322ee4094206b0638b89266\"}"
+    },
+    "expected": {
+      "statusCode": 200
+    }
+  }
+]

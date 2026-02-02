@@ -1,10 +1,27 @@
 import hashlib
 
-password = "admin123"
-hash_result = hashlib.sha256(password.encode()).hexdigest()
-print(hash_result)
+target_hash = "e7e69907ab207e2631f55730d46fdce493d18f58a322ee4094206b0638b89266"
 
-expected = "ed0cb90bdfa4f93981a7d03cff99213a30193eea67ed7a65f6f30e61a0781d2d"
-print(f"\nComputed: {hash_result}")
-print(f"Expected: {expected}")
-print(f"\nMatch: {hash_result == expected}")
+passwords = [
+    "!2345678",
+    "!2345678 ",
+    " !2345678",
+    " !2345678 "
+]
+
+print("Проверка паролей:")
+print("-" * 80)
+
+for i, password in enumerate(passwords, 1):
+    hash_obj = hashlib.sha256(password.encode('utf-8'))
+    computed_hash = hash_obj.hexdigest()
+    
+    match = "✓ СОВПАДЕНИЕ!" if computed_hash == target_hash else "✗"
+    
+    print(f"{i}. Пароль: '{password}' (длина: {len(password)})")
+    print(f"   SHA256: {computed_hash}")
+    print(f"   {match}")
+    print()
+
+print("-" * 80)
+print(f"Целевой хеш: {target_hash}")
