@@ -12,6 +12,8 @@ import Icon from "@/components/ui/icon";
 import { useOrganizationSync } from "@/hooks/useOrganizationSync";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import GlobalThemeToggle from "@/components/GlobalThemeToggle";
+import DemoProvider from "@/contexts/DemoContext";
+import DemoPage from "./pages/DemoPage";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -141,12 +143,14 @@ const App = () => {
             <Toaster />
             <Sonner />
             <OfflineNotification />
+            <DemoProvider>
             <BrowserRouter>
               <ConditionalGlobalControls />
               <MessageNotifications />
         <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<Login />} />
+          <Route path="/demo" element={<DemoPage />} />
           <Route path="/register" element={<Register />} />
           <Route path="/org/:orgCode" element={<OrganizationLogin />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -219,6 +223,7 @@ const App = () => {
         </Routes>
         </Suspense>
       </BrowserRouter>
+      </DemoProvider>
     </TooltipProvider>
   </QueryClientProvider>
   </ThemeProvider>
