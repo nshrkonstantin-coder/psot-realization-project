@@ -40,6 +40,7 @@ const OrganizationLogo = ({ size = 48, showCompanyName = true, className = '' }:
           if (data.name && !userCompany) {
             setCompanyName(data.name);
           }
+          // Если userCompany уже установлен — всегда используем его (важно для демо-режима)
         }
       } catch (error) {
         console.error('Ошибка загрузки логотипа организации:', error);

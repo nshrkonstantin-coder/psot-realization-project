@@ -24,16 +24,16 @@ export default function DemoPage() {
         );
         const data = await response.json();
 
+        const DEMO_COMPANY = 'ДЕМО: ООО "Западная Нефтяная Компания"';
+
         if (data.success) {
           localStorage.setItem('userId', String(data.userId));
           localStorage.setItem('userFio', data.fio || 'Демо Пользователь');
           localStorage.setItem('userRole', 'demo');
           localStorage.setItem('userEmail', 'demo@demo.ru');
+          localStorage.setItem('userCompany', data.company || DEMO_COMPANY);
           if (data.organizationId) {
             localStorage.setItem('organizationId', String(data.organizationId));
-          }
-          if (data.company) {
-            localStorage.setItem('userCompany', data.company);
           }
           window.dispatchEvent(new Event('demoModeChange'));
           navigate('/dashboard');
