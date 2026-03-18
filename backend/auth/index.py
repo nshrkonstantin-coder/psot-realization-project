@@ -269,7 +269,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             password_hash_escaped = password_hash.replace("'", "''")
             cur.execute(f"""
                 SELECT u.id, u.fio, u.subdivision, u.position, u.role, u.organization_id, 
-                       u.is_blocked, u.blocked_until, o.is_blocked, o.blocked_until, o.registration_code
+                       u.is_blocked, u.blocked_until, o.is_blocked, o.blocked_until, o.registration_code,
+                       COALESCE(u.company, o.name, '') as company
                 FROM t_p80499285_psot_realization_pro.users u 
                 LEFT JOIN t_p80499285_psot_realization_pro.organizations o ON u.organization_id = o.id 
                 WHERE u.email = '{email_escaped}' AND u.password_hash = '{password_hash_escaped}'
@@ -362,7 +363,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'position': result[3],
                         'role': result[4],
                         'organizationId': result[5],
-                        'registrationCode': result[10] if result[10] else None
+                        'registrationCode': result[10] if result[10] else None,
+                        'company': result[11] if result[11] else None
                     })
                 }
             else:
