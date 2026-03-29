@@ -115,6 +115,14 @@ const OrganizationsManagementPage = () => {
           </div>
           <div className="flex gap-3">
             <Button
+              onClick={() => navigate('/tariff-management')}
+              variant="outline"
+              className="border-green-600/50 text-green-400 hover:bg-green-600/10"
+            >
+              <Icon name="Package" size={20} className="mr-2" />
+              Тарифы
+            </Button>
+            <Button
               onClick={() => navigate('/logo-library')}
               variant="outline"
               className="border-blue-600/50 text-blue-400 hover:bg-blue-600/10"
