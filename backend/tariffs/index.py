@@ -1,232 +1,143 @@
 import json
 import os
 import psycopg2
-from typing import Dict, Any
 
-def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    '''
-    API управления тарифными планами
-    GET - получить все тарифы с модулями
-    POST - создать новый тариф
-    PUT - обновить тариф и его модули
-    '''
-    method: str = event.get('httpMethod', 'GET')
+SCHEMA = 't_p80499285_psot_realization_pro'
+
+def handler(event: dict, context) -> dict:
+    """Управление тарифными планами: GET список/детали, POST создание, PUT обновление, DELETE удаление"""
     
-    if method == 'OPTIONS':
+    if event.get('httpMethod') == 'OPTIONS':
         return {
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
                 'Access-Control-Max-Age': '86400'
             },
-            'body': '',
-            'isBase64Encoded': False
+            'body': ''
         }
-    
-    dsn = os.environ.get('DATABASE_URL')
-    conn = psycopg2.connect(dsn)
+
+    method = event.get('httpMethod', 'GET')
+    conn = psycopg2.connect(os.environ['DATABASE_URL'])
     cur = conn.cursor()
-    
-    if method == 'GET':
-        params = event.get('queryStringParameters', {}) or {}
-        tariff_id = params.get('id')
-        
-        if tariff_id:
-            cur.execute('''
-                SELECT tp.id, tp.name, tp.description, tp.price, tp.is_active, tp.is_default
-                FROM t_p80499285_psot_realization_pro.tariff_plans tp
-                WHERE tp.id = %s
-            ''', (tariff_id,))
-            row = cur.fetchone()
-            
-            if not row:
-                cur.close()
-                conn.close()
-                return {
-                    'statusCode': 404,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Тариф не найден'}),
-                    'isBase64Encoded': False
+
+    try:
+        if method == 'GET':
+            params = event.get('queryStringParameters') or {}
+            tariff_id = params.get('id')
+
+            if tariff_id:
+                cur.execute(f"""
+                    SELECT t.id, t.name, t.description, t.price, t.is_active, t.is_default,
+                           m.id as module_id, m.name, m.display_name, m.description, m.route_path, m.icon, m.category
+                    FROM {SCHEMA}.tariff_plans t
+                    LEFT JOIN {SCHEMA}.tariff_modules tm ON tm.tariff_id = t.id
+                    LEFT JOIN {SCHEMA}.modules m ON m.id = tm.module_id
+                    WHERE t.id = {int(tariff_id)}
+                """)
+                rows = cur.fetchall()
+                if not rows:
+                    return _resp(404, {'error': 'Тариф не найден'})
+
+                r = rows[0]
+                tariff = {
+                    'id': r[0], 'name': r[1], 'description': r[2],
+                    'price': float(r[3]) if r[3] else 0,
+                    'is_active': r[4], 'is_default': r[5],
+                    'modules': []
                 }
-            
-            tariff = {
-                'id': row[0],
-                'name': row[1],
-                'description': row[2],
-                'price': float(row[3]) if row[3] else 0,
-                'is_active': row[4],
-                'is_default': row[5],
-                'modules': []
-            }
-            
-            cur.execute('''
-                SELECT m.id, m.name, m.display_name, m.description, m.route_path, m.icon, m.category
-                FROM t_p80499285_psot_realization_pro.modules m
-                JOIN t_p80499285_psot_realization_pro.tariff_modules tm ON m.id = tm.module_id
-                WHERE tm.tariff_id = %s AND m.is_active = true
-                ORDER BY m.category, m.display_name
-            ''', (tariff_id,))
-            
-            for mod_row in cur.fetchall():
-                tariff['modules'].append({
-                    'id': mod_row[0],
-                    'name': mod_row[1],
-                    'display_name': mod_row[2],
-                    'description': mod_row[3],
-                    'route_path': mod_row[4],
-                    'icon': mod_row[5],
-                    'category': mod_row[6]
-                })
-            
-            cur.close()
-            conn.close()
-            
-            return {
-                'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps(tariff, ensure_ascii=False),
-                'isBase64Encoded': False
-            }
-        else:
-            cur.execute('''
-                SELECT tp.id, tp.name, tp.description, tp.price, tp.is_active, tp.is_default,
-                       COUNT(tm.module_id) as module_count
-                FROM t_p80499285_psot_realization_pro.tariff_plans tp
-                LEFT JOIN t_p80499285_psot_realization_pro.tariff_modules tm ON tp.id = tm.tariff_id
-                GROUP BY tp.id
-                ORDER BY tp.price
-            ''')
-            
-            tariffs = []
-            for row in cur.fetchall():
-                tariffs.append({
-                    'id': row[0],
-                    'name': row[1],
-                    'description': row[2],
-                    'price': float(row[3]) if row[3] else 0,
-                    'is_active': row[4],
-                    'is_default': row[5],
-                    'module_count': row[6]
-                })
-            
-            cur.close()
-            conn.close()
-            
-            return {
-                'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps(tariffs, ensure_ascii=False),
-                'isBase64Encoded': False
-            }
-    
-    elif method == 'POST':
-        body = json.loads(event.get('body', '{}'))
-        name = body.get('name')
-        description = body.get('description', '')
-        price = body.get('price', 0)
-        module_ids = body.get('module_ids', [])
-        
-        if not name:
-            cur.close()
-            conn.close()
-            return {
-                'statusCode': 400,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Название тарифа обязательно'}, ensure_ascii=False),
-                'isBase64Encoded': False
-            }
-        
-        cur.execute('''
-            INSERT INTO t_p80499285_psot_realization_pro.tariff_plans (name, description, price, is_active, is_default)
-            VALUES (%s, %s, %s, true, false)
-            RETURNING id
-        ''', (name, description, price))
-        
-        tariff_id = cur.fetchone()[0]
-        
-        for module_id in module_ids:
-            cur.execute('''
-                INSERT INTO t_p80499285_psot_realization_pro.tariff_modules (tariff_id, module_id)
-                VALUES (%s, %s)
-            ''', (tariff_id, module_id))
-        
-        conn.commit()
+                for row in rows:
+                    if row[6]:
+                        tariff['modules'].append({
+                            'id': row[6], 'name': row[7], 'display_name': row[8],
+                            'description': row[9], 'route_path': row[10],
+                            'icon': row[11], 'category': row[12]
+                        })
+                return _resp(200, tariff)
+
+            else:
+                cur.execute(f"""
+                    SELECT t.id, t.name, t.description, t.price, t.is_active, t.is_default,
+                           COUNT(tm.module_id) as module_count
+                    FROM {SCHEMA}.tariff_plans t
+                    LEFT JOIN {SCHEMA}.tariff_modules tm ON tm.tariff_id = t.id
+                    GROUP BY t.id
+                    ORDER BY t.id
+                """)
+                rows = cur.fetchall()
+                tariffs = [{
+                    'id': r[0], 'name': r[1], 'description': r[2],
+                    'price': float(r[3]) if r[3] else 0,
+                    'is_active': r[4], 'is_default': r[5],
+                    'module_count': r[6]
+                } for r in rows]
+                return _resp(200, tariffs)
+
+        elif method == 'POST':
+            body = json.loads(event.get('body') or '{}')
+            name = body.get('name', '').strip()
+            if not name:
+                return _resp(400, {'error': 'Название обязательно'})
+
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.tariff_plans (name, description, price)
+                VALUES (%s, %s, %s) RETURNING id
+            """, (name, body.get('description', ''), body.get('price', 0)))
+            tariff_id = cur.fetchone()[0]
+
+            module_ids = body.get('module_ids', [])
+            for mid in module_ids:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.tariff_modules (tariff_id, module_id) VALUES (%s, %s)
+                """, (tariff_id, mid))
+
+            conn.commit()
+            return _resp(201, {'success': True, 'id': tariff_id})
+
+        elif method == 'PUT':
+            body = json.loads(event.get('body') or '{}')
+            tariff_id = body.get('id')
+            if not tariff_id:
+                return _resp(400, {'error': 'ID тарифа обязателен'})
+
+            cur.execute(f"""
+                UPDATE {SCHEMA}.tariff_plans
+                SET name = %s, description = %s, price = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (body.get('name'), body.get('description', ''), body.get('price', 0), tariff_id))
+
+            cur.execute(f"DELETE FROM {SCHEMA}.tariff_modules WHERE tariff_id = %s", (tariff_id,))
+            for mid in body.get('module_ids', []):
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.tariff_modules (tariff_id, module_id) VALUES (%s, %s)
+                """, (tariff_id, mid))
+
+            conn.commit()
+            return _resp(200, {'success': True})
+
+        elif method == 'DELETE':
+            params = event.get('queryStringParameters') or {}
+            tariff_id = params.get('id')
+            if not tariff_id:
+                return _resp(400, {'error': 'ID тарифа обязателен'})
+
+            cur.execute(f"DELETE FROM {SCHEMA}.tariff_modules WHERE tariff_id = %s", (int(tariff_id),))
+            cur.execute(f"DELETE FROM {SCHEMA}.tariff_plans WHERE id = %s", (int(tariff_id),))
+            conn.commit()
+            return _resp(200, {'success': True})
+
+    finally:
         cur.close()
         conn.close()
-        
-        return {
-            'statusCode': 201,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'id': tariff_id, 'name': name}, ensure_ascii=False),
-            'isBase64Encoded': False
-        }
-    
-    elif method == 'PUT':
-        body = json.loads(event.get('body', '{}'))
-        tariff_id = body.get('id')
-        
-        if not tariff_id:
-            cur.close()
-            conn.close()
-            return {
-                'statusCode': 400,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'ID тарифа обязателен'}, ensure_ascii=False),
-                'isBase64Encoded': False
-            }
-        
-        updates = []
-        params = []
-        
-        if 'name' in body:
-            updates.append('name = %s')
-            params.append(body['name'])
-        
-        if 'description' in body:
-            updates.append('description = %s')
-            params.append(body['description'])
-        
-        if 'price' in body:
-            updates.append('price = %s')
-            params.append(body['price'])
-        
-        if 'is_active' in body:
-            updates.append('is_active = %s')
-            params.append(body['is_active'])
-        
-        if updates:
-            params.append(tariff_id)
-            query = f"UPDATE t_p80499285_psot_realization_pro.tariff_plans SET {', '.join(updates)}, updated_at = CURRENT_TIMESTAMP WHERE id = %s"
-            cur.execute(query, params)
-        
-        if 'module_ids' in body:
-            cur.execute('DELETE FROM t_p80499285_psot_realization_pro.tariff_modules WHERE tariff_id = %s', (tariff_id,))
-            
-            for module_id in body['module_ids']:
-                cur.execute('''
-                    INSERT INTO t_p80499285_psot_realization_pro.tariff_modules (tariff_id, module_id)
-                    VALUES (%s, %s)
-                ''', (tariff_id, module_id))
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        return {
-            'statusCode': 200,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'success': True}, ensure_ascii=False),
-            'isBase64Encoded': False
-        }
-    
-    cur.close()
-    conn.close()
-    
+
+    return _resp(405, {'error': 'Method not allowed'})
+
+
+def _resp(status: int, data) -> dict:
     return {
-        'statusCode': 405,
+        'statusCode': status,
         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-        'body': json.dumps({'error': 'Method not allowed'}),
-        'isBase64Encoded': False
+        'body': json.dumps(data, ensure_ascii=False)
     }

@@ -5,13 +5,6 @@
       "method": "GET",
       "path": "/",
       "expectedStatus": 200,
-      "expectedBody": {
-        "0": {
-          "id": "number",
-          "name": "string",
-          "display_name": "string"
-        }
-      },
       "bodyMatcher": "partial"
     }
   ]

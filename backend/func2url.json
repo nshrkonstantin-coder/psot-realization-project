@@ -1,5 +1,7 @@
 {
   "check-password-hash": "https://functions.poehali.dev/c6fcd8b8-e99c-4a64-acb2-8d03c5a06b52",
   "chat-messages": "https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389",
+  "modules": "https://functions.poehali.dev/f0017dad-45ab-4a18-a80f-50544a6a298f",
+  "tariffs": "https://functions.poehali.dev/78e6bfda-487d-4a51-a368-1870e67aba1a",
   "auth": "https://functions.poehali.dev/eb523ac0-0903-4780-8f5d-7e0546c1eda5"
 }
