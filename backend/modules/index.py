@@ -175,6 +175,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
     
+    elif method == 'DELETE':
+        params = event.get('queryStringParameters', {}) or {}
+        module_id = params.get('id')
+        
+        if not module_id:
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'ID модуля обязателен'}, ensure_ascii=False),
+                'isBase64Encoded': False
+            }
+        
+        cur.execute('DELETE FROM t_p80499285_psot_realization_pro.tariff_modules WHERE module_id = %s', (module_id,))
+        cur.execute('DELETE FROM t_p80499285_psot_realization_pro.modules WHERE id = %s', (module_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return {
+            'statusCode': 200,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'success': True}, ensure_ascii=False),
+            'isBase64Encoded': False
+        }
+    
     cur.close()
     conn.close()
     
