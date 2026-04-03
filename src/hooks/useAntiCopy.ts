@@ -61,20 +61,6 @@ export function useAntiCopy() {
     const blockDrag = (e: DragEvent) => e.preventDefault();
     document.addEventListener('dragstart', blockDrag);
 
-    // Запрет встраивания в iframe (CSP через мета-тег)
-    const existingMeta = document.querySelector('meta[http-equiv="X-Frame-Options"]');
-    if (!existingMeta) {
-      const meta = document.createElement('meta');
-      meta.httpEquiv = 'X-Frame-Options';
-      meta.content = 'SAMEORIGIN';
-      document.head.appendChild(meta);
-    }
-
-    // Проверка что сайт не в iframe
-    if (window.top !== window.self) {
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Arial;color:red;font-size:20px;">Доступ запрещён</div>';
-    }
-
     return () => {
       document.removeEventListener('contextmenu', blockContext);
       document.removeEventListener('keydown', blockKeys);
