@@ -10,6 +10,8 @@ import MessageNotifications from "@/components/MessageNotifications";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Icon from "@/components/ui/icon";
 import { useOrganizationSync } from "@/hooks/useOrganizationSync";
+import { useSessionGuard } from "@/hooks/useSessionGuard";
+import { useAntiCopy } from "@/hooks/useAntiCopy";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import GlobalThemeToggle from "@/components/GlobalThemeToggle";
 import DemoProvider from "@/contexts/DemoContext";
@@ -131,9 +133,14 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => {
-  // Синхронизация organizationId для залогиненных пользователей
+const AppInner = () => {
   useOrganizationSync();
+  useSessionGuard();
+  useAntiCopy();
+  return null;
+};
+
+const App = () => {
   
   return (
     <ErrorBoundary>
@@ -145,6 +152,7 @@ const App = () => {
             <OfflineNotification />
             <DemoProvider>
             <BrowserRouter>
+              <AppInner />
               <ConditionalGlobalControls />
               <MessageNotifications />
         <Suspense fallback={<LoadingScreen />}>

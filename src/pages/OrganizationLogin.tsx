@@ -69,7 +69,11 @@ const OrganizationLogin = () => {
           action: 'login',
           email,
           password,
-          organization_code: orgCode
+          organization_code: orgCode,
+          deviceFingerprint: btoa([
+            navigator.userAgent, navigator.language, screen.width, screen.height,
+            Intl.DateTimeFormat().resolvedOptions().timeZone
+          ].join('|')).slice(0, 64)
         }),
       });
 

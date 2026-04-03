@@ -242,141 +242,228 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         elif action == 'login':
             import psycopg2
-            
-            email = body_data.get('email', '').strip()
+            import random
+            import string
+            from datetime import datetime, timedelta
+
+            SCHEMA = 't_p80499285_psot_realization_pro'
+            CORS = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+            MAX_ATTEMPTS = 5
+            BLOCK_MINUTES = 15
+            IP_BLOCK_THRESHOLD = 20
+            SESSION_HOURS = 8
+
+            email = body_data.get('email', '').strip().lower()
             password = body_data.get('password', '').strip()
-            
-            print(f"[AUTH DEBUG] Login attempt for email: {email}, password length: {len(password) if password else 0}")
-            
+            device_fp = body_data.get('deviceFingerprint', '')
+            user_agent = (event.get('headers') or {}).get('User-Agent', '')
+            ip = (event.get('requestContext') or {}).get('identity', {}).get('sourceIp', '') or \
+                 (event.get('headers') or {}).get('X-Forwarded-For', '').split(',')[0].strip()
+
+            print(f"[AUTH] Login: {email}, IP: {ip}")
+
             if not email or not password:
-                return {
-                    'statusCode': 400,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    },
-                    'isBase64Encoded': False,
-                    'body': json.dumps({'success': False, 'error': 'Email and password required'})
-                }
-            
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
-            print(f"[AUTH DEBUG] Computed hash: {password_hash}")
-            
+                return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'Email и пароль обязательны'})}
+
             conn = psycopg2.connect(os.environ['DATABASE_URL'])
             cur = conn.cursor()
-            
-            email_escaped = email.replace("'", "''")
-            password_hash_escaped = password_hash.replace("'", "''")
+            now = datetime.now()
+
+            # 1. Проверка блокировки IP
+            if ip:
+                ip_esc = ip.replace("'", "''")
+                cur.execute(f"SELECT blocked_until FROM {SCHEMA}.ip_blocks WHERE ip_address = '{ip_esc}' AND blocked_until > NOW()")
+                ip_block = cur.fetchone()
+                if ip_block:
+                    cur.close(); conn.close()
+                    return {'statusCode': 429, 'headers': CORS, 'isBase64Encoded': False,
+                            'body': json.dumps({'success': False, 'error': 'ip_blocked',
+                                'message': f'Слишком много попыток входа. Ваш IP заблокирован до {ip_block[0].strftime("%H:%M")}'})}
+
+            # 2. Проверка попыток входа по email (последние 15 минут)
+            email_esc = email.replace("'", "''")
             cur.execute(f"""
-                SELECT u.id, u.fio, u.subdivision, u.position, u.role, u.organization_id, 
+                SELECT COUNT(*) FROM {SCHEMA}.login_attempts
+                WHERE email = '{email_esc}' AND success = false
+                AND created_at > NOW() - INTERVAL '{BLOCK_MINUTES} minutes'
+            """)
+            fail_count = cur.fetchone()[0]
+
+            if fail_count >= MAX_ATTEMPTS:
+                cur.close(); conn.close()
+                return {'statusCode': 429, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'too_many_attempts',
+                            'message': f'Слишком много неверных попыток. Попробуйте через {BLOCK_MINUTES} минут.'})}
+
+            # 3. Проверка блокировки IP по количеству попыток с разных аккаунтов
+            if ip:
+                cur.execute(f"""
+                    SELECT COUNT(*) FROM {SCHEMA}.login_attempts
+                    WHERE ip_address = '{ip_esc}' AND success = false
+                    AND created_at > NOW() - INTERVAL '10 minutes'
+                """)
+                ip_fail_count = cur.fetchone()[0]
+                if ip_fail_count >= IP_BLOCK_THRESHOLD:
+                    block_until = now + timedelta(hours=1)
+                    cur.execute(f"""
+                        INSERT INTO {SCHEMA}.ip_blocks (ip_address, blocked_until, reason)
+                        VALUES ('{ip_esc}', '{block_until}', 'Автоблокировка: {ip_fail_count} неверных попыток')
+                        ON CONFLICT (ip_address) DO UPDATE SET blocked_until = '{block_until}'
+                    """)
+                    conn.commit()
+                    cur.close(); conn.close()
+                    return {'statusCode': 429, 'headers': CORS, 'isBase64Encoded': False,
+                            'body': json.dumps({'success': False, 'error': 'ip_blocked',
+                                'message': 'Подозрительная активность. IP заблокирован на 1 час.'})}
+
+            # 4. Основная аутентификация
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            ph_esc = password_hash.replace("'", "''")
+            cur.execute(f"""
+                SELECT u.id, u.fio, u.subdivision, u.position, u.role, u.organization_id,
                        u.is_blocked, u.blocked_until, o.is_blocked, o.blocked_until, o.registration_code,
-                       COALESCE(u.company, o.name, '') as company
-                FROM t_p80499285_psot_realization_pro.users u 
-                LEFT JOIN t_p80499285_psot_realization_pro.organizations o ON u.organization_id = o.id 
-                WHERE u.email = '{email_escaped}' AND u.password_hash = '{password_hash_escaped}'
+                       COALESCE(u.company, o.name, '') as company, u.email
+                FROM {SCHEMA}.users u
+                LEFT JOIN {SCHEMA}.organizations o ON u.organization_id = o.id
+                WHERE u.email = '{email_esc}' AND u.password_hash = '{ph_esc}'
             """)
             result = cur.fetchone()
-            print(f"[AUTH DEBUG] Final query result: {result is not None}")
-            
-            cur.close()
-            conn.close()
-            
-            if result:
-                from datetime import datetime
-                user_blocked = result[6]
-                user_blocked_until = result[7]
-                org_blocked = result[8]
-                org_blocked_until = result[9]
-                
-                if user_blocked:
-                    if user_blocked_until and datetime.now() < user_blocked_until:
-                        return {
-                            'statusCode': 403,
-                            'headers': {
-                                'Content-Type': 'application/json',
-                                'Access-Control-Allow-Origin': '*'
-                            },
-                            'isBase64Encoded': False,
-                            'body': json.dumps({
-                                'success': False, 
-                                'error': 'blocked',
-                                'message': f'Ваш аккаунт был заблокирован по неизвестной причине, просьба обратиться к администратору вашего предприятия, не забудьте назвать свой id №{result[0]}'
-                            })
-                        }
-                    elif not user_blocked_until:
-                        return {
-                            'statusCode': 403,
-                            'headers': {
-                                'Content-Type': 'application/json',
-                                'Access-Control-Allow-Origin': '*'
-                            },
-                            'isBase64Encoded': False,
-                            'body': json.dumps({
-                                'success': False, 
-                                'error': 'blocked',
-                                'message': f'Ваш аккаунт был заблокирован по неизвестной причине, просьба обратиться к администратору вашего предприятия, не забудьте назвать свой id №{result[0]}'
-                            })
-                        }
-                
-                if org_blocked and result[5]:
-                    if org_blocked_until and datetime.now() < org_blocked_until:
-                        return {
-                            'statusCode': 403,
-                            'headers': {
-                                'Content-Type': 'application/json',
-                                'Access-Control-Allow-Origin': '*'
-                            },
-                            'isBase64Encoded': False,
-                            'body': json.dumps({
-                                'success': False, 
-                                'error': 'blocked',
-                                'message': 'Ваше предприятие временно заблокировано. Обратитесь к главному администратору системы.'
-                            })
-                        }
-                    elif not org_blocked_until:
-                        return {
-                            'statusCode': 403,
-                            'headers': {
-                                'Content-Type': 'application/json',
-                                'Access-Control-Allow-Origin': '*'
-                            },
-                            'isBase64Encoded': False,
-                            'body': json.dumps({
-                                'success': False, 
-                                'error': 'blocked',
-                                'message': 'Ваше предприятие заблокировано. Обратитесь к главному администратору системы.'
-                            })
-                        }
-                
-                return {
-                    'statusCode': 200,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    },
-                    'isBase64Encoded': False,
-                    'body': json.dumps({
-                        'success': True,
-                        'userId': result[0],
-                        'fio': result[1],
-                        'subdivision': result[2],
-                        'position': result[3],
-                        'role': result[4],
-                        'organizationId': result[5],
-                        'registrationCode': result[10] if result[10] else None,
-                        'company': result[11] if result[11] else None
+
+            ip_val = f"'{ip_esc}'" if ip else 'NULL'
+            ua_esc = user_agent.replace("'", "''")
+
+            if not result:
+                # Фиксируем неудачную попытку
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.login_attempts (email, ip_address, success)
+                    VALUES ('{email_esc}', {ip_val}, false)
+                """)
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.login_log (email, ip_address, user_agent, success, fail_reason)
+                    VALUES ('{email_esc}', {ip_val}, '{ua_esc}', false, 'invalid_credentials')
+                """)
+                conn.commit()
+                remaining = MAX_ATTEMPTS - fail_count - 1
+                cur.close(); conn.close()
+                msg = f'Неверный логин или пароль. Осталось попыток: {remaining}' if remaining > 0 else \
+                      f'Неверный логин или пароль. Следующая попытка через {BLOCK_MINUTES} мин.'
+                return {'statusCode': 401, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'invalid_credentials', 'message': msg})}
+
+            user_id = result[0]
+            user_blocked = result[6]
+            user_blocked_until = result[7]
+            org_blocked = result[8]
+            org_blocked_until = result[9]
+
+            # 5. Проверка блокировки пользователя
+            if user_blocked and (not user_blocked_until or now < user_blocked_until):
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.login_log (user_id, email, ip_address, user_agent, success, fail_reason)
+                    VALUES ({user_id}, '{email_esc}', {ip_val}, '{ua_esc}', false, 'user_blocked')
+                """)
+                conn.commit()
+                cur.close(); conn.close()
+                return {'statusCode': 403, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'blocked',
+                            'message': f'Ваш аккаунт заблокирован. Обратитесь к администратору (ID №{user_id})'})}
+
+            # 6. Проверка блокировки организации
+            if org_blocked and result[5] and (not org_blocked_until or now < org_blocked_until):
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.login_log (user_id, email, ip_address, user_agent, success, fail_reason)
+                    VALUES ({user_id}, '{email_esc}', {ip_val}, '{ua_esc}', false, 'org_blocked')
+                """)
+                conn.commit()
+                cur.close(); conn.close()
+                return {'statusCode': 403, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'blocked',
+                            'message': 'Ваше предприятие заблокировано. Обратитесь к главному администратору.'})}
+
+            # 7. Фиксируем успешный вход
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.login_attempts (email, ip_address, success)
+                VALUES ('{email_esc}', {ip_val}, true)
+            """)
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.login_log (user_id, email, ip_address, user_agent, success)
+                VALUES ({user_id}, '{email_esc}', {ip_val}, '{ua_esc}', true)
+            """)
+
+            # 8. Проверка нового устройства и отправка уведомления
+            is_new_device = False
+            if device_fp:
+                fp_esc = device_fp.replace("'", "''")
+                cur.execute(f"""
+                    SELECT id FROM {SCHEMA}.known_devices
+                    WHERE user_id = {user_id} AND device_fingerprint = '{fp_esc}'
+                """)
+                known = cur.fetchone()
+                if not known:
+                    is_new_device = True
+                    cur.execute(f"""
+                        INSERT INTO {SCHEMA}.known_devices (user_id, device_fingerprint, user_agent)
+                        VALUES ({user_id}, '{fp_esc}', '{ua_esc}')
+                    """)
+                else:
+                    cur.execute(f"""
+                        UPDATE {SCHEMA}.known_devices SET last_seen = NOW()
+                        WHERE user_id = {user_id} AND device_fingerprint = '{fp_esc}'
+                    """)
+
+            conn.commit()
+            cur.close(); conn.close()
+
+            # 9. Если новое устройство — отправить email уведомление (асинхронно, не блокируем вход)
+            if is_new_device and email:
+                try:
+                    import urllib.request
+                    send_email_url = 'https://functions.poehali.dev/3a8b2c1d-send-email-placeholder'
+                    notify_body = json.dumps({
+                        'email': email,
+                        'subject': 'Вход с нового устройства — АСУБТ',
+                        'html_content': f'''
+                            <div style="font-family:Arial,sans-serif;max-width:500px">
+                                <h2 style="color:#dc2626">⚠️ Новый вход в аккаунт</h2>
+                                <p>Зафиксирован вход в систему АСУБТ с нового устройства.</p>
+                                <table style="width:100%;border-collapse:collapse">
+                                    <tr><td style="padding:8px;color:#666">Время:</td><td style="padding:8px"><b>{now.strftime("%d.%m.%Y %H:%M")}</b></td></tr>
+                                    <tr><td style="padding:8px;color:#666">IP-адрес:</td><td style="padding:8px"><b>{ip or "неизвестен"}</b></td></tr>
+                                    <tr><td style="padding:8px;color:#666">Устройство:</td><td style="padding:8px"><b>{user_agent[:80] if user_agent else "неизвестно"}</b></td></tr>
+                                </table>
+                                <p style="color:#dc2626">Если это были не вы — немедленно смените пароль.</p>
+                            </div>
+                        ''',
+                        'sender_name': 'АСУБТ Безопасность'
                     })
-                }
-            else:
-                return {
-                    'statusCode': 401,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    },
-                    'isBase64Encoded': False,
-                    'body': json.dumps({'success': False, 'error': 'Invalid credentials'})
-                }
+                    req = urllib.request.Request(
+                        'https://functions.poehali.dev/4c959f6c-567d-4173-8a4b-d5a78340d3eb',
+                        data=notify_body.encode(),
+                        headers={'Content-Type': 'application/json'},
+                        method='POST'
+                    )
+                    urllib.request.urlopen(req, timeout=5)
+                except Exception as e:
+                    print(f"[AUTH] New device email error: {e}")
+
+            return {
+                'statusCode': 200,
+                'headers': CORS,
+                'isBase64Encoded': False,
+                'body': json.dumps({
+                    'success': True,
+                    'userId': result[0],
+                    'fio': result[1],
+                    'subdivision': result[2],
+                    'position': result[3],
+                    'role': result[4],
+                    'organizationId': result[5],
+                    'registrationCode': result[10] if result[10] else None,
+                    'company': result[11] if result[11] else None,
+                    'isNewDevice': is_new_device
+                })
+            }
     
     return {
         'statusCode': 405,

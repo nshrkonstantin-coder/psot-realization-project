@@ -19,15 +19,16 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log('Login attempt:', { email, passwordLength: password.length });
-    
-    const action = isRegister ? 'register' : 'login';
-    const body = isRegister 
-      ? { action, email, password, fio, company, subdivision, position }
-      : { action, email, password };
 
-    console.log('Sending request:', { action, email });
+    const deviceFingerprint = btoa([
+      navigator.userAgent, navigator.language, screen.width, screen.height,
+      Intl.DateTimeFormat().resolvedOptions().timeZone
+    ].join('|')).slice(0, 64);
+
+    const action = isRegister ? 'register' : 'login';
+    const body = isRegister
+      ? { action, email, password, fio, company, subdivision, position, deviceFingerprint }
+      : { action, email, password, deviceFingerprint };
 
     try {
       const response = await fetch('https://functions.poehali.dev/eb523ac0-0903-4780-8f5d-7e0546c1eda5', {
