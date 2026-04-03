@@ -73,14 +73,14 @@ const OrganizationLogin = () => {
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        toast({ title: 'Ошибка', description: errorData.error || 'Ошибка авторизации', variant: 'destructive' });
+      const data = await response.json();
+
+      if (!data.success) {
+        const msg = data.message || data.error || 'Неверный логин или пароль';
+        toast({ title: 'Ошибка входа', description: msg, variant: 'destructive' });
         setSubmitting(false);
         return;
       }
-
-      const data = await response.json();
 
       if (data.success) {
         // Проверяем, совпадает ли код организации пользователя с текущим
