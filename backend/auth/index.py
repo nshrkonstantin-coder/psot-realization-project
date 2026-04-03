@@ -253,7 +253,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             IP_BLOCK_THRESHOLD = 20
             SESSION_HOURS = 8
 
-            email = body_data.get('email', '').strip().lower()
+            email = body_data.get('email', '').strip()
             password = body_data.get('password', '').strip()
             device_fp = body_data.get('deviceFingerprint', '')
             user_agent = (event.get('headers') or {}).get('User-Agent', '')
@@ -326,7 +326,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                        COALESCE(u.company, o.name, '') as company, u.email
                 FROM {SCHEMA}.users u
                 LEFT JOIN {SCHEMA}.organizations o ON u.organization_id = o.id
-                WHERE u.email = '{email_esc}' AND u.password_hash = '{ph_esc}'
+                WHERE LOWER(u.email) = LOWER('{email_esc}') AND u.password_hash = '{ph_esc}'
             """)
             result = cur.fetchone()
 
