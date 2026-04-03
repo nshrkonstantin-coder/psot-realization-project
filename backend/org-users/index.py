@@ -16,7 +16,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, X-User-Id, X-User-Role',
                 'Access-Control-Max-Age': '86400'
             },
@@ -97,6 +97,67 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'body': json.dumps(users)
         }
     
+    if method == 'PUT':
+        import psycopg2
+        import hashlib
+
+        SCHEMA = 't_p80499285_psot_realization_pro'
+        CORS = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+
+        body = json.loads(event.get('body', '{}'))
+        user_id = body.get('id')
+
+        if not user_id:
+            return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'id пользователя обязателен'})}
+
+        fio = (body.get('fio') or '').strip()
+        email = (body.get('email') or '').strip()
+        subdivision = (body.get('subdivision') or '').strip()
+        position = (body.get('position') or '').strip()
+        role = (body.get('role') or '').strip()
+        new_password = (body.get('password') or '').strip()
+
+        if not fio or not email:
+            return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'ФИО и email обязательны'})}
+
+        conn = psycopg2.connect(os.environ['DATABASE_URL'])
+        cur = conn.cursor()
+
+        fio_e = fio.replace("'", "''")
+        email_e = email.replace("'", "''")
+        sub_e = subdivision.replace("'", "''")
+        pos_e = position.replace("'", "''")
+        role_e = role.replace("'", "''") if role in ('user', 'admin', 'miniadmin') else 'user'
+
+        # Проверяем уникальность email (не занят другим пользователем)
+        cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE LOWER(email) = LOWER('{email_e}') AND id != {user_id}")
+        if cur.fetchone():
+            cur.close(); conn.close()
+            return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'Этот email уже занят другим пользователем'})}
+
+        # Обновляем данные пользователя
+        cur.execute(f"""
+            UPDATE {SCHEMA}.users
+            SET fio = '{fio_e}', email = '{email_e}',
+                subdivision = '{sub_e}', position = '{pos_e}', role = '{role_e}'
+            WHERE id = {user_id}
+        """)
+
+        # Если указан новый пароль — меняем хеш
+        if new_password and len(new_password) >= 6:
+            ph = hashlib.sha256(new_password.encode()).hexdigest()
+            cur.execute(f"UPDATE {SCHEMA}.users SET password_hash = '{ph}' WHERE id = {user_id}")
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                'body': json.dumps({'success': True})}
+
     return {
         'statusCode': 405,
         'headers': {'Access-Control-Allow-Origin': '*'},
