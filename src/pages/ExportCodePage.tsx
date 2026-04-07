@@ -6,15 +6,10 @@ import Icon from "@/components/ui/icon";
 
 const EXPORT_URL = "https://functions.poehali.dev/eeed067c-4b0d-4318-80ef-e6af2f6a5a33";
 
-// Загружаем все исходные файлы через Vite glob import
+// Загружаем все фронтенд-файлы через Vite glob import (только src/)
 const frontendModules = import.meta.glob(
-  ["/src/**/*.ts", "/src/**/*.tsx", "/src/**/*.css"],
-  { as: "raw", eager: true }
-);
-
-const backendModules = import.meta.glob(
-  ["/backend/**/*.py"],
-  { as: "raw", eager: true }
+  ["../**/*.ts", "../**/*.tsx", "../**/*.css"],
+  { query: "?raw", eager: true, import: "default" }
 );
 
 export default function ExportCodePage() {
@@ -25,7 +20,6 @@ export default function ExportCodePage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const frontendCount = Object.keys(frontendModules).length;
-  const backendCount = Object.keys(backendModules).length;
 
   const handleExport = async () => {
     setStatus("loading");
@@ -35,23 +29,12 @@ export default function ExportCodePage() {
     try {
       const files: { path: string; content: string; section: string }[] = [];
 
-      // Фронтенд файлы
       for (const [path, content] of Object.entries(frontendModules)) {
+        const cleanPath = path.replace(/^\.\.\//, "src/");
         files.push({
-          path: path.replace(/^\//, ""),
+          path: cleanPath,
           content: content as string,
           section: "frontend",
-        });
-      }
-
-      setProgress(40);
-
-      // Бэкенд файлы
-      for (const [path, content] of Object.entries(backendModules)) {
-        files.push({
-          path: path.replace(/^\//, ""),
-          content: content as string,
-          section: "backend",
         });
       }
 
@@ -92,19 +75,9 @@ export default function ExportCodePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-blue-50 rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{frontendCount}</div>
-              <div className="text-sm text-gray-600">TypeScript / TSX файлов</div>
-            </div>
-            <div className="bg-green-50 rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">{backendCount}</div>
-              <div className="text-sm text-gray-600">Python файлов</div>
-            </div>
-          </div>
-
-          <div className="text-sm text-gray-500 text-center">
-            Всего файлов: <strong>{frontendCount + backendCount}</strong>
+          <div className="bg-blue-50 rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600">{frontendCount}</div>
+            <div className="text-sm text-gray-600">TypeScript / TSX / CSS файлов</div>
           </div>
 
           {status === "idle" && (
@@ -128,10 +101,10 @@ export default function ExportCodePage() {
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
                 <Icon name="CheckCircle" size={32} className="text-green-500 mx-auto mb-2" />
                 <p className="font-medium text-green-700">Документ готов!</p>
-                <p className="text-sm text-gray-500">Файлов в документе: {totalFiles}</p>
+                <p className="text-sm text-gray-500">Файлов: {totalFiles}</p>
               </div>
               <a href={downloadUrl} download="source_code.docx" target="_blank" rel="noreferrer">
-                <Button className="w-full" size="lg" variant="default">
+                <Button className="w-full" size="lg">
                   <Icon name="Download" size={18} className="mr-2" />
                   Скачать source_code.docx
                 </Button>
