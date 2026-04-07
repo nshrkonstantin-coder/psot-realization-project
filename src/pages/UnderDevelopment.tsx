@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
+import ExportCodePage from "./ExportCodePage";
 
 const UnderDevelopment = () => {
   const location = useLocation();
@@ -13,6 +14,10 @@ const UnderDevelopment = () => {
       location.pathname
     );
   }, [location.pathname]);
+
+  if (location.pathname === "/export-code") {
+    return <ExportCodePage />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-6">
