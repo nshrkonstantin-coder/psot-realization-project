@@ -1,13 +1,20 @@
 {
   "tests": [
     {
-      "name": "Генерация Word с переданными файлами",
+      "name": "GET - количество Python файлов",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"backend_count": 0},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "POST - генерация Word документа",
       "method": "POST",
       "path": "/",
       "body": {
         "files": [
-          {"path": "src/App.tsx", "content": "export default function App() { return <div>Hello</div> }", "section": "frontend"},
-          {"path": "backend/auth/index.py", "content": "def handler(event, context): return {'statusCode': 200}", "section": "backend"}
+          {"path": "src/App.tsx", "content": "export default function App() {}", "section": "frontend"}
         ]
       },
       "expectedStatus": 200,

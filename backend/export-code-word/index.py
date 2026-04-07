@@ -23,11 +23,33 @@ def add_code_block(doc, code_text):
     pPr.append(shd)
 
 
+def collect_backend_files():
+    """Читает все .py файлы из папки функций на сервере"""
+    result = []
+    base = '/var/task'
+    if not os.path.exists(base):
+        return result
+    for dirpath, dirnames, filenames in os.walk(base):
+        dirnames.sort()
+        for filename in sorted(filenames):
+            if not filename.endswith('.py'):
+                continue
+            filepath = os.path.join(dirpath, filename)
+            rel_path = os.path.relpath(filepath, base)
+            try:
+                with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+                    content = f.read()
+            except Exception as e:
+                content = f'# Ошибка чтения: {e}'
+            result.append({'path': 'backend/' + rel_path, 'content': content, 'section': 'backend'})
+    return result
+
+
 def handler(event: dict, context) -> dict:
     """
-    Принимает список файлов через POST и генерирует Word-документ с исходным кодом.
+    POST: принимает фронтенд-файлы, сам читает Python-файлы с сервера, генерирует Word-документ.
     Body: { "files": [{"path": "src/App.tsx", "content": "...", "section": "frontend"}, ...] }
-    Возвращает ссылку на скачивание Word-документа из S3.
+    GET: возвращает список и количество Python-файлов доступных на сервере.
     """
 
     if event.get('httpMethod') == 'OPTIONS':
@@ -42,11 +64,21 @@ def handler(event: dict, context) -> dict:
             'body': ''
         }
 
+    # GET — вернуть количество Python-файлов
+    if event.get('httpMethod') == 'GET':
+        backend_files = collect_backend_files()
+        return {
+            'statusCode': 200,
+            'headers': {'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'},
+            'body': json.dumps({'backend_count': len(backend_files)})
+        }
+
+    # POST — генерация документа
     body = json.loads(event.get('body') or '{}')
-    files = body.get('files', [])
+    frontend_files = [f for f in body.get('files', []) if f.get('section') == 'frontend']
+    backend_files = collect_backend_files()
 
     doc = Document()
-
     style = doc.styles['Normal']
     style.font.name = 'Arial'
     style.font.size = Pt(10)
@@ -56,9 +88,6 @@ def handler(event: dict, context) -> dict:
     doc.add_paragraph('Автоматически сгенерированный документ со всеми исходными файлами проекта.')
     doc.add_paragraph()
 
-    frontend_files = [f for f in files if f.get('section') == 'frontend']
-    backend_files = [f for f in files if f.get('section') == 'backend']
-
     for section_title, section_files in [
         ('Раздел 1. Фронтенд (TypeScript / TSX / CSS)', frontend_files),
         ('Раздел 2. Бэкенд (Python)', backend_files),
@@ -66,18 +95,14 @@ def handler(event: dict, context) -> dict:
         doc.add_heading(section_title, level=1)
 
         if not section_files:
-            doc.add_paragraph('Файлы не переданы.')
+            doc.add_paragraph('Файлы не найдены.')
             continue
 
         for file_item in section_files:
             path = file_item.get('path', 'unknown')
-            content = file_item.get('content', '')
+            content = file_item.get('content', '') or '// Файл пустой'
 
             doc.add_heading(path, level=2)
-
-            if not content.strip():
-                content = '// Файл пустой'
-
             add_code_block(doc, content)
 
             sep = doc.add_paragraph('─' * 100)
@@ -85,9 +110,11 @@ def handler(event: dict, context) -> dict:
                 sep.runs[0].font.size = Pt(6)
                 sep.runs[0].font.color.rgb = RGBColor(0xCC, 0xCC, 0xCC)
 
-    total_files = len(files)
+    total_files = len(frontend_files) + len(backend_files)
     doc.add_heading('Итого', level=1)
-    doc.add_paragraph(f'Всего файлов в документе: {total_files}')
+    doc.add_paragraph(f'Фронтенд файлов: {len(frontend_files)}')
+    doc.add_paragraph(f'Бэкенд файлов: {len(backend_files)}')
+    doc.add_paragraph(f'Всего: {total_files}')
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -113,14 +140,13 @@ def handler(event: dict, context) -> dict:
 
     return {
         'statusCode': 200,
-        'headers': {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json'
-        },
+        'headers': {'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'},
         'body': json.dumps({
             'success': True,
             'url': cdn_url,
             'total_files': total_files,
+            'frontend_count': len(frontend_files),
+            'backend_count': len(backend_files),
             'message': f'Документ создан. Файлов: {total_files}'
         })
     }

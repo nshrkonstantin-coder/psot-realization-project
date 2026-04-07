@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -6,7 +6,6 @@ import Icon from "@/components/ui/icon";
 
 const EXPORT_URL = "https://functions.poehali.dev/eeed067c-4b0d-4318-80ef-e6af2f6a5a33";
 
-// Загружаем все фронтенд-файлы через Vite glob import (только src/)
 const frontendModules = import.meta.glob(
   ["../**/*.ts", "../**/*.tsx", "../**/*.css"],
   { query: "?raw", eager: true, import: "default" }
@@ -17,9 +16,19 @@ export default function ExportCodePage() {
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState("");
   const [totalFiles, setTotalFiles] = useState(0);
+  const [frontendResult, setFrontendResult] = useState(0);
+  const [backendResult, setBackendResult] = useState(0);
+  const [backendCount, setBackendCount] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
   const frontendCount = Object.keys(frontendModules).length;
+
+  useEffect(() => {
+    fetch(EXPORT_URL)
+      .then((r) => r.json())
+      .then((d) => setBackendCount(d.backend_count ?? 0))
+      .catch(() => setBackendCount(0));
+  }, []);
 
   const handleExport = async () => {
     setStatus("loading");
@@ -31,15 +40,10 @@ export default function ExportCodePage() {
 
       for (const [path, content] of Object.entries(frontendModules)) {
         const cleanPath = path.replace(/^\.\.\//, "src/");
-        files.push({
-          path: cleanPath,
-          content: content as string,
-          section: "frontend",
-        });
+        files.push({ path: cleanPath, content: content as string, section: "frontend" });
       }
 
-      setProgress(60);
-      setTotalFiles(files.length);
+      setProgress(50);
 
       const response = await fetch(EXPORT_URL, {
         method: "POST",
@@ -48,12 +52,13 @@ export default function ExportCodePage() {
       });
 
       setProgress(90);
-
       const data = await response.json();
 
       if (data.success) {
         setDownloadUrl(data.url);
         setTotalFiles(data.total_files);
+        setFrontendResult(data.frontend_count);
+        setBackendResult(data.backend_count);
         setStatus("done");
         setProgress(100);
       } else {
@@ -75,9 +80,25 @@ export default function ExportCodePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="bg-blue-50 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{frontendCount}</div>
-            <div className="text-sm text-gray-600">TypeScript / TSX / CSS файлов</div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-blue-50 rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold text-blue-600">{frontendCount}</div>
+              <div className="text-sm text-gray-600">TypeScript / TSX / CSS</div>
+            </div>
+            <div className="bg-green-50 rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {backendCount === null ? "..." : backendCount}
+              </div>
+              <div className="text-sm text-gray-600">Python файлов</div>
+            </div>
+          </div>
+
+          <div className="text-sm text-gray-500 text-center">
+            Всего файлов:{" "}
+            <strong>
+              {backendCount === null ? "..." : frontendCount + backendCount}
+            </strong>
           </div>
 
           {status === "idle" && (
@@ -101,7 +122,9 @@ export default function ExportCodePage() {
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
                 <Icon name="CheckCircle" size={32} className="text-green-500 mx-auto mb-2" />
                 <p className="font-medium text-green-700">Документ готов!</p>
-                <p className="text-sm text-gray-500">Файлов: {totalFiles}</p>
+                <p className="text-sm text-gray-500">
+                  Фронтенд: {frontendResult} · Бэкенд: {backendResult} · Всего: {totalFiles}
+                </p>
               </div>
               <a href={downloadUrl} download="source_code.docx" target="_blank" rel="noreferrer">
                 <Button className="w-full" size="lg">
@@ -127,6 +150,7 @@ export default function ExportCodePage() {
               </Button>
             </div>
           )}
+
         </CardContent>
       </Card>
     </div>
