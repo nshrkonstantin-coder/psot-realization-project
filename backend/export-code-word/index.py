@@ -2,11 +2,18 @@ import os
 import io
 import json
 import boto3
+import psycopg2
 from docx import Document
 from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+
+SCHEMA = os.environ.get('MAIN_DB_SCHEMA', 't_p80499285_psot_realization_pro')
+
+
+def get_conn():
+    return psycopg2.connect(os.environ['DATABASE_URL'])
 
 
 def add_code_block(doc, code_text):
@@ -23,33 +30,11 @@ def add_code_block(doc, code_text):
     pPr.append(shd)
 
 
-def collect_backend_files():
-    """Читает все .py файлы из папки функций на сервере"""
-    result = []
-    base = '/var/task'
-    if not os.path.exists(base):
-        return result
-    for dirpath, dirnames, filenames in os.walk(base):
-        dirnames.sort()
-        for filename in sorted(filenames):
-            if not filename.endswith('.py'):
-                continue
-            filepath = os.path.join(dirpath, filename)
-            rel_path = os.path.relpath(filepath, base)
-            try:
-                with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
-                    content = f.read()
-            except Exception as e:
-                content = f'# Ошибка чтения: {e}'
-            result.append({'path': 'backend/' + rel_path, 'content': content, 'section': 'backend'})
-    return result
-
-
 def handler(event: dict, context) -> dict:
     """
-    POST: принимает фронтенд-файлы, сам читает Python-файлы с сервера, генерирует Word-документ.
-    Body: { "files": [{"path": "src/App.tsx", "content": "...", "section": "frontend"}, ...] }
-    GET: возвращает список и количество Python-файлов доступных на сервере.
+    GET  — возвращает статистику файлов из БД.
+    POST action=save_files — сохраняет файлы в БД (принимает список файлов).
+    POST action=generate   — генерирует Word из файлов в БД.
     """
 
     if event.get('httpMethod') == 'OPTIONS':
@@ -64,19 +49,68 @@ def handler(event: dict, context) -> dict:
             'body': ''
         }
 
-    # GET — вернуть количество Python-файлов
+    headers = {'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'}
+
+    # GET — статистика
     if event.get('httpMethod') == 'GET':
-        backend_files = collect_backend_files()
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(f"SELECT section, COUNT(*) FROM {SCHEMA}.source_files GROUP BY section")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        stats = {row[0]: row[1] for row in rows}
         return {
             'statusCode': 200,
-            'headers': {'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'},
-            'body': json.dumps({'backend_count': len(backend_files)})
+            'headers': headers,
+            'body': json.dumps({
+                'frontend_count': stats.get('frontend', 0),
+                'backend_count': stats.get('backend', 0),
+                'total': sum(stats.values())
+            })
         }
 
-    # POST — генерация документа
     body = json.loads(event.get('body') or '{}')
-    frontend_files = [f for f in body.get('files', []) if f.get('section') == 'frontend']
-    backend_files = collect_backend_files()
+    action = body.get('action', 'generate')
+
+    # POST action=save_files — сохранить файлы в БД
+    if action == 'save_files':
+        files = body.get('files', [])
+        if not files:
+            return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'Нет файлов'})}
+
+        conn = get_conn()
+        cur = conn.cursor()
+        saved = 0
+        for f in files:
+            path = f.get('path', '').replace("'", "''")
+            content = f.get('content', '').replace("'", "''")
+            section = f.get('section', 'backend').replace("'", "''")
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.source_files (file_path, file_content, section)
+                VALUES ('{path}', '{content}', '{section}')
+                ON CONFLICT (file_path) DO UPDATE SET file_content = EXCLUDED.file_content, updated_at = NOW()
+            """)
+            saved += 1
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 200,
+            'headers': headers,
+            'body': json.dumps({'success': True, 'saved': saved})
+        }
+
+    # POST action=generate — генерация Word из БД
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(f"SELECT file_path, file_content, section FROM {SCHEMA}.source_files ORDER BY section, file_path")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    frontend_files = [{'path': r[0], 'content': r[1]} for r in rows if r[2] == 'frontend']
+    backend_files  = [{'path': r[0], 'content': r[1]} for r in rows if r[2] == 'backend']
 
     doc = Document()
     style = doc.styles['Normal']
@@ -93,33 +127,26 @@ def handler(event: dict, context) -> dict:
         ('Раздел 2. Бэкенд (Python)', backend_files),
     ]:
         doc.add_heading(section_title, level=1)
-
         if not section_files:
-            doc.add_paragraph('Файлы не найдены.')
+            doc.add_paragraph('Файлы не загружены.')
             continue
-
-        for file_item in section_files:
-            path = file_item.get('path', 'unknown')
-            content = file_item.get('content', '') or '// Файл пустой'
-
-            doc.add_heading(path, level=2)
-            add_code_block(doc, content)
-
+        for f in section_files:
+            doc.add_heading(f['path'], level=2)
+            add_code_block(doc, f['content'] or '// Файл пустой')
             sep = doc.add_paragraph('─' * 100)
             if sep.runs:
                 sep.runs[0].font.size = Pt(6)
                 sep.runs[0].font.color.rgb = RGBColor(0xCC, 0xCC, 0xCC)
 
-    total_files = len(frontend_files) + len(backend_files)
+    total = len(frontend_files) + len(backend_files)
     doc.add_heading('Итого', level=1)
-    doc.add_paragraph(f'Фронтенд файлов: {len(frontend_files)}')
-    doc.add_paragraph(f'Бэкенд файлов: {len(backend_files)}')
-    doc.add_paragraph(f'Всего: {total_files}')
+    doc.add_paragraph(f'Фронтенд: {len(frontend_files)} файлов')
+    doc.add_paragraph(f'Бэкенд: {len(backend_files)} файлов')
+    doc.add_paragraph(f'Всего: {total}')
 
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
-    docx_bytes = buffer.read()
 
     s3 = boto3.client(
         's3',
@@ -127,26 +154,20 @@ def handler(event: dict, context) -> dict:
         aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
         aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
     )
-
     key = 'exports/source_code.docx'
-    s3.put_object(
-        Bucket='files',
-        Key=key,
-        Body=docx_bytes,
-        ContentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    )
+    s3.put_object(Bucket='files', Key=key, Body=buffer.read(),
+                  ContentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
 
     cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
 
     return {
         'statusCode': 200,
-        'headers': {'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'},
+        'headers': headers,
         'body': json.dumps({
             'success': True,
             'url': cdn_url,
-            'total_files': total_files,
+            'total_files': total,
             'frontend_count': len(frontend_files),
             'backend_count': len(backend_files),
-            'message': f'Документ создан. Файлов: {total_files}'
         })
     }

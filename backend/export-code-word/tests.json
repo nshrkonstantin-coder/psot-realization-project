@@ -1,22 +1,32 @@
 {
   "tests": [
     {
-      "name": "GET - количество Python файлов",
+      "name": "GET - статистика файлов",
       "method": "GET",
       "path": "/",
       "expectedStatus": 200,
-      "expectedBody": {"backend_count": 0},
+      "expectedBody": {"total": 0},
       "bodyMatcher": "partial"
     },
     {
-      "name": "POST - генерация Word документа",
+      "name": "POST save_files - сохранить файлы",
       "method": "POST",
       "path": "/",
       "body": {
+        "action": "save_files",
         "files": [
-          {"path": "src/App.tsx", "content": "export default function App() {}", "section": "frontend"}
+          {"path": "backend/test/index.py", "content": "def handler(e, c): pass", "section": "backend"}
         ]
       },
+      "expectedStatus": 200,
+      "expectedBody": {"success": true},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "POST generate - генерация Word",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "generate"},
       "expectedStatus": 200,
       "expectedBody": {"success": true},
       "bodyMatcher": "partial"
