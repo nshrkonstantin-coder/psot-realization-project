@@ -6,16 +6,21 @@ import Icon from "@/components/ui/icon";
 
 const EXPORT_URL = "https://functions.poehali.dev/eeed067c-4b0d-4318-80ef-e6af2f6a5a33";
 
+type Section = "backend" | "frontend";
+type UploadState = { status: "idle" | "uploading" | "done" | "error"; progress: number; msg: string };
+
 export default function ExportCodePage() {
   const [stats, setStats] = useState({ frontend_count: 0, backend_count: 0, total: 0 });
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
+  const [uploads, setUploads] = useState<Record<Section, UploadState>>({
+    backend:  { status: "idle", progress: 0, msg: "" },
+    frontend: { status: "idle", progress: 0, msg: "" },
+  });
   const [genStatus, setGenStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [genProgress, setGenProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState("");
-  const [uploadMsg, setUploadMsg] = useState("");
   const [genMsg, setGenMsg] = useState("");
-  const backendInputRef = useRef<HTMLInputElement>(null);
+  const backendRef = useRef<HTMLInputElement>(null);
+  const frontendRef = useRef<HTMLInputElement>(null);
 
   const loadStats = () => {
     fetch(EXPORT_URL)
@@ -26,13 +31,14 @@ export default function ExportCodePage() {
 
   useEffect(() => { loadStats(); }, []);
 
-  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>, section: "backend") => {
+  const setUpload = (section: Section, patch: Partial<UploadState>) =>
+    setUploads((prev) => ({ ...prev, [section]: { ...prev[section], ...patch } }));
+
+  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>, section: Section) => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
 
-    setUploadStatus("uploading");
-    setUploadProgress(5);
-    setUploadMsg("");
+    setUpload(section, { status: "uploading", progress: 5, msg: "" });
 
     const extensions = section === "backend" ? [".py"] : [".ts", ".tsx", ".css"];
     const files: { path: string; content: string; section: string }[] = [];
@@ -46,14 +52,12 @@ export default function ExportCodePage() {
     }
 
     if (files.length === 0) {
-      setUploadStatus("error");
-      setUploadMsg("Не найдено подходящих файлов в выбранной папке");
+      setUpload(section, { status: "error", msg: "Не найдено подходящих файлов в выбранной папке" });
       return;
     }
 
-    setUploadProgress(40);
+    setUpload(section, { progress: 30 });
 
-    // Отправляем батчами по 20 файлов
     const BATCH = 20;
     let saved = 0;
     for (let i = 0; i < files.length; i += BATCH) {
@@ -65,21 +69,23 @@ export default function ExportCodePage() {
       });
       const data = await res.json();
       saved += data.saved ?? 0;
-      setUploadProgress(40 + Math.round(((i + BATCH) / files.length) * 55));
+      setUpload(section, { progress: 30 + Math.round(((i + BATCH) / files.length) * 65) });
     }
 
-    setUploadProgress(100);
-    setUploadStatus("done");
-    setUploadMsg(`Загружено ${saved} файлов (${section === "backend" ? "Python" : "TypeScript"})`);
+    setUpload(section, {
+      status: "done",
+      progress: 100,
+      msg: `Загружено ${saved} файлов (${section === "backend" ? "Python" : "TypeScript/CSS"})`,
+    });
     loadStats();
-    if (backendInputRef.current) backendInputRef.current.value = "";
+    if (section === "backend" && backendRef.current) backendRef.current.value = "";
+    if (section === "frontend" && frontendRef.current) frontendRef.current.value = "";
   };
 
   const handleGenerate = async () => {
     setGenStatus("loading");
     setGenProgress(20);
     setGenMsg("");
-
     try {
       const res = await fetch(EXPORT_URL, {
         method: "POST",
@@ -90,7 +96,7 @@ export default function ExportCodePage() {
       const data = await res.json();
       if (data.success) {
         setDownloadUrl(data.url);
-        setGenMsg(`Готово! Фронтенд: ${data.frontend_count} · Бэкенд: ${data.backend_count} · Всего: ${data.total_files}`);
+        setGenMsg(`Фронтенд: ${data.frontend_count} · Бэкенд: ${data.backend_count} · Всего: ${data.total_files}`);
         setGenStatus("done");
         setGenProgress(100);
       } else {
@@ -100,6 +106,51 @@ export default function ExportCodePage() {
       setGenStatus("error");
       setGenMsg(e instanceof Error ? e.message : "Неизвестная ошибка");
     }
+  };
+
+  const UploadBlock = ({ section, label, hint, inputRef }: {
+    section: Section; label: string; hint: string; inputRef: React.RefObject<HTMLInputElement>;
+  }) => {
+    const u = uploads[section];
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-gray-500">{hint}</p>
+        <input
+          ref={inputRef}
+          type="file"
+          className="hidden"
+          // @ts-expect-error webkitdirectory not in types
+          webkitdirectory=""
+          multiple
+          onChange={(e) => handleFolderUpload(e, section)}
+        />
+        <Button
+          className="w-full"
+          variant="outline"
+          onClick={() => inputRef.current?.click()}
+          disabled={u.status === "uploading"}
+        >
+          <Icon name="FolderOpen" size={18} className="mr-2" />
+          {label}
+        </Button>
+        {u.status === "uploading" && (
+          <div className="space-y-1">
+            <Progress value={u.progress} />
+            <p className="text-xs text-center text-gray-500">Загрузка... {u.progress}%</p>
+          </div>
+        )}
+        {u.status === "done" && (
+          <div className="flex items-center gap-2 text-green-600 text-sm">
+            <Icon name="CheckCircle" size={16} />{u.msg}
+          </div>
+        )}
+        {u.status === "error" && (
+          <div className="flex items-center gap-2 text-red-600 text-sm">
+            <Icon name="AlertCircle" size={16} />{u.msg}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -132,55 +183,44 @@ export default function ExportCodePage() {
           </CardContent>
         </Card>
 
-        {/* Шаг 1 — загрузка папки backend */}
+        {/* Шаг 1 — загрузка папок */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">1</span>
-              Загрузи папку backend с компьютера
+              <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">1</span>
+              Загрузи папки с компьютера
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-5">
             <p className="text-sm text-gray-500">
-              Сначала скачай код проекта (<b>Скачать → Скачать код</b>), распакуй архив и выбери папку <b>backend</b>.
+              Скачай код: <b>Скачать → Скачать код</b>, распакуй архив, затем загрузи обе папки.
             </p>
-            <input
-              ref={backendInputRef}
-              type="file"
-              className="hidden"
-              // @ts-expect-error webkitdirectory not in types
-              webkitdirectory=""
-              multiple
-              onChange={(e) => handleFolderUpload(e, "backend")}
-            />
-            <Button
-              className="w-full"
-              variant="outline"
-              onClick={() => backendInputRef.current?.click()}
-              disabled={uploadStatus === "uploading"}
-            >
-              <Icon name="FolderOpen" size={18} className="mr-2" />
-              Выбрать папку backend/
-            </Button>
 
-            {uploadStatus === "uploading" && (
-              <div className="space-y-2">
-                <Progress value={uploadProgress} />
-                <p className="text-xs text-center text-gray-500">Загрузка... {uploadProgress}%</p>
-              </div>
-            )}
-            {uploadStatus === "done" && (
-              <div className="flex items-center gap-2 text-green-600 text-sm">
-                <Icon name="CheckCircle" size={16} />
-                {uploadMsg}
-              </div>
-            )}
-            {uploadStatus === "error" && (
-              <div className="flex items-center gap-2 text-red-600 text-sm">
-                <Icon name="AlertCircle" size={16} />
-                {uploadMsg}
-              </div>
-            )}
+            <div className="border rounded-lg p-4 space-y-3">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <Icon name="FolderOpen" size={16} className="text-green-600" />
+                Папка <code className="bg-gray-100 px-1 rounded">backend/</code> — Python файлы
+              </p>
+              <UploadBlock
+                section="backend"
+                label="Выбрать папку backend/"
+                hint="Выбери папку backend из распакованного архива"
+                inputRef={backendRef}
+              />
+            </div>
+
+            <div className="border rounded-lg p-4 space-y-3">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <Icon name="FolderOpen" size={16} className="text-blue-600" />
+                Папка <code className="bg-gray-100 px-1 rounded">src/</code> — TypeScript файлы
+              </p>
+              <UploadBlock
+                section="frontend"
+                label="Выбрать папку src/"
+                hint="Выбери папку src из распакованного архива"
+                inputRef={frontendRef}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -188,15 +228,11 @@ export default function ExportCodePage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</span>
+              <span className="bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</span>
               Создать Word-документ
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-gray-500">
-              После загрузки файлов нажми кнопку — сервер сгенерирует Word со всем кодом.
-            </p>
-
             {genStatus !== "done" && (
               <Button
                 className="w-full"
@@ -208,19 +244,21 @@ export default function ExportCodePage() {
                 Создать Word-документ
               </Button>
             )}
-
+            {stats.total === 0 && genStatus === "idle" && (
+              <p className="text-xs text-center text-gray-400">Сначала загрузи хотя бы одну папку</p>
+            )}
             {genStatus === "loading" && (
               <div className="space-y-2">
                 <Progress value={genProgress} />
                 <p className="text-xs text-center text-gray-500">Генерирую... {genProgress}%</p>
               </div>
             )}
-
             {genStatus === "done" && (
               <div className="space-y-3">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
                   <Icon name="CheckCircle" size={28} className="text-green-500 mx-auto mb-1" />
-                  <p className="text-sm font-medium text-green-700">{genMsg}</p>
+                  <p className="text-sm font-medium text-green-700">Документ готов!</p>
+                  <p className="text-xs text-gray-500 mt-1">{genMsg}</p>
                 </div>
                 <a href={downloadUrl} download="source_code.docx" target="_blank" rel="noreferrer">
                   <Button className="w-full" size="lg">
@@ -233,7 +271,6 @@ export default function ExportCodePage() {
                 </Button>
               </div>
             )}
-
             {genStatus === "error" && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
                 <p className="text-sm text-red-600">{genMsg}</p>
