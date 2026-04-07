@@ -1,0 +1,18 @@
+{
+  "tests": [
+    {
+      "name": "Генерация Word с переданными файлами",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "files": [
+          {"path": "src/App.tsx", "content": "export default function App() { return <div>Hello</div> }", "section": "frontend"},
+          {"path": "backend/auth/index.py", "content": "def handler(event, context): return {'statusCode': 200}", "section": "backend"}
+        ]
+      },
+      "expectedStatus": 200,
+      "expectedBody": {"success": true},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

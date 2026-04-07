@@ -88,6 +88,7 @@ import BackupPage from "./pages/BackupPage";
 import OtManagementPage from "./pages/OtManagementPage";
 import NotFound from "./pages/NotFound";
 import UnderDevelopment from "./pages/UnderDevelopment";
+import ExportCodePage from "./pages/ExportCodePage";
 
 const LoadingScreen = () => (
   <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
@@ -228,6 +229,7 @@ const App = () => {
           <Route path="/charts" element={<ChartsPage />} />
           <Route path="/backup" element={<BackupPage />} />
           <Route path="/ot-management" element={<OtManagementPage />} />
+          <Route path="/export-code" element={<ExportCodePage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<UnderDevelopment />} />
         </Routes>
