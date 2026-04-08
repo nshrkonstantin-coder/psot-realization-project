@@ -174,40 +174,31 @@ def handler(event: dict, context) -> dict:
     set_white_background(doc)
     add_page_numbers(doc)
 
+    def black(para):
+        for run in para.runs:
+            run.font.color.rgb = RGBColor(0, 0, 0)
+
     title = doc.add_heading('Исходный код программы', 0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    for run in title.runs:
-        run.font.color.rgb = RGBColor(0, 0, 0)
+    black(title)
 
-    intro = doc.add_paragraph('Автоматически сгенерированный документ со всеми исходными файлами проекта.')
-    for run in intro.runs:
-        run.font.color.rgb = RGBColor(0, 0, 0)
+    black(doc.add_paragraph('Автоматически сгенерированный документ со всеми исходными файлами проекта.'))
     doc.add_paragraph()
 
     for section_title, section_files in [
         ('Раздел 1. Фронтенд (TypeScript / TSX)', frontend_files),
         ('Раздел 2. Бэкенд (Python)', backend_files),
     ]:
-        h = doc.add_heading(section_title, level=1)
-        for run in h.runs:
-            run.font.color.rgb = RGBColor(0, 0, 0)
+        black(doc.add_heading(section_title, level=1))
         if not section_files:
             doc.add_paragraph('Файлы не загружены.')
             continue
         for f in section_files:
-            h2 = doc.add_heading(f['path'], level=2)
-            for run in h2.runs:
-                run.font.color.rgb = RGBColor(0, 0, 0)
+            black(doc.add_heading(f['path'], level=2))
             add_code_block(doc, f['content'] or '// Файл пустой')
-            sep = doc.add_paragraph('─' * 100)
-            if sep.runs:
-                sep.runs[0].font.size = Pt(6)
-                sep.runs[0].font.color.rgb = RGBColor(0xCC, 0xCC, 0xCC)
 
     total = len(frontend_files) + len(backend_files)
-    h_total = doc.add_heading('Итого', level=1)
-    for run in h_total.runs:
-        run.font.color.rgb = RGBColor(0, 0, 0)
+    black(doc.add_heading('Итого', level=1))
     doc.add_paragraph(f'Фронтенд (.tsx): {len(frontend_files)} файлов')
     doc.add_paragraph(f'Бэкенд (.py): {len(backend_files)} файлов')
     doc.add_paragraph(f'Всего: {total}')
