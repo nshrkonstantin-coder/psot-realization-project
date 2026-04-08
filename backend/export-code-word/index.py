@@ -110,6 +110,20 @@ def handler(event: dict, context) -> dict:
     body = json.loads(event.get('body') or '{}')
     action = body.get('action', 'generate')
 
+    # POST action=clear — удалить все файлы из БД
+    if action == 'clear':
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM {SCHEMA}.source_files")
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 200,
+            'headers': headers,
+            'body': json.dumps({'success': True})
+        }
+
     # POST action=save_files — сохранить файлы в БД (только .py и .tsx)
     if action == 'save_files':
         files = body.get('files', [])

@@ -22,11 +22,30 @@ export default function ExportCodePage() {
   const backendRef = useRef<HTMLInputElement>(null);
   const frontendRef = useRef<HTMLInputElement>(null);
 
+  const [clearStatus, setClearStatus] = useState<"idle" | "loading" | "done">("idle");
+
   const loadStats = () => {
     fetch(EXPORT_URL)
       .then((r) => r.json())
       .then((d) => setStats({ frontend_count: d.frontend_count ?? 0, backend_count: d.backend_count ?? 0, total: d.total ?? 0 }))
       .catch(() => {});
+  };
+
+  const handleClear = async () => {
+    if (!confirm("Очистить все загруженные файлы из базы? Потом нужно будет загрузить папки заново.")) return;
+    setClearStatus("loading");
+    await fetch(EXPORT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "clear" }),
+    });
+    setClearStatus("done");
+    setUploads({ backend: { status: "idle", progress: 0, msg: "" }, frontend: { status: "idle", progress: 0, msg: "" } });
+    setGenStatus("idle");
+    setGenProgress(0);
+    setDownloadUrl("");
+    loadStats();
+    setTimeout(() => setClearStatus("idle"), 2000);
   };
 
   useEffect(() => { loadStats(); }, []);
@@ -75,7 +94,7 @@ export default function ExportCodePage() {
     setUpload(section, {
       status: "done",
       progress: 100,
-      msg: `Загружено ${saved} файлов (${section === "backend" ? "Python" : "TypeScript/CSS"})`,
+      msg: `Загружено ${saved} файлов (${section === "backend" ? ".py" : ".tsx"})`,
     });
     loadStats();
     if (section === "backend" && backendRef.current) backendRef.current.value = "";
@@ -165,21 +184,33 @@ export default function ExportCodePage() {
               Экспорт исходного кода в Word
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="bg-blue-50 rounded-lg p-3">
                 <div className="text-xl font-bold text-blue-600">{stats.frontend_count}</div>
-                <div className="text-xs text-gray-500">TypeScript файлов</div>
+                <div className="text-xs text-gray-500">.tsx файлов</div>
               </div>
               <div className="bg-green-50 rounded-lg p-3">
                 <div className="text-xl font-bold text-green-600">{stats.backend_count}</div>
-                <div className="text-xs text-gray-500">Python файлов</div>
+                <div className="text-xs text-gray-500">.py файлов</div>
               </div>
               <div className="bg-purple-50 rounded-lg p-3">
                 <div className="text-xl font-bold text-purple-600">{stats.total}</div>
                 <div className="text-xs text-gray-500">Всего файлов</div>
               </div>
             </div>
+            {stats.total > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                onClick={handleClear}
+                disabled={clearStatus === "loading"}
+              >
+                <Icon name="Trash2" size={14} className="mr-2" />
+                {clearStatus === "loading" ? "Очищаю..." : clearStatus === "done" ? "Очищено!" : "Очистить базу и загрузить заново"}
+              </Button>
+            )}
           </CardContent>
         </Card>
 
