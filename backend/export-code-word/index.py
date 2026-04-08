@@ -143,13 +143,11 @@ def handler(event: dict, context) -> dict:
 
             path = raw_path
             content = f.get('content', '')
-            from psycopg2.extensions import adapt, AsIs
-            def esc(val):
-                return adapt(val).getquoted().decode('utf-8')
             cur.execute(
                 f"INSERT INTO {SCHEMA}.source_files (file_path, file_content, section) "
-                f"VALUES ({esc(path)}, {esc(content)}, {esc(section)}) "
-                f"ON CONFLICT (file_path) DO UPDATE SET file_content = EXCLUDED.file_content, updated_at = NOW()"
+                f"VALUES (%s, %s, %s) "
+                f"ON CONFLICT (file_path) DO UPDATE SET file_content = EXCLUDED.file_content, updated_at = NOW()",
+                (path, content, section)
             )
             saved += 1
         conn.commit()
