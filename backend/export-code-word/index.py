@@ -141,14 +141,16 @@ def handler(event: dict, context) -> dict:
             if ext not in allowed:
                 continue
 
-            path = raw_path.replace("'", "''")
-            content = f.get('content', '').replace("'", "''")
-            section_safe = section.replace("'", "''")
-            cur.execute(f"""
-                INSERT INTO {SCHEMA}.source_files (file_path, file_content, section)
-                VALUES ('{path}', '{content}', '{section_safe}')
-                ON CONFLICT (file_path) DO UPDATE SET file_content = EXCLUDED.file_content, updated_at = NOW()
-            """)
+            path = raw_path
+            content = f.get('content', '')
+            from psycopg2.extensions import adapt, AsIs
+            def esc(val):
+                return adapt(val).getquoted().decode('utf-8')
+            cur.execute(
+                f"INSERT INTO {SCHEMA}.source_files (file_path, file_content, section) "
+                f"VALUES ({esc(path)}, {esc(content)}, {esc(section)}) "
+                f"ON CONFLICT (file_path) DO UPDATE SET file_content = EXCLUDED.file_content, updated_at = NOW()"
+            )
             saved += 1
         conn.commit()
         cur.close()
