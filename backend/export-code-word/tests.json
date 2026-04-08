@@ -5,7 +5,7 @@
       "method": "GET",
       "path": "/",
       "expectedStatus": 200,
-      "expectedBody": {"total": 0},
+      "expectedBody": {"frontend_count": 205},
       "bodyMatcher": "partial"
     },
     {

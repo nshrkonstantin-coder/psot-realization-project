@@ -40,7 +40,7 @@ export default function ExportCodePage() {
 
     setUpload(section, { status: "uploading", progress: 5, msg: "" });
 
-    const extensions = section === "backend" ? [".py"] : [".ts", ".tsx", ".css"];
+    const extensions = section === "backend" ? [".py"] : [".tsx"];
     const files: { path: string; content: string; section: string }[] = [];
 
     for (let i = 0; i < fileList.length; i++) {

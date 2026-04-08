@@ -4,7 +4,7 @@ import json
 import boto3
 import psycopg2
 from docx import Document
-from docx.shared import Pt, RGBColor
+from docx.shared import Pt, RGBColor, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
@@ -16,25 +16,62 @@ def get_conn():
     return psycopg2.connect(os.environ['DATABASE_URL'])
 
 
+def add_page_numbers(doc):
+    """Добавляет нумерацию страниц в правом нижнем углу футера."""
+    for section in doc.sections:
+        footer = section.footer
+        para = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+        para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        para.clear()
+        run = para.add_run()
+        fldChar1 = OxmlElement('w:fldChar')
+        fldChar1.set(qn('w:fldCharType'), 'begin')
+        instrText = OxmlElement('w:instrText')
+        instrText.text = 'PAGE'
+        fldChar2 = OxmlElement('w:fldChar')
+        fldChar2.set(qn('w:fldCharType'), 'end')
+        run._r.append(fldChar1)
+        run._r.append(instrText)
+        run._r.append(fldChar2)
+        run.font.size = Pt(9)
+        run.font.color.rgb = RGBColor(0, 0, 0)
+
+
+def set_white_background(doc):
+    """Устанавливает белый фон страницы и чёрный текст по умолчанию."""
+    style = doc.styles['Normal']
+    style.font.color.rgb = RGBColor(0, 0, 0)
+    style.font.name = 'Arial'
+    style.font.size = Pt(10)
+
+    for section in doc.sections:
+        section.page_width  = Cm(21)
+        section.page_height = Cm(29.7)
+        section.left_margin   = Cm(3)
+        section.right_margin  = Cm(1.5)
+        section.top_margin    = Cm(2)
+        section.bottom_margin = Cm(2)
+
+
 def add_code_block(doc, code_text):
     para = doc.add_paragraph()
     run = para.add_run(code_text)
     run.font.name = 'Courier New'
     run.font.size = Pt(7)
-    run.font.color.rgb = RGBColor(0x1F, 0x1F, 0x1F)
+    run.font.color.rgb = RGBColor(0, 0, 0)
     pPr = para._p.get_or_add_pPr()
     shd = OxmlElement('w:shd')
     shd.set(qn('w:val'), 'clear')
     shd.set(qn('w:color'), 'auto')
-    shd.set(qn('w:fill'), 'F5F5F5')
+    shd.set(qn('w:fill'), 'FFFFFF')
     pPr.append(shd)
 
 
 def handler(event: dict, context) -> dict:
     """
     GET  — возвращает статистику файлов из БД.
-    POST action=save_files — сохраняет файлы в БД (принимает список файлов).
-    POST action=generate   — генерирует Word из файлов в БД.
+    POST action=save_files — сохраняет файлы в БД (только .py и .tsx).
+    POST action=generate   — генерирует Word из файлов в БД (чёрный текст, белый фон, нумерация страниц).
     """
 
     if event.get('httpMethod') == 'OPTIONS':
@@ -73,7 +110,7 @@ def handler(event: dict, context) -> dict:
     body = json.loads(event.get('body') or '{}')
     action = body.get('action', 'generate')
 
-    # POST action=save_files — сохранить файлы в БД
+    # POST action=save_files — сохранить файлы в БД (только .py и .tsx)
     if action == 'save_files':
         files = body.get('files', [])
         if not files:
@@ -83,12 +120,19 @@ def handler(event: dict, context) -> dict:
         cur = conn.cursor()
         saved = 0
         for f in files:
-            path = f.get('path', '').replace("'", "''")
+            raw_path = f.get('path', '')
+            ext = '.' + raw_path.rsplit('.', 1)[-1].lower() if '.' in raw_path else ''
+            section = f.get('section', 'backend')
+            allowed = ['.py'] if section == 'backend' else ['.tsx']
+            if ext not in allowed:
+                continue
+
+            path = raw_path.replace("'", "''")
             content = f.get('content', '').replace("'", "''")
-            section = f.get('section', 'backend').replace("'", "''")
+            section_safe = section.replace("'", "''")
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.source_files (file_path, file_content, section)
-                VALUES ('{path}', '{content}', '{section}')
+                VALUES ('{path}', '{content}', '{section_safe}')
                 ON CONFLICT (file_path) DO UPDATE SET file_content = EXCLUDED.file_content, updated_at = NOW()
             """)
             saved += 1
@@ -101,7 +145,7 @@ def handler(event: dict, context) -> dict:
             'body': json.dumps({'success': True, 'saved': saved})
         }
 
-    # POST action=generate — генерация Word из БД
+    # POST action=generate — генерация Word
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(f"SELECT file_path, file_content, section FROM {SCHEMA}.source_files ORDER BY section, file_path")
@@ -109,29 +153,37 @@ def handler(event: dict, context) -> dict:
     cur.close()
     conn.close()
 
-    frontend_files = [{'path': r[0], 'content': r[1]} for r in rows if r[2] == 'frontend']
-    backend_files  = [{'path': r[0], 'content': r[1]} for r in rows if r[2] == 'backend']
+    frontend_files = [{'path': r[0], 'content': r[1]} for r in rows if r[2] == 'frontend' and r[0].endswith('.tsx')]
+    backend_files  = [{'path': r[0], 'content': r[1]} for r in rows if r[2] == 'backend'  and r[0].endswith('.py')]
 
     doc = Document()
-    style = doc.styles['Normal']
-    style.font.name = 'Arial'
-    style.font.size = Pt(10)
+    set_white_background(doc)
+    add_page_numbers(doc)
 
     title = doc.add_heading('Исходный код программы', 0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    doc.add_paragraph('Автоматически сгенерированный документ со всеми исходными файлами проекта.')
+    for run in title.runs:
+        run.font.color.rgb = RGBColor(0, 0, 0)
+
+    intro = doc.add_paragraph('Автоматически сгенерированный документ со всеми исходными файлами проекта.')
+    for run in intro.runs:
+        run.font.color.rgb = RGBColor(0, 0, 0)
     doc.add_paragraph()
 
     for section_title, section_files in [
-        ('Раздел 1. Фронтенд (TypeScript / TSX / CSS)', frontend_files),
+        ('Раздел 1. Фронтенд (TypeScript / TSX)', frontend_files),
         ('Раздел 2. Бэкенд (Python)', backend_files),
     ]:
-        doc.add_heading(section_title, level=1)
+        h = doc.add_heading(section_title, level=1)
+        for run in h.runs:
+            run.font.color.rgb = RGBColor(0, 0, 0)
         if not section_files:
             doc.add_paragraph('Файлы не загружены.')
             continue
         for f in section_files:
-            doc.add_heading(f['path'], level=2)
+            h2 = doc.add_heading(f['path'], level=2)
+            for run in h2.runs:
+                run.font.color.rgb = RGBColor(0, 0, 0)
             add_code_block(doc, f['content'] or '// Файл пустой')
             sep = doc.add_paragraph('─' * 100)
             if sep.runs:
@@ -139,9 +191,11 @@ def handler(event: dict, context) -> dict:
                 sep.runs[0].font.color.rgb = RGBColor(0xCC, 0xCC, 0xCC)
 
     total = len(frontend_files) + len(backend_files)
-    doc.add_heading('Итого', level=1)
-    doc.add_paragraph(f'Фронтенд: {len(frontend_files)} файлов')
-    doc.add_paragraph(f'Бэкенд: {len(backend_files)} файлов')
+    h_total = doc.add_heading('Итого', level=1)
+    for run in h_total.runs:
+        run.font.color.rgb = RGBColor(0, 0, 0)
+    doc.add_paragraph(f'Фронтенд (.tsx): {len(frontend_files)} файлов')
+    doc.add_paragraph(f'Бэкенд (.py): {len(backend_files)} файлов')
     doc.add_paragraph(f'Всего: {total}')
 
     buffer = io.BytesIO()
