@@ -153,7 +153,7 @@ export default function Login() {
               {/* Logo/Header */}
               <div className="text-center mb-8">
                 <div className="inline-flex items-center justify-center mb-4">
-                  <img src="https://cdn.poehali.dev/files/2ae0696e-d593-4672-9e71-d38a499f8922.png" alt="АСУБТ" className="w-40 h-40 object-contain transform hover:scale-110 transition-transform" />
+                  <img src="https://cdn.poehali.dev/files/a8450d96-c4de-4091-8a4e-f993560bc89e.png" alt="АСУБТ" className="w-40 h-40 object-contain transform hover:scale-110 transition-transform" />
                 </div>
                 <p className="text-orange-400 text-sm font-semibold">Автоматизированная система управления безопасностью труда</p>
               </div>
