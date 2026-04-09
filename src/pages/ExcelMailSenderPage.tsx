@@ -27,12 +27,14 @@ export default function ExcelMailSenderPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
+  const appendFileRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<'upload' | 'table'>('upload');
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<RowData[]>([]);
   const [fileName, setFileName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [appendLoading, setAppendLoading] = useState(false);
   const [rowStates, setRowStates] = useState<RowState[]>([]);
   const [previewRow, setPreviewRow] = useState<{ row: RowData; idx: number } | null>(null);
 
@@ -152,6 +154,39 @@ export default function ExcelMailSenderPage() {
       toast({ title: 'Ошибка', description: err instanceof Error ? err.message : 'Ошибка', variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAppendFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      toast({ title: 'Ошибка', description: 'Загрузите файл .xlsx или .xls', variant: 'destructive' });
+      return;
+    }
+    setAppendLoading(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'parse', file_base64: b64 }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Ошибка парсинга');
+      // Новые строки — сверху, старые уходят вниз
+      const newRows = data.rows as RowData[];
+      const newStates: RowState[] = newRows.map(() => ({ sendStatus: 'idle', sendProgress: 0 }));
+      setRows(prev => [...newRows, ...prev]);
+      setRowStates(prev => [...newStates, ...prev]);
+      setFileName(prev => `${file.name} + ${prev}`);
+      toast({ title: 'Файл добавлен', description: `${newRows.length} новых строк добавлено в начало таблицы` });
+    } catch (err: unknown) {
+      toast({ title: 'Ошибка', description: err instanceof Error ? err.message : 'Ошибка', variant: 'destructive' });
+    } finally {
+      setAppendLoading(false);
+      if (appendFileRef.current) appendFileRef.current.value = '';
     }
   };
 
@@ -315,16 +350,28 @@ export default function ExcelMailSenderPage() {
             <Icon name="ArrowLeft" size={18} className="mr-2" />
             Назад
           </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Рассылка по Excel</h1>
-            {fileName && <p className="text-slate-500 dark:text-slate-400 text-sm">{fileName}</p>}
-          </div>
           {step === 'table' && (
             <Button variant="outline" onClick={reset} className="border-slate-400/50 text-slate-600 dark:text-slate-400">
               <Icon name="RefreshCcw" size={16} className="mr-2" />
               Новый файл
             </Button>
           )}
+          {step === 'table' && (
+            <>
+              <input ref={appendFileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleAppendFile} />
+              <Button variant="outline" onClick={() => appendFileRef.current?.click()} disabled={appendLoading}
+                className="border-green-500/60 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20">
+                {appendLoading
+                  ? <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
+                  : <Icon name="FilePlus2" size={16} className="mr-2" />}
+                Добавить файл
+              </Button>
+            </>
+          )}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Рассылка по Excel</h1>
+            {fileName && <p className="text-slate-500 dark:text-slate-400 text-sm truncate">{fileName}</p>}
+          </div>
         </div>
 
         {/* Upload */}
