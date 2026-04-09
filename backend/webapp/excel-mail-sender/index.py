@@ -161,9 +161,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         results = []
         try:
-            smtp = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
-            smtp.ehlo()
-            if smtp_port == 587:
+            if smtp_port == 465:
+                import ssl as ssl_module
+                ctx = ssl_module.create_default_context()
+                smtp = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30, context=ctx)
+            else:
+                smtp = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
+                smtp.ehlo()
                 smtp.starttls()
                 smtp.ehlo()
             smtp.login(smtp_user, smtp_password)
@@ -185,8 +189,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
                 html = build_email_html(row, include_columns, sender_display)
                 msg = MIMEMultipart('alternative')
-                msg['Subject'] = subject
-                msg['From'] = formataddr((str(Header(sender_display, 'utf-8')), smtp_user))
+                msg['Subject'] = str(Header(subject, 'utf-8'))
+                from_addr = formataddr((str(Header(sender_display, 'utf-8')), smtp_user))
+                msg['From'] = from_addr
+                msg['Sender'] = from_addr
+                msg['Reply-To'] = from_addr
                 msg['To'] = to_email
                 msg.attach(MIMEText(html, 'html', 'utf-8'))
 
