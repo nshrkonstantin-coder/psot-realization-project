@@ -254,6 +254,43 @@ export default function ExcelMailSenderPage() {
 </body></html>`;
   };
 
+  const [sendingAll, setSendingAll] = useState(false);
+
+  const handleSendAll = async () => {
+    if (!emailCol) {
+      toast({ title: 'Ошибка', description: 'Не найдена колонка «Электронная почта»', variant: 'destructive' });
+      return;
+    }
+    const pendingIdxs = rows
+      .map((row, i) => {
+        const rs = rowStates[i];
+        const hasEmail = !!(emailCol && row[emailCol]);
+        const notSending = rs.sendStatus !== 'sending';
+        const needsSend = rs.sendStatus === 'idle' || rs.sendStatus === 'error';
+        return hasEmail && notSending && needsSend ? i : -1;
+      })
+      .filter(i => i >= 0);
+
+    if (!pendingIdxs.length) {
+      toast({ title: 'Нет писем для отправки', description: 'Все строки уже отправлены или не имеют email' });
+      return;
+    }
+
+    setSendingAll(true);
+    for (const idx of pendingIdxs) {
+      await handleSendRow(idx);
+      // Небольшая пауза между письмами чтобы не перегружать сервер
+      await new Promise(r => setTimeout(r, 300));
+    }
+    setSendingAll(false);
+    toast({ title: 'Рассылка завершена', description: `Отправлено ${pendingIdxs.length} писем` });
+  };
+
+  const pendingCount = rows.filter((row, i) => {
+    const rs = rowStates[i];
+    return !!(emailCol && row[emailCol]) && (rs?.sendStatus === 'idle' || rs?.sendStatus === 'error');
+  }).length;
+
   const sentCount = rowStates.filter(s => s.sendStatus === 'sent').length;
   const openedCount = rowStates.filter(s => s.trackStatus === 'opened').length;
 
@@ -337,6 +374,25 @@ export default function ExcelMailSenderPage() {
                     <div className="text-slate-500 text-xs mt-0.5">Всего</div>
                   </div>
                 </div>
+                {emailCol && pendingCount > 0 && (
+                  <Button
+                    onClick={handleSendAll}
+                    disabled={sendingAll}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white h-10 px-5 whitespace-nowrap"
+                  >
+                    {sendingAll ? (
+                      <>
+                        <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
+                        Рассылка...
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="SendHorizonal" size={16} className="mr-2" />
+                        Отправить всем ({pendingCount})
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </Card>
 
