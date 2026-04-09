@@ -17,6 +17,8 @@ interface RowState {
   trackId?: string;
   errorMsg?: string;
   sendProgress: number;
+  sentAt?: string;
+  openedAt?: string;
 }
 
 const BACKEND_URL = (func2url as Record<string, string>)['excel-mail-sender'] || '';
@@ -85,18 +87,27 @@ export default function ExcelMailSenderPage() {
       });
       const data = await res.json();
       if (!data.success) return;
+      const newlyOpened: number[] = [];
       setRowStates(prev => {
         const next = [...prev];
         toCheck.forEach(({ i, trackId }) => {
           const s = data.statuses[trackId!];
           if (s && s.status === 'opened' && next[i].trackStatus !== 'opened') {
-            next[i] = { ...next[i], trackStatus: 'opened' };
+            next[i] = { ...next[i], trackStatus: 'opened', openedAt: s.opened_at };
+            newlyOpened.push(i);
           }
         });
         return next;
       });
+      newlyOpened.forEach(i => {
+        const email = rows[i]?.[emailCol || ''] || '';
+        toast({
+          title: '📬 Письмо открыто!',
+          description: email ? `${email} открыл письмо` : `Строка ${i + 1} — письмо открыто`,
+        });
+      });
     } catch { /* ignore */ }
-  }, []);
+  }, [rows, emailCol, toast]);
 
   useEffect(() => {
     if (step !== 'table') return;
@@ -182,7 +193,7 @@ export default function ExcelMailSenderPage() {
       const data = await res.json();
       clearInterval(progressInterval);
       if (!data.success) throw new Error(data.error || 'Ошибка отправки');
-      updateRowState(idx, { sendStatus: 'sent', sendProgress: 100, trackId: data.track_id, trackStatus: 'sent' });
+      updateRowState(idx, { sendStatus: 'sent', sendProgress: 100, trackId: data.track_id, trackStatus: 'sent', sentAt: new Date().toISOString() });
     } catch (err: unknown) {
       clearInterval(progressInterval);
       const msg = err instanceof Error ? err.message : 'Ошибка';
@@ -555,21 +566,29 @@ function RowAction({ rs, isIncluded, hasEmail, onPreview, onSend }: RowActionPro
   }
 
   if (rs.sendStatus === 'sent') {
+    const fmtTime = (iso?: string) => {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    };
     return (
-      <div className="space-y-1.5 min-w-36">
+      <div className="space-y-1 min-w-36">
         <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 text-xs font-medium">
           <Icon name="CheckCircle2" size={14} />
-          Отправлено
+          Отправлено {rs.sentAt && <span className="text-green-500/70 font-normal">{fmtTime(rs.sentAt)}</span>}
         </div>
         {rs.trackStatus === 'opened' ? (
           <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 text-xs font-medium">
-            <Icon name="Eye" size={14} />
-            Просмотрено
+            <Icon name="MailOpen" size={14} />
+            Открыто {rs.openedAt && <span className="text-blue-500/70 font-normal">{fmtTime(rs.openedAt)}</span>}
           </div>
         ) : (
           <div className="flex items-center gap-1.5 text-slate-400 text-xs">
-            <Icon name="Clock" size={12} />
-            Ожидает открытия
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+            </span>
+            Слежу за открытием...
           </div>
         )}
         <button onClick={onSend}
