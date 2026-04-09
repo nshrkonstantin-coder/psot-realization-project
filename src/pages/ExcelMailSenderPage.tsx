@@ -207,6 +207,21 @@ export default function ExcelMailSenderPage() {
       </tr>`
     ).join('');
 
+    // Все URL из строки — выводим кнопками
+    const urlEntries = Object.entries(row).filter(([, val]) => isUrl(val) && !val.includes(' '));
+    const urlButtons = urlEntries.map(([col, val]) =>
+      `<a href="${val}" target="_blank"
+        style="display:inline-block;margin:4px 6px 4px 0;padding:10px 20px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600">
+        ${col} →
+      </a>`
+    ).join('');
+    const urlBlock = urlButtons
+      ? `<div style="margin-top:20px;padding:16px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe">
+           <div style="font-size:13px;font-weight:600;color:#1e40af;margin-bottom:8px">Ссылки для перехода:</div>
+           ${urlButtons}
+         </div>`
+      : '';
+
     const fromDisplay = smtpEmail || senderName;
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -221,6 +236,7 @@ export default function ExcelMailSenderPage() {
     <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px">
       ${rowsHtml}
     </table>
+    ${urlBlock}
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
     <div style="font-size:12px;color:#6b7280">${fromDisplay}</div>
   </div>

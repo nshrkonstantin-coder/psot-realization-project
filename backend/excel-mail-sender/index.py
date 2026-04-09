@@ -47,11 +47,14 @@ def parse_excel(file_bytes: bytes) -> Dict[str, Any]:
 
 def build_email_html(row: Dict[str, str], include_columns: List[str], sender_display: str, track_id: str) -> str:
     rows_html = ''
+    url_entries = []  # [(col, url), ...]
+
     for col in include_columns:
         value = row.get(col, '')
-        # Ссылки делаем кликабельными
-        if value.startswith('http://') or value.startswith('https://'):
+        is_url = (value.startswith('http://') or value.startswith('https://')) and ' ' not in value.strip()
+        if is_url:
             cell_val = f'<a href="{value}" style="color:#2563eb;word-break:break-all">{value}</a>'
+            url_entries.append((col, value))
         else:
             cell_val = f'<span style="white-space:pre-wrap;word-break:break-word">{value}</span>'
         rows_html += (
@@ -60,6 +63,19 @@ def build_email_html(row: Dict[str, str], include_columns: List[str], sender_dis
             f'<td style="padding:10px 14px;border:1px solid #e2e8f0;vertical-align:top;color:#111827">{cell_val}</td>'
             f'</tr>'
         )
+
+    # Также добавляем URL из колонок, которые не включены в include_columns (например email_col исключён)
+    # но URL-кнопки строим только из include_columns
+    url_buttons = ''.join(
+        f'<a href="{url}" target="_blank" style="display:inline-block;margin:4px 6px 4px 0;padding:10px 20px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600">{col} &rarr;</a>'
+        for col, url in url_entries
+    )
+    url_block = (
+        f'<div style="margin-top:20px;padding:16px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe">'
+        f'<div style="font-size:13px;font-weight:600;color:#1e40af;margin-bottom:8px">Ссылки для перехода:</div>'
+        f'{url_buttons}'
+        f'</div>'
+    ) if url_buttons else ''
 
     track_url = f"https://functions.poehali.dev/2dab48c9-57c0-4f55-90e7-d93b326a6891?action=track&id={track_id}"
     pixel = f'<img src="{track_url}" width="1" height="1" style="display:none" alt="" />'
@@ -75,6 +91,7 @@ def build_email_html(row: Dict[str, str], include_columns: List[str], sender_dis
         f'<div style="padding:24px 28px">'
         f'<p style="margin:0 0 16px;font-size:15px;color:#374151">Уважаемый сотрудник,<br>направляем вам следующую информацию:</p>'
         f'<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px">{rows_html}</table>'
+        f'{url_block}'
         f'<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">'
         f'<div style="font-size:12px;color:#6b7280">{sender_display}</div>'
         f'</div>'
