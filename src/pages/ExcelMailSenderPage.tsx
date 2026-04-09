@@ -53,6 +53,24 @@ export default function ExcelMailSenderPage() {
 
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
+  const STORAGE_KEY = 'excel_mailer_state';
+
+  // Восстановление из localStorage при монтировании
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const { headers: h, rows: r, fileName: fn, rowStates: rs } = JSON.parse(saved);
+      if (h && r && fn) {
+        setHeaders(h);
+        setRows(r);
+        setFileName(fn);
+        setRowStates(rs || r.map(() => ({ sendStatus: 'idle', sendProgress: 0 })));
+        setStep('table');
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   // Поллинг статусов
   const pollStatuses = useCallback(async (states: RowState[]) => {
     const toCheck = states
@@ -87,6 +105,14 @@ export default function ExcelMailSenderPage() {
     const timer = setInterval(() => pollStatuses(rowStates), 15000);
     return () => clearInterval(timer);
   }, [step, rowStates, pollStatuses]);
+
+  // Сохранение состояния в localStorage
+  useEffect(() => {
+    if (step !== 'table' || !headers.length) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ headers, rows, fileName, rowStates }));
+    } catch { /* ignore */ }
+  }, [step, headers, rows, fileName, rowStates]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -173,6 +199,7 @@ export default function ExcelMailSenderPage() {
     setFileName('');
     setPreviewRow(null);
     if (fileRef.current) fileRef.current.value = '';
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   // Светлое письмо
@@ -411,7 +438,7 @@ export default function ExcelMailSenderPage() {
 
               {/* Meta */}
               <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs text-slate-500 flex-shrink-0 flex flex-wrap gap-4">
-                <span><strong className="text-slate-700 dark:text-slate-300">От:</strong> {smtpEmail || '(не указан)'}</span>
+                <span><strong className="text-slate-700 dark:text-slate-300">От:</strong> {senderName}</span>
                 <span><strong className="text-slate-700 dark:text-slate-300">Кому:</strong> {emailCol ? previewRow.row[emailCol] : '—'}</span>
                 <span><strong className="text-slate-700 dark:text-slate-300">Тема:</strong> {subject}</span>
               </div>
@@ -473,7 +500,7 @@ function RowAction({ rs, isIncluded, hasEmail, onPreview, onSend }: RowActionPro
 
   if (rs.sendStatus === 'sent') {
     return (
-      <div className="space-y-0.5 min-w-36">
+      <div className="space-y-1.5 min-w-36">
         <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 text-xs font-medium">
           <Icon name="CheckCircle2" size={14} />
           Отправлено
@@ -489,6 +516,11 @@ function RowAction({ rs, isIncluded, hasEmail, onPreview, onSend }: RowActionPro
             Ожидает открытия
           </div>
         )}
+        <button onClick={onSend}
+          className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 hover:underline transition-colors">
+          <Icon name="RefreshCcw" size={11} />
+          Отправить повторно
+        </button>
       </div>
     );
   }
