@@ -153,9 +153,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         include_col: Optional[str] = None
         for h in headers_list:
             hl = h.lower().strip()
-            if 'электронная почта' in hl or hl in ('email', 'e-mail', 'почта'):
+            # Точное совпадение — только служебные колонки исключаем
+            if hl in ('электронная почта', 'email', 'e-mail', 'почта'):
                 email_col = h
-            if 'включить в рассылку' in hl or 'рассылка' in hl:
+            if hl in ('включить в рассылку', 'рассылка'):
                 include_col = h
 
         if not email_col:
@@ -186,8 +187,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         html = build_email_html(row, include_columns, sender_display, track_id)
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From'] = f'{sender_display} <{smtp_user}>'
+        # Яндекс требует From = точный адрес аккаунта, без произвольного имени
+        msg['From'] = smtp_user
         msg['To'] = to_email
+        # Имя отправителя для отображения — через Sender/Reply-To не меняет From в Яндексе,
+        # поэтому указываем его в теле письма (уже есть в html)
         msg.attach(MIMEText(html, 'html', 'utf-8'))
 
         try:

@@ -41,15 +41,17 @@ export default function ExcelMailSenderPage() {
   const [previewRow, setPreviewRow] = useState<{ row: RowData; idx: number } | null>(null);
 
   const emailCol = headers.find(h => {
-    const l = h.toLowerCase();
-    return l.includes('электронная почта') || l === 'email' || l === 'e-mail' || l === 'почта';
+    const l = h.toLowerCase().trim();
+    return l === 'электронная почта' || l === 'email' || l === 'e-mail' || l === 'почта';
   });
+  // Колонка-флаг рассылки: точно "включить в рассылку", без скобок и доп слов
   const includeCol = headers.find(h => {
-    const l = h.toLowerCase();
-    return l.includes('включить в рассылку') || l.includes('рассылка');
+    const l = h.toLowerCase().trim();
+    return l === 'включить в рассылку' || l === 'рассылка';
   });
 
-  const excludeFromBody = new Set([emailCol, includeCol].filter(Boolean));
+  // Исключаем из тела письма только строгий emailCol и строгий includeCol
+  const excludeFromBody = new Set([emailCol, includeCol].filter(Boolean) as string[]);
   const bodyColumns = headers.filter(h => !excludeFromBody.has(h));
 
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
