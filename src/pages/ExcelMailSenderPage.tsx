@@ -184,11 +184,14 @@ export default function ExcelMailSenderPage() {
   };
 
   const buildPreviewHtml = (row: RowData) => {
-    const renderVal = (val: string) => isUrl(val)
-      ? `<a href="${val}" target="_blank" style="color:#2563eb">${val}</a>`
-      : val;
+    const renderVal = (val: string) => {
+      if (isUrl(val) && !val.includes(' ')) {
+        return `<a href="${val}" target="_blank" style="color:#2563eb;word-break:break-all">${val}</a>`;
+      }
+      return `<span style="white-space:pre-wrap;word-break:break-word">${val}</span>`;
+    };
     const rowsHtml = bodyColumns.map(col =>
-      `<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;background:#f5f5f5;width:40%">${col}</td><td style="padding:8px 12px;border:1px solid #ddd;">${renderVal(row[col] || '')}</td></tr>`
+      `<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;background:#f5f5f5;width:40%;vertical-align:top">${col}</td><td style="padding:8px 12px;border:1px solid #ddd;vertical-align:top">${renderVal(row[col] || '')}</td></tr>`
     ).join('');
     return `<html><body style="font-family:Arial,sans-serif;color:#333;max-width:560px;margin:0 auto">
 <div style="background:linear-gradient(135deg,#1e293b,#334155);padding:20px;border-radius:8px 8px 0 0">
@@ -333,18 +336,22 @@ export default function ExcelMailSenderPage() {
                           ${rs.sendStatus === 'sending' ? 'bg-blue-50/40 dark:bg-blue-900/10' : ''}
                           hover:bg-slate-50/60 dark:hover:bg-slate-700/20`}>
                           <td className="px-3 py-2.5 text-slate-400 text-xs">{ri + 1}</td>
-                          {headers.map((h, ci) => (
-                            <td key={ci} className="px-3 py-2.5 text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                              {isUrl(row[h] || '') ? (
-                                <a href={row[h]} target="_blank" rel="noopener noreferrer"
-                                  className="text-blue-600 dark:text-blue-400 hover:underline">
-                                  {row[h]}
-                                </a>
-                              ) : (
-                                <span>{row[h] || ''}</span>
-                              )}
-                            </td>
-                          ))}
+                          {headers.map((h, ci) => {
+                            const val = row[h] || '';
+                            const urlOnly = isUrl(val) && val.trim() === val && !val.includes(' ');
+                            return (
+                              <td key={ci} className="px-3 py-2.5 text-slate-700 dark:text-slate-300 align-top">
+                                {urlOnly ? (
+                                  <a href={val} target="_blank" rel="noopener noreferrer"
+                                    className="text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap">
+                                    {val}
+                                  </a>
+                                ) : (
+                                  <span className="block min-w-[120px] max-w-xs whitespace-pre-wrap break-words">{val}</span>
+                                )}
+                              </td>
+                            );
+                          })}
                           <td className="px-3 py-2.5 sticky right-0 bg-white dark:bg-slate-800 border-l border-slate-100 dark:border-slate-700">
                             <RowAction
                               rs={rs}
