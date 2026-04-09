@@ -184,8 +184,11 @@ export default function ExcelMailSenderPage() {
   };
 
   const buildPreviewHtml = (row: RowData) => {
+    const renderVal = (val: string) => isUrl(val)
+      ? `<a href="${val}" target="_blank" style="color:#2563eb">${val}</a>`
+      : val;
     const rowsHtml = bodyColumns.map(col =>
-      `<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;background:#f5f5f5;width:40%">${col}</td><td style="padding:8px 12px;border:1px solid #ddd;">${row[col] || ''}</td></tr>`
+      `<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;background:#f5f5f5;width:40%">${col}</td><td style="padding:8px 12px;border:1px solid #ddd;">${renderVal(row[col] || '')}</td></tr>`
     ).join('');
     return `<html><body style="font-family:Arial,sans-serif;color:#333;max-width:560px;margin:0 auto">
 <div style="background:linear-gradient(135deg,#1e293b,#334155);padding:20px;border-radius:8px 8px 0 0">
@@ -200,12 +203,16 @@ export default function ExcelMailSenderPage() {
 </div></body></html>`;
   };
 
+  const isUrl = (val: string) => {
+    try { return /^https?:\/\//i.test(val.trim()); } catch { return false; }
+  };
+
   const sentCount = rowStates.filter(s => s.sendStatus === 'sent').length;
   const openedCount = rowStates.filter(s => s.trackStatus === 'opened').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:via-indigo-900 dark:to-slate-900 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full">
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
@@ -327,8 +334,15 @@ export default function ExcelMailSenderPage() {
                           hover:bg-slate-50/60 dark:hover:bg-slate-700/20`}>
                           <td className="px-3 py-2.5 text-slate-400 text-xs">{ri + 1}</td>
                           {headers.map((h, ci) => (
-                            <td key={ci} className="px-3 py-2.5 text-slate-700 dark:text-slate-300 whitespace-nowrap max-w-xs">
-                              <span className="truncate block max-w-[200px]">{row[h] || ''}</span>
+                            <td key={ci} className="px-3 py-2.5 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {isUrl(row[h] || '') ? (
+                                <a href={row[h]} target="_blank" rel="noopener noreferrer"
+                                  className="text-blue-600 dark:text-blue-400 hover:underline">
+                                  {row[h]}
+                                </a>
+                              ) : (
+                                <span>{row[h] || ''}</span>
+                              )}
                             </td>
                           ))}
                           <td className="px-3 py-2.5 sticky right-0 bg-white dark:bg-slate-800 border-l border-slate-100 dark:border-slate-700">
@@ -376,7 +390,7 @@ export default function ExcelMailSenderPage() {
                     srcDoc={buildPreviewHtml(previewRow.row)}
                     className="w-full h-80 border-0"
                     title="preview"
-                    sandbox="allow-same-origin"
+                    sandbox="allow-same-origin allow-popups allow-top-navigation"
                   />
                 </div>
               </div>
