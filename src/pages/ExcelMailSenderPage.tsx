@@ -38,14 +38,6 @@ export default function ExcelMailSenderPage() {
   const [senderName, setSenderName] = useState('АСУБТ');
   const [subject, setSubject] = useState('Информационное сообщение');
 
-  // Собственный SMTP
-  const [smtpEmail, setSmtpEmail] = useState('');
-  const [smtpPassword, setSmtpPassword] = useState('');
-  const [smtpHost, setSmtpHost] = useState('smtp.yandex.ru');
-  const [smtpPort, setSmtpPort] = useState('587');
-  const [showSmtp, setShowSmtp] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-
   const isUrl = (val: string) => /^https?:\/\//i.test(val.trim());
 
   const emailCol = headers.find(h => {
@@ -139,11 +131,6 @@ export default function ExcelMailSenderPage() {
       toast({ title: 'Ошибка', description: 'Не найдена колонка «Электронная почта»', variant: 'destructive' });
       return;
     }
-    if (!smtpEmail || !smtpPassword) {
-      toast({ title: 'Укажите почту отправителя', description: 'Заполните Email и пароль в блоке настроек', variant: 'destructive' });
-      setShowSmtp(true);
-      return;
-    }
     setPreviewRow(null);
     updateRowState(idx, { sendStatus: 'sending', sendProgress: 10, errorMsg: undefined });
 
@@ -164,10 +151,6 @@ export default function ExcelMailSenderPage() {
           sender_name: senderName,
           subject,
           user_id: userId ? parseInt(userId) : null,
-          smtp_email: smtpEmail,
-          smtp_password: smtpPassword,
-          smtp_host: smtpHost,
-          smtp_port: parseInt(smtpPort),
         }),
       });
       const data = await res.json();
@@ -222,7 +205,7 @@ export default function ExcelMailSenderPage() {
          </div>`
       : '';
 
-    const fromDisplay = smtpEmail || senderName;
+    const fromDisplay = senderName;
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:16px;background:#f1f5f9;font-family:Arial,sans-serif">
@@ -299,68 +282,6 @@ export default function ExcelMailSenderPage() {
         {/* Table view */}
         {step === 'table' && (
           <div className="space-y-4">
-
-            {/* ── Блок SMTP (свой ящик) ── */}
-            <Card className="bg-white dark:bg-slate-800/50 border-blue-600/20 overflow-hidden">
-              <button
-                onClick={() => setShowSmtp(v => !v)}
-                className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${smtpEmail && smtpPassword ? 'bg-green-500' : 'bg-orange-400'}`} />
-                  <span className="font-semibold text-slate-800 dark:text-white text-sm">
-                    Почта отправителя
-                  </span>
-                  {smtpEmail ? (
-                    <span className="text-slate-500 dark:text-slate-400 text-sm">{smtpEmail}</span>
-                  ) : (
-                    <span className="text-orange-500 text-sm font-medium">— не указана</span>
-                  )}
-                </div>
-                <Icon name={showSmtp ? 'ChevronUp' : 'ChevronDown'} size={18} className="text-slate-400" />
-              </button>
-
-              {showSmtp && (
-                <div className="px-5 pb-5 border-t border-slate-100 dark:border-slate-700 pt-4">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-                    Письма будут отправлены с вашего личного ящика. Данные хранятся только в памяти браузера на время сессии.
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div>
-                      <Label className="text-xs text-slate-600 dark:text-slate-300">Email отправителя</Label>
-                      <Input value={smtpEmail} onChange={e => setSmtpEmail(e.target.value)}
-                        placeholder="you@yandex.ru" type="email"
-                        className="mt-1 h-9 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600" />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-slate-600 dark:text-slate-300">Пароль приложения</Label>
-                      <div className="relative mt-1">
-                        <Input value={smtpPassword} onChange={e => setSmtpPassword(e.target.value)}
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="Пароль приложения"
-                          className="h-9 text-sm pr-9 bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600" />
-                        <button type="button" onClick={() => setShowPassword(v => !v)}
-                          className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600">
-                          <Icon name={showPassword ? 'EyeOff' : 'Eye'} size={16} />
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-slate-600 dark:text-slate-300">SMTP сервер</Label>
-                      <Input value={smtpHost} onChange={e => setSmtpHost(e.target.value)}
-                        placeholder="smtp.yandex.ru"
-                        className="mt-1 h-9 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600" />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-slate-600 dark:text-slate-300">Порт</Label>
-                      <Input value={smtpPort} onChange={e => setSmtpPort(e.target.value)}
-                        placeholder="587"
-                        className="mt-1 h-9 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600" />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
 
             {/* ── Настройки письма ── */}
             <Card className="p-4 bg-white dark:bg-slate-800/50 border-blue-600/20">
