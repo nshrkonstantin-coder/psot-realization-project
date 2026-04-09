@@ -49,24 +49,39 @@ def build_email_html(row: Dict[str, str], include_columns: List[str], sender_dis
     rows_html = ''
     for col in include_columns:
         value = row.get(col, '')
-        rows_html += f'<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;background:#f5f5f5;width:40%">{col}</td><td style="padding:8px 12px;border:1px solid #ddd;">{value}</td></tr>'
+        # Ссылки делаем кликабельными
+        if value.startswith('http://') or value.startswith('https://'):
+            cell_val = f'<a href="{value}" style="color:#2563eb;word-break:break-all">{value}</a>'
+        else:
+            cell_val = f'<span style="white-space:pre-wrap;word-break:break-word">{value}</span>'
+        rows_html += (
+            f'<tr>'
+            f'<td style="padding:10px 14px;border:1px solid #e2e8f0;font-weight:600;background:#f8fafc;width:40%;vertical-align:top;color:#374151">{col}</td>'
+            f'<td style="padding:10px 14px;border:1px solid #e2e8f0;vertical-align:top;color:#111827">{cell_val}</td>'
+            f'</tr>'
+        )
 
     track_url = f"https://functions.poehali.dev/2dab48c9-57c0-4f55-90e7-d93b326a6891?action=track&id={track_id}"
     pixel = f'<img src="{track_url}" width="1" height="1" style="display:none" alt="" />'
 
-    return f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px;margin:0 auto">
-<div style="background:linear-gradient(135deg,#1e293b,#334155);padding:24px;border-radius:8px 8px 0 0">
-  <h2 style="color:#fff;margin:0;font-size:20px">{sender_display}</h2>
-  <p style="color:#94a3b8;margin:4px 0 0">Информационное сообщение</p>
-</div>
-<div style="padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
-  <p style="margin-top:0">Уважаемый сотрудник,<br>направляем вам следующую информацию:</p>
-  <table style="width:100%;border-collapse:collapse;margin:16px 0">{rows_html}</table>
-  <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0">
-  <p style="color:#64748b;font-size:13px;margin:0">{sender_display}</p>
-</div>
-{pixel}
-</body></html>"""
+    return (
+        f'<!DOCTYPE html><html><head><meta charset="utf-8"></head>'
+        f'<body style="margin:0;padding:16px;background:#f1f5f9;font-family:Arial,sans-serif">'
+        f'<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">'
+        f'<div style="background:#2563eb;padding:24px 28px">'
+        f'<div style="font-size:20px;font-weight:700;color:#fff;margin:0">{sender_display}</div>'
+        f'<div style="font-size:13px;color:#bfdbfe;margin-top:4px">Информационное сообщение</div>'
+        f'</div>'
+        f'<div style="padding:24px 28px">'
+        f'<p style="margin:0 0 16px;font-size:15px;color:#374151">Уважаемый сотрудник,<br>направляем вам следующую информацию:</p>'
+        f'<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px">{rows_html}</table>'
+        f'<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">'
+        f'<div style="font-size:12px;color:#6b7280">{sender_display}</div>'
+        f'</div>'
+        f'</div>'
+        f'{pixel}'
+        f'</body></html>'
+    )
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -173,39 +188,48 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         track_id = uuid.uuid4().hex
 
-        smtp_host = os.environ.get('SMTP_HOST')
-        smtp_port = int(os.environ.get('SMTP_PORT', '587'))
-        smtp_user = os.environ.get('SMTP_USER')
-        smtp_password = (os.environ.get('SMTP_PASSWORD_NEW') or
-                         os.environ.get('YANDEX_SMTP_PASSWORD') or
-                         os.environ.get('SMTP_PASSWORD'))
+        # Приоритет: SMTP из запроса (личный ящик) → системный SMTP
+        smtp_email_req: Optional[str] = body.get('smtp_email', '').strip() or None
+        smtp_pass_req: Optional[str] = body.get('smtp_password', '').strip() or None
+        smtp_host_req: Optional[str] = body.get('smtp_host', '').strip() or None
+        smtp_port_req: Optional[int] = body.get('smtp_port')
+
+        if smtp_email_req and smtp_pass_req:
+            smtp_host = smtp_host_req or 'smtp.yandex.ru'
+            smtp_port = int(smtp_port_req) if smtp_port_req else 587
+            smtp_user = smtp_email_req
+            smtp_password = smtp_pass_req
+        else:
+            smtp_host = os.environ.get('SMTP_HOST')
+            smtp_port = int(os.environ.get('SMTP_PORT', '587'))
+            smtp_user = os.environ.get('SMTP_USER')
+            smtp_password = (os.environ.get('SMTP_PASSWORD_NEW') or
+                             os.environ.get('YANDEX_SMTP_PASSWORD') or
+                             os.environ.get('SMTP_PASSWORD'))
 
         if not all([smtp_host, smtp_user, smtp_password]):
             return {'statusCode': 500, 'headers': {**cors, 'Content-Type': 'application/json'},
-                    'body': json.dumps({'error': 'SMTP не настроен'})}
+                    'body': json.dumps({'error': 'SMTP не настроен. Укажите Email и пароль отправителя.'})}
 
         html = build_email_html(row, include_columns, sender_display, track_id)
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        # Яндекс требует From = точный адрес аккаунта, без произвольного имени
         msg['From'] = smtp_user
         msg['To'] = to_email
-        # Имя отправителя для отображения — через Sender/Reply-To не меняет From в Яндексе,
-        # поэтому указываем его в теле письма (уже есть в html)
         msg.attach(MIMEText(html, 'html', 'utf-8'))
 
         try:
-            smtp = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
-            smtp.ehlo()
+            smtp_conn = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
+            smtp_conn.ehlo()
             if smtp_port == 587:
-                smtp.starttls()
-                smtp.ehlo()
-            smtp.login(smtp_user, smtp_password)
-            smtp.send_message(msg)
-            smtp.quit()
+                smtp_conn.starttls()
+                smtp_conn.ehlo()
+            smtp_conn.login(smtp_user, smtp_password)
+            smtp_conn.send_message(msg)
+            smtp_conn.quit()
         except smtplib.SMTPAuthenticationError:
             return {'statusCode': 500, 'headers': {**cors, 'Content-Type': 'application/json'},
-                    'body': json.dumps({'error': 'Ошибка аутентификации SMTP'})}
+                    'body': json.dumps({'error': 'Ошибка аутентификации. Проверьте email и пароль приложения.'})}
         except Exception as e:
             return {'statusCode': 500, 'headers': {**cors, 'Content-Type': 'application/json'},
                     'body': json.dumps({'error': str(e)})}

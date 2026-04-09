@@ -8,13 +8,9 @@ import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
 import func2url from '../../backend/func2url.json';
 
-interface RowData {
-  [key: string]: string;
-}
-
+interface RowData { [key: string]: string; }
 type SendStatus = 'idle' | 'sending' | 'sent' | 'error';
 type TrackStatus = 'sent' | 'opened';
-
 interface RowState {
   sendStatus: SendStatus;
   trackStatus?: TrackStatus;
@@ -33,37 +29,44 @@ export default function ExcelMailSenderPage() {
   const [step, setStep] = useState<'upload' | 'table'>('upload');
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<RowData[]>([]);
-  const [senderName, setSenderName] = useState('АСУБТ');
-  const [subject, setSubject] = useState('Информационное сообщение');
   const [fileName, setFileName] = useState('');
   const [loading, setLoading] = useState(false);
   const [rowStates, setRowStates] = useState<RowState[]>([]);
   const [previewRow, setPreviewRow] = useState<{ row: RowData; idx: number } | null>(null);
 
+  // Настройки рассылки
+  const [senderName, setSenderName] = useState('АСУБТ');
+  const [subject, setSubject] = useState('Информационное сообщение');
+
+  // Собственный SMTP
+  const [smtpEmail, setSmtpEmail] = useState('');
+  const [smtpPassword, setSmtpPassword] = useState('');
+  const [smtpHost, setSmtpHost] = useState('smtp.yandex.ru');
+  const [smtpPort, setSmtpPort] = useState('587');
+  const [showSmtp, setShowSmtp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const isUrl = (val: string) => /^https?:\/\//i.test(val.trim());
+
   const emailCol = headers.find(h => {
     const l = h.toLowerCase().trim();
     return l === 'электронная почта' || l === 'email' || l === 'e-mail' || l === 'почта';
   });
-  // Колонка-флаг рассылки: точно "включить в рассылку", без скобок и доп слов
   const includeCol = headers.find(h => {
     const l = h.toLowerCase().trim();
     return l === 'включить в рассылку' || l === 'рассылка';
   });
-
-  // Исключаем из тела письма только строгий emailCol и строгий includeCol
   const excludeFromBody = new Set([emailCol, includeCol].filter(Boolean) as string[]);
   const bodyColumns = headers.filter(h => !excludeFromBody.has(h));
 
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
-  // Поллинг статусов отправленных писем
+  // Поллинг статусов
   const pollStatuses = useCallback(async (states: RowState[]) => {
     const toCheck = states
       .map((s, i) => ({ i, trackId: s.trackId }))
       .filter(x => x.trackId && states[x.i].trackStatus !== 'opened');
-
     if (!toCheck.length) return;
-
     try {
       const res = await fetch(BACKEND_URL, {
         method: 'POST',
@@ -72,7 +75,6 @@ export default function ExcelMailSenderPage() {
       });
       const data = await res.json();
       if (!data.success) return;
-
       setRowStates(prev => {
         const next = [...prev];
         toCheck.forEach(({ i, trackId }) => {
@@ -83,12 +85,9 @@ export default function ExcelMailSenderPage() {
         });
         return next;
       });
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, []);
 
-  // Запускаем поллинг каждые 15 сек
   useEffect(() => {
     if (step !== 'table') return;
     const hasSent = rowStates.some(s => s.sendStatus === 'sent' && s.trackStatus !== 'opened');
@@ -140,10 +139,14 @@ export default function ExcelMailSenderPage() {
       toast({ title: 'Ошибка', description: 'Не найдена колонка «Электронная почта»', variant: 'destructive' });
       return;
     }
+    if (!smtpEmail || !smtpPassword) {
+      toast({ title: 'Укажите почту отправителя', description: 'Заполните Email и пароль в блоке настроек', variant: 'destructive' });
+      setShowSmtp(true);
+      return;
+    }
     setPreviewRow(null);
     updateRowState(idx, { sendStatus: 'sending', sendProgress: 10, errorMsg: undefined });
 
-    // Анимируем прогресс-бар
     let progress = 10;
     const progressInterval = setInterval(() => {
       progress = Math.min(progress + 15, 85);
@@ -161,6 +164,10 @@ export default function ExcelMailSenderPage() {
           sender_name: senderName,
           subject,
           user_id: userId ? parseInt(userId) : null,
+          smtp_email: smtpEmail,
+          smtp_password: smtpPassword,
+          smtp_host: smtpHost,
+          smtp_port: parseInt(smtpPort),
         }),
       });
       const data = await res.json();
@@ -185,6 +192,7 @@ export default function ExcelMailSenderPage() {
     if (fileRef.current) fileRef.current.value = '';
   };
 
+  // Светлое письмо
   const buildPreviewHtml = (row: RowData) => {
     const renderVal = (val: string) => {
       if (isUrl(val) && !val.includes(' ')) {
@@ -193,23 +201,31 @@ export default function ExcelMailSenderPage() {
       return `<span style="white-space:pre-wrap;word-break:break-word">${val}</span>`;
     };
     const rowsHtml = bodyColumns.map(col =>
-      `<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;background:#f5f5f5;width:40%;vertical-align:top">${col}</td><td style="padding:8px 12px;border:1px solid #ddd;vertical-align:top">${renderVal(row[col] || '')}</td></tr>`
+      `<tr>
+        <td style="padding:10px 14px;border:1px solid #e2e8f0;font-weight:600;background:#f8fafc;width:40%;vertical-align:top;color:#374151">${col}</td>
+        <td style="padding:10px 14px;border:1px solid #e2e8f0;vertical-align:top;color:#111827">${renderVal(row[col] || '')}</td>
+      </tr>`
     ).join('');
-    return `<html><body style="font-family:Arial,sans-serif;color:#333;max-width:560px;margin:0 auto">
-<div style="background:linear-gradient(135deg,#1e293b,#334155);padding:20px;border-radius:8px 8px 0 0">
-  <h2 style="color:#fff;margin:0;font-size:18px">${senderName}</h2>
-  <p style="color:#94a3b8;margin:4px 0 0;font-size:13px">Информационное сообщение</p>
-</div>
-<div style="padding:20px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
-  <p style="margin-top:0;font-size:14px">Уважаемый сотрудник,<br>направляем вам следующую информацию:</p>
-  <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px">${rowsHtml}</table>
-  <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0">
-  <p style="color:#64748b;font-size:12px;margin:0">${senderName}</p>
-</div></body></html>`;
-  };
 
-  const isUrl = (val: string) => {
-    try { return /^https?:\/\//i.test(val.trim()); } catch { return false; }
+    const fromDisplay = smtpEmail || senderName;
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:16px;background:#f1f5f9;font-family:Arial,sans-serif">
+<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+  <div style="background:#2563eb;padding:24px 28px">
+    <div style="font-size:20px;font-weight:700;color:#fff;margin:0">${senderName}</div>
+    <div style="font-size:13px;color:#bfdbfe;margin-top:4px">Информационное сообщение</div>
+  </div>
+  <div style="padding:24px 28px">
+    <p style="margin:0 0 16px;font-size:15px;color:#374151">Уважаемый сотрудник,<br>направляем вам следующую информацию:</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px">
+      ${rowsHtml}
+    </table>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
+    <div style="font-size:12px;color:#6b7280">${fromDisplay}</div>
+  </div>
+</div>
+</body></html>`;
   };
 
   const sentCount = rowStates.filter(s => s.sendStatus === 'sent').length;
@@ -246,7 +262,7 @@ export default function ExcelMailSenderPage() {
               </div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Загрузите Excel-файл</h2>
               <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">
-                Таблица должна содержать колонку <strong>«Электронная почта»</strong>.<br/>
+                Таблица должна содержать колонку <strong>«Электронная почта»</strong>.<br />
                 Колонка <strong>«Включить в рассылку»</strong> — необязательная, для фильтрации.
               </p>
               <label className="cursor-pointer block">
@@ -254,8 +270,7 @@ export default function ExcelMailSenderPage() {
                 <div className="flex flex-col items-center gap-3 border-2 border-dashed border-blue-400 dark:border-blue-600 rounded-xl p-10 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
                   {loading
                     ? <Icon name="Loader2" size={36} className="text-blue-500 animate-spin" />
-                    : <Icon name="Upload" size={36} className="text-blue-500" />
-                  }
+                    : <Icon name="Upload" size={36} className="text-blue-500" />}
                   <span className="text-blue-600 dark:text-blue-400 font-medium">
                     {loading ? 'Обрабатываю файл...' : 'Нажмите для выбора .xlsx / .xls'}
                   </span>
@@ -268,31 +283,94 @@ export default function ExcelMailSenderPage() {
         {/* Table view */}
         {step === 'table' && (
           <div className="space-y-4">
-            {/* Settings bar */}
+
+            {/* ── Блок SMTP (свой ящик) ── */}
+            <Card className="bg-white dark:bg-slate-800/50 border-blue-600/20 overflow-hidden">
+              <button
+                onClick={() => setShowSmtp(v => !v)}
+                className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full ${smtpEmail && smtpPassword ? 'bg-green-500' : 'bg-orange-400'}`} />
+                  <span className="font-semibold text-slate-800 dark:text-white text-sm">
+                    Почта отправителя
+                  </span>
+                  {smtpEmail ? (
+                    <span className="text-slate-500 dark:text-slate-400 text-sm">{smtpEmail}</span>
+                  ) : (
+                    <span className="text-orange-500 text-sm font-medium">— не указана</span>
+                  )}
+                </div>
+                <Icon name={showSmtp ? 'ChevronUp' : 'ChevronDown'} size={18} className="text-slate-400" />
+              </button>
+
+              {showSmtp && (
+                <div className="px-5 pb-5 border-t border-slate-100 dark:border-slate-700 pt-4">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                    Письма будут отправлены с вашего личного ящика. Данные хранятся только в памяти браузера на время сессии.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div>
+                      <Label className="text-xs text-slate-600 dark:text-slate-300">Email отправителя</Label>
+                      <Input value={smtpEmail} onChange={e => setSmtpEmail(e.target.value)}
+                        placeholder="you@yandex.ru" type="email"
+                        className="mt-1 h-9 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600 dark:text-slate-300">Пароль приложения</Label>
+                      <div className="relative mt-1">
+                        <Input value={smtpPassword} onChange={e => setSmtpPassword(e.target.value)}
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Пароль приложения"
+                          className="h-9 text-sm pr-9 bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600" />
+                        <button type="button" onClick={() => setShowPassword(v => !v)}
+                          className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600">
+                          <Icon name={showPassword ? 'EyeOff' : 'Eye'} size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600 dark:text-slate-300">SMTP сервер</Label>
+                      <Input value={smtpHost} onChange={e => setSmtpHost(e.target.value)}
+                        placeholder="smtp.yandex.ru"
+                        className="mt-1 h-9 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600 dark:text-slate-300">Порт</Label>
+                      <Input value={smtpPort} onChange={e => setSmtpPort(e.target.value)}
+                        placeholder="587"
+                        className="mt-1 h-9 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* ── Настройки письма ── */}
             <Card className="p-4 bg-white dark:bg-slate-800/50 border-blue-600/20">
               <div className="flex flex-wrap gap-4 items-end">
-                <div className="flex-1 min-w-48">
-                  <Label className="text-slate-700 dark:text-slate-300 text-sm">Отправитель (отображается в письме)</Label>
+                <div className="flex-1 min-w-40">
+                  <Label className="text-slate-700 dark:text-slate-300 text-sm">Имя отправителя в письме</Label>
                   <Input value={senderName} onChange={e => setSenderName(e.target.value)}
-                    placeholder="Например: ЭСМО" className="mt-1 bg-white dark:bg-slate-700 border-blue-600/30 h-9" />
+                    placeholder="Например: ЭСМО" className="mt-1 h-9 bg-white dark:bg-slate-700 border-blue-600/30" />
                 </div>
-                <div className="flex-1 min-w-48">
+                <div className="flex-1 min-w-40">
                   <Label className="text-slate-700 dark:text-slate-300 text-sm">Тема письма</Label>
                   <Input value={subject} onChange={e => setSubject(e.target.value)}
-                    placeholder="Информационное сообщение" className="mt-1 bg-white dark:bg-slate-700 border-blue-600/30 h-9" />
+                    placeholder="Информационное сообщение" className="mt-1 h-9 bg-white dark:bg-slate-700 border-blue-600/30" />
                 </div>
                 <div className="flex gap-3 text-sm">
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-500/30 rounded-lg px-3 py-2 text-center">
-                    <div className="font-bold text-green-600 text-lg">{sentCount}</div>
-                    <div className="text-green-700 dark:text-green-400">Отправлено</div>
+                    <div className="font-bold text-green-600 text-lg leading-none">{sentCount}</div>
+                    <div className="text-green-700 dark:text-green-400 text-xs mt-0.5">Отправлено</div>
                   </div>
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-500/30 rounded-lg px-3 py-2 text-center">
-                    <div className="font-bold text-blue-600 text-lg">{openedCount}</div>
-                    <div className="text-blue-700 dark:text-blue-400">Просмотрено</div>
+                    <div className="font-bold text-blue-600 text-lg leading-none">{openedCount}</div>
+                    <div className="text-blue-700 dark:text-blue-400 text-xs mt-0.5">Просмотрено</div>
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-700/30 border border-slate-300/30 rounded-lg px-3 py-2 text-center">
-                    <div className="font-bold text-slate-600 dark:text-slate-300 text-lg">{rows.length}</div>
-                    <div className="text-slate-500">Всего</div>
+                    <div className="font-bold text-slate-600 dark:text-slate-300 text-lg leading-none">{rows.length}</div>
+                    <div className="text-slate-500 text-xs mt-0.5">Всего</div>
                   </div>
                 </div>
               </div>
@@ -301,11 +379,11 @@ export default function ExcelMailSenderPage() {
             {!emailCol && (
               <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-400/40 rounded-lg px-4 py-3 text-red-700 dark:text-red-400 text-sm">
                 <Icon name="AlertCircle" size={18} />
-                Колонка «Электронная почта» не найдена в файле — отправка недоступна
+                Колонка «Электронная почта» не найдена — отправка недоступна
               </div>
             )}
 
-            {/* Main table */}
+            {/* Таблица */}
             <Card className="overflow-hidden bg-white dark:bg-slate-800/50 border-blue-600/20 p-0">
               <div className="overflow-auto">
                 <table className="w-full text-sm">
@@ -330,7 +408,6 @@ export default function ExcelMailSenderPage() {
                       const isIncluded = includeCol
                         ? ['да', 'yes', '1', 'true', '+', 'х', 'x'].includes((row[includeCol] || '').toLowerCase().trim())
                         : true;
-
                       return (
                         <tr key={ri} className={`border-b border-slate-100 dark:border-slate-700/50 transition-colors
                           ${rs.sendStatus === 'sent' ? 'bg-green-50/40 dark:bg-green-900/10' : ''}
@@ -340,7 +417,7 @@ export default function ExcelMailSenderPage() {
                           <td className="px-3 py-2.5 text-slate-400 text-xs">{ri + 1}</td>
                           {headers.map((h, ci) => {
                             const val = row[h] || '';
-                            const urlOnly = isUrl(val) && val.trim() === val && !val.includes(' ');
+                            const urlOnly = isUrl(val) && !val.includes(' ');
                             return (
                               <td key={ci} className="px-3 py-2.5 text-slate-700 dark:text-slate-300 align-top">
                                 {urlOnly ? (
@@ -373,39 +450,49 @@ export default function ExcelMailSenderPage() {
           </div>
         )}
 
-        {/* Preview Modal */}
+        {/* ── Модалка предпросмотра ── */}
         {previewRow && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setPreviewRow(null)}>
-            <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setPreviewRow(null)}>
+            <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+              style={{ maxHeight: '90vh' }}
+              onClick={e => e.stopPropagation()}>
+
               {/* Modal header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white">Предпросмотр письма</h3>
-                  <p className="text-sm text-slate-500">Строка #{previewRow.idx + 1} · {emailCol ? previewRow.row[emailCol] : ''}</p>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-lg">Предпросмотр письма</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    Строка #{previewRow.idx + 1}
+                    {emailCol && ` · ${previewRow.row[emailCol]}`}
+                  </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setPreviewRow(null)}>
                   <Icon name="X" size={16} />
                 </Button>
               </div>
-              {/* Email preview */}
-              <div className="p-4 max-h-[60vh] overflow-auto">
-                <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-                  <div className="bg-slate-100 dark:bg-slate-800 px-4 py-2 text-xs text-slate-500 border-b border-slate-200 dark:border-slate-700">
-                    <span className="font-medium">От:</span> {senderName} &nbsp;|&nbsp;
-                    <span className="font-medium">Кому:</span> {emailCol ? previewRow.row[emailCol] : '—'} &nbsp;|&nbsp;
-                    <span className="font-medium">Тема:</span> {subject}
-                  </div>
-                  <iframe
-                    srcDoc={buildPreviewHtml(previewRow.row)}
-                    className="w-full h-80 border-0"
-                    title="preview"
-                    sandbox="allow-same-origin allow-popups allow-top-navigation"
-                  />
-                </div>
+
+              {/* Meta */}
+              <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs text-slate-500 flex-shrink-0 flex flex-wrap gap-4">
+                <span><strong className="text-slate-700 dark:text-slate-300">От:</strong> {smtpEmail || '(не указан)'}</span>
+                <span><strong className="text-slate-700 dark:text-slate-300">Кому:</strong> {emailCol ? previewRow.row[emailCol] : '—'}</span>
+                <span><strong className="text-slate-700 dark:text-slate-300">Тема:</strong> {subject}</span>
               </div>
+
+              {/* iframe — большой */}
+              <div className="flex-1 overflow-hidden">
+                <iframe
+                  srcDoc={buildPreviewHtml(previewRow.row)}
+                  className="w-full h-full border-0"
+                  style={{ minHeight: '500px' }}
+                  title="preview"
+                  sandbox="allow-same-origin allow-popups allow-top-navigation"
+                />
+              </div>
+
               {/* Actions */}
-              <div className="flex gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700 justify-end">
-                <Button variant="outline" onClick={() => setPreviewRow(null)}>Отмена</Button>
+              <div className="flex gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700 justify-end flex-shrink-0">
+                <Button variant="outline" onClick={() => setPreviewRow(null)}>Закрыть</Button>
                 <Button
                   className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
                   onClick={() => { handleSendRow(previewRow.idx); setPreviewRow(null); }}
@@ -440,10 +527,8 @@ function RowAction({ rs, isIncluded, hasEmail, onPreview, onSend }: RowActionPro
           Отправляю...
         </div>
         <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
-          <div
-            className="bg-blue-500 h-1.5 rounded-full transition-all duration-500"
-            style={{ width: `${rs.sendProgress}%` }}
-          />
+          <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-500"
+            style={{ width: `${rs.sendProgress}%` }} />
         </div>
       </div>
     );
@@ -478,13 +563,12 @@ function RowAction({ rs, isIncluded, hasEmail, onPreview, onSend }: RowActionPro
           <Icon name="XCircle" size={14} />
           Ошибка
         </div>
-        <p className="text-red-400 text-xs truncate max-w-36" title={rs.errorMsg}>{rs.errorMsg}</p>
+        <p className="text-red-400 text-xs max-w-[180px] break-words" title={rs.errorMsg}>{rs.errorMsg}</p>
         <button onClick={onSend} className="text-xs text-blue-500 hover:underline">Повторить</button>
       </div>
     );
   }
 
-  // idle
   if (!hasEmail) return <span className="text-slate-400 text-xs">Нет email</span>;
 
   return (
@@ -496,9 +580,7 @@ function RowAction({ rs, isIncluded, hasEmail, onPreview, onSend }: RowActionPro
         Просмотр
       </Button>
       <Button size="sm"
-        className={`h-7 px-2 text-xs text-white ${isIncluded
-          ? 'bg-blue-600 hover:bg-blue-700'
-          : 'bg-slate-400 hover:bg-slate-500'}`}
+        className={`h-7 px-2 text-xs text-white ${isIncluded ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-400 hover:bg-slate-500'}`}
         onClick={onSend}>
         <Icon name="Send" size={13} className="mr-1" />
         Отправить
