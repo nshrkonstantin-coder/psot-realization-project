@@ -85,6 +85,7 @@ import AdminMessagesPage from "./pages/AdminMessagesPage";
 import VideoConferencePage from "./pages/VideoConferencePage";
 import ChartsPage from "./pages/ChartsPage";
 import BackupPage from "./pages/BackupPage";
+import ExcelMailSenderPage from "./pages/ExcelMailSenderPage";
 import OtManagementPage from "./pages/OtManagementPage";
 import NotFound from "./pages/NotFound";
 import UnderDevelopment from "./pages/UnderDevelopment";
@@ -228,6 +229,7 @@ const App = () => {
           <Route path="/video-conference" element={<VideoConferencePage />} />
           <Route path="/charts" element={<ChartsPage />} />
           <Route path="/backup" element={<BackupPage />} />
+          <Route path="/excel-mail-sender" element={<ExcelMailSenderPage />} />
           <Route path="/ot-management" element={<OtManagementPage />} />
           <Route path="/export-code" element={<ExportCodePage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

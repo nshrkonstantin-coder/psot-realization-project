@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Parse без файла — ошибка",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "parse", "file_base64": ""},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "Файл не передан"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

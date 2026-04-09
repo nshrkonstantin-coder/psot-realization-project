@@ -63,6 +63,7 @@ const Admin = () => {
     { label: 'Журнал действий', icon: 'BookOpen', color: 'from-indigo-500 to-indigo-600', route: '/action-log' },
     { label: 'Управление Графиком личных показателей ПАБ', icon: 'LineChart', color: 'from-amber-500 to-amber-600', route: '/charts' },
     { label: 'Резервное копирование', icon: 'Database', color: 'from-purple-500 to-purple-600', route: '/backup' },
+    { label: 'Рассылка по Excel', icon: 'FileSpreadsheet', color: 'from-green-500 to-emerald-600', route: '/excel-mail-sender' },
   ];
 
   return (
