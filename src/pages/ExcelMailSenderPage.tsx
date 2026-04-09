@@ -299,7 +299,7 @@ export default function ExcelMailSenderPage() {
       <div className="w-full">
 
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-6">
           <Button variant="outline" onClick={() => navigate('/admin')} className="border-blue-600/50 text-blue-600 dark:text-blue-400">
             <Icon name="ArrowLeft" size={18} className="mr-2" />
             Назад

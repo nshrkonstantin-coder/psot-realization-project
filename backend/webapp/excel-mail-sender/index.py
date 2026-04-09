@@ -2,6 +2,7 @@
 Обработка Excel-файла и рассылка персональных email работникам.
 Парсит загруженный .xlsx, строит таблицу рассылки, отправляет каждому работнику
 письмо с данными из строк, где отмечена колонка 'Включить в рассылку'.
+Имя отправителя отображается корректно (RFC 2047, UTF-8).
 """
 import json
 import os
@@ -11,6 +12,8 @@ import io
 import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import formataddr
+from email.header import Header
 from typing import Dict, Any, List
 
 
@@ -183,7 +186,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 html = build_email_html(row, include_columns, sender_display)
                 msg = MIMEMultipart('alternative')
                 msg['Subject'] = subject
-                msg['From'] = f'{sender_display} <{smtp_user}>'
+                msg['From'] = formataddr((str(Header(sender_display, 'utf-8')), smtp_user))
                 msg['To'] = to_email
                 msg.attach(MIMEText(html, 'html', 'utf-8'))
 

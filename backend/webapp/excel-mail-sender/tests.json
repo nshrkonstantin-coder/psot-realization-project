@@ -1,7 +1,7 @@
 {
   "tests": [
     {
-      "name": "OPTIONS preflight",
+      "name": "OPTIONS preflight CORS",
       "method": "OPTIONS",
       "path": "/",
       "expectedStatus": 200
