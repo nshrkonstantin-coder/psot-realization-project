@@ -244,20 +244,47 @@ const OtipbWorkspaceDashboardPage = () => {
 
   const downloadTable = () => {
     if (!orders.length) return;
-    const exportData = orders.map(o => ({
-      'Наименование поручения': o.title,
-      'Дата выдачи': o.issued_date ? new Date(o.issued_date).toLocaleDateString('ru-RU') : '—',
-      'Срок выполнения': o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '—',
-      'Ответственный': o.responsible_person,
-      'Выдал поручение': o.issued_by,
-      'Статус выполнения': STATUS_LABELS[o.status] || o.status,
-      'Последнее действие': o.last_action || '',
-    }));
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    ws['!cols'] = [{ wch: 40 }, { wch: 14 }, { wch: 16 }, { wch: 24 }, { wch: 24 }, { wch: 16 }, { wch: 40 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Поручения');
-    XLSX.writeFile(wb, `поручения_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.xlsx`);
+    const date = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const rows = orders.map((o, i) => {
+      const statusLabel = STATUS_LABELS[o.status] || o.status;
+      const statusColor = o.status === 'completed' ? '#16a34a' : o.status === 'extended' ? '#d97706' : o.status === 'in_progress' ? '#2563eb' : '#dc2626';
+      return `<tr style="border-bottom:1px solid #e2e8f0;${i % 2 === 1 ? 'background:#f8fafc' : ''}">
+        <td style="padding:8px 10px;font-weight:600;vertical-align:top">${i + 1}. ${o.title}</td>
+        <td style="padding:8px 10px;vertical-align:top;white-space:nowrap">${o.issued_date ? new Date(o.issued_date).toLocaleDateString('ru-RU') : '—'}</td>
+        <td style="padding:8px 10px;vertical-align:top;white-space:nowrap">${o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '—'}</td>
+        <td style="padding:8px 10px;vertical-align:top">${o.responsible_person || '—'}</td>
+        <td style="padding:8px 10px;vertical-align:top">${o.issued_by || '—'}</td>
+        <td style="padding:8px 10px;vertical-align:top;color:${statusColor};font-weight:600">${statusLabel}</td>
+        <td style="padding:8px 10px;vertical-align:top;font-size:12px;color:#64748b">${o.last_action || '—'}</td>
+      </tr>`;
+    }).join('');
+    const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/>
+      <title>Поручения — ${date}</title>
+      <style>
+        body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1e293b}
+        h1{font-size:20px;margin:0 0 4px}
+        .sub{color:#64748b;font-size:13px;margin-bottom:16px}
+        table{width:100%;border-collapse:collapse;font-size:13px}
+        th{background:#f97316;color:#fff;padding:9px 10px;text-align:left;font-weight:700}
+        td{vertical-align:top}
+        @media print{body{padding:10px}}
+      </style>
+    </head><body>
+      <h1>Мои поручения</h1>
+      <div class="sub">Сформировано: ${date} · Всего: ${orders.length}</div>
+      <table>
+        <thead><tr>
+          <th>Поручение</th><th>Дата выдачи</th><th>Срок</th>
+          <th>Ответственный</th><th>Выдал</th><th>Статус</th><th>Что сделано</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </body></html>`;
+    const pw = window.open('', '_blank');
+    if (!pw) return;
+    pw.document.write(html);
+    pw.document.close();
+    pw.onload = () => setTimeout(() => pw.print(), 300);
   };
 
   const pendingOrders = orders.filter(o => o.status !== 'completed');
@@ -675,7 +702,7 @@ const OtipbWorkspaceDashboardPage = () => {
               <div className="flex gap-2 flex-wrap">
                 <Button onClick={downloadTable} variant="outline"
                   className="border-violet-500/50 text-violet-400 hover:bg-violet-500/10 h-9 text-sm">
-                  <Icon name="FileDown" size={16} className="mr-1" />Выгрузить
+                  <Icon name="Printer" size={16} className="mr-1" />Распечатать
                 </Button>
                 <Button onClick={() => { setShowForm(true); setForm({ ...emptyForm, issued_by: userFio, responsible_person: userFio }); }}
                   className="bg-orange-600 hover:bg-orange-700 h-9">
