@@ -389,8 +389,14 @@ const OtipbWorkspaceDashboardPage = () => {
   const downloadChecklistHtml = () => {
     const html = buildChecklistHtml(checklistRecipientFio, recipientSpec?.position);
     const fullHtml = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><title>Чек-лист передачи вахты</title>
-    <style>body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}.no-print{display:none!important}@media print{body{padding:0}.no-print{display:none!important}}</style>
-    </head><body>${html}</body></html>`;
+    <style>body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}@media print{.no-print{display:none!important}body{padding:0}}</style>
+    </head><body>
+    <div class="no-print" style="text-align:center;margin-bottom:16px">
+      <button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer">
+        🖨️ Распечатать
+      </button>
+    </div>
+    ${html}</body></html>`;
     const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
