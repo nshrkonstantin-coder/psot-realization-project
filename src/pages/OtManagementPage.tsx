@@ -6,8 +6,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
+const SEND_EMAIL_URL = 'https://functions.poehali.dev/2dab48c9-57c0-4f55-90e7-d93b326a6891';
 
 const OT_ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
+
+interface OrderDocument {
+  id: number;
+  file_name: string;
+  file_url: string;
+  file_size: number | null;
+  uploaded_at: string | null;
+}
 
 interface Order {
   id: number;
@@ -22,6 +35,9 @@ interface Order {
   assigned_to_user_id: number | null;
   assigned_fio: string | null;
   notes: string | null;
+  last_action: string | null;
+  updated_at: string | null;
+  documents: OrderDocument[];
 }
 
 interface Specialist {
@@ -89,8 +105,23 @@ const OtManagementPage = () => {
   const [specForm, setSpecForm] = useState({ ...emptySpecForm });
   const [savingSpec, setSavingSpec] = useState(false);
 
+  // Чек-лист и проделанная работа
+  const [activeBlock, setActiveBlock] = useState<'orders' | 'checklist' | 'workreport' | null>(null);
+  const [checklistDateFrom, setChecklistDateFrom] = useState('');
+  const [checklistDateTo, setChecklistDateTo] = useState('');
+  const [checklistRecipientFio, setChecklistRecipientFio] = useState('');
+  const [checklistRecipientEmail, setChecklistRecipientEmail] = useState('');
+  const [checklistRecipientId, setChecklistRecipientId] = useState('');
+  const [sendingChecklist, setSendingChecklist] = useState(false);
+  const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
+  const [workReportDateFrom, setWorkReportDateFrom] = useState('');
+  const [workReportDateTo, setWorkReportDateTo] = useState('');
+
   const orgId = localStorage.getItem('organizationId') || '';
   const userFio = localStorage.getItem('userFio') || '';
+  const userPosition = localStorage.getItem('userPosition') || '';
+  const userDepartment = localStorage.getItem('userDepartment') || '';
+  const userId = localStorage.getItem('userId') || '';
 
   useEffect(() => {
     const role = localStorage.getItem('userRole');
@@ -322,6 +353,298 @@ const OtManagementPage = () => {
 
   const countByStatus = (s: string) => orders.filter(o => o.status === s).length;
 
+  const pendingOrders = orders.filter(o => o.status !== 'completed');
+  const completedOrders = orders.filter(o => o.status === 'completed');
+
+  const overdueCount = (() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return pendingOrders.filter(o => {
+      const raw = o.extended_deadline || o.deadline;
+      if (!raw) return false;
+      const [y, m, d] = raw.slice(0, 10).split('-').map(Number);
+      return new Date(y, m - 1, d) < today;
+    }).length;
+  })();
+
+  const checklistFilteredOrders = (() => {
+    if (!checklistDateFrom && !checklistDateTo) return pendingOrders;
+    return pendingOrders.filter(o => {
+      const d = o.issued_date ? new Date(o.issued_date) : null;
+      if (!d) return true;
+      if (checklistDateFrom && d < new Date(checklistDateFrom)) return false;
+      if (checklistDateTo && d > new Date(checklistDateTo + 'T23:59:59')) return false;
+      return true;
+    });
+  })();
+
+  const workReportFilteredOrders = (() => {
+    if (!workReportDateFrom && !workReportDateTo) return completedOrders;
+    return completedOrders.filter(o => {
+      const d = o.updated_at ? new Date(o.updated_at) : (o.issued_date ? new Date(o.issued_date) : null);
+      if (!d) return true;
+      if (workReportDateFrom && d < new Date(workReportDateFrom)) return false;
+      if (workReportDateTo && d > new Date(workReportDateTo + 'T23:59:59')) return false;
+      return true;
+    });
+  })();
+
+  const fileDate = new Date().toLocaleDateString('ru-RU').replace(/\./g, '-');
+  const recipientSpec = specialists.find(s => String(s.id) === checklistRecipientId);
+
+  const buildChecklistHtml = (recipientFio: string, recipientPosition?: string) => {
+    const date = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const periodLabel = checklistDateFrom || checklistDateTo
+      ? `${checklistDateFrom ? new Date(checklistDateFrom).toLocaleDateString('ru-RU') : '—'} — ${checklistDateTo ? new Date(checklistDateTo).toLocaleDateString('ru-RU') : '—'}`
+      : '';
+    const rows = checklistFilteredOrders.map((o, i) => {
+      const docsHtml = (o.documents || []).length > 0
+        ? o.documents.map(d => `<a href="${d.file_url}" style="display:block;color:#2563eb;font-size:11px;text-decoration:underline;margin-bottom:2px;word-break:break-all">${d.file_name}</a>`).join('')
+        : '<span style="color:#94a3b8;font-size:11px;font-style:italic">—</span>';
+      return `<tr style="border-bottom:1px solid #e2e8f0;${i % 2 === 1 ? 'background:#f8fafc' : ''}">
+        <td style="padding:10px 8px;font-weight:600;vertical-align:top">${i + 1}. ${o.title}</td>
+        <td style="padding:10px 8px;vertical-align:top;white-space:nowrap">${o.issued_date ? new Date(o.issued_date).toLocaleDateString('ru-RU') : '—'}</td>
+        <td style="padding:10px 8px;vertical-align:top;white-space:nowrap;color:${o.status === 'extended' ? '#d97706' : '#dc2626'}">
+          ${o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '—'}
+          ${o.extended_deadline ? `<br><span style="font-size:11px">Продлён до: ${new Date(o.extended_deadline).toLocaleDateString('ru-RU')}</span>` : ''}
+        </td>
+        <td style="padding:10px 8px;vertical-align:top">${o.responsible_person}</td>
+        <td style="padding:10px 8px;vertical-align:top">${o.issued_by}</td>
+        <td style="padding:10px 8px;vertical-align:top">
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;background:${o.status === 'new' ? '#dbeafe' : '#fef9c3'};color:${o.status === 'new' ? '#1d4ed8' : '#92400e'}">
+            ${STATUS_LABELS[o.status] || o.status}
+          </span>
+        </td>
+        <td style="padding:10px 8px;vertical-align:top;background:#fffbeb;font-style:${o.last_action ? 'normal' : 'italic'};color:${o.last_action ? '#1e293b' : '#94a3b8'}">
+          ${o.last_action || 'Не указано'}
+        </td>
+        <td style="padding:10px 8px;vertical-align:top">${docsHtml}</td>
+      </tr>`;
+    }).join('');
+    return `<div style="font-family:Arial,sans-serif;max-width:960px;margin:0 auto;padding:20px">
+      <div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #f97316;padding-bottom:16px">
+        <h1 style="font-size:22px;color:#1e293b;margin:0 0 4px">ЧЕК-ЛИСТ ПЕРЕДАЧИ ВАХТЫ — ОТДЕЛ ОТиПБ</h1>
+        <p style="color:#64748b;margin:0;font-size:14px">Сводные невыполненные поручения всех специалистов</p>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px">
+        <tr><td style="padding:6px 12px;color:#64748b;width:40%">Начальник отдела / Администратор:</td><td style="padding:6px 12px;font-weight:600;color:#1e293b">${userFio}</td></tr>
+        <tr style="background:#f8fafc"><td style="padding:6px 12px;color:#64748b">Должность:</td><td style="padding:6px 12px;font-weight:600;color:#1e293b">${userPosition || '—'}</td></tr>
+        <tr><td style="padding:6px 12px;color:#64748b">Дата формирования:</td><td style="padding:6px 12px;font-weight:600;color:#1e293b">${date}</td></tr>
+        <tr style="background:#f8fafc"><td style="padding:6px 12px;color:#64748b">Кому передаётся:</td><td style="padding:6px 12px;font-weight:600;color:#f97316">${recipientFio || '—'}</td></tr>
+        ${recipientPosition ? `<tr><td style="padding:6px 12px;color:#64748b">Должность принимающего:</td><td style="padding:6px 12px;font-weight:600;color:#1e293b">${recipientPosition}</td></tr>` : ''}
+      </table>
+      ${periodLabel ? `<div style="margin-bottom:12px;padding:8px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;font-size:13px;color:#9a3412"><b>Период:</b> ${periodLabel}</div>` : ''}
+      <h2 style="font-size:16px;color:#1e293b;margin:20px 0 12px">Невыполненные поручения по отделу (${checklistFilteredOrders.length})</h2>
+      ${checklistFilteredOrders.length === 0
+        ? '<p style="color:#16a34a;font-style:italic;padding:16px;background:#f0fdf4;border-radius:8px">Все поручения выполнены. Передача проходит в штатном режиме.</p>'
+        : `<table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:#f97316;color:#fff">
+            <th style="padding:10px 8px;text-align:left">Поручение</th>
+            <th style="padding:10px 8px;text-align:left;white-space:nowrap">Дата выдачи</th>
+            <th style="padding:10px 8px;text-align:left;white-space:nowrap">Срок</th>
+            <th style="padding:10px 8px;text-align:left">Ответственный</th>
+            <th style="padding:10px 8px;text-align:left">Выдал</th>
+            <th style="padding:10px 8px;text-align:left">Статус</th>
+            <th style="padding:10px 8px;text-align:left;background:#fff3e0;color:#9a3412">Последнее действие</th>
+            <th style="padding:10px 8px;text-align:left">Документы</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`
+      }
+      <div style="margin-top:48px;padding-top:24px;border-top:2px solid #e2e8f0">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr>
+            <td style="width:50%;padding:0 24px 0 0;vertical-align:top">
+              <p style="font-weight:700;color:#1e293b;margin:0 0 20px">Передал:</p>
+              <table style="width:100%;border-collapse:collapse">
+                <tr><td style="padding:4px 0;color:#64748b;width:36%">ФИО:</td><td style="padding:4px 0;font-weight:600;color:#1e293b">${userFio}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Должность:</td><td style="padding:4px 0;color:#1e293b">${userPosition || '—'}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Дата:</td><td style="padding:4px 0;color:#1e293b">${date}</td></tr>
+              </table>
+              <div style="margin-top:32px;border-top:1px solid #94a3b8;width:80%;padding-top:4px;color:#64748b;font-size:11px">подпись</div>
+            </td>
+            <td style="width:50%;padding:0 0 0 24px;vertical-align:top;border-left:1px solid #e2e8f0">
+              <p style="font-weight:700;color:#1e293b;margin:0 0 20px;padding-left:24px">Принял:</p>
+              <table style="width:100%;border-collapse:collapse">
+                <tr><td style="padding:4px 24px;color:#64748b;width:36%">ФИО:</td><td style="padding:4px 0;font-weight:600;color:${recipientFio ? '#1e293b' : '#94a3b8'}">${recipientFio || '____________________'}</td></tr>
+                <tr><td style="padding:4px 24px;color:#64748b">Должность:</td><td style="padding:4px 0;color:${recipientPosition ? '#1e293b' : '#94a3b8'}">${recipientPosition || '____________________'}</td></tr>
+                <tr><td style="padding:4px 24px;color:#64748b">Дата:</td><td style="padding:4px 0;color:#1e293b">${date}</td></tr>
+              </table>
+              <div style="margin-top:32px;margin-left:24px;border-top:1px solid #94a3b8;width:80%;padding-top:4px;color:#64748b;font-size:11px">подпись</div>
+            </td>
+          </tr>
+        </table>
+        <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center">
+          Документ сформирован автоматически системой ОТиПБ • ${date}
+        </div>
+      </div>
+    </div>`;
+  };
+
+  const buildWorkReportHtml = () => {
+    const now = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const periodLabel = workReportDateFrom || workReportDateTo
+      ? `${workReportDateFrom ? new Date(workReportDateFrom).toLocaleDateString('ru-RU') : '—'} — ${workReportDateTo ? new Date(workReportDateTo).toLocaleDateString('ru-RU') : '—'}`
+      : 'Весь период';
+    const rows = workReportFilteredOrders.map((o, i) => {
+      const docsHtml = (o.documents || []).length > 0
+        ? o.documents.map(d => `<a href="${d.file_url}" target="_blank" style="display:block;color:#2563eb;font-size:11px;text-decoration:underline;margin-bottom:2px;word-break:break-all">${d.file_name}</a>`).join('')
+        : '<span style="color:#94a3b8;font-size:11px;font-style:italic">—</span>';
+      return `<tr style="border-bottom:1px solid #e2e8f0;${i % 2 === 1 ? 'background:#f8fafc' : ''}">
+        <td style="padding:9px 8px;font-weight:600;vertical-align:top">${i + 1}. ${o.title}</td>
+        <td style="padding:9px 8px;vertical-align:top;white-space:nowrap">${o.issued_date ? new Date(o.issued_date).toLocaleDateString('ru-RU') : '—'}</td>
+        <td style="padding:9px 8px;vertical-align:top;white-space:nowrap">${o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '—'}</td>
+        <td style="padding:9px 8px;vertical-align:top">${o.responsible_person}</td>
+        <td style="padding:9px 8px;vertical-align:top">${o.issued_by}</td>
+        <td style="padding:9px 8px;vertical-align:top;background:#f0fdf4;color:#166534;font-style:${o.last_action ? 'normal' : 'italic'}">${o.last_action || '—'}</td>
+        <td style="padding:9px 8px;vertical-align:top">${docsHtml}</td>
+      </tr>`;
+    }).join('');
+    return `<div style="font-family:Arial,sans-serif;max-width:960px;margin:0 auto;padding:20px">
+      <div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #16a34a;padding-bottom:16px">
+        <h1 style="font-size:22px;color:#1e293b;margin:0 0 4px">ПРОДЕЛАННАЯ РАБОТА ЗА ВАХТУ — ОТДЕЛ ОТиПБ</h1>
+        <p style="color:#64748b;margin:0;font-size:14px">Сводные выполненные поручения всех специалистов</p>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px">
+        <tr><td style="padding:5px 12px;color:#64748b;width:40%">Начальник отдела / Администратор:</td><td style="padding:5px 12px;font-weight:600;color:#1e293b">${userFio}</td></tr>
+        <tr style="background:#f8fafc"><td style="padding:5px 12px;color:#64748b">Должность:</td><td style="padding:5px 12px;font-weight:600;color:#1e293b">${userPosition || '—'}</td></tr>
+        <tr><td style="padding:5px 12px;color:#64748b">Подразделение:</td><td style="padding:5px 12px;font-weight:600;color:#1e293b">${userDepartment || 'Главный администратор'}</td></tr>
+        <tr style="background:#f8fafc"><td style="padding:5px 12px;color:#64748b">Период вахты:</td><td style="padding:5px 12px;font-weight:600;color:#16a34a">${periodLabel}</td></tr>
+        <tr><td style="padding:5px 12px;color:#64748b">Дата формирования:</td><td style="padding:5px 12px;font-weight:600;color:#1e293b">${now}</td></tr>
+      </table>
+      <h2 style="font-size:16px;color:#1e293b;margin:20px 0 12px">Выполненные поручения по отделу (${workReportFilteredOrders.length})</h2>
+      ${workReportFilteredOrders.length === 0
+        ? '<p style="color:#64748b;font-style:italic;padding:16px;background:#f8fafc;border-radius:8px">Выполненных поручений за выбранный период не найдено.</p>'
+        : `<table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:#16a34a;color:#fff">
+            <th style="padding:9px 8px;text-align:left">Поручение</th>
+            <th style="padding:9px 8px;text-align:left;white-space:nowrap">Дата выдачи</th>
+            <th style="padding:9px 8px;text-align:left;white-space:nowrap">Срок</th>
+            <th style="padding:9px 8px;text-align:left">Ответственный</th>
+            <th style="padding:9px 8px;text-align:left">Выдал</th>
+            <th style="padding:9px 8px;text-align:left">Что сделано</th>
+            <th style="padding:9px 8px;text-align:left">Документы</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`
+      }
+      <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center">
+        Документ сформирован автоматически системой ОТиПБ • ${now}
+      </div>
+    </div>`;
+  };
+
+  const downloadXlsx = (type: 'checklist' | 'workreport') => {
+    const list = type === 'checklist' ? checklistFilteredOrders : workReportFilteredOrders;
+    const title = type === 'checklist' ? 'ЧЕК-ЛИСТ ПЕРЕДАЧИ ВАХТЫ — ОТДЕЛ ОТиПБ' : 'ПРОДЕЛАННАЯ РАБОТА ЗА ВАХТУ — ОТДЕЛ ОТиПБ';
+    const info = [
+      [title],
+      ['Охрана труда и промышленная безопасность'],
+      [],
+      ['Главный администратор:', userFio],
+      ['Дата формирования:', new Date().toLocaleString('ru-RU')],
+      ['Поручений:', list.length],
+      [],
+    ];
+    const headers = ['№', 'Поручение', 'Дата выдачи', 'Срок', 'Ответственный', 'Выдал', 'Статус', 'Что сделано'];
+    const rows = list.map((o, i) => [i + 1, o.title, o.issued_date ? new Date(o.issued_date).toLocaleDateString('ru-RU') : '—', o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '—', o.responsible_person, o.issued_by, STATUS_LABELS[o.status] || o.status, o.last_action || '—']);
+    const ws = XLSX.utils.aoa_to_sheet([...info, headers, ...rows]);
+    ws['!cols'] = [{ wch: 4 }, { wch: 40 }, { wch: 14 }, { wch: 16 }, { wch: 24 }, { wch: 24 }, { wch: 14 }, { wch: 50 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, type === 'checklist' ? 'Чек-лист' : 'Проделанная работа');
+    XLSX.writeFile(wb, `${type === 'checklist' ? 'чек-лист' : 'проделанная_работа'}_отипб_${fileDate}.xlsx`);
+    toast.success('Excel-файл скачан');
+  };
+
+  const downloadPdf = async (type: 'checklist' | 'workreport') => {
+    setDownloadingFormat(type + '-pdf');
+    try {
+      const html = type === 'checklist' ? buildChecklistHtml(checklistRecipientFio, recipientSpec?.position) : buildWorkReportHtml();
+      const container = document.createElement('div');
+      container.style.cssText = 'position:fixed;left:-9999px;top:0;width:960px;background:#fff;font-family:Arial,sans-serif;';
+      container.innerHTML = html;
+      document.body.appendChild(container);
+      await new Promise(r => setTimeout(r, 200));
+      const canvas = await html2canvas(container, { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' });
+      document.body.removeChild(container);
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = pdf.internal.pageSize.getHeight();
+      const imgH = pdfW / (canvas.width / canvas.height);
+      let yPos = 0; let remainH = imgH;
+      while (remainH > 0) {
+        if (yPos > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, -yPos, pdfW, imgH);
+        yPos += pdfH; remainH -= pdfH;
+      }
+      pdf.save(`${type === 'checklist' ? 'чек-лист' : 'проделанная_работа'}_отипб_${fileDate}.pdf`);
+      toast.success('PDF-файл скачан');
+    } catch {
+      toast.error('Ошибка создания PDF');
+    } finally {
+      setDownloadingFormat(null);
+    }
+  };
+
+  const printHtml = (type: 'checklist' | 'workreport') => {
+    const html = type === 'checklist' ? buildChecklistHtml(checklistRecipientFio, recipientSpec?.position) : buildWorkReportHtml();
+    const color = type === 'checklist' ? '#f97316' : '#16a34a';
+    const fullHtml = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><style>body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}@media print{.no-print{display:none!important}body{padding:0}}</style></head><body>
+    <div class="no-print" style="text-align:center;margin-bottom:16px">
+      <button onclick="window.print()" style="padding:10px 28px;background:${color};color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer">🖨️ Распечатать</button>
+    </div>${html}</body></html>`;
+    const pw = window.open('', '_blank');
+    if (!pw) return;
+    pw.document.write(fullHtml);
+    pw.document.close();
+  };
+
+  const sendEmailChecklist = async () => {
+    if (!checklistRecipientEmail.trim()) { toast.error('Укажите email получателя'); return; }
+    setSendingChecklist(true);
+    try {
+      const body = buildChecklistHtml(checklistRecipientFio, recipientSpec?.position);
+      const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/></head><body>${body}</body></html>`;
+      const res = await fetch(SEND_EMAIL_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: checklistRecipientEmail, subject: `Чек-лист передачи вахты — Отдел ОТиПБ — ${new Date().toLocaleDateString('ru-RU')}`, html }),
+      });
+      const data = await res.json();
+      if (data.success) toast.success('Чек-лист отправлен на почту');
+      else toast.error(`Ошибка: ${data.error || ''}`);
+    } catch {
+      toast.error('Ошибка соединения');
+    } finally {
+      setSendingChecklist(false);
+    }
+  };
+
+  const sendChecklistInternal = async () => {
+    if (!checklistRecipientId) { toast.error('Выберите сменщика из списка'); return; }
+    const spec = specialists.find(s => String(s.id) === checklistRecipientId);
+    const senderId = userId ? Number(userId) : null;
+    if (!senderId) { toast.error('Не определён отправитель'); return; }
+    setSendingChecklist(true);
+    try {
+      const html = buildChecklistHtml(checklistRecipientFio, spec?.position);
+      const encoded = btoa(unescape(encodeURIComponent(html)));
+      const msgText = `📋 Чек-лист передачи вахты (Отдел ОТиПБ) от ${userFio}\nНевыполненных поручений по отделу: ${pendingOrders.length}\nДата: ${new Date().toLocaleDateString('ru-RU')}\n[CHECKLIST_DATA:${encoded}]`;
+      const res = await fetch(OT_ORDERS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send_checklist_internal', sender_id: senderId, receiver_id: Number(checklistRecipientId), message: msgText }),
+      });
+      const data = await res.json();
+      if (data.success) toast.success(`Чек-лист отправлен коллеге ${spec?.fio || ''}`);
+      else toast.error(`Ошибка: ${data.error || ''}`);
+    } catch {
+      toast.error('Ошибка соединения');
+    } finally {
+      setSendingChecklist(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -520,60 +843,266 @@ const OtManagementPage = () => {
           </Card>
         )}
 
-        {/* Интерактивный блок — счётчик поручений */}
+        {/* ─── Три блока управления ─────────────────────────────────────── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+
+          {/* Поручения */}
           <Card
-            onClick={() => setShowList(true)}
-            className="bg-slate-800/50 border-orange-600/40 p-6 cursor-pointer hover:border-orange-500 hover:shadow-xl hover:scale-105 transition-all group"
+            onClick={() => setActiveBlock(activeBlock === 'orders' ? null : 'orders')}
+            className={`p-6 cursor-pointer transition-all hover:shadow-xl hover:scale-105 group ${activeBlock === 'orders' ? 'bg-orange-900/30 border-orange-500' : 'bg-slate-800/50 border-orange-600/40 hover:border-orange-500'}`}
           >
             <div className="flex items-center gap-4">
               <div className="bg-gradient-to-br from-orange-500 to-red-600 p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
                 <Icon name="ClipboardList" size={32} className="text-white" />
               </div>
               <div>
-                <p className="text-gray-400 text-sm mb-1">Поручений от начальника</p>
+                <p className="text-gray-400 text-sm mb-1">Поручения от начальника</p>
                 <div className="text-4xl font-bold text-white">{loading ? '...' : orders.length}</div>
-                <p className="text-orange-400 text-xs mt-1">Нажмите, чтобы открыть список</p>
+                <p className="text-orange-400 text-xs mt-1">Всего по отделу</p>
               </div>
             </div>
             {!loading && (
-              <div className="flex gap-3 mt-4 pt-4 border-t border-slate-700">
-                <div className="flex items-center gap-1 text-xs text-blue-400">
-                  <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
-                  Новые: {countByStatus('new')}
-                </div>
-                <div className="flex items-center gap-1 text-xs text-green-400">
-                  <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
-                  Выполнено: {countByStatus('completed')}
-                </div>
-                <div className="flex items-center gap-1 text-xs text-yellow-400">
-                  <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />
-                  Продлено: {countByStatus('extended')}
-                </div>
+              <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-slate-700">
+                <div className="flex items-center gap-1 text-xs text-blue-400"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />Новые: {countByStatus('new')}</div>
+                <div className="flex items-center gap-1 text-xs text-green-400"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />Выполнено: {countByStatus('completed')}</div>
+                <div className="flex items-center gap-1 text-xs text-yellow-400"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />Продлено: {countByStatus('extended')}</div>
+                {overdueCount > 0 && <div className="flex items-center gap-1 text-xs text-red-400 font-semibold"><span className="w-2 h-2 rounded-full bg-red-500 inline-block animate-pulse" />Просрочено: {overdueCount}</div>}
               </div>
             )}
           </Card>
 
-          {/* Плейсхолдеры для будущих блоков */}
-          <Card className="bg-slate-800/30 border-slate-700/40 p-6 border-dashed">
-            <div className="flex items-center gap-4 opacity-40">
-              <div className="bg-slate-700 p-4 rounded-xl"><Icon name="FileText" size={32} className="text-slate-400" /></div>
+          {/* Чек-лист */}
+          <Card
+            onClick={() => setActiveBlock(activeBlock === 'checklist' ? null : 'checklist')}
+            className={`p-6 cursor-pointer transition-all hover:shadow-xl hover:scale-105 group ${activeBlock === 'checklist' ? 'bg-violet-900/30 border-violet-500' : 'bg-slate-800/50 border-violet-600/40 hover:border-violet-500'}`}
+          >
+            <div className="flex items-center gap-4">
+              <div className="bg-gradient-to-br from-violet-500 to-purple-600 p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                <Icon name="ClipboardCheck" size={32} className="text-white" />
+              </div>
               <div>
-                <p className="text-slate-400 text-sm">Раздел</p>
-                <p className="text-slate-500 text-xs mt-1">Скоро будет настроен</p>
+                <p className="text-gray-400 text-sm mb-1">Чек-лист передачи вахты</p>
+                <div className="text-4xl font-bold text-white">{loading ? '...' : pendingOrders.length}</div>
+                <p className="text-violet-400 text-xs mt-1">Невыполненных по отделу</p>
               </div>
             </div>
+            {!loading && (
+              <div className="mt-4 pt-4 border-t border-slate-700">
+                <p className="text-xs text-slate-400">{pendingOrders.length === 0 ? '✅ Все поручения отдела выполнены' : `⚠️ ${pendingOrders.length} пункт(ов) требуют передачи`}</p>
+              </div>
+            )}
           </Card>
-          <Card className="bg-slate-800/30 border-slate-700/40 p-6 border-dashed">
-            <div className="flex items-center gap-4 opacity-40">
-              <div className="bg-slate-700 p-4 rounded-xl"><Icon name="FileText" size={32} className="text-slate-400" /></div>
+
+          {/* Проделанная работа */}
+          <Card
+            onClick={() => setActiveBlock(activeBlock === 'workreport' ? null : 'workreport')}
+            className={`p-6 cursor-pointer transition-all hover:shadow-xl hover:scale-105 group ${activeBlock === 'workreport' ? 'bg-green-900/30 border-green-500' : 'bg-slate-800/50 border-green-600/40 hover:border-green-500'}`}
+          >
+            <div className="flex items-center gap-4">
+              <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                <Icon name="CheckSquare" size={32} className="text-white" />
+              </div>
               <div>
-                <p className="text-slate-400 text-sm">Раздел</p>
-                <p className="text-slate-500 text-xs mt-1">Скоро будет настроен</p>
+                <p className="text-gray-400 text-sm mb-1">Проделанная работа за вахту</p>
+                <div className="text-4xl font-bold text-white">{loading ? '...' : completedOrders.length}</div>
+                <p className="text-green-400 text-xs mt-1">Выполненных по отделу</p>
               </div>
             </div>
+            {!loading && (
+              <div className="mt-4 pt-4 border-t border-slate-700">
+                <p className="text-xs text-slate-400">{completedOrders.length === 0 ? 'Выполненных поручений пока нет' : `✅ ${completedOrders.length} поручений выполнено`}</p>
+              </div>
+            )}
           </Card>
         </div>
+
+        {/* ─── Раскрывающийся блок: Поручения ──────────────────────────────── */}
+        {activeBlock === 'orders' && (
+          <Card className="mb-6 bg-slate-800/50 border-orange-500/40 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Icon name="ClipboardList" size={20} className="text-orange-400" />
+                Поручения отдела ОТиПБ — все специалисты
+              </h3>
+              <div className="flex gap-2">
+                <Button onClick={() => { setShowForm(true); setForm({ ...emptyForm, issued_by: userFio }); setActiveBlock(null); }}
+                  className="bg-orange-600 hover:bg-orange-700" size="sm">
+                  <Icon name="Plus" size={16} className="mr-1" />Новое поручение
+                </Button>
+                <Button onClick={() => setActiveBlock(null)} variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                  <Icon name="X" size={18} />
+                </Button>
+              </div>
+            </div>
+            {loading ? (
+              <div className="text-center py-8 text-slate-400">Загрузка...</div>
+            ) : orders.length === 0 ? (
+              <div className="text-center py-8 text-slate-400">Поручений нет</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-700 text-slate-400 text-xs">
+                      <th className="text-left py-2 px-3">Поручение</th>
+                      <th className="text-left py-2 px-3 whitespace-nowrap">Дата выдачи</th>
+                      <th className="text-left py-2 px-3 whitespace-nowrap">Срок</th>
+                      <th className="text-left py-2 px-3">Ответственный</th>
+                      <th className="text-left py-2 px-3">Выдал</th>
+                      <th className="text-left py-2 px-3">Статус</th>
+                      <th className="text-left py-2 px-3">Что сделано</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((o, i) => {
+                      const today = new Date(); today.setHours(0, 0, 0, 0);
+                      const raw = o.extended_deadline || o.deadline;
+                      const isOverdue = o.status !== 'completed' && raw && (() => {
+                        const [y, m, d] = raw.slice(0, 10).split('-').map(Number);
+                        return new Date(y, m - 1, d) < today;
+                      })();
+                      return (
+                        <tr key={o.id} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-800/30'}`}>
+                          <td className="py-2 px-3 text-white font-medium max-w-xs"><div className="truncate" title={o.title}>{o.title}</div></td>
+                          <td className="py-2 px-3 text-slate-300 whitespace-nowrap">{o.issued_date ? new Date(o.issued_date).toLocaleDateString('ru-RU') : '—'}</td>
+                          <td className={`py-2 px-3 whitespace-nowrap font-medium ${isOverdue ? 'text-red-400' : 'text-slate-300'}`}>
+                            {o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '—'}
+                            {o.extended_deadline && <div className="text-xs text-yellow-400">→ {new Date(o.extended_deadline).toLocaleDateString('ru-RU')}</div>}
+                          </td>
+                          <td className="py-2 px-3 text-slate-300 max-w-[140px]"><div className="truncate" title={o.responsible_person}>{o.responsible_person}</div></td>
+                          <td className="py-2 px-3 text-slate-400 max-w-[120px]"><div className="truncate">{o.issued_by}</div></td>
+                          <td className="py-2 px-3">
+                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold border ${o.status === 'completed' ? 'bg-green-600/20 text-green-300 border-green-500/40' : o.status === 'extended' ? 'bg-yellow-600/20 text-yellow-300 border-yellow-500/40' : isOverdue ? 'bg-red-600/20 text-red-300 border-red-500/40' : 'bg-blue-600/20 text-blue-300 border-blue-500/40'}`}>
+                              {isOverdue && o.status !== 'completed' ? 'Просрочено' : STATUS_LABELS[o.status] || o.status}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-slate-400 text-xs max-w-[160px]"><div className="truncate italic">{o.last_action || '—'}</div></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* ─── Раскрывающийся блок: Чек-лист ───────────────────────────────── */}
+        {activeBlock === 'checklist' && (
+          <Card className="mb-6 bg-slate-800/50 border-violet-500/40 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Icon name="ClipboardCheck" size={20} className="text-violet-400" />
+                Чек-лист передачи вахты — невыполненные поручения отдела
+              </h3>
+              <Button onClick={() => setActiveBlock(null)} variant="ghost" size="sm" className="text-slate-400 hover:text-white"><Icon name="X" size={18} /></Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-slate-700/30 rounded-xl border border-slate-600/30">
+              <div><Label className="text-slate-300 text-xs mb-1 block">Период с</Label><Input type="date" value={checklistDateFrom} onChange={e => setChecklistDateFrom(e.target.value)} className="bg-slate-700 border-slate-600 text-white" /></div>
+              <div><Label className="text-slate-300 text-xs mb-1 block">Период по</Label><Input type="date" value={checklistDateTo} onChange={e => setChecklistDateTo(e.target.value)} className="bg-slate-700 border-slate-600 text-white" /></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-slate-700/30 rounded-xl border border-slate-600/30">
+              <div>
+                <Label className="text-slate-300 text-xs mb-1 block">Сменщик (из списка специалистов)</Label>
+                <select value={checklistRecipientId} onChange={e => { setChecklistRecipientId(e.target.value); const s = specialists.find(sp => String(sp.id) === e.target.value); setChecklistRecipientFio(s ? s.fio : ''); }}
+                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-md px-3 py-2 text-sm">
+                  <option value="">— выбрать —</option>
+                  {specialists.map(s => <option key={s.id} value={s.id}>{s.fio}{s.position ? ` (${s.position})` : ''}</option>)}
+                </select>
+              </div>
+              <div><Label className="text-slate-300 text-xs mb-1 block">ФИО принимающего (или вручную)</Label><Input value={checklistRecipientFio} onChange={e => setChecklistRecipientFio(e.target.value)} placeholder="ФИО сменщика" className="bg-slate-700 border-slate-600 text-white" /></div>
+              <div><Label className="text-slate-300 text-xs mb-1 block">Email для отправки</Label><Input value={checklistRecipientEmail} onChange={e => setChecklistRecipientEmail(e.target.value)} placeholder="email@example.com" type="email" className="bg-slate-700 border-slate-600 text-white" /></div>
+            </div>
+            {pendingOrders.length === 0 ? (
+              <div className="text-center py-6 text-green-400 font-semibold">✅ Все поручения отдела выполнены. Передача в штатном режиме.</div>
+            ) : (
+              <div className="overflow-x-auto mb-4">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-slate-700 text-slate-400 text-xs">
+                    <th className="text-left py-2 px-3">Поручение</th><th className="text-left py-2 px-3 whitespace-nowrap">Срок</th>
+                    <th className="text-left py-2 px-3">Ответственный</th><th className="text-left py-2 px-3">Статус</th><th className="text-left py-2 px-3">На чём остановились</th>
+                  </tr></thead>
+                  <tbody>
+                    {checklistFilteredOrders.map((o, i) => (
+                      <tr key={o.id} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-800/30'}`}>
+                        <td className="py-2 px-3 text-white font-medium max-w-xs"><div className="truncate" title={o.title}>{o.title}</div></td>
+                        <td className="py-2 px-3 text-red-400 whitespace-nowrap text-xs">
+                          {o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '—'}
+                          {o.extended_deadline && <div className="text-yellow-400">→ {new Date(o.extended_deadline).toLocaleDateString('ru-RU')}</div>}
+                        </td>
+                        <td className="py-2 px-3 text-slate-300 max-w-[140px]"><div className="truncate">{o.responsible_person}</div></td>
+                        <td className="py-2 px-3">
+                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold border ${o.status === 'extended' ? 'bg-yellow-600/20 text-yellow-300 border-yellow-500/40' : 'bg-blue-600/20 text-blue-300 border-blue-500/40'}`}>{STATUS_LABELS[o.status] || o.status}</span>
+                        </td>
+                        <td className="py-2 px-3 text-slate-400 text-xs max-w-[160px]"><div className="truncate italic">{o.last_action || 'Не указано'}</div></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-700">
+              <Button onClick={() => printHtml('checklist')} variant="outline" className="border-violet-600/50 text-violet-400 hover:bg-violet-600/10" size="sm"><Icon name="Printer" size={16} className="mr-2" />Распечатать</Button>
+              <Button onClick={() => downloadXlsx('checklist')} variant="outline" className="border-green-600/50 text-green-400 hover:bg-green-600/10" size="sm"><Icon name="FileSpreadsheet" size={16} className="mr-2" />Excel</Button>
+              <Button onClick={() => downloadPdf('checklist')} disabled={downloadingFormat === 'checklist-pdf'} variant="outline" className="border-red-600/50 text-red-400 hover:bg-red-600/10" size="sm"><Icon name="FileText" size={16} className="mr-2" />{downloadingFormat === 'checklist-pdf' ? 'Создание...' : 'PDF'}</Button>
+              <Button onClick={sendEmailChecklist} disabled={sendingChecklist} variant="outline" className="border-blue-600/50 text-blue-400 hover:bg-blue-600/10" size="sm"><Icon name="Mail" size={16} className="mr-2" />{sendingChecklist ? 'Отправка...' : 'На почту'}</Button>
+              <Button onClick={sendChecklistInternal} disabled={sendingChecklist || !checklistRecipientId} variant="outline" className="border-cyan-600/50 text-cyan-400 hover:bg-cyan-600/10" size="sm"><Icon name="MessageSquare" size={16} className="mr-2" />{sendingChecklist ? 'Отправка...' : 'Сменщику в системе'}</Button>
+            </div>
+          </Card>
+        )}
+
+        {/* ─── Раскрывающийся блок: Проделанная работа ─────────────────────── */}
+        {activeBlock === 'workreport' && (
+          <Card className="mb-6 bg-slate-800/50 border-green-500/40 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Icon name="CheckSquare" size={20} className="text-green-400" />
+                Проделанная работа за вахту — выполненные поручения отдела
+              </h3>
+              <Button onClick={() => setActiveBlock(null)} variant="ghost" size="sm" className="text-slate-400 hover:text-white"><Icon name="X" size={18} /></Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-slate-700/30 rounded-xl border border-slate-600/30">
+              <div><Label className="text-slate-300 text-xs mb-1 block">Период с</Label><Input type="date" value={workReportDateFrom} onChange={e => setWorkReportDateFrom(e.target.value)} className="bg-slate-700 border-slate-600 text-white" /></div>
+              <div><Label className="text-slate-300 text-xs mb-1 block">Период по</Label><Input type="date" value={workReportDateTo} onChange={e => setWorkReportDateTo(e.target.value)} className="bg-slate-700 border-slate-600 text-white" /></div>
+            </div>
+            {completedOrders.length === 0 ? (
+              <div className="text-center py-6 text-slate-400">Выполненных поручений за выбранный период нет</div>
+            ) : (
+              <div className="overflow-x-auto mb-4">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-slate-700 text-slate-400 text-xs">
+                    <th className="text-left py-2 px-3">Поручение</th><th className="text-left py-2 px-3 whitespace-nowrap">Дата выдачи</th>
+                    <th className="text-left py-2 px-3 whitespace-nowrap">Срок</th><th className="text-left py-2 px-3">Ответственный</th>
+                    <th className="text-left py-2 px-3">Выдал</th><th className="text-left py-2 px-3">Что сделано</th><th className="text-left py-2 px-3">Документы</th>
+                  </tr></thead>
+                  <tbody>
+                    {workReportFilteredOrders.map((o, i) => (
+                      <tr key={o.id} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-800/30'}`}>
+                        <td className="py-2 px-3 text-white font-medium max-w-xs"><div className="truncate" title={o.title}>{o.title}</div></td>
+                        <td className="py-2 px-3 text-slate-300 whitespace-nowrap">{o.issued_date ? new Date(o.issued_date).toLocaleDateString('ru-RU') : '—'}</td>
+                        <td className="py-2 px-3 text-slate-300 whitespace-nowrap">{o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '—'}</td>
+                        <td className="py-2 px-3 text-slate-300 max-w-[140px]"><div className="truncate">{o.responsible_person}</div></td>
+                        <td className="py-2 px-3 text-slate-400 max-w-[120px]"><div className="truncate">{o.issued_by}</div></td>
+                        <td className="py-2 px-3 text-green-400 text-xs max-w-[160px]"><div className="truncate italic">{o.last_action || '—'}</div></td>
+                        <td className="py-2 px-3">
+                          {(o.documents || []).length > 0 ? (
+                            <div className="flex flex-col gap-1">
+                              {o.documents.map(d => <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-xs underline truncate max-w-[120px]" title={d.file_name}>{d.file_name}</a>)}
+                            </div>
+                          ) : <span className="text-slate-500 text-xs">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-700">
+              <Button onClick={() => printHtml('workreport')} variant="outline" className="border-green-600/50 text-green-400 hover:bg-green-600/10" size="sm"><Icon name="Printer" size={16} className="mr-2" />Распечатать</Button>
+              <Button onClick={() => downloadXlsx('workreport')} variant="outline" className="border-emerald-600/50 text-emerald-400 hover:bg-emerald-600/10" size="sm"><Icon name="FileSpreadsheet" size={16} className="mr-2" />Excel</Button>
+              <Button onClick={() => downloadPdf('workreport')} disabled={downloadingFormat === 'workreport-pdf'} variant="outline" className="border-red-600/50 text-red-400 hover:bg-red-600/10" size="sm"><Icon name="FileText" size={16} className="mr-2" />{downloadingFormat === 'workreport-pdf' ? 'Создание...' : 'PDF'}</Button>
+            </div>
+          </Card>
+        )}
 
         {/* Список поручений */}
         {showList && (
