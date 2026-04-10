@@ -35,6 +35,7 @@ interface Order {
   assigned_fio: string | null;
   notes: string | null;
   last_action: string | null;
+  updated_at: string | null;
   documents: OrderDocument[];
 }
 
@@ -91,6 +92,12 @@ const OtipbWorkspaceDashboardPage = () => {
   const [checklistRecipientId, setChecklistRecipientId] = useState('');
   const [sendingChecklist, setSendingChecklist] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [showWorkReport, setShowWorkReport] = useState(false);
+  const [workReportDateFrom, setWorkReportDateFrom] = useState('');
+  const [workReportDateTo, setWorkReportDateTo] = useState('');
+  const [checklistDateFrom, setChecklistDateFrom] = useState('');
+  const [checklistDateTo, setChecklistDateTo] = useState('');
+
   const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
   const checklistRef = useRef<HTMLDivElement>(null);
 
@@ -351,9 +358,91 @@ const OtipbWorkspaceDashboardPage = () => {
   const pendingOrders = orders.filter(o => o.status !== 'completed');
   const countByStatus = (s: string) => orders.filter(o => o.status === s).length;
 
+  // Фильтрация по периоду для чек-листа (невыполненные в диапазоне дат)
+  const checklistFilteredOrders = (() => {
+    if (!checklistDateFrom && !checklistDateTo) return pendingOrders;
+    return pendingOrders.filter(o => {
+      const d = o.issued_date ? new Date(o.issued_date) : null;
+      if (!d) return true;
+      if (checklistDateFrom && d < new Date(checklistDateFrom)) return false;
+      if (checklistDateTo && d > new Date(checklistDateTo + 'T23:59:59')) return false;
+      return true;
+    });
+  })();
+
+  // Выполненные поручения для отчёта «Проделанная работа»
+  const completedOrders = orders.filter(o => o.status === 'completed');
+
+  const workReportFilteredOrders = (() => {
+    if (!workReportDateFrom && !workReportDateTo) return completedOrders;
+    return completedOrders.filter(o => {
+      const d = o.updated_at ? new Date(o.updated_at) : (o.issued_date ? new Date(o.issued_date) : null);
+      if (!d) return true;
+      if (workReportDateFrom && d < new Date(workReportDateFrom)) return false;
+      if (workReportDateTo && d > new Date(workReportDateTo + 'T23:59:59')) return false;
+      return true;
+    });
+  })();
+
+  const buildWorkReportHtml = () => {
+    const now = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const periodLabel = workReportDateFrom || workReportDateTo
+      ? `${workReportDateFrom ? new Date(workReportDateFrom).toLocaleDateString('ru-RU') : '—'} — ${workReportDateTo ? new Date(workReportDateTo).toLocaleDateString('ru-RU') : '—'}`
+      : 'Весь период';
+    const rows = workReportFilteredOrders.map((o, i) => {
+      const docsHtml = (o.documents || []).length > 0
+        ? (o.documents || []).map(d => `<a href="${d.file_url}" target="_blank" style="display:block;color:#2563eb;font-size:11px;text-decoration:underline;margin-bottom:2px;word-break:break-all">${d.file_name}</a>`).join('')
+        : '<span style="color:#94a3b8;font-size:11px;font-style:italic">—</span>';
+      return `<tr style="border-bottom:1px solid #e2e8f0;${i % 2 === 1 ? 'background:#f8fafc' : ''}">
+        <td style="padding:9px 8px;font-weight:600;vertical-align:top">${i + 1}. ${o.title}</td>
+        <td style="padding:9px 8px;vertical-align:top;white-space:nowrap">${o.issued_date ? new Date(o.issued_date).toLocaleDateString('ru-RU') : '—'}</td>
+        <td style="padding:9px 8px;vertical-align:top;white-space:nowrap">${o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '—'}</td>
+        <td style="padding:9px 8px;vertical-align:top">${o.responsible_person}</td>
+        <td style="padding:9px 8px;vertical-align:top">${o.issued_by}</td>
+        <td style="padding:9px 8px;vertical-align:top;background:#f0fdf4;color:#166534;font-style:${o.last_action ? 'normal' : 'italic'}">${o.last_action || '—'}</td>
+        <td style="padding:9px 8px;vertical-align:top">${docsHtml}</td>
+      </tr>`;
+    }).join('');
+    return `<div style="font-family:Arial,sans-serif;max-width:960px;margin:0 auto;padding:20px">
+      <div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #16a34a;padding-bottom:16px">
+        <h1 style="font-size:22px;color:#1e293b;margin:0 0 4px">ПРОДЕЛАННАЯ РАБОТА ЗА ВАХТУ</h1>
+        <p style="color:#64748b;margin:0;font-size:14px">Отдел ОТиПБ — Охрана труда и промышленная безопасность</p>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px">
+        <tr><td style="padding:5px 12px;color:#64748b;width:40%">ФИО:</td><td style="padding:5px 12px;font-weight:600;color:#1e293b">${userFio || userName}</td></tr>
+        <tr style="background:#f8fafc"><td style="padding:5px 12px;color:#64748b">Должность:</td><td style="padding:5px 12px;font-weight:600;color:#1e293b">${userPosition || '—'}</td></tr>
+        <tr><td style="padding:5px 12px;color:#64748b">Подразделение:</td><td style="padding:5px 12px;font-weight:600;color:#1e293b">${userDepartment}</td></tr>
+        <tr style="background:#f8fafc"><td style="padding:5px 12px;color:#64748b">Период вахты:</td><td style="padding:5px 12px;font-weight:600;color:#16a34a">${periodLabel}</td></tr>
+        <tr><td style="padding:5px 12px;color:#64748b">Дата формирования:</td><td style="padding:5px 12px;font-weight:600;color:#1e293b">${now}</td></tr>
+      </table>
+      <h2 style="font-size:16px;color:#1e293b;margin:20px 0 12px">Выполненные поручения (${workReportFilteredOrders.length})</h2>
+      ${workReportFilteredOrders.length === 0
+        ? '<p style="color:#64748b;font-style:italic;padding:16px;background:#f8fafc;border-radius:8px">Выполненных поручений за выбранный период не найдено.</p>'
+        : `<table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:#16a34a;color:#fff">
+            <th style="padding:9px 8px;text-align:left">Поручение</th>
+            <th style="padding:9px 8px;text-align:left;white-space:nowrap">Дата выдачи</th>
+            <th style="padding:9px 8px;text-align:left;white-space:nowrap">Срок</th>
+            <th style="padding:9px 8px;text-align:left">Ответственный</th>
+            <th style="padding:9px 8px;text-align:left">Выдал</th>
+            <th style="padding:9px 8px;text-align:left">Что сделано</th>
+            <th style="padding:9px 8px;text-align:left">Ссылка на документ</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`
+      }
+      <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center">
+        Документ сформирован автоматически системой ОТиПБ • ${now}
+      </div>
+    </div>`;
+  };
+
   const buildChecklistHtml = (recipientFio: string, recipientPosition?: string) => {
     const date = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const rows = pendingOrders.map((o, i) => {
+    const periodLabel = checklistDateFrom || checklistDateTo
+      ? `${checklistDateFrom ? new Date(checklistDateFrom).toLocaleDateString('ru-RU') : '—'} — ${checklistDateTo ? new Date(checklistDateTo).toLocaleDateString('ru-RU') : '—'}`
+      : '';
+    const rows = checklistFilteredOrders.map((o, i) => {
       const docsHtml = (o.documents || []).length > 0
         ? (o.documents || []).map(d => `<a href="${d.file_url}" style="display:block;color:#2563eb;font-size:11px;text-decoration:underline;margin-bottom:2px;word-break:break-all">${d.file_name}</a>`).join('')
         : '<span style="color:#94a3b8;font-size:11px;font-style:italic">—</span>';
@@ -408,8 +497,9 @@ const OtipbWorkspaceDashboardPage = () => {
           </tr>
         </table>
 
-        <h2 style="font-size:16px;color:#1e293b;margin:20px 0 12px">Невыполненные поручения (${pendingOrders.length})</h2>
-        ${pendingOrders.length === 0
+        ${periodLabel ? `<div style="margin-bottom:12px;padding:8px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;font-size:13px;color:#9a3412"><b>Период:</b> ${periodLabel}</div>` : ''}
+        <h2 style="font-size:16px;color:#1e293b;margin:20px 0 12px">Невыполненные поручения (${checklistFilteredOrders.length})</h2>
+        ${checklistFilteredOrders.length === 0
           ? '<p style="color:#16a34a;font-style:italic">Все поручения выполнены. Передача проходит в штатном режиме.</p>'
           : `<table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead>
@@ -689,7 +779,7 @@ const OtipbWorkspaceDashboardPage = () => {
 
           {/* Поручения */}
           <Card
-            onClick={() => { setShowList(true); setShowChecklist(false); }}
+            onClick={() => { setShowList(true); setShowChecklist(false); setShowWorkReport(false); }}
             className="bg-slate-800/50 border-orange-600/40 p-6 cursor-pointer hover:border-orange-500 hover:shadow-xl hover:scale-105 transition-all group"
           >
             <div className="flex items-center gap-4">
@@ -722,7 +812,7 @@ const OtipbWorkspaceDashboardPage = () => {
 
           {/* Чек-лист передачи вахты */}
           <Card
-            onClick={() => { setShowChecklist(true); setShowList(false); }}
+            onClick={() => { setShowChecklist(true); setShowList(false); setShowWorkReport(false); }}
             className="bg-slate-800/50 border-violet-600/40 p-6 cursor-pointer hover:border-violet-500 hover:shadow-xl hover:scale-105 transition-all group"
           >
             <div className="flex items-center gap-4">
@@ -746,15 +836,30 @@ const OtipbWorkspaceDashboardPage = () => {
             )}
           </Card>
 
-          {/* Плейсхолдер */}
-          <Card className="bg-slate-800/30 border-slate-700/40 p-6 border-dashed">
-            <div className="flex items-center gap-4 opacity-40">
-              <div className="bg-slate-700 p-4 rounded-xl"><Icon name="FileText" size={32} className="text-slate-400" /></div>
+          {/* Проделанная работа за вахту */}
+          <Card
+            onClick={() => { setShowWorkReport(true); setShowChecklist(false); setShowList(false); }}
+            className="bg-slate-800/50 border-green-600/40 p-6 cursor-pointer hover:border-green-500 hover:shadow-xl hover:scale-105 transition-all group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                <Icon name="CheckSquare" size={32} className="text-white" />
+              </div>
               <div>
-                <p className="text-slate-400 text-sm">Раздел</p>
-                <p className="text-slate-500 text-xs mt-1">Скоро будет настроен</p>
+                <p className="text-gray-400 text-sm mb-1">Проделанная работа за вахту</p>
+                <div className="text-4xl font-bold text-white">{loading ? '...' : completedOrders.length}</div>
+                <p className="text-green-400 text-xs mt-1">Выполненных поручений</p>
               </div>
             </div>
+            {!loading && (
+              <div className="mt-4 pt-4 border-t border-slate-700">
+                <p className="text-xs text-slate-400">
+                  {completedOrders.length === 0
+                    ? 'Нет выполненных поручений'
+                    : `✅ ${completedOrders.length} поручений закрыто`}
+                </p>
+              </div>
+            )}
           </Card>
         </div>
 
@@ -940,6 +1045,37 @@ const OtipbWorkspaceDashboardPage = () => {
               </Button>
             </div>
 
+            {/* Период отчётности */}
+            <div className="mb-5 p-4 bg-slate-700/30 rounded-xl border border-violet-500/30">
+              <p className="text-sm text-violet-300 font-medium mb-3 flex items-center gap-2">
+                <Icon name="Calendar" size={16} />
+                Период отчётности (необязательно)
+              </p>
+              <div className="flex flex-wrap gap-3 items-center">
+                <div className="flex items-center gap-2">
+                  <Label className="text-slate-400 text-xs whitespace-nowrap">С:</Label>
+                  <Input type="date" value={checklistDateFrom} onChange={e => setChecklistDateFrom(e.target.value)}
+                    className="bg-slate-700/50 border-slate-600 text-white text-sm h-8 w-40" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-slate-400 text-xs whitespace-nowrap">По:</Label>
+                  <Input type="date" value={checklistDateTo} onChange={e => setChecklistDateTo(e.target.value)}
+                    className="bg-slate-700/50 border-slate-600 text-white text-sm h-8 w-40" />
+                </div>
+                {(checklistDateFrom || checklistDateTo) && (
+                  <Button size="sm" variant="ghost" onClick={() => { setChecklistDateFrom(''); setChecklistDateTo(''); }}
+                    className="text-slate-400 hover:text-white h-8 text-xs">
+                    <Icon name="X" size={12} className="mr-1" />Сбросить
+                  </Button>
+                )}
+              </div>
+              {(checklistDateFrom || checklistDateTo) && (
+                <p className="text-xs text-slate-400 mt-2">
+                  Показано поручений в периоде: <span className="text-violet-400 font-medium">{checklistFilteredOrders.length}</span> из {pendingOrders.length} невыполненных
+                </p>
+              )}
+            </div>
+
             {/* Информация о передающем */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6 p-4 bg-slate-700/30 rounded-xl border border-slate-600/40">
               <div>
@@ -1015,9 +1151,9 @@ const OtipbWorkspaceDashboardPage = () => {
             <div className="mb-6">
               <h3 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
                 <Icon name="AlertCircle" size={18} className="text-yellow-400" />
-                Невыполненные поручения ({pendingOrders.length})
+                Невыполненные поручения ({checklistFilteredOrders.length})
               </h3>
-              {pendingOrders.length === 0 ? (
+              {checklistFilteredOrders.length === 0 ? (
                 <div className="text-center py-8 bg-green-900/20 border border-green-500/30 rounded-xl">
                   <Icon name="CheckCircle2" size={40} className="mx-auto text-green-400 mb-2" />
                   <p className="text-green-400 font-medium">Все поручения выполнены!</p>
@@ -1025,7 +1161,7 @@ const OtipbWorkspaceDashboardPage = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {pendingOrders.map((o, i) => (
+                  {checklistFilteredOrders.map((o, i) => (
                     <div key={o.id} className="bg-slate-700/40 border border-slate-600/40 rounded-xl p-4">
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <div className="flex-1">
@@ -1088,6 +1224,161 @@ const OtipbWorkspaceDashboardPage = () => {
                   ? <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
                   : <Icon name="Send" size={16} className="mr-2" />}
                 Отправить в системе
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Проделанная работа за вахту */}
+        {showWorkReport && (
+          <Card className="bg-slate-800/50 border-green-600/30 p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Icon name="CheckSquare" size={22} className="text-green-400" />
+                Проделанная работа за вахту
+              </h2>
+              <Button variant="ghost" onClick={() => setShowWorkReport(false)} className="text-gray-400">
+                <Icon name="X" size={20} />
+              </Button>
+            </div>
+
+            {/* Информация о сотруднике */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5 p-4 bg-slate-700/30 rounded-xl border border-slate-600/40">
+              <div>
+                <p className="text-xs text-slate-400 mb-1">ФИО</p>
+                <p className="text-white font-medium text-sm">{userFio || userName}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 mb-1">Должность</p>
+                <p className="text-white font-medium text-sm">{userPosition || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 mb-1">Подразделение</p>
+                <p className="text-white font-medium text-sm">{userDepartment}</p>
+              </div>
+            </div>
+
+            {/* Выбор периода */}
+            <div className="mb-5 p-4 bg-slate-700/30 rounded-xl border border-green-500/30">
+              <p className="text-sm text-green-300 font-medium mb-3 flex items-center gap-2">
+                <Icon name="Calendar" size={16} />
+                Период вахты
+              </p>
+              <div className="flex flex-wrap gap-3 items-center">
+                <div className="flex items-center gap-2">
+                  <Label className="text-slate-400 text-xs whitespace-nowrap">С:</Label>
+                  <Input type="date" value={workReportDateFrom} onChange={e => setWorkReportDateFrom(e.target.value)}
+                    className="bg-slate-700/50 border-slate-600 text-white text-sm h-8 w-40" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-slate-400 text-xs whitespace-nowrap">По:</Label>
+                  <Input type="date" value={workReportDateTo} onChange={e => setWorkReportDateTo(e.target.value)}
+                    className="bg-slate-700/50 border-slate-600 text-white text-sm h-8 w-40" />
+                </div>
+                {(workReportDateFrom || workReportDateTo) && (
+                  <Button size="sm" variant="ghost" onClick={() => { setWorkReportDateFrom(''); setWorkReportDateTo(''); }}
+                    className="text-slate-400 hover:text-white h-8 text-xs">
+                    <Icon name="X" size={12} className="mr-1" />Сбросить
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                Показано выполненных: <span className="text-green-400 font-medium">{workReportFilteredOrders.length}</span> из {completedOrders.length}
+              </p>
+            </div>
+
+            {/* Список выполненных */}
+            <div className="mb-6">
+              <h3 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
+                <Icon name="CheckCircle2" size={18} className="text-green-400" />
+                Выполненные поручения ({workReportFilteredOrders.length})
+              </h3>
+              {workReportFilteredOrders.length === 0 ? (
+                <div className="text-center py-8 bg-slate-700/30 border border-slate-600/40 rounded-xl">
+                  <Icon name="ClipboardList" size={40} className="mx-auto text-slate-500 mb-2" />
+                  <p className="text-slate-400">Нет выполненных поручений за выбранный период</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {workReportFilteredOrders.map((o, i) => (
+                    <div key={o.id} className="bg-slate-700/40 border border-green-500/20 rounded-xl p-4">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <p className="text-white font-medium text-sm">{i + 1}. {o.title}</p>
+                        <span className="text-xs px-2 py-0.5 rounded border shrink-0 bg-green-600/20 text-green-300 border-green-500/40">Выполнено</span>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-slate-400 mb-2">
+                        <span>Дата выдачи: <span className="text-white">{o.issued_date ? new Date(o.issued_date).toLocaleDateString('ru-RU') : '—'}</span></span>
+                        <span>Ответственный: {o.responsible_person}</span>
+                        <span>Выдал: {o.issued_by}</span>
+                      </div>
+                      {o.last_action && (
+                        <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-3 mb-2">
+                          <p className="text-xs text-green-400 font-medium mb-1">Что сделано:</p>
+                          <p className="text-white text-xs">{o.last_action}</p>
+                        </div>
+                      )}
+                      {(o.documents || []).length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs text-slate-400 mb-1">Ссылки на документы:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {(o.documents || []).map(d => (
+                              <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer"
+                                className="text-xs text-blue-400 hover:text-blue-300 underline flex items-center gap-1 bg-slate-700/50 px-2 py-1 rounded">
+                                <Icon name="FileDown" size={12} />
+                                {d.file_name}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Кнопки */}
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-700">
+              <Button onClick={() => {
+                const html = buildWorkReportHtml();
+                const w = window.open('', '_blank');
+                if (w) {
+                  w.document.write(`<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><title>Проделанная работа за вахту</title>
+                    <style>body{font-family:Arial,sans-serif;margin:0;padding:20px}@media print{.no-print{display:none!important}}</style>
+                  </head><body>
+                    <div class="no-print" style="text-align:center;margin-bottom:16px">
+                      <button onclick="window.print()" style="padding:10px 28px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer">
+                        🖨️ Распечатать / Сохранить в PDF
+                      </button>
+                    </div>
+                    ${html}</body></html>`);
+                  w.document.close();
+                }
+              }} variant="outline" className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10">
+                <Icon name="Printer" size={16} className="mr-2" />Распечатать
+              </Button>
+              <Button onClick={() => {
+                const html = buildWorkReportHtml();
+                const fileLabel = new Date().toLocaleDateString('ru-RU').replace(/\./g, '-');
+                const fullHtml = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><title>Проделанная работа за вахту</title>
+                  <style>body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}@media print{.no-print{display:none!important}}</style>
+                </head><body>
+                  <div class="no-print" style="text-align:center;margin-bottom:16px">
+                    <button onclick="window.print()" style="padding:10px 28px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer">
+                      🖨️ Распечатать / Сохранить в PDF
+                    </button>
+                  </div>
+                  ${html}</body></html>`;
+                const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `проделанная_работа_${fileLabel}.html`;
+                a.click();
+                URL.revokeObjectURL(url);
+                toast.success('Файл скачан');
+              }} variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10">
+                <Icon name="Download" size={16} className="mr-2" />Скачать
               </Button>
             </div>
           </Card>
