@@ -99,7 +99,9 @@ const OtipbDepartmentPage = () => {
     if (!uid) { navigate('/'); return; }
 
     const department = localStorage.getItem('userDepartment');
-    const access = department === 'ОТиПБ' || department === 'Отдел ОТиПБ';
+    const dept = (department || '').toLowerCase();
+    const access = dept.includes('отипб') || dept.includes('охрана труда') || dept.includes('от и пб') || dept.includes('от и пб') || department === 'ОТиПБ' || department === 'Отдел ОТиПБ';
+
     setHasAccess(access);
 
     const saved = localStorage.getItem(GREETING_KEY);
@@ -115,9 +117,10 @@ const OtipbDepartmentPage = () => {
       if (orgId) params.set('organization_id', orgId);
       const res = await fetch(`${OT_ORDERS_URL}?${params.toString()}`);
       const data = await res.json();
+
       if (data.success) {
         setAllOrders(data.orders);
-        setSpecialists(data.specialists);
+        setSpecialists(data.specialists || []);
       }
     } catch {
       toast.error('Ошибка загрузки поручений отдела');

@@ -161,6 +161,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             s_row = cur.fetchone()
             source = s_row[0] if s_row else 'manual'
 
+
             if source == 'manual':
                 # Ручной список специалистов ОТиПБ
                 if org_id:
@@ -188,6 +189,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     ORDER BY u.fio
                 """)
                 specialists = [{'id': r[0], 'fio': r[1], 'position': r[2], 'email': r[3]} for r in cur.fetchall()]
+
 
             return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
                     'body': json.dumps({'success': True, 'orders': orders, 'specialists': specialists,

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,15 +34,53 @@ interface ExcelOrdersImportProps {
   onOrdersCreated: () => void;
 }
 
-const ExcelOrdersImport = ({ specialists, orgId, userId, userFio, onOrdersCreated }: ExcelOrdersImportProps) => {
+const ExcelOrdersImport = ({ specialists: specialistsProp, orgId, userId, userFio, onOrdersCreated }: ExcelOrdersImportProps) => {
   const [importedRows, setImportedRows] = useState<ImportedRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [localSpecialists, setLocalSpecialists] = useState<Specialist[]>([]);
+  const [loadingSpecs, setLoadingSpecs] = useState(false);
 
   // Общие поля для всех строк (можно переопределить на уровне строки)
   const [globalAssignedId, setGlobalAssignedId] = useState('');
   const [globalIssuedDate, setGlobalIssuedDate] = useState(new Date().toISOString().slice(0, 10));
   const [globalDeadline, setGlobalDeadline] = useState('');
+
+  // Объединяем specialists из props и из собственного запроса
+  const specialists = localSpecialists.length > 0 ? localSpecialists : (specialistsProp || []);
+
+  // Загружаем specialists самостоятельно — не зависим от родителя
+  useEffect(() => {
+    const fetchSpecs = async () => {
+      setLoadingSpecs(true);
+      try {
+        const url = orgId
+          ? `${OT_ORDERS_URL}?action=manual_specialists&organization_id=${orgId}`
+          : `${OT_ORDERS_URL}?action=manual_specialists`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.success && data.specialists?.length > 0) {
+          // Ручной список
+          setLocalSpecialists(data.specialists.filter((s: Specialist & { active?: boolean }) => s.active !== false));
+        } else {
+          // Ручных нет — берём из АСУБТ (общий GET)
+          const url2 = orgId
+            ? `${OT_ORDERS_URL}?organization_id=${orgId}`
+            : `${OT_ORDERS_URL}`;
+          const res2 = await fetch(url2);
+          const data2 = await res2.json();
+          if (data2.success && data2.specialists?.length > 0) {
+            setLocalSpecialists(data2.specialists);
+          }
+        }
+      } catch {
+        // тихо игнорируем — props-список останется
+      } finally {
+        setLoadingSpecs(false);
+      }
+    };
+    fetchSpecs();
+  }, [orgId]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -359,13 +397,17 @@ const ExcelOrdersImport = ({ specialists, orgId, userId, userFio, onOrdersCreate
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div>
-                <Label className="text-slate-300 text-xs mb-1 block">Назначить специалисту</Label>
+                <Label className="text-slate-300 text-xs mb-1 block">
+                  Назначить специалисту
+                  {loadingSpecs && <span className="text-slate-500 ml-1">(загрузка...)</span>}
+                  {!loadingSpecs && specialists.length === 0 && <span className="text-red-400 ml-1">(список пуст)</span>}
+                </Label>
                 <select
                   value={globalAssignedId}
                   onChange={e => setGlobalAssignedId(e.target.value)}
                   className="w-full bg-slate-700 border border-slate-600 text-white rounded-md px-3 py-2 text-sm"
                 >
-                  <option value="">— выбрать —</option>
+                  <option value="">— выбрать ({specialists.length}) —</option>
                   {specialists.map(s => (
                     <option key={s.id} value={s.id}>{s.fio}{s.position ? ` (${s.position})` : ''}</option>
                   ))}
