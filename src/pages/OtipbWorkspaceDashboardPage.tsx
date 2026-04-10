@@ -363,6 +363,16 @@ const OtipbWorkspaceDashboardPage = () => {
 
   const pendingOrders = orders.filter(o => o.status !== 'completed');
   const countByStatus = (s: string) => orders.filter(o => o.status === s).length;
+  const overdueCount = (() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return orders.filter(o => {
+      if (o.status === 'completed') return false;
+      const raw = o.extended_deadline || o.deadline;
+      if (!raw) return false;
+      const [y, m, d] = raw.slice(0, 10).split('-').map(Number);
+      return new Date(y, m - 1, d) < today;
+    }).length;
+  })();
 
   // Фильтрация по периоду для чек-листа (невыполненные в диапазоне дат)
   const checklistFilteredOrders = (() => {
@@ -813,7 +823,7 @@ const OtipbWorkspaceDashboardPage = () => {
               </div>
             </div>
             {!loading && (
-              <div className="flex gap-3 mt-4 pt-4 border-t border-slate-700">
+              <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-slate-700">
                 <div className="flex items-center gap-1 text-xs text-blue-400">
                   <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
                   Новые: {countByStatus('new')}
@@ -826,6 +836,12 @@ const OtipbWorkspaceDashboardPage = () => {
                   <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />
                   Продлено: {countByStatus('extended')}
                 </div>
+                {overdueCount > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-red-400 font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-red-500 inline-block animate-pulse" />
+                    Просрочено: {overdueCount}
+                  </div>
+                )}
               </div>
             )}
           </Card>
