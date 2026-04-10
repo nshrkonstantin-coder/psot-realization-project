@@ -52,6 +52,7 @@ import OtipbDocumentsPage from "./pages/OtipbDocumentsPage";
 import OtipbAnalyticsPage from "./pages/OtipbAnalyticsPage";
 import OtipbAdditionalDirectionsPage from "./pages/OtipbAdditionalDirectionsPage";
 import OtipbWorkspacePage from "./pages/OtipbWorkspacePage";
+import OtipbWorkspaceDashboardPage from "./pages/OtipbWorkspaceDashboardPage";
 import OrganizationsManagementPage from "./pages/OrganizationsManagementPage";
 import CreateOrganizationPage from "./pages/CreateOrganizationPage";
 import OrganizationSettingsPage from "./pages/OrganizationSettingsPage";
@@ -188,6 +189,7 @@ const App = () => {
           <Route path="/kbt-programs" element={<KBTProgramsPage />} />
           <Route path="/otipb-department" element={<OtipbDepartmentPage />} />
           <Route path="/otipb-workspace" element={<OtipbWorkspacePage />} />
+          <Route path="/otipb-workspace-dashboard" element={<OtipbWorkspaceDashboardPage />} />
           <Route path="/otipb-additional-directions" element={<OtipbAdditionalDirectionsPage />} />
           <Route path="/otipb-instructions" element={<OtipbInstructionsPage />} />
           <Route path="/otipb-inspections" element={<OtipbInspectionsPage />} />
