@@ -57,6 +57,7 @@ const ChatHistory = () => {
   const [organizationUsers, setOrganizationUsers] = useState<OrganizationUser[]>([]);
   const [selectedNewUser, setSelectedNewUser] = useState<OrganizationUser | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [checklistHtml, setChecklistHtml] = useState<string | null>(null);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -209,15 +210,67 @@ const ChatHistory = () => {
 
   const commonEmojis = ['😊', '😂', '❤️', '👍', '🔥', '✅', '⚠️', '📌', '💼', '🎯', '👋', '🙏', '💪', '🚀', '⭐', '✨'];
 
+  const openChecklist = (encoded: string) => {
+    try {
+      const html = decodeURIComponent(escape(atob(encoded)));
+      setChecklistHtml(html);
+    } catch {
+      toast({ title: 'Не удалось открыть чек-лист', variant: 'destructive' });
+    }
+  };
+
+  const printChecklist = () => {
+    if (!checklistHtml) return;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><title>Чек-лист передачи вахты</title>
+      <style>body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}@media print{.no-print{display:none!important}}</style>
+    </head><body>
+      <div class="no-print" style="text-align:center;margin-bottom:16px">
+        <button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer">
+          🖨️ Распечатать / Сохранить в PDF
+        </button>
+      </div>
+      ${checklistHtml}</body></html>`);
+    w.document.close();
+  };
+
+  const downloadChecklist = () => {
+    if (!checklistHtml) return;
+    const fullHtml = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><title>Чек-лист передачи вахты</title>
+      <style>body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}@media print{.no-print{display:none!important}}</style>
+    </head><body>
+      <div class="no-print" style="text-align:center;margin-bottom:16px">
+        <button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer">
+          🖨️ Распечатать / Сохранить в PDF
+        </button>
+      </div>
+      ${checklistHtml}</body></html>`;
+    const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `чек-лист_вахты_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const renderMessageWithLinks = (text: string) => {
+    // Сначала проверяем маркер чек-листа
+    const checklistMarker = /\[CHECKLIST_DATA:([A-Za-z0-9+/=]+)\]/;
+    const checklistMatch = text.match(checklistMarker);
+
+    // Текст без маркера (для отображения)
+    const visibleText = text.replace(checklistMarker, '').trim();
+
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
-    
-    return parts.map((part, index) => {
+    const parts = visibleText.split(urlRegex);
+
+    const textNodes = parts.map((part, index) => {
       if (part.match(urlRegex)) {
         const isVideoLink = part.includes('video-conference');
         const isInternalLink = part.includes(window.location.origin);
-        
+
         if (isInternalLink && isVideoLink) {
           const roomMatch = part.match(/room=([^&\s]+)/);
           return (
@@ -225,9 +278,7 @@ const ChatHistory = () => {
               key={index}
               onClick={(e) => {
                 e.stopPropagation();
-                if (roomMatch) {
-                  navigate(`/video-conference?room=${roomMatch[1]}`);
-                }
+                if (roomMatch) navigate(`/video-conference?room=${roomMatch[1]}`);
               }}
               className="underline hover:opacity-80 font-semibold text-green-400 inline-flex items-center gap-1"
             >
@@ -235,16 +286,14 @@ const ChatHistory = () => {
             </button>
           );
         }
-        
+
         return (
           <a
             key={index}
             href={part}
             target="_blank"
             rel="noopener noreferrer"
-            className={`underline hover:opacity-80 font-semibold inline-flex items-center gap-1 ${
-              isVideoLink ? 'text-green-400' : 'text-blue-400'
-            }`}
+            className={`underline hover:opacity-80 font-semibold inline-flex items-center gap-1 ${isVideoLink ? 'text-green-400' : 'text-blue-400'}`}
             onClick={(e) => e.stopPropagation()}
           >
             {isVideoLink && '🎥 '}
@@ -254,6 +303,25 @@ const ChatHistory = () => {
       }
       return <span key={index}>{part}</span>;
     });
+
+    return (
+      <>
+        {textNodes}
+        {checklistMatch && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              openChecklist(checklistMatch[1]);
+            }}
+            className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500/20 border border-orange-500/40 text-orange-300 hover:bg-orange-500/30 transition-colors text-sm font-semibold w-full"
+          >
+            <span>📋</span>
+            <span>Открыть чек-лист передачи вахты</span>
+            <span className="ml-auto text-orange-400">→</span>
+          </button>
+        )}
+      </>
+    );
   };
 
   const formatDate = (dateString: string | null) => {
@@ -538,6 +606,58 @@ const ChatHistory = () => {
               <div className="text-center py-8 text-slate-400">
                 {searchQuery ? 'Пользователи не найдены' : 'Нет доступных пользователей'}
               </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Модальное окно просмотра чек-листа передачи вахты */}
+      <Dialog open={checklistHtml !== null} onOpenChange={() => setChecklistHtml(null)}>
+        <DialogContent className="bg-slate-800 border-orange-600/30 text-white max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-5 pb-4 border-b border-slate-700 shrink-0">
+            <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
+              <Icon name="ClipboardList" size={22} className="text-orange-400" />
+              Чек-лист передачи вахты
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-sm">
+              Просмотр, печать или сохранение чек-листа
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Кнопки действий */}
+          <div className="flex gap-3 px-6 py-3 border-b border-slate-700 shrink-0">
+            <Button
+              onClick={printChecklist}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              <Icon name="Printer" size={16} className="mr-2" />
+              Распечатать / PDF
+            </Button>
+            <Button
+              onClick={downloadChecklist}
+              variant="outline"
+              className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10"
+            >
+              <Icon name="Download" size={16} className="mr-2" />
+              Скачать файл
+            </Button>
+            <Button
+              onClick={() => setChecklistHtml(null)}
+              variant="ghost"
+              className="ml-auto text-slate-400 hover:text-white"
+            >
+              <Icon name="X" size={16} className="mr-1" />
+              Закрыть
+            </Button>
+          </div>
+
+          {/* Содержимое чек-листа */}
+          <div className="flex-1 overflow-y-auto bg-white">
+            {checklistHtml && (
+              <div
+                dangerouslySetInnerHTML={{ __html: checklistHtml }}
+                className="w-full"
+              />
             )}
           </div>
         </DialogContent>

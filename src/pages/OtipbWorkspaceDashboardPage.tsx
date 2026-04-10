@@ -743,7 +743,12 @@ const OtipbWorkspaceDashboardPage = () => {
 
     setSendingChecklist(true);
     try {
-      const msgText = `📋 Чек-лист передачи вахты от ${userFio || userName}\n\nНевыполненных поручений: ${pendingOrders.length}\nДата: ${new Date().toLocaleDateString('ru-RU')}`;
+      // Формируем HTML чек-листа и кодируем в base64 для передачи в сообщении
+      const recipientSpec = specialists.find(s => String(s.id) === checklistRecipientId);
+      const checklistHtml = buildChecklistHtml(checklistRecipientFio, recipientSpec?.position);
+      const encoded = btoa(unescape(encodeURIComponent(checklistHtml)));
+
+      const msgText = `📋 Чек-лист передачи вахты от ${userFio || userName}\nНевыполненных поручений: ${pendingOrders.length}\nДата: ${new Date().toLocaleDateString('ru-RU')}\n[CHECKLIST_DATA:${encoded}]`;
       const res = await fetch(OT_ORDERS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
