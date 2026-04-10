@@ -1448,6 +1448,29 @@ const OtipbWorkspaceDashboardPage = () => {
                       className="bg-slate-700/50 border-slate-600 text-white" />
                   </div>
                 </div>
+                {specialists.length > 0 && (
+                  <div>
+                    <Label className="text-white mb-1 block">Назначить специалисту</Label>
+                    <select
+                      value={form.assigned_to_user_id || ''}
+                      onChange={e => {
+                        const id = e.target.value;
+                        const spec = specialists.find(s => String(s.id) === id);
+                        setForm({
+                          ...form,
+                          assigned_to_user_id: id ? Number(id) : '',
+                          responsible_person: spec ? spec.fio : form.responsible_person,
+                        });
+                      }}
+                      className="w-full h-10 px-3 rounded-md bg-slate-700/50 border border-slate-600 text-white text-sm"
+                    >
+                      <option value="">— Не назначен —</option>
+                      {specialists.map(s => (
+                        <option key={s.id} value={s.id}>{s.fio}{s.position ? ` (${s.position})` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <Label className="text-white mb-1 block">Ответственный <span className="text-red-400">*</span></Label>
                   <Input value={form.responsible_person} onChange={e => setForm({ ...form, responsible_person: e.target.value })}

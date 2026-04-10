@@ -1,116 +1,111 @@
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
-
-interface Conference {
-  id: string;
-  name: string;
-  creator_id: number;
-  creator_name: string;
-  participants: number[];
-  created_at: string;
-  status: 'active' | 'ended';
-  is_favorite?: boolean;
-  duration?: number;
-  ended_at?: string;
-}
+import { Conference } from './conferenceTypes';
 
 interface ConferenceCardProps {
-  conference: Conference;
-  userId: number | null;
+  conf: Conference;
+  variant: 'active' | 'my' | 'favorites' | 'history';
   isFavorite: boolean;
+  loading: boolean;
   onJoin: (conf: Conference) => void;
-  onToggleFavorite: (confId: string) => void;
-  showStatus?: boolean;
+  onCopyLink: (id: string) => void;
+  onToggleFavorite: (id: string) => void;
 }
 
 const ConferenceCard = ({
-  conference,
-  userId,
+  conf,
+  variant,
   isFavorite,
+  loading,
   onJoin,
+  onCopyLink,
   onToggleFavorite,
-  showStatus = false
 }: ConferenceCardProps) => {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return 'N/A';
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours}ч ${minutes}м`;
-    }
-    return `${minutes}м`;
-  };
-
-  const isCreator = userId === conference.creator_id;
+  const isHistory = variant === 'history';
 
   return (
-    <Card className="bg-slate-800/50 border-blue-600/30 p-6 hover:bg-slate-700/50 transition-all">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-            {conference.name}
-            {isCreator && (
-              <span className="text-xs bg-yellow-600/20 text-yellow-400 px-2 py-1 rounded">
-                Создатель
-              </span>
-            )}
-          </h3>
-          <p className="text-slate-400 text-sm">
-            <Icon name="User" size={16} className="inline mr-1" />
-            {conference.creator_name}
-          </p>
-          <p className="text-slate-400 text-sm mt-1">
-            <Icon name="Users" size={16} className="inline mr-1" />
-            Участников: {conference.participants.length}
-          </p>
-          <p className="text-slate-500 text-xs mt-2">
-            Создана: {formatDate(conference.created_at)}
-          </p>
-          {showStatus && conference.status === 'ended' && conference.ended_at && (
+    <Card className={`${isHistory ? 'bg-slate-800/50 border-slate-600/30' : 'bg-slate-800/50 border-pink-600/30 hover:border-pink-600'} transition-all`}>
+      <CardHeader>
+        <CardTitle className="text-white flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon name="Video" size={20} className={isHistory ? 'text-slate-400' : 'text-pink-500'} />
+            {conf.name}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onToggleFavorite(conf.id)}
+            className="hover:bg-slate-700/50"
+          >
+            <Icon
+              name={isFavorite ? 'Star' : 'StarOff'}
+              size={20}
+              className={isFavorite ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}
+            />
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="text-slate-400 text-sm space-y-1">
+          {variant !== 'my' && <p>Организатор: {conf.creator_name}</p>}
+          <p>Участников: {conf.participants.length}</p>
+          {variant === 'active' && (
+            <p>Статус: <span className="text-green-500">Активна</span></p>
+          )}
+          {variant === 'my' && (
             <>
-              <p className="text-slate-500 text-xs mt-1">
-                Завершена: {formatDate(conference.ended_at)}
-              </p>
-              {conference.duration && (
-                <p className="text-slate-500 text-xs mt-1">
-                  Длительность: {formatDuration(conference.duration)}
-                </p>
-              )}
+              <p>Создано: {new Date(conf.created_at).toLocaleDateString('ru-RU')}</p>
+              <p>Статус: <span className={conf.status === 'active' ? 'text-green-500' : 'text-slate-500'}>
+                {conf.status === 'active' ? 'Активна' : 'Завершена'}
+              </span></p>
+            </>
+          )}
+          {variant === 'favorites' && (
+            <p>Статус: <span className={conf.status === 'active' ? 'text-green-500' : 'text-slate-500'}>
+              {conf.status === 'active' ? 'Активна' : 'Завершена'}
+            </span></p>
+          )}
+          {isHistory && (
+            <>
+              {conf.ended_at && <p>Завершена: {new Date(conf.ended_at).toLocaleString('ru-RU')}</p>}
+              {conf.duration && <p>Длительность: {Math.floor(conf.duration / 60)} мин</p>}
+              <p>Статус: <span className="text-slate-500">Завершена</span></p>
             </>
           )}
         </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleFavorite(conference.id);
-          }}
-          className="text-yellow-500 hover:text-yellow-400"
-        >
-          <Icon name={isFavorite ? 'Star' : 'StarOff'} size={24} />
-        </Button>
-      </div>
-
-      <Button
-        onClick={() => onJoin(conference)}
-        className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
-      >
-        <Icon name="Video" size={20} className="mr-2" />
-        {conference.status === 'ended' ? 'Просмотреть запись' : 'Присоединиться'}
-      </Button>
+        <div className="flex gap-2">
+          {!isHistory ? (
+            <>
+              <Button
+                onClick={() => onJoin(conf)}
+                className="flex-1 bg-pink-600 hover:bg-pink-700"
+                disabled={loading || conf.status === 'ended'}
+              >
+                <Icon name="Video" size={16} className="mr-2" />
+                Присоединиться
+              </Button>
+              <Button
+                onClick={() => onCopyLink(conf.id)}
+                variant="outline"
+                className="border-pink-600/50"
+              >
+                <Icon name="Share2" size={16} />
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={() => onCopyLink(conf.id)}
+              variant="outline"
+              className="flex-1 border-slate-600/50"
+            >
+              <Icon name="Share2" size={16} className="mr-2" />
+              Копировать ссылку
+            </Button>
+          )}
+        </div>
+      </CardContent>
     </Card>
   );
 };
