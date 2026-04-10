@@ -16,12 +16,14 @@ interface Specialist {
 }
 
 interface ImportedRow {
+  num?: string;
   title: string;
   notes?: string;
   _selected?: boolean;
   _assignedUserId?: string;
-  _issuedDate?: string;
-  _deadline?: string;
+  _issuedDate?: string;   // дата выдачи из файла
+  _deadline?: string;     // срок из файла
+  _responsible?: string;  // ответственный из файла
 }
 
 interface ExcelOrdersImportProps {
@@ -64,22 +66,65 @@ const ExcelOrdersImport = ({ specialists, orgId, userId, userFio, onOrdersCreate
         return;
       }
 
-      // Ищем строку заголовков (первая строка с содержимым)
+      // Ищем строку заголовков
       const headerRow = raw[0].map(c => String(c).toLowerCase().trim());
-      const titleIdx = headerRow.findIndex(h => h.includes('поручен') || h.includes('задан') || h.includes('наименован') || h.includes('название') || h === 'title');
-      const notesIdx = headerRow.findIndex(h => h.includes('примечан') || h.includes('заметк') || h === 'notes' || h.includes('описан'));
 
-      // Если заголовок не найден — считаем первый столбец заголовком поручения
-      const tIdx = titleIdx >= 0 ? titleIdx : 0;
-      const nIdx = notesIdx >= 0 ? notesIdx : -1;
+      // Индексы колонок по форме: №, Поручение, Дата выдачи, Срок, Ответственный
+      const numIdx    = headerRow.findIndex(h => h === '№' || h === 'n' || h === 'num' || h === 'п/п' || h === '№ п/п');
+      const titleIdx  = headerRow.findIndex(h => h.includes('поручен') || h.includes('задан') || h.includes('наименован') || h.includes('название') || h === 'title');
+      const dateIdx   = headerRow.findIndex(h => h.includes('дата') && (h.includes('выдач') || h.includes('начал') || h.includes('постановк')));
+      const deadIdx   = headerRow.findIndex(h => h.includes('срок') || h.includes('deadline') || h.includes('исполнен') || (h.includes('дата') && h.includes('испол')));
+      const respIdx   = headerRow.findIndex(h => h.includes('ответствен') || h.includes('исполнител') || h === 'responsible');
+      const notesIdx  = headerRow.findIndex(h => h.includes('примечан') || h.includes('заметк') || h === 'notes' || h.includes('описан'));
+
+      // Fallback: если заголовок «Поручение» не найден — берём второй столбец (первый — №)
+      const tIdx = titleIdx >= 0 ? titleIdx : (numIdx >= 0 ? 1 : 0);
 
       const rows: ImportedRow[] = [];
       for (let i = 1; i < raw.length; i++) {
         const row = raw[i];
         const title = String(row[tIdx] || '').trim();
-        if (!title) continue;
-        const notes = nIdx >= 0 ? String(row[nIdx] || '').trim() : '';
-        rows.push({ title, notes, _selected: true });
+        if (!title || title.toLowerCase() === 'поручение' || title.toLowerCase() === 'наименование') continue;
+
+        const num = numIdx >= 0 ? String(row[numIdx] || '').trim() : String(i);
+        const notes = notesIdx >= 0 ? String(row[notesIdx] || '').trim() : '';
+
+        // Дата выдачи — парсим из Excel (может быть числом-датой или строкой)
+        let issuedDate = '';
+        if (dateIdx >= 0 && row[dateIdx]) {
+          const raw_date = row[dateIdx];
+          if (typeof raw_date === 'number') {
+            // Excel serial date → JS Date
+            const d = XLSX.SSF.parse_date_code(raw_date);
+            if (d) issuedDate = `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
+          } else {
+            const s = String(raw_date).trim();
+            // Попробуем DD.MM.YYYY
+            const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+            if (m) issuedDate = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+            else if (s.match(/^\d{4}-\d{2}-\d{2}$/)) issuedDate = s;
+          }
+        }
+
+        // Срок
+        let deadline = '';
+        if (deadIdx >= 0 && row[deadIdx]) {
+          const raw_dead = row[deadIdx];
+          if (typeof raw_dead === 'number') {
+            const d = XLSX.SSF.parse_date_code(raw_dead);
+            if (d) deadline = `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
+          } else {
+            const s = String(raw_dead).trim();
+            const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+            if (m) deadline = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+            else if (s.match(/^\d{4}-\d{2}-\d{2}$/)) deadline = s;
+          }
+        }
+
+        // Ответственный из файла
+        const responsible = respIdx >= 0 ? String(row[respIdx] || '').trim() : '';
+
+        rows.push({ num, title, notes, _selected: true, _issuedDate: issuedDate || undefined, _deadline: deadline || undefined, _responsible: responsible || undefined });
       }
 
       if (rows.length === 0) {
@@ -143,6 +188,10 @@ const ExcelOrdersImport = ({ specialists, orgId, userId, userFio, onOrdersCreate
     for (const row of selected) {
       const assignedId = row._assignedUserId || globalAssignedId;
       const spec = specialists.find(s => String(s.id) === assignedId);
+      // Ответственный: из назначенного специалиста, или из файла, или «Не назначен»
+      const responsiblePerson = spec?.fio || row._responsible || 'Не назначен';
+      const issuedDate = row._issuedDate || globalIssuedDate || new Date().toISOString().slice(0, 10);
+      const deadline = row._deadline || globalDeadline;
       try {
         const res = await fetch(OT_ORDERS_URL, {
           method: 'POST',
@@ -150,9 +199,9 @@ const ExcelOrdersImport = ({ specialists, orgId, userId, userFio, onOrdersCreate
           body: JSON.stringify({
             title: row.title,
             notes: row.notes || '',
-            issued_date: row._issuedDate || globalIssuedDate || new Date().toISOString().slice(0, 10),
-            deadline: row._deadline || globalDeadline,
-            responsible_person: spec?.fio || 'Не назначен',
+            issued_date: issuedDate,
+            deadline,
+            responsible_person: responsiblePerson,
             issued_by: userFio,
             organization_id: orgId ? Number(orgId) : null,
             assigned_to_user_id: assignedId ? Number(assignedId) : null,
@@ -180,17 +229,74 @@ const ExcelOrdersImport = ({ specialists, orgId, userId, userFio, onOrdersCreate
   };
 
   const downloadTemplate = () => {
-    const ws = XLSX.utils.aoa_to_sheet([
-      ['Поручение (наименование)', 'Примечание / описание'],
-      ['Проверить состояние пожарных щитов на участке 1', 'Обратить внимание на наличие инвентаря'],
-      ['Провести инструктаж по охране труда', ''],
-      ['Проверить наличие СИЗ у сотрудников', 'Ответственный: мастер смены'],
-    ]);
-    ws['!cols'] = [{ wch: 60 }, { wch: 40 }];
+    const today = new Date().toLocaleDateString('ru-RU');
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Поручения');
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['№', 'Поручение', 'Дата выдачи', 'Срок', 'Ответственный'],
+      ['1', 'Проверить состояние пожарных щитов на участке 1', today, '', ''],
+      ['2', 'Провести инструктаж по охране труда с персоналом', today, '', ''],
+      ['3', 'Проверить наличие и комплектность аптечек', today, '', ''],
+      ['4', 'Составить акт проверки рабочих мест', today, '', ''],
+      ['5', '', '', '', ''],
+      ['6', '', '', '', ''],
+      ['7', '', '', '', ''],
+      ['8', '', '', '', ''],
+      ['9', '', '', '', ''],
+      ['10', '', '', '', ''],
+    ]);
+
+    // Ширина колонок
+    ws['!cols'] = [
+      { wch: 5 },   // №
+      { wch: 55 },  // Поручение
+      { wch: 14 },  // Дата выдачи
+      { wch: 14 },  // Срок
+      { wch: 30 },  // Ответственный
+    ];
+
+    // Высота строк
+    ws['!rows'] = [{ hpt: 22 }]; // заголовок
+
+    // Стили заголовков (фон + жирный)
+    const headerCells = ['A1', 'B1', 'C1', 'D1', 'E1'];
+    headerCells.forEach(addr => {
+      if (ws[addr]) {
+        ws[addr].s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: 'F97316' } },
+          alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+          border: {
+            top: { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } },
+          },
+        };
+      }
+    });
+
+    // Границы для строк данных
+    for (let row = 2; row <= 11; row++) {
+      ['A', 'B', 'C', 'D', 'E'].forEach(col => {
+        const addr = `${col}${row}`;
+        if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+        ws[addr].s = {
+          alignment: { vertical: 'center', wrapText: true },
+          border: {
+            top: { style: 'thin', color: { rgb: 'CCCCCC' } },
+            bottom: { style: 'thin', color: { rgb: 'CCCCCC' } },
+            left: { style: 'thin', color: { rgb: 'CCCCCC' } },
+            right: { style: 'thin', color: { rgb: 'CCCCCC' } },
+          },
+        };
+      });
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Поручения ОТиПБ');
+
+    // Записываем с поддержкой стилей (xlsx не поддерживает стили в базовой версии, но структура сохранится)
     XLSX.writeFile(wb, 'шаблон_поручений_отипб.xlsx');
-    toast.success('Шаблон скачан');
+    toast.success('Шаблон скачан — заполните колонки и загрузите обратно');
   };
 
   const selectedCount = importedRows.filter(r => r._selected).length;
@@ -205,8 +311,11 @@ const ExcelOrdersImport = ({ specialists, orgId, userId, userFio, onOrdersCreate
           </div>
           <div>
             <p className="text-white font-semibold mb-1">Загрузить поручения из Excel</p>
-            <p className="text-slate-400 text-xs mb-3">
-              Колонки: <b className="text-slate-300">«Поручение»</b> (обязательно) и <b className="text-slate-300">«Примечание»</b> (необязательно)
+            <p className="text-slate-400 text-xs mb-1">
+              Формат файла: <b className="text-slate-300">№ · Поручение · Дата выдачи · Срок · Ответственный</b>
+            </p>
+            <p className="text-slate-500 text-xs mb-3">
+              Скачайте шаблон, заполните и загрузите обратно. Даты в формате <b className="text-slate-400">ДД.ММ.ГГГГ</b>
             </p>
           </div>
           <div className="flex gap-3">
@@ -345,8 +454,38 @@ const ExcelOrdersImport = ({ specialists, orgId, userId, userFio, onOrdersCreate
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <p className="text-white text-sm font-medium leading-snug">{row.title}</p>
+                          {/* Номер + заголовок */}
+                          <div className="flex items-baseline gap-2">
+                            {row.num && (
+                              <span className="text-yellow-500 text-xs font-bold shrink-0">№{row.num}</span>
+                            )}
+                            <p className="text-white text-sm font-medium leading-snug">{row.title}</p>
+                          </div>
                           {row.notes && <p className="text-slate-400 text-xs mt-0.5 italic">{row.notes}</p>}
+
+                          {/* Данные из файла — показываем если заполнены */}
+                          {(row._issuedDate || row._deadline || row._responsible) && (
+                            <div className="flex flex-wrap gap-3 mt-1">
+                              {row._issuedDate && (
+                                <span className="text-xs text-slate-400 flex items-center gap-1">
+                                  <Icon name="Calendar" size={11} className="text-slate-500" />
+                                  Выдано: <b className="text-slate-300">{new Date(row._issuedDate).toLocaleDateString('ru-RU')}</b>
+                                </span>
+                              )}
+                              {row._deadline && (
+                                <span className="text-xs text-slate-400 flex items-center gap-1">
+                                  <Icon name="Clock" size={11} className="text-amber-500" />
+                                  Срок: <b className="text-amber-400">{new Date(row._deadline).toLocaleDateString('ru-RU')}</b>
+                                </span>
+                              )}
+                              {row._responsible && (
+                                <span className="text-xs text-slate-400 flex items-center gap-1">
+                                  <Icon name="User" size={11} className="text-slate-500" />
+                                  <b className="text-slate-300">{row._responsible}</b>
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <button
                           onClick={() => removeRow(idx)}
@@ -361,7 +500,10 @@ const ExcelOrdersImport = ({ specialists, orgId, userId, userFio, onOrdersCreate
                       {row._selected && (
                         <div className="grid grid-cols-3 gap-2 mt-2">
                           <div>
-                            <Label className="text-slate-400 text-[10px] mb-0.5 block">Специалист</Label>
+                            <Label className="text-slate-400 text-[10px] mb-0.5 block">
+                              Назначить специалисту
+                              {row._responsible && <span className="text-slate-500 ml-1">(из файла: {row._responsible})</span>}
+                            </Label>
                             <select
                               value={row._assignedUserId || globalAssignedId}
                               onChange={e => updateRow(idx, '_assignedUserId', e.target.value)}
@@ -374,7 +516,7 @@ const ExcelOrdersImport = ({ specialists, orgId, userId, userFio, onOrdersCreate
                             </select>
                           </div>
                           <div>
-                            <Label className="text-slate-400 text-[10px] mb-0.5 block">Дата начала</Label>
+                            <Label className="text-slate-400 text-[10px] mb-0.5 block">Дата выдачи</Label>
                             <Input
                               type="date"
                               value={row._issuedDate || globalIssuedDate}
@@ -383,7 +525,9 @@ const ExcelOrdersImport = ({ specialists, orgId, userId, userFio, onOrdersCreate
                             />
                           </div>
                           <div>
-                            <Label className="text-slate-400 text-[10px] mb-0.5 block">Срок <span className="text-red-400">*</span></Label>
+                            <Label className="text-slate-400 text-[10px] mb-0.5 block">
+                              Срок <span className="text-red-400">*</span>
+                            </Label>
                             <Input
                               type="date"
                               value={row._deadline || globalDeadline}
