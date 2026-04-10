@@ -12,6 +12,12 @@ interface OverdueItem {
   daysOverdue: number;
 }
 
+// Парсим дату из строки "YYYY-MM-DD" без смещения часового пояса
+const parseLocalDate = (s: string): Date => {
+  const [y, m, d] = s.slice(0, 10).split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
 const AlertWidget = () => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -22,8 +28,7 @@ const AlertWidget = () => {
   const shouldHide = hidePaths.some(p => p === '/' ? location.pathname === '/' : location.pathname.startsWith(p))
     || location.pathname.startsWith('/org/');
 
-  useEffect(() => {
-    if (shouldHide) return;
+  const fetchOverdue = () => {
     const userId = localStorage.getItem('userId');
     const orgId = localStorage.getItem('organizationId');
     const dept = localStorage.getItem('userDepartment');
@@ -43,20 +48,32 @@ const AlertWidget = () => {
         const overdue: OverdueItem[] = [];
         (data.orders || []).forEach((o: { id: number; title: string; deadline: string; extended_deadline: string | null; status: string }) => {
           if (o.status === 'completed') return;
-          const deadlineDate = o.extended_deadline
-            ? new Date(o.extended_deadline)
-            : (o.deadline ? new Date(o.deadline) : null);
-          if (!deadlineDate) return;
-          deadlineDate.setHours(0, 0, 0, 0);
+          const rawDeadline = o.extended_deadline || o.deadline;
+          if (!rawDeadline) return;
+          const deadlineDate = parseLocalDate(rawDeadline);
           if (deadlineDate < today) {
             const diff = Math.floor((today.getTime() - deadlineDate.getTime()) / 86400000);
-            overdue.push({ type: 'order', id: o.id, title: o.title, deadline: (o.extended_deadline || o.deadline), daysOverdue: diff });
+            overdue.push({ type: 'order', id: o.id, title: o.title, deadline: rawDeadline, daysOverdue: diff });
           }
         });
         setOverdueItems(overdue);
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
+  };
+
+  useEffect(() => {
+    if (shouldHide) return;
+    fetchOverdue();
+    // Обновление каждые 30 секунд
+    const interval = setInterval(fetchOverdue, 30_000);
+    // Обновление при возврате на вкладку
+    const onFocus = () => fetchOverdue();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [location.pathname]);
 
   if (shouldHide || !loaded) return null;
