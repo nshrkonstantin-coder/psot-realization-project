@@ -169,9 +169,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 return {'statusCode': 500, 'headers': CORS, 'isBase64Encoded': False,
                         'body': json.dumps({'success': False, 'error': 'SMTP не настроен'})}
             try:
+                from email.header import Header
                 mail_msg = MIMEMultipart('alternative')
-                mail_msg['Subject'] = subject
-                mail_msg['From'] = f'ОТиПБ Система <{smtp_user}>'
+                mail_msg['Subject'] = Header(subject, 'utf-8')
+                mail_msg['From'] = smtp_user
                 mail_msg['To'] = to_email
                 mail_msg.attach(MIMEText(html_content, 'html', 'utf-8'))
                 smtp_conn = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
@@ -180,7 +181,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     smtp_conn.starttls()
                     smtp_conn.ehlo()
                 smtp_conn.login(smtp_user, smtp_pass)
-                smtp_conn.send_message(mail_msg)
+                smtp_conn.sendmail(smtp_user, [to_email], mail_msg.as_string())
                 smtp_conn.quit()
                 return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
                         'body': json.dumps({'success': True})}
