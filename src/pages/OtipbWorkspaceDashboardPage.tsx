@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const OT_ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
 const SEND_EMAIL_URL = 'https://functions.poehali.dev/2dab48c9-57c0-4f55-90e7-d93b326a6891';
@@ -76,6 +78,8 @@ const OtipbWorkspaceDashboardPage = () => {
   const [checklistRecipientEmail, setChecklistRecipientEmail] = useState('');
   const [checklistRecipientFio, setChecklistRecipientFio] = useState('');
   const [sendingChecklist, setSendingChecklist] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
   const checklistRef = useRef<HTMLDivElement>(null);
 
   const orgId = localStorage.getItem('organizationId') || '';
@@ -335,15 +339,99 @@ const OtipbWorkspaceDashboardPage = () => {
     `;
   };
 
-  const downloadChecklist = () => {
+  const fileDate = new Date().toLocaleDateString('ru-RU').replace(/\./g, '-');
+
+  const downloadChecklistHtml = () => {
     const html = buildChecklistHtml(checklistRecipientFio);
-    const blob = new Blob([`<html><head><meta charset="utf-8"/></head><body>${html}</body></html>`], { type: 'text/html' });
+    const fullHtml = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><title>Чек-лист передачи вахты</title>
+    <style>body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}@media print{body{padding:0}}</style>
+    </head><body>${html}</body></html>`;
+    const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `чек-лист_передачи_вахты_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.html`;
+    a.download = `чек-лист_передачи_вахты_${fileDate}.html`;
     a.click();
     URL.revokeObjectURL(url);
+    setShowDownloadModal(false);
+    toast.success('HTML-файл скачан');
+  };
+
+  const downloadChecklistXlsx = () => {
+    const info = [
+      ['ЧЕК-ЛИСТ ПЕРЕДАЧИ ВАХТЫ'],
+      ['Отдел ОТиПБ — Охрана труда и промышленная безопасность'],
+      [],
+      ['ФИО передающего:', userFio || userName],
+      ['Должность:', userPosition || '—'],
+      ['Подразделение:', userDepartment],
+      ['Дата формирования:', new Date().toLocaleString('ru-RU')],
+      ['Кому передаётся:', checklistRecipientFio || '—'],
+      [],
+      [`Невыполненных поручений: ${pendingOrders.length}`],
+      [],
+    ];
+
+    const headers = ['№', 'Наименование поручения', 'Дата выдачи', 'Срок выполнения', 'Ответственный', 'Выдал поручение', 'Статус', 'Последнее действие / На чём остановился'];
+    const rows = pendingOrders.map((o, i) => [
+      i + 1,
+      o.title,
+      o.issued_date ? new Date(o.issued_date).toLocaleDateString('ru-RU') : '—',
+      o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '—',
+      o.responsible_person,
+      o.issued_by,
+      STATUS_LABELS[o.status] || o.status,
+      o.last_action || 'Не указано',
+    ]);
+
+    const wsData = [...info, headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{ wch: 4 }, { wch: 40 }, { wch: 14 }, { wch: 16 }, { wch: 24 }, { wch: 24 }, { wch: 14 }, { wch: 50 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Чек-лист вахты');
+    XLSX.writeFile(wb, `чек-лист_передачи_вахты_${fileDate}.xlsx`);
+    setShowDownloadModal(false);
+    toast.success('Excel-файл скачан');
+  };
+
+  const downloadChecklistPdf = async () => {
+    setDownloadingFormat('pdf');
+    try {
+      const html = buildChecklistHtml(checklistRecipientFio);
+      const container = document.createElement('div');
+      container.style.cssText = 'position:fixed;left:-9999px;top:0;width:900px;background:#fff;font-family:Arial,sans-serif;';
+      container.innerHTML = html;
+      document.body.appendChild(container);
+
+      await new Promise(r => setTimeout(r, 200));
+
+      const canvas = await html2canvas(container, { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' });
+      document.body.removeChild(container);
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = pdf.internal.pageSize.getHeight();
+      const ratio = canvas.width / canvas.height;
+      const imgH = pdfW / ratio;
+
+      let yPos = 0;
+      let remainH = imgH;
+      while (remainH > 0) {
+        if (yPos > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, -yPos, pdfW, imgH);
+        yPos += pdfH;
+        remainH -= pdfH;
+      }
+
+      pdf.save(`чек-лист_передачи_вахты_${fileDate}.pdf`);
+      setShowDownloadModal(false);
+      toast.success('PDF-файл скачан');
+    } catch {
+      toast.error('Ошибка создания PDF');
+    } finally {
+      setDownloadingFormat(null);
+    }
   };
 
   const sendChecklistEmail = async () => {
@@ -733,7 +821,7 @@ const OtipbWorkspaceDashboardPage = () => {
 
             {/* Кнопки действий */}
             <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-700">
-              <Button onClick={downloadChecklist} variant="outline"
+              <Button onClick={() => setShowDownloadModal(true)} variant="outline"
                 className="border-violet-500/50 text-violet-400 hover:bg-violet-500/10">
                 <Icon name="Download" size={16} className="mr-2" />Скачать чек-лист
               </Button>
@@ -856,6 +944,89 @@ const OtipbWorkspaceDashboardPage = () => {
                   <Icon name="Send" size={18} className="mr-2" />Передать
                 </Button>
                 <Button onClick={() => setTransferTarget(null)} variant="outline" className="border-slate-600 text-gray-300">Отмена</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Модальное окно выбора формата скачивания */}
+        {showDownloadModal && (
+          <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-800 rounded-2xl border border-violet-600/40 w-full max-w-md shadow-2xl">
+              <div className="flex items-center justify-between p-6 border-b border-slate-700">
+                <div className="flex items-center gap-3">
+                  <div className="bg-gradient-to-br from-violet-500 to-purple-600 p-2.5 rounded-xl">
+                    <Icon name="Download" size={22} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white">Скачать чек-лист</h2>
+                    <p className="text-slate-400 text-xs mt-0.5">Выберите формат файла</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowDownloadModal(false)} className="text-gray-400 hover:text-white transition-colors">
+                  <Icon name="X" size={24} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-3">
+                {/* HTML */}
+                <button
+                  onClick={downloadChecklistHtml}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/15 hover:border-orange-500/60 transition-all group text-left"
+                >
+                  <div className="bg-gradient-to-br from-orange-500 to-amber-500 p-3 rounded-xl shadow-lg group-hover:scale-110 transition-transform shrink-0">
+                    <Icon name="Globe" size={24} className="text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-semibold">HTML-файл</p>
+                    <p className="text-slate-400 text-xs mt-0.5">Открывается в браузере, сохраняет оформление и цвета. Можно распечатать через браузер</p>
+                  </div>
+                  <Icon name="ChevronRight" size={18} className="text-slate-500 group-hover:text-orange-400 transition-colors" />
+                </button>
+
+                {/* Excel */}
+                <button
+                  onClick={downloadChecklistXlsx}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl border border-green-500/30 bg-green-500/5 hover:bg-green-500/15 hover:border-green-500/60 transition-all group text-left"
+                >
+                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-3 rounded-xl shadow-lg group-hover:scale-110 transition-transform shrink-0">
+                    <Icon name="FileSpreadsheet" size={24} className="text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-semibold">Excel (.xlsx)</p>
+                    <p className="text-slate-400 text-xs mt-0.5">Таблица с данными, удобно для редактирования и хранения в архиве</p>
+                  </div>
+                  <Icon name="ChevronRight" size={18} className="text-slate-500 group-hover:text-green-400 transition-colors" />
+                </button>
+
+                {/* PDF */}
+                <button
+                  onClick={downloadChecklistPdf}
+                  disabled={downloadingFormat === 'pdf'}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/15 hover:border-red-500/60 transition-all group text-left disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <div className="bg-gradient-to-br from-red-500 to-rose-600 p-3 rounded-xl shadow-lg group-hover:scale-110 transition-transform shrink-0">
+                    {downloadingFormat === 'pdf'
+                      ? <Icon name="Loader2" size={24} className="text-white animate-spin" />
+                      : <Icon name="FileText" size={24} className="text-white" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-semibold">PDF-документ</p>
+                    <p className="text-slate-400 text-xs mt-0.5">
+                      {downloadingFormat === 'pdf' ? 'Формируется PDF...' : 'Готовый документ для печати и официальной передачи'}
+                    </p>
+                  </div>
+                  {downloadingFormat !== 'pdf' && (
+                    <Icon name="ChevronRight" size={18} className="text-slate-500 group-hover:text-red-400 transition-colors" />
+                  )}
+                </button>
+              </div>
+
+              <div className="px-6 pb-6">
+                <Button onClick={() => setShowDownloadModal(false)} variant="outline"
+                  className="w-full border-slate-600 text-slate-400 hover:text-white">
+                  Отмена
+                </Button>
               </div>
             </div>
           </div>
