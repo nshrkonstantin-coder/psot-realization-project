@@ -14,6 +14,7 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useAntiCopy } from "@/hooks/useAntiCopy";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import GlobalThemeToggle from "@/components/GlobalThemeToggle";
+import AlertWidget from "@/components/AlertWidget";
 import DemoProvider from "@/contexts/DemoContext";
 import DemoPage from "./pages/DemoPage";
 
@@ -158,6 +159,7 @@ const App = () => {
             <BrowserRouter>
               <AppInner />
               <ConditionalGlobalControls />
+              <AlertWidget />
               <MessageNotifications />
         <Suspense fallback={<LoadingScreen />}>
         <Routes>
