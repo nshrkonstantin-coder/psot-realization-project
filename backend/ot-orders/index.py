@@ -10,16 +10,19 @@ CORS = {
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    CRUD для поручений отдела ОТиПБ + настройки + ручной список специалистов.
+    CRUD для поручений отдела ОТиПБ + настройки + ручной список специалистов + документы.
     GET  ?action=settings              — получить настройки (источник специалистов)
     GET  ?action=manual_specialists    — ручной список специалистов
+    GET  ?action=documents&order_id=N  — документы к поручению
     GET  (default)                     — список поручений + специалисты по настройке
     POST action=save_settings          — сохранить настройки
     POST action=add_specialist         — добавить специалиста в ручной список
+    POST action=upload_document        — загрузить документ (base64) к поручению
     POST (default)                     — создать поручение
     PUT                                — обновить поручение
     DELETE ?specialist_id=N            — удалить специалиста из ручного списка
     DELETE ?id=N                       — удалить поручение
+    DELETE ?document_id=N              — удалить документ к поручению
     """
     method = event.get('httpMethod', 'GET')
 
@@ -52,6 +55,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             source = row[0] if row else 'asubt'
             return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
                     'body': json.dumps({'success': True, 'specialist_source': source})}
+
+        # ── GET documents for order ───────────────────────────────────────────
+        if method == 'GET' and action == 'documents':
+            order_id = params.get('order_id')
+            if not order_id:
+                return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'order_id обязателен'})}
+            cur.execute(f"""
+                SELECT id, order_id, file_name, file_url, file_size, uploaded_by_user_id, uploaded_at
+                FROM {SCHEMA}.ot_order_documents
+                WHERE order_id = {int(order_id)}
+                ORDER BY uploaded_at ASC
+            """)
+            docs = [{'id': r[0], 'order_id': r[1], 'file_name': r[2], 'file_url': r[3],
+                     'file_size': r[4], 'uploaded_by_user_id': r[5],
+                     'uploaded_at': r[6].isoformat() if r[6] else None} for r in cur.fetchall()]
+            return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': True, 'documents': docs})}
 
         # ── GET manual specialists ─────────────────────────────────────────────
         if method == 'GET' and action == 'manual_specialists':
@@ -107,6 +128,29 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             """)
             orders = [_row_to_dict(r) for r in cur.fetchall()]
 
+            # Подгружаем документы для всех поручений одним запросом
+            if orders:
+                order_ids_str = ','.join(str(o['id']) for o in orders)
+                cur.execute(f"""
+                    SELECT id, order_id, file_name, file_url, file_size, uploaded_at
+                    FROM {SCHEMA}.ot_order_documents
+                    WHERE order_id IN ({order_ids_str})
+                    ORDER BY uploaded_at ASC
+                """)
+                docs_by_order: dict = {}
+                for dr in cur.fetchall():
+                    oid = dr[1]
+                    if oid not in docs_by_order:
+                        docs_by_order[oid] = []
+                    docs_by_order[oid].append({'id': dr[0], 'file_name': dr[2], 'file_url': dr[3],
+                                               'file_size': dr[4],
+                                               'uploaded_at': dr[5].isoformat() if dr[5] else None})
+                for o in orders:
+                    o['documents'] = docs_by_order.get(o['id'], [])
+            else:
+                for o in orders:
+                    o['documents'] = []
+
             # Определяем источник специалистов
             settings_where = f"WHERE organization_id = {int(org_id)}" if org_id else "WHERE organization_id IS NULL"
             cur.execute(f"SELECT specialist_source FROM {SCHEMA}.otipb_settings {settings_where} LIMIT 1")
@@ -147,6 +191,45 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if method == 'POST':
             body = json.loads(event.get('body', '{}'))
             post_action_pre = body.get('action', '')
+
+        # ── POST upload_document ──────────────────────────────────────────────
+        if method == 'POST' and post_action_pre == 'upload_document':
+            import base64
+            import boto3
+            import uuid
+            import mimetypes
+            order_id = body.get('order_id')
+            file_name = (body.get('file_name') or '').strip()
+            file_data_b64 = body.get('file_data', '')
+            file_size = body.get('file_size', 0)
+            uploaded_by = body.get('uploaded_by_user_id')
+            if not order_id or not file_name or not file_data_b64:
+                return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'Не указан order_id, file_name или file_data'})}
+            if file_size and int(file_size) > 50 * 1024 * 1024:
+                return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'Файл превышает 50 МБ'})}
+            file_bytes = base64.b64decode(file_data_b64)
+            ext = file_name.rsplit('.', 1)[-1].lower() if '.' in file_name else 'bin'
+            key = f"ot-orders/{order_id}/{uuid.uuid4().hex}.{ext}"
+            content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+            s3 = boto3.client('s3',
+                endpoint_url='https://bucket.poehali.dev',
+                aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+                aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])
+            s3.put_object(Bucket='files', Key=key, Body=file_bytes, ContentType=content_type)
+            cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+            uploader_val = str(int(uploaded_by)) if uploaded_by else 'NULL'
+            safe_name = file_name.replace("'", "''")
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.ot_order_documents (order_id, file_name, file_url, file_size, uploaded_by_user_id)
+                VALUES ({int(order_id)}, '{safe_name}', '{cdn_url}', {int(file_size) if file_size else 'NULL'}, {uploader_val})
+                RETURNING id
+            """)
+            doc_id = cur.fetchone()[0]
+            conn.commit()
+            return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': True, 'id': doc_id, 'file_url': cdn_url, 'file_name': file_name})}
 
         # ── POST send_checklist_email ─────────────────────────────────────────
         if method == 'POST' and post_action_pre == 'send_checklist_email':
@@ -376,8 +459,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if method == 'DELETE':
             specialist_id = params.get('specialist_id')
             order_id = params.get('id')
+            document_id = params.get('document_id')
             if specialist_id:
                 cur.execute(f"DELETE FROM {SCHEMA}.otipb_specialists WHERE id = {int(specialist_id)}")
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': True})}
+            if document_id:
+                cur.execute(f"DELETE FROM {SCHEMA}.ot_order_documents WHERE id = {int(document_id)}")
                 conn.commit()
                 return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
                         'body': json.dumps({'success': True})}

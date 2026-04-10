@@ -13,6 +13,14 @@ import html2canvas from 'html2canvas';
 const OT_ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
 const SEND_EMAIL_URL = 'https://functions.poehali.dev/2dab48c9-57c0-4f55-90e7-d93b326a6891';
 
+interface OrderDocument {
+  id: number;
+  file_name: string;
+  file_url: string;
+  file_size: number | null;
+  uploaded_at: string | null;
+}
+
 interface Order {
   id: number;
   title: string;
@@ -27,6 +35,7 @@ interface Order {
   assigned_fio: string | null;
   notes: string | null;
   last_action: string | null;
+  documents: OrderDocument[];
 }
 
 interface Specialist {
@@ -75,6 +84,8 @@ const OtipbWorkspaceDashboardPage = () => {
   const [transferTarget, setTransferTarget] = useState<Order | null>(null);
   const [transferUserId, setTransferUserId] = useState('');
   const [userName, setUserName] = useState('');
+  const [uploadingDoc, setUploadingDoc] = useState<Record<number, boolean>>({});
+  const [pendingFiles, setPendingFiles] = useState<Record<number, File | null>>({});
   const [checklistRecipientEmail, setChecklistRecipientEmail] = useState('');
   const [checklistRecipientFio, setChecklistRecipientFio] = useState('');
   const [checklistRecipientId, setChecklistRecipientId] = useState('');
@@ -167,6 +178,37 @@ const OtipbWorkspaceDashboardPage = () => {
     }
   };
 
+  const uploadDocument = async (orderId: number, file: File): Promise<boolean> => {
+    setUploadingDoc(prev => ({ ...prev, [orderId]: true }));
+    try {
+      const arrayBuf = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuf);
+      let binary = '';
+      bytes.forEach(b => { binary += String.fromCharCode(b); });
+      const base64 = btoa(binary);
+      const res = await fetch(OT_ORDERS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'upload_document',
+          order_id: orderId,
+          file_name: file.name,
+          file_data: base64,
+          file_size: file.size,
+          uploaded_by_user_id: userId ? Number(userId) : null,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) { toast.error(data.error || 'Ошибка загрузки файла'); return false; }
+      return true;
+    } catch {
+      toast.error('Ошибка загрузки файла');
+      return false;
+    } finally {
+      setUploadingDoc(prev => ({ ...prev, [orderId]: false }));
+    }
+  };
+
   const handleStatusSave = async (order: Order) => {
     const status = editingStatus[order.id];
     const extDeadline = editingExtDeadline[order.id];
@@ -174,6 +216,21 @@ const OtipbWorkspaceDashboardPage = () => {
     if (status === 'extended' && !extDeadline) {
       toast.error('Укажите новый срок выполнения');
       return;
+    }
+    // При статусе "Выполнено" — обязателен подтверждающий документ
+    if (status === 'completed' && order.status !== 'completed') {
+      const file = pendingFiles[order.id];
+      if (!file) {
+        toast.error('Для подтверждения выполнения необходимо загрузить документ');
+        return;
+      }
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error('Файл превышает 50 МБ');
+        return;
+      }
+      const uploaded = await uploadDocument(order.id, file);
+      if (!uploaded) return;
+      setPendingFiles(prev => { const n = { ...prev }; delete n[order.id]; return n; });
     }
     try {
       const res = await fetch(OT_ORDERS_URL, {
@@ -248,6 +305,9 @@ const OtipbWorkspaceDashboardPage = () => {
     const rows = orders.map((o, i) => {
       const statusLabel = STATUS_LABELS[o.status] || o.status;
       const statusColor = o.status === 'completed' ? '#16a34a' : o.status === 'extended' ? '#d97706' : o.status === 'in_progress' ? '#2563eb' : '#dc2626';
+      const docsHtml = (o.documents || []).length > 0
+        ? (o.documents || []).map(d => `<a href="${d.file_url}" style="display:block;color:#2563eb;font-size:11px;text-decoration:underline;word-break:break-all">${d.file_name}</a>`).join('')
+        : '—';
       return `<tr style="border-bottom:1px solid #e2e8f0;${i % 2 === 1 ? 'background:#f8fafc' : ''}">
         <td style="padding:8px 10px;font-weight:600;vertical-align:top">${i + 1}. ${o.title}</td>
         <td style="padding:8px 10px;vertical-align:top;white-space:nowrap">${o.issued_date ? new Date(o.issued_date).toLocaleDateString('ru-RU') : '—'}</td>
@@ -256,6 +316,7 @@ const OtipbWorkspaceDashboardPage = () => {
         <td style="padding:8px 10px;vertical-align:top">${o.issued_by || '—'}</td>
         <td style="padding:8px 10px;vertical-align:top;color:${statusColor};font-weight:600">${statusLabel}</td>
         <td style="padding:8px 10px;vertical-align:top;font-size:12px;color:#64748b">${o.last_action || '—'}</td>
+        <td style="padding:8px 10px;vertical-align:top">${docsHtml}</td>
       </tr>`;
     }).join('');
     const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/>
@@ -275,7 +336,7 @@ const OtipbWorkspaceDashboardPage = () => {
       <table>
         <thead><tr>
           <th>Поручение</th><th>Дата выдачи</th><th>Срок</th>
-          <th>Ответственный</th><th>Выдал</th><th>Статус</th><th>Что сделано</th>
+          <th>Ответственный</th><th>Выдал</th><th>Статус</th><th>Что сделано</th><th>Ссылка на документ</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -292,7 +353,11 @@ const OtipbWorkspaceDashboardPage = () => {
 
   const buildChecklistHtml = (recipientFio: string, recipientPosition?: string) => {
     const date = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const rows = pendingOrders.map((o, i) => `
+    const rows = pendingOrders.map((o, i) => {
+      const docsHtml = (o.documents || []).length > 0
+        ? (o.documents || []).map(d => `<a href="${d.file_url}" style="display:block;color:#2563eb;font-size:11px;text-decoration:underline;margin-bottom:2px;word-break:break-all">${d.file_name}</a>`).join('')
+        : '<span style="color:#94a3b8;font-size:11px;font-style:italic">—</span>';
+      return `
       <tr style="border-bottom:1px solid #e2e8f0">
         <td style="padding:10px 8px;font-weight:600;vertical-align:top">${i + 1}. ${o.title}</td>
         <td style="padding:10px 8px;vertical-align:top;white-space:nowrap">${o.issued_date ? new Date(o.issued_date).toLocaleDateString('ru-RU') : '—'}</td>
@@ -310,8 +375,9 @@ const OtipbWorkspaceDashboardPage = () => {
         <td style="padding:10px 8px;vertical-align:top;background:#fffbeb;font-style:${o.last_action ? 'normal' : 'italic'};color:${o.last_action ? '#1e293b' : '#94a3b8'}">
           ${o.last_action || 'Не указано'}
         </td>
-      </tr>
-    `).join('');
+        <td style="padding:10px 8px;vertical-align:top">${docsHtml}</td>
+      </tr>`;
+    }).join('');
 
     return `
       <div style="font-family:Arial,sans-serif;max-width:900px;margin:0 auto;padding:20px">
@@ -355,6 +421,7 @@ const OtipbWorkspaceDashboardPage = () => {
                 <th style="padding:10px 8px;text-align:left">Выдал</th>
                 <th style="padding:10px 8px;text-align:left">Статус</th>
                 <th style="padding:10px 8px;text-align:left;background:#fffbeb">Последнее действие / Что сделано</th>
+                <th style="padding:10px 8px;text-align:left">Ссылка на документ</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -738,6 +805,7 @@ const OtipbWorkspaceDashboardPage = () => {
                       <th className="text-left py-3 px-3 font-medium">Ответственный</th>
                       <th className="text-left py-3 px-3 font-medium">Выдал</th>
                       <th className="text-left py-3 px-3 font-medium">Статус / Последнее действие</th>
+                      <th className="text-left py-3 px-3 font-medium">Ссылка на документ</th>
                       <th className="text-left py-3 px-3 font-medium">Действия</th>
                     </tr>
                   </thead>
@@ -787,14 +855,54 @@ const OtipbWorkspaceDashboardPage = () => {
                               rows={2}
                               className="bg-slate-700/80 border border-orange-500/30 text-white text-xs rounded px-2 py-1 resize-none focus:outline-none focus:border-orange-500"
                             />
+                            {editingStatus[order.id] === 'completed' && order.status !== 'completed' && (
+                              <div className="flex flex-col gap-1 p-2 bg-green-900/20 border border-green-500/30 rounded">
+                                <span className="text-xs text-green-400 font-medium">Подтверждающий документ (обязательно)</span>
+                                <input
+                                  type="file"
+                                  accept="*/*"
+                                  onChange={e => {
+                                    const f = e.target.files?.[0] || null;
+                                    setPendingFiles(prev => ({ ...prev, [order.id]: f }));
+                                  }}
+                                  className="text-xs text-gray-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-orange-600 file:text-white hover:file:bg-orange-700 cursor-pointer"
+                                />
+                                {pendingFiles[order.id] && (
+                                  <span className="text-xs text-green-400 truncate max-w-[180px]">
+                                    {pendingFiles[order.id]!.name}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             <span className={`text-xs px-2 py-0.5 rounded border w-fit ${STATUS_COLORS[order.status]}`}>
                               {STATUS_LABELS[order.status]}
                             </span>
                             <Button size="sm" onClick={() => handleStatusSave(order)}
+                              disabled={uploadingDoc[order.id]}
                               className="h-6 text-xs bg-orange-600 hover:bg-orange-700 px-2">
-                              Сохранить
+                              {uploadingDoc[order.id] ? 'Загрузка...' : 'Сохранить'}
                             </Button>
                           </div>
+                        </td>
+                        <td className="py-3 px-3 min-w-[180px]">
+                          {(order.documents || []).length === 0 ? (
+                            <span className="text-xs text-gray-500 italic">—</span>
+                          ) : (
+                            <div className="flex flex-col gap-1">
+                              {(order.documents || []).map(doc => (
+                                <a
+                                  key={doc.id}
+                                  href={doc.file_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-400 hover:text-blue-300 underline flex items-center gap-1 max-w-[180px]"
+                                >
+                                  <Icon name="FileDown" size={12} className="shrink-0" />
+                                  <span className="truncate">{doc.file_name}</span>
+                                </a>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-3">
                           <div className="flex flex-col gap-1">
