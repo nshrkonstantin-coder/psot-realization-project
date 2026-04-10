@@ -332,8 +332,50 @@ const OtipbWorkspaceDashboardPage = () => {
             <tbody>${rows}</tbody>
           </table>`
         }
-        <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center">
-          Документ сформирован автоматически системой ОТиПБ • ${date}
+        <div style="margin-top:48px;padding-top:24px;border-top:2px solid #e2e8f0">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <tr>
+              <td style="width:50%;padding:0 24px 0 0;vertical-align:top">
+                <p style="font-weight:700;color:#1e293b;margin:0 0 20px">Передал:</p>
+                <table style="width:100%;border-collapse:collapse">
+                  <tr>
+                    <td style="padding:4px 0;color:#64748b;width:36%">ФИО:</td>
+                    <td style="padding:4px 0;font-weight:600;color:#1e293b">${userFio || userName}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:4px 0;color:#64748b">Должность:</td>
+                    <td style="padding:4px 0;color:#1e293b">${userPosition || '—'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:4px 0;color:#64748b">Дата:</td>
+                    <td style="padding:4px 0;color:#1e293b">${date}</td>
+                  </tr>
+                </table>
+                <div style="margin-top:32px;border-top:1px solid #94a3b8;width:80%;padding-top:4px;color:#64748b;font-size:11px">подпись</div>
+              </td>
+              <td style="width:50%;padding:0 0 0 24px;vertical-align:top;border-left:1px solid #e2e8f0">
+                <p style="font-weight:700;color:#1e293b;margin:0 0 20px;padding-left:24px">Принял:</p>
+                <table style="width:100%;border-collapse:collapse;padding-left:24px">
+                  <tr>
+                    <td style="padding:4px 24px;color:#64748b;width:36%">ФИО:</td>
+                    <td style="padding:4px 0;font-weight:600;color:${recipientFio ? '#1e293b' : '#94a3b8'}">${recipientFio || '____________________'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:4px 24px;color:#64748b">Должность:</td>
+                    <td style="padding:4px 0;color:#94a3b8">____________________</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:4px 24px;color:#64748b">Дата:</td>
+                    <td style="padding:4px 0;color:#94a3b8">____________________</td>
+                  </tr>
+                </table>
+                <div style="margin-top:32px;margin-left:24px;border-top:1px solid #94a3b8;width:80%;padding-top:4px;color:#64748b;font-size:11px">подпись</div>
+              </td>
+            </tr>
+          </table>
+          <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center">
+            Документ сформирован автоматически системой ОТиПБ • ${date}
+          </div>
         </div>
       </div>
     `;
