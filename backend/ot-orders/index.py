@@ -49,10 +49,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # ── GET settings ──────────────────────────────────────────────────────
         if method == 'GET' and action == 'settings':
-            where = f"WHERE organization_id = {int(org_id)}" if org_id else "WHERE organization_id IS NULL"
-            cur.execute(f"SELECT specialist_source FROM {SCHEMA}.otipb_settings {where} LIMIT 1")
+            if org_id:
+                cur.execute(f"SELECT specialist_source FROM {SCHEMA}.otipb_settings WHERE organization_id = {int(org_id)} ORDER BY updated_at DESC NULLS LAST LIMIT 1")
+            else:
+                cur.execute(f"SELECT specialist_source FROM {SCHEMA}.otipb_settings WHERE organization_id IS NULL ORDER BY updated_at DESC NULLS LAST LIMIT 1")
             row = cur.fetchone()
-            source = row[0] if row else 'asubt'
+            source = row[0] if row else 'manual'
             return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
                     'body': json.dumps({'success': True, 'specialist_source': source})}
 
@@ -151,17 +153,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 for o in orders:
                     o['documents'] = []
 
-            # Определяем источник специалистов
-            settings_where = f"WHERE organization_id = {int(org_id)}" if org_id else "WHERE organization_id IS NULL"
-            cur.execute(f"SELECT specialist_source FROM {SCHEMA}.otipb_settings {settings_where} LIMIT 1")
+            # Определяем источник специалистов (берём самую свежую запись, чтобы избежать проблем с дублями)
+            if org_id:
+                cur.execute(f"SELECT specialist_source FROM {SCHEMA}.otipb_settings WHERE organization_id = {int(org_id)} ORDER BY updated_at DESC NULLS LAST LIMIT 1")
+            else:
+                cur.execute(f"SELECT specialist_source FROM {SCHEMA}.otipb_settings WHERE organization_id IS NULL ORDER BY updated_at DESC NULLS LAST LIMIT 1")
             s_row = cur.fetchone()
-            source = s_row[0] if s_row else 'asubt'
+            source = s_row[0] if s_row else 'manual'
 
             if source == 'manual':
-                # Ручной список
-                spec_where = f"WHERE ms.organization_id = {int(org_id)} AND ms.active = TRUE" if org_id else "WHERE ms.organization_id IS NULL AND ms.active = TRUE"
+                # Ручной список специалистов ОТиПБ
+                if org_id:
+                    spec_where = f"WHERE ms.organization_id = {int(org_id)} AND ms.active = TRUE"
+                else:
+                    spec_where = "WHERE ms.organization_id IS NULL AND ms.active = TRUE"
                 cur.execute(f"""
-                    SELECT COALESCE(u.id, ms.id + 100000), COALESCE(u.fio, ms.fio),
+                    SELECT ms.id + 100000, COALESCE(u.fio, ms.fio),
                            COALESCE(u.position, ms.position), ms.email, ms.phone
                     FROM {SCHEMA}.otipb_specialists ms
                     LEFT JOIN {SCHEMA}.users u ON ms.user_id = u.id
@@ -171,11 +178,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 specialists = [{'id': r[0], 'fio': r[1], 'position': r[2],
                                 'email': r[3], 'phone': r[4]} for r in cur.fetchall()]
             else:
-                # АСУБТ — из базы users, фильтр по подразделению ОТиПБ
-                spec_where_parts = ["u.role IN ('admin', 'miniadmin', 'user')"]
+                # АСУБТ — все пользователи организации (без фильтра по подразделению)
+                spec_where_parts = ["u.role IN ('admin', 'miniadmin', 'user')", "u.fio IS NOT NULL", "u.fio != ''"]
                 if org_id:
                     spec_where_parts.append(f"u.organization_id = {int(org_id)}")
-                spec_where_parts.append("(LOWER(u.subdivision) LIKE '%отипб%' OR LOWER(u.subdivision) LIKE '%охрана труда%' OR LOWER(u.subdivision) LIKE '%от и пб%' OR u.subdivision IS NULL OR u.subdivision = '')")
                 cur.execute(f"""
                     SELECT u.id, u.fio, u.position, u.email FROM {SCHEMA}.users u
                     WHERE {' AND '.join(spec_where_parts)}
@@ -344,17 +350,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             post_action = post_action_pre
 
             if post_action == 'save_settings':
-                source = body.get('specialist_source', 'asubt')
+                source = body.get('specialist_source', 'manual')
                 if source not in ('asubt', 'manual'):
                     return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
                             'body': json.dumps({'success': False, 'error': 'Неверный источник'})}
-                org_val = str(int(org_id)) if org_id else 'NULL'
-                cur.execute(f"""
-                    INSERT INTO {SCHEMA}.otipb_settings (organization_id, specialist_source, updated_at)
-                    VALUES ({org_val}, '{source}', NOW())
-                    ON CONFLICT (organization_id) DO UPDATE
-                    SET specialist_source = EXCLUDED.specialist_source, updated_at = NOW()
-                """)
+                # Обновляем все существующие записи (дублей может быть несколько из-за NULL-конфликта)
+                if org_id:
+                    cur.execute(f"UPDATE {SCHEMA}.otipb_settings SET specialist_source = '{source}', updated_at = NOW() WHERE organization_id = {int(org_id)}")
+                    if cur.rowcount == 0:
+                        cur.execute(f"INSERT INTO {SCHEMA}.otipb_settings (organization_id, specialist_source, updated_at) VALUES ({int(org_id)}, '{source}', NOW())")
+                else:
+                    cur.execute(f"UPDATE {SCHEMA}.otipb_settings SET specialist_source = '{source}', updated_at = NOW() WHERE organization_id IS NULL")
+                    if cur.rowcount == 0:
+                        cur.execute(f"INSERT INTO {SCHEMA}.otipb_settings (organization_id, specialist_source, updated_at) VALUES (NULL, '{source}', NOW())")
                 conn.commit()
                 return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
                         'body': json.dumps({'success': True})}
