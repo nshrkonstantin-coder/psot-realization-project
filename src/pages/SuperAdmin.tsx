@@ -23,7 +23,6 @@ const SuperAdmin = () => {
     }
     
     if (role !== 'superadmin') {
-      // Перенаправляем на соответствующую страницу
       if (role === 'admin') {
         navigate('/admin');
       } else if (role === 'user') {
@@ -33,8 +32,18 @@ const SuperAdmin = () => {
       }
       return;
     }
-    
+
+    // Показываем ФИО из localStorage сразу, затем подтягиваем актуальное из API
     setUserFio(localStorage.getItem('userFio') || '');
+    fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.user?.fio) {
+          setUserFio(data.user.fio);
+          localStorage.setItem('userFio', data.user.fio);
+        }
+      })
+      .catch(() => {});
   }, [navigate]);
 
   const handleLogout = () => {
