@@ -9,6 +9,14 @@
       "bodyMatcher": "partial"
     },
     {
+      "name": "GET specialist orders",
+      "method": "GET",
+      "path": "/?action=specialist_orders&fio=Тест",
+      "expectedStatus": 200,
+      "expectedBody": {"success": true},
+      "bodyMatcher": "partial"
+    },
+    {
       "name": "OPTIONS preflight",
       "method": "OPTIONS",
       "path": "/",

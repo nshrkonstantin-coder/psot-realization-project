@@ -162,6 +162,20 @@ const OtManagementPage = () => {
     }
   };
 
+  const clearAllOrders = async () => {
+    try {
+      const p = orgId ? `?action=clear_all&organization_id=${orgId}` : '?action=clear_all';
+      const res = await fetch(`${OT_ORDERS_URL}${p}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Все поручения удалены');
+        await loadData();
+      } else toast.error(data.error || 'Ошибка');
+    } catch {
+      toast.error('Ошибка соединения');
+    }
+  };
+
   const handleCreate = async () => {
     if (!form.title.trim() || !form.deadline || !form.responsible_person.trim() || !form.issued_by.trim()) {
       toast.error('Заполните все обязательные поля');
@@ -824,7 +838,19 @@ const OtManagementPage = () => {
                       <tbody>
                         {manualSpecialists.map(s => (
                           <tr key={s.id} className="border-b border-slate-700/40 hover:bg-slate-700/20">
-                            <td className="py-2 px-3 text-white font-medium">{s.fio}</td>
+                            <td className="py-2 px-3">
+                              <button
+                                onClick={() => {
+                                  const p = new URLSearchParams({ fio: s.fio, back: '/ot-management' });
+                                  if (s.user_id) p.set('user_id', String(s.user_id));
+                                  if (orgId) p.set('org_id', orgId);
+                                  navigate(`/otipb-specialist?${p.toString()}`);
+                                }}
+                                className="text-orange-300 font-medium hover:text-orange-200 hover:underline flex items-center gap-1 text-sm">
+                                {s.fio}
+                                <Icon name="ExternalLink" size={11} className="text-slate-500" />
+                              </button>
+                            </td>
                             <td className="py-2 px-3 text-slate-300">{s.position || '—'}</td>
                             <td className="py-2 px-3 text-slate-300">{s.email || '—'}</td>
                             <td className="py-2 px-3 text-slate-300">{s.phone || '—'}</td>
@@ -849,73 +875,97 @@ const OtManagementPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
 
           {/* Поручения */}
-          <Card
-            onClick={() => setActiveBlock(activeBlock === 'orders' ? null : 'orders')}
-            className={`p-6 cursor-pointer transition-all hover:shadow-xl hover:scale-105 group ${activeBlock === 'orders' ? 'bg-orange-900/30 border-orange-500' : 'bg-slate-800/50 border-orange-600/40 hover:border-orange-500'}`}
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-gradient-to-br from-orange-500 to-red-600 p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                <Icon name="ClipboardList" size={32} className="text-white" />
+          <div className="space-y-2">
+            <Card
+              onClick={() => setActiveBlock(activeBlock === 'orders' ? null : 'orders')}
+              className={`p-6 cursor-pointer transition-all hover:shadow-xl hover:scale-105 group ${activeBlock === 'orders' ? 'bg-orange-900/30 border-orange-500' : 'bg-slate-800/50 border-orange-600/40 hover:border-orange-500'}`}
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-gradient-to-br from-orange-500 to-red-600 p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                  <Icon name="ClipboardList" size={32} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm mb-1">Поручения от начальника</p>
+                  <div className="text-4xl font-bold text-white">{loading ? '...' : orders.length}</div>
+                  <p className="text-orange-400 text-xs mt-1">Всего по отделу</p>
+                </div>
               </div>
-              <div>
-                <p className="text-gray-400 text-sm mb-1">Поручения от начальника</p>
-                <div className="text-4xl font-bold text-white">{loading ? '...' : orders.length}</div>
-                <p className="text-orange-400 text-xs mt-1">Всего по отделу</p>
-              </div>
-            </div>
-            {!loading && (
-              <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-slate-700">
-                <div className="flex items-center gap-1 text-xs text-blue-400"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />Новые: {countByStatus('new')}</div>
-                <div className="flex items-center gap-1 text-xs text-green-400"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />Выполнено: {countByStatus('completed')}</div>
-                <div className="flex items-center gap-1 text-xs text-yellow-400"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />Продлено: {countByStatus('extended')}</div>
-                {overdueCount > 0 && <div className="flex items-center gap-1 text-xs text-red-400 font-semibold"><span className="w-2 h-2 rounded-full bg-red-500 inline-block animate-pulse" />Просрочено: {overdueCount}</div>}
-              </div>
+              {!loading && (
+                <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-slate-700">
+                  <div className="flex items-center gap-1 text-xs text-blue-400"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />Новые: {countByStatus('new')}</div>
+                  <div className="flex items-center gap-1 text-xs text-green-400"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />Выполнено: {countByStatus('completed')}</div>
+                  <div className="flex items-center gap-1 text-xs text-yellow-400"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />Продлено: {countByStatus('extended')}</div>
+                  {overdueCount > 0 && <div className="flex items-center gap-1 text-xs text-red-400 font-semibold"><span className="w-2 h-2 rounded-full bg-red-500 inline-block animate-pulse" />Просрочено: {overdueCount}</div>}
+                </div>
+              )}
+            </Card>
+            {orders.length > 0 && (
+              <button onClick={e => { e.stopPropagation(); clearAllOrders(); }}
+                className="w-full text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 py-1.5 rounded-lg border border-red-500/20 transition-colors flex items-center justify-center gap-1">
+                <Icon name="Trash2" size={12} />Обнулить «Поручения»
+              </button>
             )}
-          </Card>
+          </div>
 
           {/* Чек-лист */}
-          <Card
-            onClick={() => setActiveBlock(activeBlock === 'checklist' ? null : 'checklist')}
-            className={`p-6 cursor-pointer transition-all hover:shadow-xl hover:scale-105 group ${activeBlock === 'checklist' ? 'bg-violet-900/30 border-violet-500' : 'bg-slate-800/50 border-violet-600/40 hover:border-violet-500'}`}
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-gradient-to-br from-violet-500 to-purple-600 p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                <Icon name="ClipboardCheck" size={32} className="text-white" />
+          <div className="space-y-2">
+            <Card
+              onClick={() => setActiveBlock(activeBlock === 'checklist' ? null : 'checklist')}
+              className={`p-6 cursor-pointer transition-all hover:shadow-xl hover:scale-105 group ${activeBlock === 'checklist' ? 'bg-violet-900/30 border-violet-500' : 'bg-slate-800/50 border-violet-600/40 hover:border-violet-500'}`}
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-gradient-to-br from-violet-500 to-purple-600 p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                  <Icon name="ClipboardCheck" size={32} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm mb-1">Чек-лист передачи вахты</p>
+                  <div className="text-4xl font-bold text-white">{loading ? '...' : pendingOrders.length}</div>
+                  <p className="text-violet-400 text-xs mt-1">Невыполненных по отделу</p>
+                </div>
               </div>
-              <div>
-                <p className="text-gray-400 text-sm mb-1">Чек-лист передачи вахты</p>
-                <div className="text-4xl font-bold text-white">{loading ? '...' : pendingOrders.length}</div>
-                <p className="text-violet-400 text-xs mt-1">Невыполненных по отделу</p>
-              </div>
-            </div>
-            {!loading && (
-              <div className="mt-4 pt-4 border-t border-slate-700">
-                <p className="text-xs text-slate-400">{pendingOrders.length === 0 ? '✅ Все поручения отдела выполнены' : `⚠️ ${pendingOrders.length} пункт(ов) требуют передачи`}</p>
-              </div>
+              {!loading && (
+                <div className="mt-4 pt-4 border-t border-slate-700">
+                  <p className="text-xs text-slate-400">{pendingOrders.length === 0 ? '✅ Все поручения отдела выполнены' : `⚠️ ${pendingOrders.length} пункт(ов) требуют передачи`}</p>
+                </div>
+              )}
+            </Card>
+            {pendingOrders.length > 0 && (
+              <button onClick={e => { e.stopPropagation(); clearAllOrders(); }}
+                className="w-full text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 py-1.5 rounded-lg border border-red-500/20 transition-colors flex items-center justify-center gap-1">
+                <Icon name="Trash2" size={12} />Обнулить «Чек-лист»
+              </button>
             )}
-          </Card>
+          </div>
 
           {/* Проделанная работа */}
-          <Card
-            onClick={() => setActiveBlock(activeBlock === 'workreport' ? null : 'workreport')}
-            className={`p-6 cursor-pointer transition-all hover:shadow-xl hover:scale-105 group ${activeBlock === 'workreport' ? 'bg-green-900/30 border-green-500' : 'bg-slate-800/50 border-green-600/40 hover:border-green-500'}`}
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                <Icon name="CheckSquare" size={32} className="text-white" />
+          <div className="space-y-2">
+            <Card
+              onClick={() => setActiveBlock(activeBlock === 'workreport' ? null : 'workreport')}
+              className={`p-6 cursor-pointer transition-all hover:shadow-xl hover:scale-105 group ${activeBlock === 'workreport' ? 'bg-green-900/30 border-green-500' : 'bg-slate-800/50 border-green-600/40 hover:border-green-500'}`}
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                  <Icon name="CheckSquare" size={32} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm mb-1">Проделанная работа за вахту</p>
+                  <div className="text-4xl font-bold text-white">{loading ? '...' : completedOrders.length}</div>
+                  <p className="text-green-400 text-xs mt-1">Выполненных по отделу</p>
+                </div>
               </div>
-              <div>
-                <p className="text-gray-400 text-sm mb-1">Проделанная работа за вахту</p>
-                <div className="text-4xl font-bold text-white">{loading ? '...' : completedOrders.length}</div>
-                <p className="text-green-400 text-xs mt-1">Выполненных по отделу</p>
-              </div>
-            </div>
-            {!loading && (
-              <div className="mt-4 pt-4 border-t border-slate-700">
-                <p className="text-xs text-slate-400">{completedOrders.length === 0 ? 'Выполненных поручений пока нет' : `✅ ${completedOrders.length} поручений выполнено`}</p>
-              </div>
+              {!loading && (
+                <div className="mt-4 pt-4 border-t border-slate-700">
+                  <p className="text-xs text-slate-400">{completedOrders.length === 0 ? 'Выполненных поручений пока нет' : `✅ ${completedOrders.length} поручений выполнено`}</p>
+                </div>
+              )}
+            </Card>
+            {completedOrders.length > 0 && (
+              <button onClick={e => { e.stopPropagation(); clearAllOrders(); }}
+                className="w-full text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 py-1.5 rounded-lg border border-red-500/20 transition-colors flex items-center justify-center gap-1">
+                <Icon name="Trash2" size={12} />Обнулить «Проделанную работу»
+              </button>
             )}
-          </Card>
+          </div>
         </div>
 
         {/* ─── Раскрывающийся блок: Поручения ──────────────────────────────── */}
@@ -947,6 +997,10 @@ const OtManagementPage = () => {
                 orders={orders}
                 specialists={specialists}
                 loading={loading}
+                orgId={orgId}
+                backUrl="/ot-management"
+                canManage={true}
+                onClearAll={clearAllOrders}
               />
             </div>
 

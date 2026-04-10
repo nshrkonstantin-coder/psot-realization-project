@@ -89,6 +89,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
                     'body': json.dumps({'success': True, 'specialists': specs})}
 
+        # ── GET specialist orders (by fio or user_id) ─────────────────────────
+        if method == 'GET' and action == 'specialist_orders':
+            spec_fio = params.get('fio', '').strip()
+            spec_uid = params.get('specialist_user_id')
+            conditions = []
+            if org_id:
+                conditions.append(f"o.organization_id = {int(org_id)}")
+            if spec_uid:
+                conditions.append(f"o.assigned_to_user_id = {int(spec_uid)}")
+            elif spec_fio:
+                safe_fio = spec_fio.replace("'", "''")
+                conditions.append(f"(o.responsible_person = '{safe_fio}' OR u.fio = '{safe_fio}')")
+            where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
+            cur.execute(f"""
+                SELECT o.id, o.title, o.issued_date, o.deadline, o.responsible_person,
+                       o.issued_by, o.status, o.extended_deadline, o.organization_id,
+                       o.assigned_to_user_id, o.created_by_user_id, o.notes,
+                       o.created_at, o.updated_at, u.fio as assigned_fio, o.last_action
+                FROM {SCHEMA}.ot_orders o
+                LEFT JOIN {SCHEMA}.users u ON o.assigned_to_user_id = u.id
+                {where}
+                ORDER BY o.created_at DESC
+            """)
+            orders = [_row_to_dict(r) for r in cur.fetchall()]
+            return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': True, 'orders': orders, 'total': len(orders)})}
+
         # ── GET orders + specialists (main) ───────────────────────────────────
         if method == 'GET':
             order_id = params.get('id')
@@ -470,6 +497,42 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             specialist_id = params.get('specialist_id')
             order_id = params.get('id')
             document_id = params.get('document_id')
+            clear_action = params.get('action')
+
+            # Очистка всех поручений организации (или всех если superadmin без org)
+            if clear_action == 'clear_all':
+                if org_id:
+                    cur.execute(f"DELETE FROM {SCHEMA}.ot_order_documents WHERE order_id IN (SELECT id FROM {SCHEMA}.ot_orders WHERE organization_id = {int(org_id)})")
+                    cur.execute(f"DELETE FROM {SCHEMA}.ot_orders WHERE organization_id = {int(org_id)}")
+                else:
+                    cur.execute(f"DELETE FROM {SCHEMA}.ot_order_documents")
+                    cur.execute(f"DELETE FROM {SCHEMA}.ot_orders")
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': True})}
+
+            # Очистка поручений конкретного специалиста по fio или user_id
+            if clear_action == 'clear_specialist':
+                spec_fio = params.get('fio', '').strip()
+                spec_uid = params.get('specialist_user_id')
+                conditions = []
+                if org_id:
+                    conditions.append(f"organization_id = {int(org_id)}")
+                if spec_uid:
+                    conditions.append(f"assigned_to_user_id = {int(spec_uid)}")
+                elif spec_fio:
+                    safe_fio = spec_fio.replace("'", "''")
+                    conditions.append(f"responsible_person = '{safe_fio}'")
+                if not conditions:
+                    return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                            'body': json.dumps({'success': False, 'error': 'Не указан специалист'})}
+                where = 'WHERE ' + ' AND '.join(conditions)
+                cur.execute(f"DELETE FROM {SCHEMA}.ot_order_documents WHERE order_id IN (SELECT id FROM {SCHEMA}.ot_orders {where})")
+                cur.execute(f"DELETE FROM {SCHEMA}.ot_orders {where}")
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': True})}
+
             if specialist_id:
                 cur.execute(f"DELETE FROM {SCHEMA}.otipb_specialists WHERE id = {int(specialist_id)}")
                 conn.commit()
@@ -481,6 +544,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
                         'body': json.dumps({'success': True})}
             if order_id:
+                cur.execute(f"DELETE FROM {SCHEMA}.ot_order_documents WHERE order_id = {int(order_id)}")
                 cur.execute(f"DELETE FROM {SCHEMA}.ot_orders WHERE id = {int(order_id)}")
                 conn.commit()
                 return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,

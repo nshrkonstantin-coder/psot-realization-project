@@ -785,6 +785,9 @@ const OtipbDepartmentPage = () => {
                 orders={allOrders}
                 specialists={specialists}
                 loading={loadingOrders}
+                orgId={orgId}
+                backUrl="/otipb-department"
+                canManage={false}
               />
             </div>
 
