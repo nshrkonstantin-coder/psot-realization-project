@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
+import * as XLSX from 'xlsx';
 import func2url from '../../backend/func2url.json';
 
 interface RowData { [key: string]: string; }
@@ -190,6 +191,32 @@ export default function ExcelMailSenderPage() {
     }
   };
 
+  const downloadSample = () => {
+    const sampleData = [
+      { 'Электронная почта': 'ivanov@example.com', 'Имя': 'Иван Иванов', 'Компания': 'ООО Ромашка', 'Включить в рассылку': 'да' },
+      { 'Электронная почта': 'petrov@example.com', 'Имя': 'Пётр Петров', 'Компания': 'ИП Петров', 'Включить в рассылку': 'да' },
+      { 'Электронная почта': 'sidorov@example.com', 'Имя': 'Сидор Сидоров', 'Компания': 'АО Гранит', 'Включить в рассылку': 'нет' },
+    ];
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    ws['!cols'] = [{ wch: 28 }, { wch: 20 }, { wch: 20 }, { wch: 24 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Рассылка');
+    XLSX.writeFile(wb, 'образец_рассылки.xlsx');
+  };
+
+  const downloadTable = () => {
+    if (!rows.length) return;
+    const exportData = rows.map((row, i) => ({
+      ...row,
+      'Статус отправки': rowStates[i]?.sendStatus === 'sent' ? 'Отправлено' : rowStates[i]?.sendStatus === 'error' ? 'Ошибка' : 'Ожидает',
+      'Просмотрено': rowStates[i]?.trackStatus === 'opened' ? 'Да' : '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Рассылка');
+    XLSX.writeFile(wb, `рассылка_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.xlsx`);
+  };
+
   const updateRowState = (idx: number, patch: Partial<RowState>) => {
     setRowStates(prev => {
       const next = [...prev];
@@ -366,6 +393,11 @@ export default function ExcelMailSenderPage() {
                   : <Icon name="FilePlus2" size={16} className="mr-2" />}
                 Добавить файл
               </Button>
+              <Button variant="outline" onClick={downloadTable}
+                className="border-violet-500/60 text-violet-700 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20">
+                <Icon name="FileDown" size={16} className="mr-2" />
+                Выгрузить таблицу
+              </Button>
             </>
           )}
           <div className="flex-1 min-w-0">
@@ -397,6 +429,12 @@ export default function ExcelMailSenderPage() {
                   </span>
                 </div>
               </label>
+              <div className="mt-5 pt-5 border-t border-slate-200 dark:border-slate-700">
+                <Button variant="outline" onClick={downloadSample} className="border-slate-300 text-slate-600 dark:text-slate-400 w-full">
+                  <Icon name="Download" size={16} className="mr-2" />
+                  Скачать образец таблицы
+                </Button>
+              </div>
             </div>
           </Card>
         )}
