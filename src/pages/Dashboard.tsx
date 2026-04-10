@@ -25,10 +25,25 @@ const Dashboard = () => {
       navigate('/');
       return;
     }
-    setUserFio(localStorage.getItem('userFio') || '');
+
     setUserCompany(localStorage.getItem('userCompany') || '');
     setUserRole(localStorage.getItem('userRole') || '');
-    
+
+    // Всегда загружаем актуальные данные из API, чтобы ФИО отражало последнее изменение профиля
+    fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.user?.fio) {
+          setUserFio(data.user.fio);
+          localStorage.setItem('userFio', data.user.fio);
+        } else {
+          setUserFio(localStorage.getItem('userFio') || '');
+        }
+      })
+      .catch(() => {
+        setUserFio(localStorage.getItem('userFio') || '');
+      });
+
     // Проверяем, было ли уже воспроизведено приветствие в этой сессии
     const greetingPlayed = sessionStorage.getItem('greetingPlayed');
     if (!greetingPlayed && showGreeting) {

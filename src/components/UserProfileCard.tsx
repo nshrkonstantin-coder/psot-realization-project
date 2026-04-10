@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import Icon from '@/components/ui/icon';
 
 interface UserProfileCardProps {
@@ -26,16 +27,30 @@ const STATUS_COLORS: Record<string, { dark: string; light: string }> = {
 };
 
 const UserProfileCard = ({ variant = 'dark', className = '' }: UserProfileCardProps) => {
-  const fio = localStorage.getItem('userFio') || localStorage.getItem('userName') || '—';
+  const [fio, setFio] = useState(localStorage.getItem('userFio') || localStorage.getItem('userName') || '—');
   const email = localStorage.getItem('userEmail') || '';
   const position = localStorage.getItem('userPosition') || '';
   const department = localStorage.getItem('userDepartment') || '';
   const role = localStorage.getItem('userRole') || 'user';
 
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    if (!userId) return;
+
+    fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.user?.fio) {
+          setFio(data.user.fio);
+          localStorage.setItem('userFio', data.user.fio);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const roleLabel = ROLE_LABELS[role] || 'Пользователь';
   const statusColorSet = STATUS_COLORS[role] || STATUS_COLORS['user'];
   const statusColor = variant === 'dark' ? statusColorSet.dark : statusColorSet.light;
-
   const subtitle = position || department || '';
 
   const initials = fio

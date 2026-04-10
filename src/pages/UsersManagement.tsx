@@ -283,12 +283,14 @@ const UsersManagement = () => {
     toast({ title: 'Файл экспортирован', description: 'Расшифровка ID успешно сохранена' });
   };
 
-  const filteredUsers = users.filter(
-    (user) =>
-      (user.fio || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
-      (user.email || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
-      (user.company || '').toLowerCase().includes((searchQuery || '').toLowerCase())
-  );
+  const filteredUsers = users
+    .filter(
+      (user) =>
+        (user.fio || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+        (user.email || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+        (user.company || '').toLowerCase().includes((searchQuery || '').toLowerCase())
+    )
+    .sort((a, b) => a.id - b.id);
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
