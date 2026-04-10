@@ -77,6 +77,7 @@ const OtipbWorkspaceDashboardPage = () => {
   const [userName, setUserName] = useState('');
   const [checklistRecipientEmail, setChecklistRecipientEmail] = useState('');
   const [checklistRecipientFio, setChecklistRecipientFio] = useState('');
+  const [checklistRecipientId, setChecklistRecipientId] = useState('');
   const [sendingChecklist, setSendingChecklist] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
@@ -510,11 +511,11 @@ const OtipbWorkspaceDashboardPage = () => {
   };
 
   const sendChecklistInternal = async () => {
-    if (!transferUserId) {
-      toast.error('Выберите коллегу из списка');
+    if (!checklistRecipientId) {
+      toast.error('Выберите сменщика из списка');
       return;
     }
-    const spec = specialists.find(s => s.id === Number(transferUserId));
+    const spec = specialists.find(s => String(s.id) === checklistRecipientId);
     setSendingChecklist(true);
     try {
       const html = buildChecklistHtml(spec?.fio || '');
@@ -524,7 +525,7 @@ const OtipbWorkspaceDashboardPage = () => {
         body: JSON.stringify({
           action: 'send',
           sender_id: userId ? Number(userId) : null,
-          recipient_id: Number(transferUserId),
+          recipient_id: Number(checklistRecipientId),
           text: `📋 Чек-лист передачи вахты от ${userFio || userName}\nНевыполненных поручений: ${pendingOrders.length}\n\nПодробности в HTML-вложении ниже.`,
           attachment_html: html,
         }),
@@ -799,25 +800,57 @@ const OtipbWorkspaceDashboardPage = () => {
             </div>
 
             {/* Кому передаётся */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="mb-6 space-y-3">
               <div>
-                <Label className="text-white mb-1 block text-sm">ФИО принимающего <span className="text-slate-500">(для чек-листа)</span></Label>
-                <Input
-                  value={checklistRecipientFio}
-                  onChange={e => setChecklistRecipientFio(e.target.value)}
-                  placeholder="Иванов Иван Иванович"
-                  className="bg-slate-700/50 border-slate-600 text-white"
-                />
+                <Label className="text-white mb-2 block text-sm">Кому передаётся вахта</Label>
+                {specialists.length > 0 ? (
+                  <select
+                    value={checklistRecipientId}
+                    onChange={e => {
+                      const id = e.target.value;
+                      setChecklistRecipientId(id);
+                      if (id) {
+                        const spec = specialists.find(s => String(s.id) === id);
+                        if (spec) {
+                          setChecklistRecipientFio(spec.fio);
+                          setChecklistRecipientEmail(spec.email || '');
+                        }
+                      } else {
+                        setChecklistRecipientFio('');
+                        setChecklistRecipientEmail('');
+                      }
+                    }}
+                    className="w-full h-10 px-3 rounded-md bg-slate-700/50 border border-violet-500/40 text-white text-sm"
+                  >
+                    <option value="">— Выберите сменщика из списка —</option>
+                    {specialists.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.fio}{s.position ? ` — ${s.position}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
               </div>
-              <div>
-                <Label className="text-white mb-1 block text-sm">Email принимающего <span className="text-slate-500">(для отправки)</span></Label>
-                <Input
-                  value={checklistRecipientEmail}
-                  onChange={e => setChecklistRecipientEmail(e.target.value)}
-                  placeholder="colleague@company.ru"
-                  type="email"
-                  className="bg-slate-700/50 border-slate-600 text-white"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-400 mb-1 block text-xs">ФИО принимающего</Label>
+                  <Input
+                    value={checklistRecipientFio}
+                    onChange={e => { setChecklistRecipientFio(e.target.value); setChecklistRecipientId(''); }}
+                    placeholder="Иванов Иван Иванович"
+                    className="bg-slate-700/50 border-slate-600 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 mb-1 block text-xs">Email для отправки</Label>
+                  <Input
+                    value={checklistRecipientEmail}
+                    onChange={e => setChecklistRecipientEmail(e.target.value)}
+                    placeholder="colleague@company.ru"
+                    type="email"
+                    className="bg-slate-700/50 border-slate-600 text-white text-sm"
+                  />
+                </div>
               </div>
             </div>
 
@@ -872,22 +905,14 @@ const OtipbWorkspaceDashboardPage = () => {
                 {sendingChecklist ? <Icon name="Loader2" size={16} className="mr-2 animate-spin" /> : <Icon name="Mail" size={16} className="mr-2" />}
                 Отправить на почту
               </Button>
-              <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-                <select
-                  value={transferUserId}
-                  onChange={e => setTransferUserId(e.target.value)}
-                  className="flex-1 h-9 px-3 rounded-md bg-slate-700/50 border border-slate-600 text-white text-sm"
-                >
-                  <option value="">— Отправить коллеге в системе —</option>
-                  {specialists.map(s => (
-                    <option key={s.id} value={s.id}>{s.fio}{s.position ? ` (${s.position})` : ''}</option>
-                  ))}
-                </select>
-                <Button onClick={sendChecklistInternal} disabled={sendingChecklist || !transferUserId}
-                  className="bg-violet-600 hover:bg-violet-700 h-9 shrink-0">
-                  <Icon name="Send" size={16} />
-                </Button>
-              </div>
+              <Button onClick={sendChecklistInternal}
+                disabled={sendingChecklist || !checklistRecipientId}
+                className="bg-violet-600 hover:bg-violet-700">
+                {sendingChecklist
+                  ? <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
+                  : <Icon name="Send" size={16} className="mr-2" />}
+                Отправить в системе
+              </Button>
             </div>
           </Card>
         )}

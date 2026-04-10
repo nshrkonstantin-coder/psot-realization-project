@@ -10,11 +10,16 @@ CORS = {
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    CRUD для поручений отдела ОТиПБ.
-    GET  — список поручений (фильтр по organization_id и/или user_id)
-    POST — создать поручение
-    PUT  — обновить статус / данные / last_action поручения
-    DELETE — удалить поручение
+    CRUD для поручений отдела ОТиПБ + настройки + ручной список специалистов.
+    GET  ?action=settings              — получить настройки (источник специалистов)
+    GET  ?action=manual_specialists    — ручной список специалистов
+    GET  (default)                     — список поручений + специалисты по настройке
+    POST action=save_settings          — сохранить настройки
+    POST action=add_specialist         — добавить специалиста в ручной список
+    POST (default)                     — создать поручение
+    PUT                                — обновить поручение
+    DELETE ?specialist_id=N            — удалить специалиста из ручного списка
+    DELETE ?id=N                       — удалить поручение
     """
     method = event.get('httpMethod', 'GET')
 
@@ -35,9 +40,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     cur = conn.cursor()
 
     try:
+        params = event.get('queryStringParameters') or {}
+        action = params.get('action', '')
+        org_id = params.get('organization_id')
+
+        # ── GET settings ──────────────────────────────────────────────────────
+        if method == 'GET' and action == 'settings':
+            where = f"WHERE organization_id = {int(org_id)}" if org_id else "WHERE organization_id IS NULL"
+            cur.execute(f"SELECT specialist_source FROM {SCHEMA}.otipb_settings {where} LIMIT 1")
+            row = cur.fetchone()
+            source = row[0] if row else 'asubt'
+            return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': True, 'specialist_source': source})}
+
+        # ── GET manual specialists ─────────────────────────────────────────────
+        if method == 'GET' and action == 'manual_specialists':
+            where = f"WHERE organization_id = {int(org_id)}" if org_id else "WHERE organization_id IS NULL"
+            cur.execute(f"""
+                SELECT id, fio, position, email, phone, user_id, active
+                FROM {SCHEMA}.otipb_specialists {where}
+                ORDER BY fio
+            """)
+            specs = [{'id': r[0], 'fio': r[1], 'position': r[2], 'email': r[3],
+                      'phone': r[4], 'user_id': r[5], 'active': r[6]} for r in cur.fetchall()]
+            return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': True, 'specialists': specs})}
+
+        # ── GET orders + specialists (main) ───────────────────────────────────
         if method == 'GET':
-            params = event.get('queryStringParameters') or {}
-            org_id = params.get('organization_id')
             order_id = params.get('id')
             user_id = params.get('user_id')
 
@@ -46,8 +76,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     SELECT o.id, o.title, o.issued_date, o.deadline, o.responsible_person,
                            o.issued_by, o.status, o.extended_deadline, o.organization_id,
                            o.assigned_to_user_id, o.created_by_user_id, o.notes,
-                           o.created_at, o.updated_at,
-                           u.fio as assigned_fio, o.last_action
+                           o.created_at, o.updated_at, u.fio as assigned_fio, o.last_action
                     FROM {SCHEMA}.ot_orders o
                     LEFT JOIN {SCHEMA}.users u ON o.assigned_to_user_id = u.id
                     WHERE o.id = {int(order_id)}
@@ -56,24 +85,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if not row:
                     return {'statusCode': 404, 'headers': CORS, 'isBase64Encoded': False,
                             'body': json.dumps({'success': False, 'error': 'Поручение не найдено'})}
-                order = _row_to_dict(row)
                 return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
-                        'body': json.dumps({'success': True, 'order': order})}
+                        'body': json.dumps({'success': True, 'order': _row_to_dict(row)})}
 
             conditions = []
             if org_id:
                 conditions.append(f"o.organization_id = {int(org_id)}")
             if user_id:
                 conditions.append(f"(o.assigned_to_user_id = {int(user_id)} OR o.created_by_user_id = {int(user_id)})")
-
             where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
 
             cur.execute(f"""
                 SELECT o.id, o.title, o.issued_date, o.deadline, o.responsible_person,
                        o.issued_by, o.status, o.extended_deadline, o.organization_id,
                        o.assigned_to_user_id, o.created_by_user_id, o.notes,
-                       o.created_at, o.updated_at,
-                       u.fio as assigned_fio, o.last_action
+                       o.created_at, o.updated_at, u.fio as assigned_fio, o.last_action
                 FROM {SCHEMA}.ot_orders o
                 LEFT JOIN {SCHEMA}.users u ON o.assigned_to_user_id = u.id
                 {where}
@@ -81,29 +107,92 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             """)
             orders = [_row_to_dict(r) for r in cur.fetchall()]
 
-            # Список специалистов отдела для выбора ответственного
-            spec_where = ''
-            if org_id:
-                spec_where = f"AND organization_id = {int(org_id)}"
-            cur.execute(f"""
-                SELECT id, fio, position FROM {SCHEMA}.users
-                WHERE role IN ('admin', 'miniadmin', 'user') {spec_where}
-                ORDER BY fio
-            """)
-            specialists = [{'id': r[0], 'fio': r[1], 'position': r[2]} for r in cur.fetchall()]
+            # Определяем источник специалистов
+            settings_where = f"WHERE organization_id = {int(org_id)}" if org_id else "WHERE organization_id IS NULL"
+            cur.execute(f"SELECT specialist_source FROM {SCHEMA}.otipb_settings {settings_where} LIMIT 1")
+            s_row = cur.fetchone()
+            source = s_row[0] if s_row else 'asubt'
+
+            if source == 'manual':
+                # Ручной список
+                spec_where = f"WHERE organization_id = {int(org_id)} AND active = TRUE" if org_id else "WHERE organization_id IS NULL AND active = TRUE"
+                cur.execute(f"""
+                    SELECT COALESCE(u.id, ms.id + 100000), COALESCE(u.fio, ms.fio),
+                           COALESCE(u.position, ms.position), ms.email, ms.phone
+                    FROM {SCHEMA}.otipb_specialists ms
+                    LEFT JOIN {SCHEMA}.users u ON ms.user_id = u.id
+                    {spec_where}
+                    ORDER BY COALESCE(u.fio, ms.fio)
+                """)
+                specialists = [{'id': r[0], 'fio': r[1], 'position': r[2],
+                                'email': r[3], 'phone': r[4]} for r in cur.fetchall()]
+            else:
+                # АСУБТ — из базы users, фильтр по подразделению ОТиПБ
+                spec_where_parts = ["role IN ('admin', 'miniadmin', 'user')"]
+                if org_id:
+                    spec_where_parts.append(f"organization_id = {int(org_id)}")
+                spec_where_parts.append("(LOWER(subdivision) LIKE '%отипб%' OR LOWER(subdivision) LIKE '%охрана труда%' OR LOWER(subdivision) LIKE '%от и пб%' OR subdivision IS NULL OR subdivision = '')")
+                cur.execute(f"""
+                    SELECT id, fio, position, email FROM {SCHEMA}.users
+                    WHERE {' AND '.join(spec_where_parts)}
+                    ORDER BY fio
+                """)
+                specialists = [{'id': r[0], 'fio': r[1], 'position': r[2], 'email': r[3]} for r in cur.fetchall()]
 
             return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
                     'body': json.dumps({'success': True, 'orders': orders, 'specialists': specialists,
-                                       'total': len(orders)})}
+                                       'specialist_source': source, 'total': len(orders)})}
 
+        # ── POST save_settings ────────────────────────────────────────────────
         if method == 'POST':
             body = json.loads(event.get('body', '{}'))
+            post_action = body.get('action', '')
+
+            if post_action == 'save_settings':
+                source = body.get('specialist_source', 'asubt')
+                if source not in ('asubt', 'manual'):
+                    return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                            'body': json.dumps({'success': False, 'error': 'Неверный источник'})}
+                org_val = str(int(org_id)) if org_id else 'NULL'
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.otipb_settings (organization_id, specialist_source, updated_at)
+                    VALUES ({org_val}, '{source}', NOW())
+                    ON CONFLICT (organization_id) DO UPDATE
+                    SET specialist_source = EXCLUDED.specialist_source, updated_at = NOW()
+                """)
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': True})}
+
+            # ── POST add_specialist ────────────────────────────────────────────
+            if post_action == 'add_specialist':
+                fio = (body.get('fio') or '').strip().replace("'", "''")
+                position = (body.get('position') or '').strip().replace("'", "''")
+                email = (body.get('email') or '').strip().replace("'", "''")
+                phone = (body.get('phone') or '').strip().replace("'", "''")
+                user_id_val = body.get('user_id')
+                if not fio:
+                    return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                            'body': json.dumps({'success': False, 'error': 'ФИО обязательно'})}
+                org_val = str(int(body.get('organization_id'))) if body.get('organization_id') else 'NULL'
+                uid_val = str(int(user_id_val)) if user_id_val else 'NULL'
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.otipb_specialists (organization_id, fio, position, email, phone, user_id)
+                    VALUES ({org_val}, '{fio}', '{position}', '{email}', '{phone}', {uid_val})
+                    RETURNING id
+                """)
+                new_id = cur.fetchone()[0]
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': True, 'id': new_id})}
+
+            # ── POST create order (default) ────────────────────────────────────
             title = (body.get('title') or '').strip().replace("'", "''")
             issued_date = body.get('issued_date', '')
             deadline = body.get('deadline', '')
             responsible_person = (body.get('responsible_person') or '').strip().replace("'", "''")
             issued_by = (body.get('issued_by') or '').strip().replace("'", "''")
-            org_id = body.get('organization_id')
+            b_org_id = body.get('organization_id')
             assigned_to = body.get('assigned_to_user_id')
             created_by = body.get('created_by_user_id')
             notes = (body.get('notes') or '').strip().replace("'", "''")
@@ -113,7 +202,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
                         'body': json.dumps({'success': False, 'error': 'Заполните обязательные поля'})}
 
-            org_val = str(int(org_id)) if org_id else 'NULL'
+            org_val = str(int(b_org_id)) if b_org_id else 'NULL'
             assigned_val = str(int(assigned_to)) if assigned_to else 'NULL'
             created_val = str(int(created_by)) if created_by else 'NULL'
             issued_date_val = f"'{issued_date}'" if issued_date else 'CURRENT_DATE'
@@ -133,13 +222,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
                     'body': json.dumps({'success': True, 'id': new_id})}
 
+        # ── PUT update order ───────────────────────────────────────────────────
         if method == 'PUT':
             body = json.loads(event.get('body', '{}'))
             order_id = body.get('id')
             if not order_id:
                 return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
                         'body': json.dumps({'success': False, 'error': 'id обязателен'})}
-
             sets = []
             if 'status' in body:
                 st = body['status'].replace("'", "''")
@@ -162,27 +251,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if 'last_action' in body:
                 val = (body['last_action'] or '').replace("'", "''")
                 sets.append(f"last_action = '{val}'" if val else "last_action = NULL")
-
             if not sets:
                 return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
                         'body': json.dumps({'success': False, 'error': 'Нет данных для обновления'})}
-
             sets.append("updated_at = NOW()")
             cur.execute(f"UPDATE {SCHEMA}.ot_orders SET {', '.join(sets)} WHERE id = {int(order_id)}")
             conn.commit()
             return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
                     'body': json.dumps({'success': True})}
 
+        # ── DELETE ─────────────────────────────────────────────────────────────
         if method == 'DELETE':
-            params = event.get('queryStringParameters') or {}
+            specialist_id = params.get('specialist_id')
             order_id = params.get('id')
-            if not order_id:
-                return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
-                        'body': json.dumps({'success': False, 'error': 'id обязателен'})}
-            cur.execute(f"DELETE FROM {SCHEMA}.ot_orders WHERE id = {int(order_id)}")
-            conn.commit()
-            return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
-                    'body': json.dumps({'success': True})}
+            if specialist_id:
+                cur.execute(f"DELETE FROM {SCHEMA}.otipb_specialists WHERE id = {int(specialist_id)}")
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': True})}
+            if order_id:
+                cur.execute(f"DELETE FROM {SCHEMA}.ot_orders WHERE id = {int(order_id)}")
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': True})}
+            return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'id обязателен'})}
 
         return {'statusCode': 405, 'headers': CORS, 'body': json.dumps({'error': 'Method not allowed'})}
 
