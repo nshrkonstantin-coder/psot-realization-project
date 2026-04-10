@@ -143,10 +143,104 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'success': True, 'orders': orders, 'specialists': specialists,
                                        'specialist_source': source, 'total': len(orders)})}
 
-        # ── POST save_settings ────────────────────────────────────────────────
+        # ── POST: парсим тело один раз ────────────────────────────────────────
         if method == 'POST':
             body = json.loads(event.get('body', '{}'))
-            post_action = body.get('action', '')
+            post_action_pre = body.get('action', '')
+
+        # ── POST send_checklist_email ─────────────────────────────────────────
+        if method == 'POST' and post_action_pre == 'send_checklist_email':
+            to_email = (body.get('to_email') or '').strip()
+            subject = (body.get('subject') or 'Чек-лист передачи вахты')
+            html_content = body.get('html_content') or ''
+            if not to_email or not html_content:
+                return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'Не указан email или содержимое'})}
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            smtp_host = os.environ.get('SMTP_HOST')
+            smtp_port = int(os.environ.get('SMTP_PORT', '587'))
+            smtp_user = os.environ.get('SMTP_USER')
+            smtp_pass = (os.environ.get('SMTP_PASSWORD_NEW') or
+                         os.environ.get('YANDEX_SMTP_PASSWORD') or
+                         os.environ.get('SMTP_PASSWORD'))
+            if not all([smtp_host, smtp_user, smtp_pass]):
+                return {'statusCode': 500, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'SMTP не настроен'})}
+            try:
+                mail_msg = MIMEMultipart('alternative')
+                mail_msg['Subject'] = subject
+                mail_msg['From'] = f'ОТиПБ Система <{smtp_user}>'
+                mail_msg['To'] = to_email
+                mail_msg.attach(MIMEText(html_content, 'html', 'utf-8'))
+                smtp_conn = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
+                smtp_conn.ehlo()
+                if smtp_port == 587:
+                    smtp_conn.starttls()
+                    smtp_conn.ehlo()
+                smtp_conn.login(smtp_user, smtp_pass)
+                smtp_conn.send_message(mail_msg)
+                smtp_conn.quit()
+                return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': True})}
+            except Exception as e:
+                return {'statusCode': 500, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': str(e)})}
+
+        # ── POST send_checklist_internal ──────────────────────────────────────
+        if method == 'POST' and post_action_pre == 'send_checklist_internal':
+            sender_id = body.get('sender_id')
+            receiver_id = body.get('receiver_id')
+            message = (body.get('message') or '').strip()
+            if not sender_id or not receiver_id or not message:
+                return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'Не указаны поля'})}
+            # Находим или создаём приватный чат
+            cur.execute(f"""
+                SELECT c.id FROM {SCHEMA}.chats c
+                WHERE c.type = 'private'
+                AND EXISTS (SELECT 1 FROM {SCHEMA}.chat_participants p WHERE p.chat_id = c.id AND p.user_id = {int(sender_id)})
+                AND EXISTS (SELECT 1 FROM {SCHEMA}.chat_participants p WHERE p.chat_id = c.id AND p.user_id = {int(receiver_id)})
+                LIMIT 1
+            """)
+            chat_row = cur.fetchone()
+            if chat_row:
+                chat_id = chat_row[0]
+            else:
+                cur.execute(f"""
+                    SELECT organization_id FROM {SCHEMA}.users WHERE id = {int(sender_id)}
+                """)
+                org_row = cur.fetchone()
+                sender_org = org_row[0] if org_row else 'NULL'
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.chats (name, type, organization_id, created_by, created_at, is_active)
+                    VALUES ('Передача вахты', 'private', {sender_org or 'NULL'}, {int(sender_id)}, NOW(), true)
+                    RETURNING id
+                """)
+                chat_id = cur.fetchone()[0]
+                for uid in [int(sender_id), int(receiver_id)]:
+                    cur.execute(f"SELECT organization_id FROM {SCHEMA}.users WHERE id = {uid}")
+                    r = cur.fetchone()
+                    uid_org = r[0] if r else 'NULL'
+                    cur.execute(f"""
+                        INSERT INTO {SCHEMA}.chat_participants (chat_id, user_id, organization_id)
+                        VALUES ({chat_id}, {uid}, {uid_org or 'NULL'})
+                        ON CONFLICT DO NOTHING
+                    """)
+            msg_clean = message.replace("'", "''")
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.messages (chat_id, sender_id, sender_organization_id, message_text)
+                SELECT {chat_id}, {int(sender_id)}, organization_id, '{msg_clean}'
+                FROM {SCHEMA}.users WHERE id = {int(sender_id)}
+            """)
+            conn.commit()
+            return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': True, 'chat_id': chat_id})}
+
+        # ── POST save_settings ────────────────────────────────────────────────
+        if method == 'POST':
+            post_action = post_action_pre
 
             if post_action == 'save_settings':
                 source = body.get('specialist_source', 'asubt')
