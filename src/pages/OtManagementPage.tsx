@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import OtipbAnalyticsBlock from '@/components/otipb/OtipbAnalyticsBlock';
+import ExcelOrdersImport from '@/components/otipb/ExcelOrdersImport';
 
 const SEND_EMAIL_URL = 'https://functions.poehali.dev/2dab48c9-57c0-4f55-90e7-d93b326a6891';
 
@@ -933,6 +935,34 @@ const OtManagementPage = () => {
                   <Icon name="X" size={18} />
                 </Button>
               </div>
+            </div>
+
+            {/* Аналитика по специалистам */}
+            <div className="mb-6 p-4 bg-slate-700/20 rounded-xl border border-slate-600/30">
+              <div className="flex items-center gap-2 mb-3">
+                <Icon name="BarChart2" size={16} className="text-orange-400" />
+                <span className="text-sm font-semibold text-white">Аналитика по специалистам</span>
+              </div>
+              <OtipbAnalyticsBlock
+                orders={orders}
+                specialists={specialists}
+                loading={loading}
+              />
+            </div>
+
+            {/* Загрузка поручений из Excel */}
+            <div className="mb-6 p-4 bg-yellow-900/10 rounded-xl border border-yellow-600/20">
+              <div className="flex items-center gap-2 mb-3">
+                <Icon name="FileSpreadsheet" size={16} className="text-yellow-400" />
+                <span className="text-sm font-semibold text-white">Выдать поручения из Excel</span>
+              </div>
+              <ExcelOrdersImport
+                specialists={specialists}
+                orgId={orgId}
+                userId={userId}
+                userFio={userFio}
+                onOrdersCreated={loadData}
+              />
             </div>
             {loading ? (
               <div className="text-center py-8 text-slate-400">Загрузка...</div>

@@ -10,6 +10,8 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import OtipbAnalyticsBlock from '@/components/otipb/OtipbAnalyticsBlock';
+import ExcelOrdersImport from '@/components/otipb/ExcelOrdersImport';
 
 const GREETING_KEY = 'otipb_greeting_enabled';
 const OT_ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
@@ -768,6 +770,34 @@ const OtipbDepartmentPage = () => {
               <Button onClick={() => setActiveBlock(null)} variant="ghost" size="sm" className="text-slate-400 hover:text-white">
                 <Icon name="X" size={18} />
               </Button>
+            </div>
+
+            {/* Аналитика по специалистам */}
+            <div className="mb-6 p-4 bg-slate-700/20 rounded-xl border border-slate-600/30">
+              <div className="flex items-center gap-2 mb-3">
+                <Icon name="BarChart2" size={16} className="text-orange-400" />
+                <span className="text-sm font-semibold text-white">Аналитика по специалистам</span>
+              </div>
+              <OtipbAnalyticsBlock
+                orders={allOrders}
+                specialists={specialists}
+                loading={loadingOrders}
+              />
+            </div>
+
+            {/* Загрузка поручений из Excel */}
+            <div className="mb-6 p-4 bg-yellow-900/10 rounded-xl border border-yellow-600/20">
+              <div className="flex items-center gap-2 mb-3">
+                <Icon name="FileSpreadsheet" size={16} className="text-yellow-400" />
+                <span className="text-sm font-semibold text-white">Выдать поручения из Excel</span>
+              </div>
+              <ExcelOrdersImport
+                specialists={specialists}
+                orgId={orgId}
+                userId={userId}
+                userFio={userFio || userName}
+                onOrdersCreated={loadAllOrders}
+              />
             </div>
 
             {loadingOrders ? (
