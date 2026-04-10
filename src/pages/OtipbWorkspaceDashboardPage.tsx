@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import UserProfileCard from '@/components/UserProfileCard';
 
 const OT_ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
 const SEND_EMAIL_URL = 'https://functions.poehali.dev/2dab48c9-57c0-4f55-90e7-d93b326a6891';
@@ -772,6 +773,7 @@ const OtipbWorkspaceDashboardPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
+        <UserProfileCard className="mb-4" />
         {/* Header */}
         <div className="flex justify-between items-center mb-8 gap-4 flex-wrap">
           <Button variant="ghost" onClick={() => navigate('/otipb-department')} className="text-red-400 hover:text-red-300">

@@ -6,6 +6,7 @@ import Icon from '@/components/ui/icon';
 import { TechnicalSupport } from '@/components/TechnicalSupport';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
+import UserProfileCard from '@/components/UserProfileCard';
 import { useImpersonationState } from '@/hooks/useImpersonationState';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -107,6 +108,7 @@ const Dashboard = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-6">
         {/* Header */}
         <div className="max-w-7xl mx-auto mb-8">
+          <UserProfileCard variant="light" className="mb-4" />
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
             <OrganizationLogo size={56} showCompanyName={false} />

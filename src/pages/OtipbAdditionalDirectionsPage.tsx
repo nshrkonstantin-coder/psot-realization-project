@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
+import UserProfileCard from '@/components/UserProfileCard';
 
 const OtipbAdditionalDirectionsPage = () => {
   const navigate = useNavigate();
@@ -76,6 +77,7 @@ const OtipbAdditionalDirectionsPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
+        <UserProfileCard className="mb-4" />
         <div className="flex items-center gap-4 mb-8">
           <Button
             onClick={() => navigate('/otipb-department')}

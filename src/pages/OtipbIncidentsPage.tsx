@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
+import UserProfileCard from '@/components/UserProfileCard';
 
 const OtipbIncidentsPage = () => {
   const navigate = useNavigate();
@@ -100,6 +101,7 @@ const OtipbIncidentsPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
+        <UserProfileCard className="mb-4" />
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Button
