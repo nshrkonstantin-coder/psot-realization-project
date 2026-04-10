@@ -115,7 +115,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
             if source == 'manual':
                 # Ручной список
-                spec_where = f"WHERE organization_id = {int(org_id)} AND active = TRUE" if org_id else "WHERE organization_id IS NULL AND active = TRUE"
+                spec_where = f"WHERE ms.organization_id = {int(org_id)} AND ms.active = TRUE" if org_id else "WHERE ms.organization_id IS NULL AND ms.active = TRUE"
                 cur.execute(f"""
                     SELECT COALESCE(u.id, ms.id + 100000), COALESCE(u.fio, ms.fio),
                            COALESCE(u.position, ms.position), ms.email, ms.phone
@@ -128,14 +128,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 'email': r[3], 'phone': r[4]} for r in cur.fetchall()]
             else:
                 # АСУБТ — из базы users, фильтр по подразделению ОТиПБ
-                spec_where_parts = ["role IN ('admin', 'miniadmin', 'user')"]
+                spec_where_parts = ["u.role IN ('admin', 'miniadmin', 'user')"]
                 if org_id:
-                    spec_where_parts.append(f"organization_id = {int(org_id)}")
-                spec_where_parts.append("(LOWER(subdivision) LIKE '%отипб%' OR LOWER(subdivision) LIKE '%охрана труда%' OR LOWER(subdivision) LIKE '%от и пб%' OR subdivision IS NULL OR subdivision = '')")
+                    spec_where_parts.append(f"u.organization_id = {int(org_id)}")
+                spec_where_parts.append("(LOWER(u.subdivision) LIKE '%отипб%' OR LOWER(u.subdivision) LIKE '%охрана труда%' OR LOWER(u.subdivision) LIKE '%от и пб%' OR u.subdivision IS NULL OR u.subdivision = '')")
                 cur.execute(f"""
-                    SELECT id, fio, position, email FROM {SCHEMA}.users
+                    SELECT u.id, u.fio, u.position, u.email FROM {SCHEMA}.users u
                     WHERE {' AND '.join(spec_where_parts)}
-                    ORDER BY fio
+                    ORDER BY u.fio
                 """)
                 specialists = [{'id': r[0], 'fio': r[1], 'position': r[2], 'email': r[3]} for r in cur.fetchall()]
 
@@ -170,11 +170,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'body': json.dumps({'success': False, 'error': 'SMTP не настроен'})}
             try:
                 from email.header import Header
-                mail_msg = MIMEMultipart('alternative')
+                from email.mime.application import MIMEApplication
+                # Письмо: текстовое тело + HTML-файл как вложение
+                mail_msg = MIMEMultipart('mixed')
                 mail_msg['Subject'] = Header(subject, 'utf-8')
                 mail_msg['From'] = smtp_user
                 mail_msg['To'] = to_email
-                mail_msg.attach(MIMEText(html_content, 'html', 'utf-8'))
+                # Тело письма — простая инструкция
+                body_text = (
+                    'Здравствуйте!\n\n'
+                    'Вам направлен Чек-лист передачи вахты.\n\n'
+                    'Чек-лист прикреплён к письму в виде HTML-файла.\n'
+                    'Для просмотра и печати:\n'
+                    '  1. Откройте вложение «checklist.html» в браузере (Chrome, Edge, Firefox)\n'
+                    '  2. Нажмите кнопку «Распечатать» на странице\n\n'
+                    'Отдел ОТиПБ — Охрана труда и промышленная безопасность'
+                )
+                mail_msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
+                # HTML-файл как вложение
+                html_bytes = html_content.encode('utf-8')
+                attachment = MIMEApplication(html_bytes, _subtype='octet-stream')
+                attachment.add_header('Content-Disposition', 'attachment', filename='checklist.html')
+                mail_msg.attach(attachment)
                 smtp_conn = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
                 smtp_conn.ehlo()
                 if smtp_port == 587:

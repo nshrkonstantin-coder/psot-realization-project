@@ -498,13 +498,13 @@ const OtipbWorkspaceDashboardPage = () => {
           body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}
           .print-bar{background:#fff3e0;border:2px solid #f97316;border-radius:12px;padding:18px 24px;margin-bottom:24px;text-align:center}
           .print-bar p{margin:0 0 12px;font-size:15px;color:#7c3005;font-weight:600}
-          .print-link{display:inline-block;padding:12px 36px;background:#f97316;color:#ffffff !important;text-decoration:none !important;border-radius:8px;font-size:16px;font-weight:700;font-family:Arial,sans-serif;letter-spacing:0.3px}
+          .print-btn{display:inline-block;padding:12px 36px;background:#f97316;color:#ffffff;text-decoration:none;border-radius:8px;font-size:16px;font-weight:700;font-family:Arial,sans-serif;cursor:pointer;border:none}
           @media print{.print-bar{display:none!important}}
         </style>
       </head><body>
         <div class="print-bar">
-          <p>📄 Чек-лист передачи вахты — откройте письмо в браузере и нажмите кнопку для печати</p>
-          <a href="javascript:window.print()" class="print-link">🖨️&nbsp;&nbsp;Распечатать чек-лист</a>
+          <p>📄 Чек-лист передачи вахты — нажмите кнопку для печати</p>
+          <button class="print-btn" onclick="window.print()">🖨️&nbsp;&nbsp;Распечатать чек-лист</button>
         </div>
         ${checklistBody}
       </body></html>`;
