@@ -263,7 +263,7 @@ const OtipbWorkspaceDashboardPage = () => {
   const pendingOrders = orders.filter(o => o.status !== 'completed');
   const countByStatus = (s: string) => orders.filter(o => o.status === s).length;
 
-  const buildChecklistHtml = (recipientFio: string) => {
+  const buildChecklistHtml = (recipientFio: string, recipientPosition?: string) => {
     const date = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const rows = pendingOrders.map((o, i) => `
       <tr style="border-bottom:1px solid #e2e8f0">
@@ -356,18 +356,18 @@ const OtipbWorkspaceDashboardPage = () => {
               </td>
               <td style="width:50%;padding:0 0 0 24px;vertical-align:top;border-left:1px solid #e2e8f0">
                 <p style="font-weight:700;color:#1e293b;margin:0 0 20px;padding-left:24px">Принял:</p>
-                <table style="width:100%;border-collapse:collapse;padding-left:24px">
+                <table style="width:100%;border-collapse:collapse">
                   <tr>
                     <td style="padding:4px 24px;color:#64748b;width:36%">ФИО:</td>
                     <td style="padding:4px 0;font-weight:600;color:${recipientFio ? '#1e293b' : '#94a3b8'}">${recipientFio || '____________________'}</td>
                   </tr>
                   <tr>
                     <td style="padding:4px 24px;color:#64748b">Должность:</td>
-                    <td style="padding:4px 0;color:#94a3b8">____________________</td>
+                    <td style="padding:4px 0;color:${recipientPosition ? '#1e293b' : '#94a3b8'}">${recipientPosition || '____________________'}</td>
                   </tr>
                   <tr>
                     <td style="padding:4px 24px;color:#64748b">Дата:</td>
-                    <td style="padding:4px 0;color:#94a3b8">____________________</td>
+                    <td style="padding:4px 0;color:#1e293b">${date}</td>
                   </tr>
                 </table>
                 <div style="margin-top:32px;margin-left:24px;border-top:1px solid #94a3b8;width:80%;padding-top:4px;color:#64748b;font-size:11px">подпись</div>
@@ -384,10 +384,12 @@ const OtipbWorkspaceDashboardPage = () => {
 
   const fileDate = new Date().toLocaleDateString('ru-RU').replace(/\./g, '-');
 
+  const recipientSpec = specialists.find(s => String(s.id) === checklistRecipientId);
+
   const downloadChecklistHtml = () => {
-    const html = buildChecklistHtml(checklistRecipientFio);
+    const html = buildChecklistHtml(checklistRecipientFio, recipientSpec?.position);
     const fullHtml = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><title>Чек-лист передачи вахты</title>
-    <style>body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}@media print{body{padding:0}}</style>
+    <style>body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}.no-print{display:none!important}@media print{body{padding:0}.no-print{display:none!important}}</style>
     </head><body>${html}</body></html>`;
     const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -440,7 +442,7 @@ const OtipbWorkspaceDashboardPage = () => {
   const downloadChecklistPdf = async () => {
     setDownloadingFormat('pdf');
     try {
-      const html = buildChecklistHtml(checklistRecipientFio);
+      const html = buildChecklistHtml(checklistRecipientFio, recipientSpec?.position);
       const container = document.createElement('div');
       container.style.cssText = 'position:fixed;left:-9999px;top:0;width:900px;background:#fff;font-family:Arial,sans-serif;';
       container.innerHTML = html;
@@ -484,7 +486,15 @@ const OtipbWorkspaceDashboardPage = () => {
     }
     setSendingChecklist(true);
     try {
-      const html = buildChecklistHtml(checklistRecipientFio);
+      const checklistBody = buildChecklistHtml(checklistRecipientFio, recipientSpec?.position);
+      const printBtn = `<div style="text-align:center;margin:24px 0 8px">
+        <button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:Arial,sans-serif">
+          🖨️ Распечатать чек-лист
+        </button>
+      </div>`;
+      const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><title>Чек-лист передачи вахты</title>
+        <style>body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}@media print{button{display:none!important}}</style>
+      </head><body>${printBtn}${checklistBody}</body></html>`;
       const res = await fetch(OT_ORDERS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -895,9 +905,28 @@ const OtipbWorkspaceDashboardPage = () => {
 
             {/* Кнопки действий */}
             <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-700">
+              <Button onClick={() => {
+                  const html = buildChecklistHtml(checklistRecipientFio, recipientSpec?.position);
+                  const w = window.open('', '_blank');
+                  if (w) {
+                    w.document.write(`<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><title>Чек-лист передачи вахты</title>
+                      <style>body{font-family:Arial,sans-serif;margin:0;padding:20px}@media print{.no-print{display:none!important}}</style>
+                    </head><body>
+                      <div class="no-print" style="text-align:center;margin-bottom:16px">
+                        <button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer">
+                          🖨️ Распечатать
+                        </button>
+                      </div>
+                      ${html}</body></html>`);
+                    w.document.close();
+                  }
+                }} variant="outline"
+                className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10">
+                <Icon name="Printer" size={16} className="mr-2" />Распечатать
+              </Button>
               <Button onClick={() => setShowDownloadModal(true)} variant="outline"
                 className="border-violet-500/50 text-violet-400 hover:bg-violet-500/10">
-                <Icon name="Download" size={16} className="mr-2" />Скачать чек-лист
+                <Icon name="Download" size={16} className="mr-2" />Скачать
               </Button>
               <Button onClick={sendChecklistEmail} disabled={sendingChecklist}
                 className="bg-blue-600 hover:bg-blue-700">
