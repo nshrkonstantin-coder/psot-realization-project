@@ -11,9 +11,9 @@ CORS = {
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     CRUD для поручений отдела ОТиПБ.
-    GET  — список поручений (фильтр по organization_id)
+    GET  — список поручений (фильтр по organization_id и/или user_id)
     POST — создать поручение
-    PUT  — обновить статус / данные поручения
+    PUT  — обновить статус / данные / last_action поручения
     DELETE — удалить поручение
     """
     method = event.get('httpMethod', 'GET')
@@ -39,6 +39,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             params = event.get('queryStringParameters') or {}
             org_id = params.get('organization_id')
             order_id = params.get('id')
+            user_id = params.get('user_id')
 
             if order_id:
                 cur.execute(f"""
@@ -46,7 +47,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                            o.issued_by, o.status, o.extended_deadline, o.organization_id,
                            o.assigned_to_user_id, o.created_by_user_id, o.notes,
                            o.created_at, o.updated_at,
-                           u.fio as assigned_fio
+                           u.fio as assigned_fio, o.last_action
                     FROM {SCHEMA}.ot_orders o
                     LEFT JOIN {SCHEMA}.users u ON o.assigned_to_user_id = u.id
                     WHERE o.id = {int(order_id)}
@@ -59,16 +60,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
                         'body': json.dumps({'success': True, 'order': order})}
 
-            where = ''
+            conditions = []
             if org_id:
-                where = f"WHERE o.organization_id = {int(org_id)}"
+                conditions.append(f"o.organization_id = {int(org_id)}")
+            if user_id:
+                conditions.append(f"(o.assigned_to_user_id = {int(user_id)} OR o.created_by_user_id = {int(user_id)})")
+
+            where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
 
             cur.execute(f"""
                 SELECT o.id, o.title, o.issued_date, o.deadline, o.responsible_person,
                        o.issued_by, o.status, o.extended_deadline, o.organization_id,
                        o.assigned_to_user_id, o.created_by_user_id, o.notes,
                        o.created_at, o.updated_at,
-                       u.fio as assigned_fio
+                       u.fio as assigned_fio, o.last_action
                 FROM {SCHEMA}.ot_orders o
                 LEFT JOIN {SCHEMA}.users u ON o.assigned_to_user_id = u.id
                 {where}
@@ -102,6 +107,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             assigned_to = body.get('assigned_to_user_id')
             created_by = body.get('created_by_user_id')
             notes = (body.get('notes') or '').strip().replace("'", "''")
+            last_action = (body.get('last_action') or '').strip().replace("'", "''")
 
             if not title or not deadline or not responsible_person or not issued_by:
                 return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
@@ -111,14 +117,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             assigned_val = str(int(assigned_to)) if assigned_to else 'NULL'
             created_val = str(int(created_by)) if created_by else 'NULL'
             issued_date_val = f"'{issued_date}'" if issued_date else 'CURRENT_DATE'
+            last_action_val = f"'{last_action}'" if last_action else 'NULL'
 
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.ot_orders
                     (title, issued_date, deadline, responsible_person, issued_by,
-                     status, organization_id, assigned_to_user_id, created_by_user_id, notes)
+                     status, organization_id, assigned_to_user_id, created_by_user_id, notes, last_action)
                 VALUES
                     ('{title}', {issued_date_val}, '{deadline}', '{responsible_person}', '{issued_by}',
-                     'new', {org_val}, {assigned_val}, {created_val}, '{notes}')
+                     'new', {org_val}, {assigned_val}, {created_val}, '{notes}', {last_action_val})
                 RETURNING id
             """)
             new_id = cur.fetchone()[0]
@@ -152,6 +159,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 sets.append(f"assigned_to_user_id = {int(val)}" if val else "assigned_to_user_id = NULL")
             if 'notes' in body:
                 sets.append(f"notes = '{body['notes'].replace(chr(39), chr(39)+chr(39))}'")
+            if 'last_action' in body:
+                val = (body['last_action'] or '').replace("'", "''")
+                sets.append(f"last_action = '{val}'" if val else "last_action = NULL")
 
             if not sets:
                 return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
@@ -198,4 +208,5 @@ def _row_to_dict(row):
         'created_at': row[12].isoformat() if row[12] else None,
         'updated_at': row[13].isoformat() if row[13] else None,
         'assigned_fio': row[14],
+        'last_action': row[15],
     }

@@ -4,10 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 
+const GREETING_KEY = 'otipb_greeting_enabled';
+
 const OtipbDepartmentPage = () => {
   const navigate = useNavigate();
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [userName, setUserName] = useState<string>('');
+  const [greetingEnabled, setGreetingEnabled] = useState<boolean>(true);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -21,59 +24,37 @@ const OtipbDepartmentPage = () => {
 
     const department = localStorage.getItem('userDepartment');
     setHasAccess(department === 'ОТиПБ' || department === 'Отдел ОТиПБ');
+
+    const saved = localStorage.getItem(GREETING_KEY);
+    setGreetingEnabled(saved === null ? true : saved === 'true');
   }, [navigate]);
 
+  const toggleGreeting = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newVal = !greetingEnabled;
+    setGreetingEnabled(newVal);
+    localStorage.setItem(GREETING_KEY, String(newVal));
+  };
+
   const startWorkDay = async () => {
+    if (!greetingEnabled) {
+      navigate('/otipb-workspace');
+      return;
+    }
+
     const hour = new Date().getHours();
     let timeGreeting = '';
-    
-    if (hour >= 6 && hour < 12) {
-      timeGreeting = 'Доброе утро';
-    } else if (hour >= 12 && hour < 18) {
-      timeGreeting = 'Добрый день';
-    } else if (hour >= 18 && hour < 23) {
-      timeGreeting = 'Добрый вечер';
-    } else {
-      timeGreeting = 'Доброй ночи';
-    }
-    
-    const greetingText = `${timeGreeting}, ${userName}! Желаю вам отличного и продуктивного рабочего дня!`;
-    
-    try {
-      const response = await fetch('https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: greetingText,
-          voice: 'alena'
-        })
-      });
+    if (hour >= 6 && hour < 12) timeGreeting = 'Доброе утро';
+    else if (hour >= 12 && hour < 18) timeGreeting = 'Добрый день';
+    else if (hour >= 18 && hour < 23) timeGreeting = 'Добрый вечер';
+    else timeGreeting = 'Доброй ночи';
 
-      const data = await response.json();
-      
-      if (data.success && data.audio) {
-        const audioBlob = await fetch(`data:audio/mp3;base64,${data.audio}`).then(r => r.blob());
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          navigate('/otipb-workspace');
-        };
-        
-        audio.play();
-      } else {
-        navigate('/otipb-workspace');
-      }
-    } catch (error) {
-      console.error('Speech synthesis error:', error);
-      navigate('/otipb-workspace');
-    }
+    const greetingText = `${timeGreeting}, ${userName}! Желаю вам отличного и продуктивного рабочего дня!`;
 
     const alertDiv = document.createElement('div');
-    alertDiv.className = 'fixed inset-0 flex items-center justify-center z-50 bg-black/70 animate-fadeIn';
+    alertDiv.className = 'fixed inset-0 flex items-center justify-center z-50 bg-black/70';
     alertDiv.innerHTML = `
-      <div class="bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-blue-500 rounded-2xl p-8 max-w-md shadow-2xl animate-scaleIn">
+      <div class="bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-blue-500 rounded-2xl p-8 max-w-md shadow-2xl">
         <div class="flex flex-col items-center text-center gap-4">
           <div class="bg-gradient-to-br from-blue-500 to-cyan-500 p-4 rounded-full">
             <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,28 +67,38 @@ const OtipbDepartmentPage = () => {
       </div>
     `;
     document.body.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 5000);
 
-    setTimeout(() => {
-      alertDiv.remove();
-    }, 5000);
+    try {
+      const response = await fetch('https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: greetingText, voice: 'alena' })
+      });
+      const data = await response.json();
+      if (data.success && data.audio) {
+        const audioBlob = await fetch(`data:audio/mp3;base64,${data.audio}`).then(r => r.blob());
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audio.onended = () => { URL.revokeObjectURL(audioUrl); navigate('/otipb-workspace'); };
+        audio.play();
+      } else {
+        navigate('/otipb-workspace');
+      }
+    } catch {
+      navigate('/otipb-workspace');
+    }
   };
 
-  if (hasAccess === null) {
-    return null;
-  }
+  if (hasAccess === null) return null;
 
   if (!hasAccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
-            <Button
-              onClick={() => navigate('/additional')}
-              variant="outline"
-              className="border-red-500/50 text-red-400 hover:bg-red-500/10"
-            >
-              <Icon name="ArrowLeft" size={20} className="mr-2" />
-              Назад
+            <Button onClick={() => navigate('/additional')} variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10">
+              <Icon name="ArrowLeft" size={20} className="mr-2" />Назад
             </Button>
             <div className="flex items-center gap-4">
               <div className="bg-gradient-to-br from-red-600 to-orange-600 p-3 rounded-xl shadow-lg">
@@ -116,7 +107,6 @@ const OtipbDepartmentPage = () => {
               <h1 className="text-3xl font-bold text-white">Отдел ОТиПБ</h1>
             </div>
           </div>
-
           <Card className="bg-slate-800/50 border-red-500/30 p-12">
             <div className="text-center">
               <div className="bg-gradient-to-br from-red-600 to-orange-600 p-6 rounded-2xl shadow-lg inline-block mb-6">
@@ -135,24 +125,35 @@ const OtipbDepartmentPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-          <Button
-            onClick={() => navigate('/additional')}
-            variant="outline"
-            className="border-red-500/50 text-red-400 hover:bg-red-500/10"
-          >
-            <Icon name="ArrowLeft" size={20} className="mr-2" />
-            Назад
-          </Button>
+        <div className="flex items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-red-600 to-orange-600 p-3 rounded-xl shadow-lg">
-              <Icon name="ShieldAlert" size={32} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-white">Отдел ОТиПБ</h1>
-              <p className="text-slate-400 text-sm mt-1">Охрана труда и промышленная безопасность</p>
+            <Button onClick={() => navigate('/additional')} variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10">
+              <Icon name="ArrowLeft" size={20} className="mr-2" />Назад
+            </Button>
+            <div className="flex items-center gap-4">
+              <div className="bg-gradient-to-br from-red-600 to-orange-600 p-3 rounded-xl shadow-lg">
+                <Icon name="ShieldAlert" size={32} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-white">Отдел ОТиПБ</h1>
+                <p className="text-slate-400 text-sm mt-1">Охрана труда и промышленная безопасность</p>
+              </div>
             </div>
           </div>
+
+          {/* Тоггл приветствия */}
+          <button
+            onClick={toggleGreeting}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
+              greetingEnabled
+                ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20'
+                : 'border-slate-600/50 bg-slate-700/30 text-slate-500 hover:bg-slate-700/50'
+            }`}
+            title={greetingEnabled ? 'Голосовое приветствие включено' : 'Голосовое приветствие выключено'}
+          >
+            <Icon name={greetingEnabled ? 'Volume2' : 'VolumeX'} size={18} />
+            <span>{greetingEnabled ? 'Приветствие вкл.' : 'Приветствие выкл.'}</span>
+          </button>
         </div>
 
         <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -161,7 +162,6 @@ const OtipbDepartmentPage = () => {
             className="group relative overflow-hidden cursor-pointer bg-slate-800/50 border-blue-500/30 hover:border-blue-500 transition-all hover:scale-105 hover:shadow-2xl"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-cyan-600 opacity-0 group-hover:opacity-10 transition-opacity" />
-            
             <div className="p-8 relative z-10">
               <div className="flex flex-col items-center text-center gap-4">
                 <div className="bg-gradient-to-br from-blue-600 to-cyan-600 p-6 rounded-2xl shadow-lg transform group-hover:scale-110 transition-transform">
@@ -172,10 +172,15 @@ const OtipbDepartmentPage = () => {
                     Начать рабочий день
                   </h3>
                   <p className="text-sm text-slate-400">Открыть рабочий стол специалиста</p>
+                  {greetingEnabled && (
+                    <p className="text-xs text-cyan-500/70 mt-1 flex items-center justify-center gap-1">
+                      <Icon name="Volume2" size={12} />
+                      Голосовое приветствие
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
-
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-cyan-600 transform scale-x-0 group-hover:scale-x-100 transition-transform" />
           </Card>
 
@@ -184,7 +189,6 @@ const OtipbDepartmentPage = () => {
             className="group relative overflow-hidden cursor-pointer bg-slate-800/50 border-red-500/30 hover:border-red-500 transition-all hover:scale-105 hover:shadow-2xl"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-red-600 to-orange-600 opacity-0 group-hover:opacity-10 transition-opacity" />
-            
             <div className="p-8 relative z-10">
               <div className="flex flex-col items-center text-center gap-4">
                 <div className="bg-gradient-to-br from-red-600 to-orange-600 p-6 rounded-2xl shadow-lg transform group-hover:scale-110 transition-transform">
@@ -198,7 +202,6 @@ const OtipbDepartmentPage = () => {
                 </div>
               </div>
             </div>
-
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 to-orange-600 transform scale-x-0 group-hover:scale-x-100 transition-transform" />
           </Card>
         </div>
