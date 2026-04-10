@@ -97,9 +97,15 @@ const OtipbWorkspaceDashboardPage = () => {
   const [workReportDateTo, setWorkReportDateTo] = useState('');
   const [checklistDateFrom, setChecklistDateFrom] = useState('');
   const [checklistDateTo, setChecklistDateTo] = useState('');
+  const [now, setNow] = useState(new Date());
 
   const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
   const checklistRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const orgId = localStorage.getItem('organizationId') || '';
   const userFio = localStorage.getItem('userFio') || '';
@@ -757,11 +763,25 @@ const OtipbWorkspaceDashboardPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-8 gap-4 flex-wrap">
           <Button variant="ghost" onClick={() => navigate('/otipb-department')} className="text-red-400 hover:text-red-300">
             <Icon name="ArrowLeft" size={20} className="mr-2" />Назад
           </Button>
-          <p className="text-slate-400 text-sm">Добро пожаловать, {userName}!</p>
+          <div className="flex items-center gap-4 flex-wrap">
+            <p className="text-slate-400 text-sm">Добро пожаловать, {userName}!</p>
+            {/* Часы и дата */}
+            <div className="flex items-center gap-2 bg-slate-800/70 border border-slate-600/50 rounded-xl px-4 py-2 shadow-inner select-none">
+              <Icon name="Clock" size={15} className="text-orange-400 shrink-0" />
+              <div className="text-right leading-tight">
+                <div className="text-white font-mono font-bold text-lg leading-none tracking-wide">
+                  {now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </div>
+                <div className="text-slate-400 text-[11px] mt-0.5 capitalize">
+                  {now.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-4 mb-8">
