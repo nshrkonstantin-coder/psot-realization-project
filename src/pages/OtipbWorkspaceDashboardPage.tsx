@@ -489,19 +489,18 @@ const OtipbWorkspaceDashboardPage = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'send',
-          to_email: checklistRecipientEmail.trim(),
+          recipients: [checklistRecipientEmail.trim()],
           subject: `Чек-лист передачи вахты — ${userFio || userName} — ${new Date().toLocaleDateString('ru-RU')}`,
-          html_body: html,
+          html_content: html,
           sender_name: 'ОТиПБ Система',
         }),
       });
       const data = await res.json();
-      if (data.success || data.results?.[0]?.success) {
+      if (data.success && data.sent > 0) {
         toast.success('Чек-лист отправлен на почту');
-        setChecklistRecipientEmail('');
       } else {
-        toast.error('Ошибка отправки письма');
+        const detail = data.results?.[0]?.message || data.error || '';
+        toast.error(`Ошибка отправки письма${detail ? ': ' + detail : ''}`);
       }
     } catch {
       toast.error('Ошибка соединения');
@@ -516,29 +515,44 @@ const OtipbWorkspaceDashboardPage = () => {
       return;
     }
     const spec = specialists.find(s => String(s.id) === checklistRecipientId);
+    const recipientId = Number(checklistRecipientId);
+    const senderId = userId ? Number(userId) : null;
+    if (!senderId) { toast.error('Не определён отправитель'); return; }
+
+    const MESSAGING_URL = 'https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389';
+    const authHeaders = { 'Content-Type': 'application/json', 'X-User-Id': String(senderId) };
     setSendingChecklist(true);
     try {
-      const html = buildChecklistHtml(spec?.fio || '');
-      const res = await fetch('https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389', {
+      // 1. Создаём или находим прямой чат с получателем
+      const chatRes = await fetch(`${MESSAGING_URL}?action=create_chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
-          action: 'send',
-          sender_id: userId ? Number(userId) : null,
-          recipient_id: Number(checklistRecipientId),
-          text: `📋 Чек-лист передачи вахты от ${userFio || userName}\nНевыполненных поручений: ${pendingOrders.length}\n\nПодробности в HTML-вложении ниже.`,
-          attachment_html: html,
+          name: `Передача вахты — ${spec?.fio || 'специалист'}`,
+          type: 'direct',
+          participant_ids: [senderId, recipientId],
         }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const chatData = await chatRes.json();
+      const chatId = chatData.chat_id || chatData.id;
+      if (!chatId) throw new Error(chatData.error || 'Не удалось создать чат');
+
+      // 2. Отправляем сообщение с кратким описанием и ссылкой
+      const msgText = `📋 Чек-лист передачи вахты от ${userFio || userName}\n\nНевыполненных поручений: ${pendingOrders.length}\nДата: ${new Date().toLocaleDateString('ru-RU')}\n\nПодробный чек-лист отправлен вам на email: ${checklistRecipientEmail || '(email не указан)'}`;
+      const msgRes = await fetch(`${MESSAGING_URL}?action=send_message`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ chat_id: chatId, message_text: msgText }),
+      });
+      const msgData = await msgRes.json();
+      if (msgData.success) {
         toast.success(`Чек-лист отправлен коллеге ${spec?.fio || ''}`);
-        setTransferUserId('');
       } else {
-        toast.success('Чек-лист сформирован (внутренняя отправка недоступна)');
+        throw new Error(msgData.error || 'Ошибка отправки сообщения');
       }
-    } catch {
-      toast.success('Чек-лист сформирован');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Ошибка';
+      toast.error(`Ошибка внутренней отправки: ${msg}`);
     } finally {
       setSendingChecklist(false);
     }
