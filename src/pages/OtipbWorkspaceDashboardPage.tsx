@@ -493,14 +493,21 @@ const OtipbWorkspaceDashboardPage = () => {
     setSendingChecklist(true);
     try {
       const checklistBody = buildChecklistHtml(checklistRecipientFio, recipientSpec?.position);
-      const printBtn = `<div style="text-align:center;margin:24px 0 8px">
-        <button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:Arial,sans-serif">
-          🖨️ Распечатать чек-лист
-        </button>
-      </div>`;
       const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><title>Чек-лист передачи вахты</title>
-        <style>body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}@media print{button{display:none!important}}</style>
-      </head><body>${printBtn}${checklistBody}</body></html>`;
+        <style>
+          body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}
+          .print-bar{background:#fff3e0;border:2px solid #f97316;border-radius:12px;padding:18px 24px;margin-bottom:24px;text-align:center}
+          .print-bar p{margin:0 0 12px;font-size:15px;color:#7c3005;font-weight:600}
+          .print-link{display:inline-block;padding:12px 36px;background:#f97316;color:#ffffff !important;text-decoration:none !important;border-radius:8px;font-size:16px;font-weight:700;font-family:Arial,sans-serif;letter-spacing:0.3px}
+          @media print{.print-bar{display:none!important}}
+        </style>
+      </head><body>
+        <div class="print-bar">
+          <p>📄 Чек-лист передачи вахты — откройте письмо в браузере и нажмите кнопку для печати</p>
+          <a href="javascript:window.print()" class="print-link">🖨️&nbsp;&nbsp;Распечатать чек-лист</a>
+        </div>
+        ${checklistBody}
+      </body></html>`;
       const res = await fetch(OT_ORDERS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
