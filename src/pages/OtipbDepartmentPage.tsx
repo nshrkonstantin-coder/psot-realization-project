@@ -624,7 +624,7 @@ const OtipbDepartmentPage = () => {
         </div>
 
         {/* Кнопки запуска рабочего стола */}
-        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <Card
             onClick={startWorkDay}
             className="group relative overflow-hidden cursor-pointer bg-slate-800/50 border-blue-500/30 hover:border-blue-500 transition-all hover:scale-105 hover:shadow-2xl"
@@ -666,6 +666,25 @@ const OtipbDepartmentPage = () => {
               </div>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 to-orange-600 transform scale-x-0 group-hover:scale-x-100 transition-transform" />
+          </Card>
+
+          <Card
+            onClick={() => navigate('/workers-registry')}
+            className="group relative overflow-hidden cursor-pointer bg-slate-800/50 border-emerald-500/30 hover:border-emerald-500 transition-all hover:scale-105 hover:shadow-2xl"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 to-teal-600 opacity-0 group-hover:opacity-10 transition-opacity" />
+            <div className="p-8 relative z-10">
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="bg-gradient-to-br from-emerald-600 to-teal-600 p-6 rounded-2xl shadow-lg transform group-hover:scale-110 transition-transform">
+                  <Icon name="Users" size={40} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors mb-2">Реестр работников</h3>
+                  <p className="text-sm text-slate-400">QR-коды, карточки, поиск</p>
+                </div>
+              </div>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-600 to-teal-600 transform scale-x-0 group-hover:scale-x-100 transition-transform" />
           </Card>
         </div>
 

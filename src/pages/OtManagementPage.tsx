@@ -871,8 +871,8 @@ const OtManagementPage = () => {
           </Card>
         )}
 
-        {/* ─── Три блока управления ─────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* ─── Четыре блока управления ────────────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
 
           {/* Поручения */}
           <div className="space-y-2">
@@ -979,6 +979,27 @@ const OtManagementPage = () => {
                 <Icon name="Trash2" size={12} />Обнулить «Проделанную работу»
               </button>
             )}
+          </div>
+
+          {/* Реестр работников */}
+          <div className="space-y-2">
+            <Card
+              onClick={() => navigate('/workers-registry')}
+              className="p-6 cursor-pointer transition-all hover:shadow-xl hover:scale-105 group bg-slate-800/50 border-teal-600/40 hover:border-teal-500"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-gradient-to-br from-teal-500 to-emerald-600 p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                  <Icon name="Users" size={32} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm mb-1">Реестр работников</p>
+                  <p className="text-teal-400 text-xs mt-1">QR-коды, поиск, карточки</p>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-slate-700">
+                <p className="text-xs text-slate-400">Открыть реестр →</p>
+              </div>
+            </Card>
           </div>
         </div>
 

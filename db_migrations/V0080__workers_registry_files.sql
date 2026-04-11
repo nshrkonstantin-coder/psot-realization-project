@@ -1,0 +1,1 @@
+CREATE TABLE workers_registry_files (id SERIAL PRIMARY KEY, organization_id INTEGER, file_name VARCHAR(500) NOT NULL, file_url TEXT NOT NULL, file_size BIGINT, uploaded_by_user_id INTEGER, uploaded_at TIMESTAMP DEFAULT NOW(), is_active BOOLEAN DEFAULT TRUE, columns_config JSONB);

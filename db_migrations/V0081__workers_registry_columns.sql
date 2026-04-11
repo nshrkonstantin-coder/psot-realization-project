@@ -1,0 +1,1 @@
+CREATE TABLE workers_registry_columns (id SERIAL PRIMARY KEY, organization_id INTEGER, column_key VARCHAR(255), column_label VARCHAR(255), column_order INTEGER, column_type VARCHAR(50) DEFAULT 'text', is_core BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW());

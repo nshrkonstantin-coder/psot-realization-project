@@ -812,7 +812,7 @@ const OtipbWorkspaceDashboardPage = () => {
         </div>
 
         {/* Основные блоки */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
 
           {/* Поручения */}
           <Card
@@ -913,6 +913,22 @@ const OtipbWorkspaceDashboardPage = () => {
                 </p>
               </div>
             )}
+          </Card>
+
+          {/* Реестр работников */}
+          <Card
+            onClick={() => navigate('/workers-registry')}
+            className="bg-slate-800/50 border-teal-600/40 p-6 cursor-pointer hover:border-teal-500 hover:shadow-xl hover:scale-105 transition-all group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="bg-gradient-to-br from-teal-500 to-emerald-600 p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                <Icon name="Users" size={32} className="text-white" />
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm mb-1">Реестр работников</p>
+                <p className="text-teal-400 text-xs mt-1">QR-коды, поиск, карточки</p>
+              </div>
+            </div>
           </Card>
         </div>
 
