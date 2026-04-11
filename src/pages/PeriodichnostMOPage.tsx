@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,10 +20,10 @@ const PeriodichnostMOPage = () => {
   const [rows, setRows]       = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Заголовок — редактируемый, хранится в localStorage
-  const [title, setTitle]           = useState(() => localStorage.getItem(TITLE_KEY) || DEFAULT_TITLE);
+  // Заголовок
+  const [title, setTitle]               = useState(() => localStorage.getItem(TITLE_KEY) || DEFAULT_TITLE);
   const [editingTitle, setEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState('');
+  const [titleDraft, setTitleDraft]     = useState('');
 
   // Редактирование строки
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -35,6 +35,9 @@ const PeriodichnostMOPage = () => {
   const [addingRow, setAddingRow] = useState(false);
   const [newShort,  setNewShort]  = useState('');
   const [newFull,   setNewFull]   = useState('');
+
+  // Сохранение порядка — дебаунс
+  const reorderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { loadData(); }, []);
 
@@ -62,6 +65,25 @@ const PeriodichnostMOPage = () => {
     localStorage.setItem(TITLE_KEY, t);
     setEditingTitle(false);
     toast.success('Заголовок сохранён');
+  };
+
+  // ── Перемещение строк ─────────────────────────────────────────────────────
+  const moveRow = (idx: number, dir: -1 | 1) => {
+    const newRows = [...rows];
+    const target = idx + dir;
+    if (target < 0 || target >= newRows.length) return;
+    [newRows[idx], newRows[target]] = [newRows[target], newRows[idx]];
+    setRows(newRows);
+
+    // Дебаунс — сохраняем в БД через 800мс после последнего движения
+    if (reorderTimer.current) clearTimeout(reorderTimer.current);
+    reorderTimer.current = setTimeout(() => {
+      const orders = newRows.map((r, i) => ({ id: r.id, sort_order: i + 1 }));
+      fetch(API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reorder', orders })
+      }).catch(() => toast.error('Ошибка сохранения порядка'));
+    }, 800);
   };
 
   // ── Редактирование строки ─────────────────────────────────────────────────
@@ -102,7 +124,7 @@ const PeriodichnostMOPage = () => {
     } catch { toast.error('Ошибка'); }
   };
 
-  // ── Добавить строку ───────────────────────────────────────────────────────
+  // ── Добавить строку в конец ───────────────────────────────────────────────
   const addRow = async () => {
     if (!newShort.trim()) { toast.error('Введите наименование'); return; }
     setSaving(true);
@@ -129,14 +151,12 @@ const PeriodichnostMOPage = () => {
   const exportExcel = () => {
     const wb  = XLSX.utils.book_new();
     const aoa: (string | number)[][] = [
-      [title],
-      [],
+      [title], [],
       ['№', 'Наименование должности', 'Расшифровка должностей'],
       ...rows.map((r, i) => [i + 1, r.short, r.full])
     ];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols'] = [{ wch: 4 }, { wch: 40 }, { wch: 60 }];
-    // Объединяем ячейки заголовка
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
     XLSX.utils.book_append_sheet(wb, ws, 'Периодичность МО');
     XLSX.writeFile(wb, 'периодичность_МО.xlsx');
@@ -150,34 +170,24 @@ const PeriodichnostMOPage = () => {
         <td>${r.short}</td>
         <td>${r.full || ''}</td>
       </tr>`).join('');
-
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
       <style>
         @page { size: A4 landscape; margin: 12mm 15mm; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, sans-serif; font-size: 9.5pt; color: #000; background: #fff; }
+        body { font-family: Arial, sans-serif; font-size: 9.5pt; color: #000; }
         .title { font-size: 11pt; font-weight: bold; margin-bottom: 10px; line-height: 1.3; }
         table { width: 100%; border-collapse: collapse; }
         th, td { border: 1px solid #000; padding: 4px 7px; vertical-align: top; }
-        th { background: #e8e8e8; font-weight: bold; text-align: center; font-size: 9.5pt; }
+        th { background: #e8e8e8; font-weight: bold; text-align: center; }
         td.num { text-align: center; width: 5%; white-space: nowrap; }
-        th:nth-child(1) { width: 5%; }
-        th:nth-child(2) { width: 35%; }
-        th:nth-child(3) { width: 60%; }
+        th:nth-child(1){width:5%} th:nth-child(2){width:35%} th:nth-child(3){width:60%}
         tr:nth-child(even) td { background: #f9f9f9; }
-      </style></head>
-      <body>
+      </style></head><body>
         <div class="title">${title}</div>
         <table>
-          <thead>
-            <tr>
-              <th>№</th>
-              <th>Наименование должности</th>
-              <th>Расшифровка должностей</th>
-            </tr>
-          </thead>
+          <thead><tr><th>№</th><th>Наименование должности</th><th>Расшифровка должностей</th></tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
       </body>
@@ -217,44 +227,35 @@ const PeriodichnostMOPage = () => {
 
       <div className="max-w-6xl mx-auto px-4 py-4">
 
-        {/* ── Редактируемый заголовок ────────────────────────────────────── */}
+        {/* Редактируемый заголовок */}
         <div className="mb-4">
           {editingTitle ? (
             <div className="flex items-center gap-2">
-              <Input
-                value={titleDraft}
-                onChange={e => setTitleDraft(e.target.value)}
+              <Input value={titleDraft} onChange={e => setTitleDraft(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
-                className="bg-slate-800 border-cyan-500 text-white font-semibold text-sm flex-1 h-9"
-                autoFocus
-              />
-              <button onClick={saveTitle} className="p-2 rounded bg-green-600 hover:bg-green-500 text-white transition" title="Сохранить">
+                className="bg-slate-800 border-cyan-500 text-white font-semibold text-sm flex-1 h-9" autoFocus />
+              <button onClick={saveTitle} className="p-2 rounded bg-green-600 hover:bg-green-500 text-white transition">
                 <Icon name="Check" size={16} />
               </button>
-              <button onClick={() => setEditingTitle(false)} className="p-2 rounded bg-slate-600 hover:bg-slate-500 text-white transition" title="Отмена">
+              <button onClick={() => setEditingTitle(false)} className="p-2 rounded bg-slate-600 hover:bg-slate-500 text-white transition">
                 <Icon name="X" size={16} />
               </button>
             </div>
           ) : (
-            <div
-              className="group flex items-start gap-2 cursor-pointer"
-              onClick={startEditTitle}
-              title="Нажмите для редактирования заголовка"
-            >
+            <div className="group flex items-start gap-2 cursor-pointer" onClick={startEditTitle}
+              title="Нажмите для редактирования заголовка">
               <div className="border-l-4 border-cyan-500 pl-3 py-1 flex-1">
-                <p className="text-white font-bold text-base leading-snug group-hover:text-cyan-300 transition">
-                  {title}
-                </p>
+                <p className="text-white font-bold text-base leading-snug group-hover:text-cyan-300 transition">{title}</p>
               </div>
               <Icon name="Pencil" size={14} className="text-slate-500 group-hover:text-cyan-400 transition mt-1 flex-shrink-0" />
             </div>
           )}
         </div>
 
-        {/* ── Форма добавления строки ────────────────────────────────────── */}
+        {/* Форма добавления строки */}
         {addingRow && (
           <div className="bg-slate-800 border border-cyan-600/50 rounded-lg p-3 mb-4">
-            <p className="text-cyan-400 text-xs font-semibold mb-2 uppercase tracking-wide">Новая строка</p>
+            <p className="text-cyan-400 text-xs font-semibold mb-2 uppercase tracking-wide">Новая строка — добавится в конец списка</p>
             <div className="flex gap-2 flex-wrap items-end">
               <div className="flex-1 min-w-48">
                 <label className="text-slate-400 text-xs mb-1 block">Наименование должности *</label>
@@ -274,15 +275,13 @@ const PeriodichnostMOPage = () => {
                   Сохранить
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => { setAddingRow(false); setNewShort(''); setNewFull(''); }}
-                  className="border-slate-600 text-slate-300 h-8">
-                  Отмена
-                </Button>
+                  className="border-slate-600 text-slate-300 h-8">Отмена</Button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── Таблица ────────────────────────────────────────────────────── */}
+        {/* Таблица */}
         {loading ? (
           <div className="flex justify-center py-16">
             <Icon name="Loader" size={32} className="animate-spin text-slate-400" />
@@ -293,31 +292,25 @@ const PeriodichnostMOPage = () => {
               <thead>
                 <tr className="bg-slate-700 border-b border-slate-600">
                   <th className="text-center p-3 text-slate-200 font-bold border-r border-slate-600 w-12">№</th>
-                  <th className="text-center p-3 text-slate-200 font-bold border-r border-slate-600 w-[38%]">
-                    Наименование&nbsp;должности
-                  </th>
-                  <th className="text-center p-3 text-slate-200 font-bold">
-                    Расшифровка должностей
-                  </th>
-                  <th className="p-3 w-16 border-l border-slate-600"></th>
+                  <th className="text-center p-3 text-slate-200 font-bold border-r border-slate-600 w-[35%]">Наименование&nbsp;должности</th>
+                  <th className="text-center p-3 text-slate-200 font-bold">Расшифровка должностей</th>
+                  <th className="p-3 w-28 border-l border-slate-600"></th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, idx) => (
-                  <tr
-                    key={row.id}
+                  <tr key={row.id}
                     className={`group border-b border-slate-700/60 transition-colors ${
                       idx % 2 === 0 ? 'bg-slate-900' : 'bg-slate-800/50'
-                    } ${editingId === row.id ? 'bg-cyan-950/40 border-cyan-700/40' : 'hover:bg-slate-800'}`}
+                    } ${editingId === row.id ? 'bg-cyan-950/40' : 'hover:bg-slate-800'}`}
                   >
                     {/* № */}
-                    <td className="p-3 text-center border-r border-slate-700/50 text-slate-400 text-xs font-mono">
+                    <td className="p-3 text-center border-r border-slate-700/50 text-slate-400 text-xs font-mono w-12">
                       {idx + 1}
                     </td>
 
                     {editingId === row.id ? (
                       <>
-                        {/* Редактирование */}
                         <td className="p-2 border-r border-slate-700/50">
                           <Input value={editShort} onChange={e => setEditShort(e.target.value)}
                             className="bg-slate-800 border-cyan-600 text-white h-8 text-sm w-full" autoFocus />
@@ -342,7 +335,6 @@ const PeriodichnostMOPage = () => {
                       </>
                     ) : (
                       <>
-                        {/* Просмотр */}
                         <td className="p-3 border-r border-slate-700/50 text-white font-medium leading-snug">
                           {row.short}
                         </td>
@@ -350,13 +342,33 @@ const PeriodichnostMOPage = () => {
                           {row.full || <span className="text-slate-600 italic text-xs">—</span>}
                         </td>
                         <td className="p-2 border-l border-slate-700/50">
-                          <div className="flex gap-1 justify-center opacity-0 group-hover:opacity-100 transition">
+                          <div className="flex gap-1 justify-center items-center opacity-0 group-hover:opacity-100 transition">
+                            {/* Вверх */}
+                            <button
+                              onClick={() => moveRow(idx, -1)}
+                              disabled={idx === 0}
+                              className="p-1 rounded hover:bg-slate-600 text-slate-400 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition"
+                              title="Переместить вверх"
+                            >
+                              <Icon name="ChevronUp" size={15} />
+                            </button>
+                            {/* Вниз */}
+                            <button
+                              onClick={() => moveRow(idx, 1)}
+                              disabled={idx === rows.length - 1}
+                              className="p-1 rounded hover:bg-slate-600 text-slate-400 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition"
+                              title="Переместить вниз"
+                            >
+                              <Icon name="ChevronDown" size={15} />
+                            </button>
+                            {/* Редактировать */}
                             <button onClick={() => startEdit(row)}
-                              className="p-1.5 rounded hover:bg-blue-600/30 text-slate-500 hover:text-blue-300 transition" title="Редактировать">
+                              className="p-1 rounded hover:bg-blue-600/30 text-slate-500 hover:text-blue-300 transition" title="Редактировать">
                               <Icon name="Pencil" size={13} />
                             </button>
+                            {/* Удалить */}
                             <button onClick={() => deleteRow(row.id)}
-                              className="p-1.5 rounded hover:bg-red-600/30 text-slate-500 hover:text-red-400 transition" title="Удалить">
+                              className="p-1 rounded hover:bg-red-600/30 text-slate-500 hover:text-red-400 transition" title="Удалить">
                               <Icon name="Trash2" size={13} />
                             </button>
                           </div>
@@ -366,7 +378,7 @@ const PeriodichnostMOPage = () => {
                   </tr>
                 ))}
 
-                {rows.length === 0 && !loading && (
+                {rows.length === 0 && (
                   <tr>
                     <td colSpan={4} className="py-12 text-center text-slate-500">
                       <Icon name="Table" size={30} className="mx-auto mb-2 opacity-30" />
@@ -380,7 +392,7 @@ const PeriodichnostMOPage = () => {
         )}
 
         <p className="text-slate-600 text-xs mt-3 text-right">
-          Нажмите на строку → иконка карандаша · Изменения сохраняются безвозвратно
+          Наведите на строку — появятся кнопки перемещения ▲▼, редактирования и удаления
         </p>
       </div>
     </div>
