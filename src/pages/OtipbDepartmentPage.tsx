@@ -60,6 +60,8 @@ const OtipbDepartmentPage = () => {
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [userName, setUserName] = useState<string>('');
   const [greetingEnabled, setGreetingEnabled] = useState<boolean>(true);
+  const greetingAudioRef = useRef<HTMLAudioElement | null>(null);
+  const greetingAlertRef = useRef<HTMLDivElement | null>(null);
 
   // Блоки начальника
   const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -134,6 +136,18 @@ const OtipbDepartmentPage = () => {
     const newVal = !greetingEnabled;
     setGreetingEnabled(newVal);
     localStorage.setItem(GREETING_KEY, String(newVal));
+    // Если выключили — сразу останавливаем вещание
+    if (!newVal) {
+      if (greetingAudioRef.current) {
+        greetingAudioRef.current.pause();
+        greetingAudioRef.current.currentTime = 0;
+        greetingAudioRef.current = null;
+      }
+      if (greetingAlertRef.current) {
+        greetingAlertRef.current.remove();
+        greetingAlertRef.current = null;
+      }
+    }
   };
 
   const startWorkDay = async () => {
@@ -164,7 +178,7 @@ const OtipbDepartmentPage = () => {
       </div>
     `;
     document.body.appendChild(alertDiv);
-    setTimeout(() => alertDiv.remove(), 5000);
+    greetingAlertRef.current = alertDiv;
 
     try {
       const response = await fetch('https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53', {
@@ -177,12 +191,22 @@ const OtipbDepartmentPage = () => {
         const audioBlob = await fetch(`data:audio/mp3;base64,${data.audio}`).then(r => r.blob());
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
-        audio.onended = () => { URL.revokeObjectURL(audioUrl); navigate('/otipb-workspace'); };
+        greetingAudioRef.current = audio;
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          greetingAudioRef.current = null;
+          if (greetingAlertRef.current) { greetingAlertRef.current.remove(); greetingAlertRef.current = null; }
+          navigate('/otipb-workspace');
+        };
         audio.play();
       } else {
+        alertDiv.remove();
+        greetingAlertRef.current = null;
         navigate('/otipb-workspace');
       }
     } catch {
+      alertDiv.remove();
+      greetingAlertRef.current = null;
       navigate('/otipb-workspace');
     }
   };

@@ -47,7 +47,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const toggleGreeting = () => {
-    setShowGreeting(prev => !prev);
+    setShowGreeting(prev => {
+      const next = !prev;
+      localStorage.setItem('showGreeting', String(next));
+      return next;
+    });
   };
 
   return (

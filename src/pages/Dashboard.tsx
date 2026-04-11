@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -16,8 +16,18 @@ const Dashboard = () => {
   const [userCompany, setUserCompany] = useState('');
   const [userRole, setUserRole] = useState('');
   const { showGreeting } = useTheme();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   useImpersonationState();
+
+  // Если пользователь выключил приветствие — сразу останавливаем аудио
+  useEffect(() => {
+    if (!showGreeting && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+  }, [showGreeting]);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -81,12 +91,12 @@ const Dashboard = () => {
       if (data.success && data.audio) {
         const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
         audio.volume = 0.7;
+        audioRef.current = audio;
         
-        // Небольшая задержка перед воспроизведением
         setTimeout(() => {
-          audio.play().catch(err => {
-            console.log('Autoplay prevented:', err);
-          });
+          if (audioRef.current === audio) {
+            audio.play().catch(() => {});
+          }
         }, 500);
       }
     } catch (error) {
