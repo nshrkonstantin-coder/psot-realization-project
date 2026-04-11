@@ -45,7 +45,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         params = event.get('queryStringParameters') or {}
         action = params.get('action', '')
-        org_id = params.get('organization_id', '')
+        _org_raw = params.get('organization_id', '')
+        org_id = int(_org_raw) if _org_raw and str(_org_raw).strip().isdigit() else None
 
         # ── GET list ──────────────────────────────────────────────────────────
         if method == 'GET' and action == 'list':
@@ -173,8 +174,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # ── analyze_excel: сохранить структуру всех листов (этап 1) ──────
             if action_post == 'analyze_excel':
                 sheets_data = body.get('sheets', [])  # [{name, headers: []}]
-                _o_raw = body.get('organization_id', org_id)
-                o_id = int(_o_raw) if _o_raw and str(_o_raw).strip() else None
+                _o_raw = body.get('organization_id', '') or str(org_id or '')
+                _u_raw0 = body.get('user_id', '')
+                o_id = int(_o_raw) if _o_raw and str(_o_raw).strip().isdigit() else None
+                # Если org_id не передан — берём из профиля пользователя
+                if not o_id and _u_raw0:
+                    cur.execute(f"SELECT organization_id FROM {SCHEMA}.users WHERE id = %s", (int(_u_raw0),))
+                    row0 = cur.fetchone()
+                    if row0: o_id = row0[0]
                 print(f"[analyze_excel] org={o_id} sheets_count={len(sheets_data)}")
 
                 # Удаляем старую структуру если работников нет
@@ -232,21 +239,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 rows_data = body.get('rows', [])
                 sheet_name = body.get('sheet_name', '')
                 headers_list = body.get('headers', [])
-                _o_id_raw = body.get('organization_id', org_id)
+                _o_id_raw = body.get('organization_id', '') or str(org_id or '')
                 _u_id_raw = body.get('user_id', '')
-                o_id = int(_o_id_raw) if _o_id_raw and str(_o_id_raw).strip() else None
-                uid = int(_u_id_raw) if _u_id_raw and str(_u_id_raw).strip() else None
+                o_id = int(_o_id_raw) if _o_id_raw and str(_o_id_raw).strip().isdigit() else None
+                uid = int(_u_id_raw) if _u_id_raw and str(_u_id_raw).strip().isdigit() else None
+                # Если org_id не передан — берём из профиля пользователя
+                if not o_id and uid:
+                    cur.execute(f"SELECT organization_id FROM {SCHEMA}.users WHERE id = %s", (uid,))
+                    row0 = cur.fetchone()
+                    if row0: o_id = row0[0]
                 file_name = body.get('file_name', 'registry.xlsx')
                 file_size = int(body.get('file_size', 0) or 0)
                 print(f"[import_sheet] sheet={sheet_name} rows={len(rows_data)} org={o_id} uid={uid}")
 
-                # Определяем ключевые поля
+                # Определяем ключевые поля (расширенный список синонимов)
                 fio_key = ''
                 sub_key = ''
                 pos_key = ''
-                fio_keys = {'фио', 'ф.и.о', 'ф.и.о.', 'фамилия имя отчество', 'фамилия'}
-                sub_keys = {'подразделение', 'отдел', 'цех', 'участок'}
-                pos_keys = {'должность', 'профессия'}
+                fio_keys = {'фио', 'ф.и.о', 'ф.и.о.', 'фамилия имя отчество', 'фамилия',
+                            'имя', 'работник', 'сотрудник', 'фамилия имя', 'полное имя'}
+                sub_keys = {'подразделение', 'отдел', 'цех', 'участок', 'структурное подразделение',
+                            'место работы', 'подразделение (цех, отдел)'}
+                pos_keys = {'должность', 'профессия', 'специальность', 'должность (профессия)'}
 
                 for h in headers_list:
                     hl = str(h).lower().strip()
@@ -257,7 +271,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if not pos_key and hl in pos_keys:
                         pos_key = h
 
-                print(f"[import_sheet] fio_key={fio_key} sub_key={sub_key} pos_key={pos_key}")
+                # Если fio_key не нашли — берём первую непустую колонку как ФИО
+                if not fio_key and headers_list:
+                    fio_key = headers_list[0]
+                    print(f"[import_sheet] fio_key not found, using first column: {fio_key}")
+
+                print(f"[import_sheet] fio_key={fio_key} sub_key={sub_key} pos_key={pos_key} headers={headers_list[:5]}")
 
                 imported = 0
                 updated = 0

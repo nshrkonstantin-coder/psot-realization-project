@@ -34,8 +34,12 @@ interface SheetInfo {
 
 const WorkersRegistryPage = () => {
   const navigate = useNavigate();
-  const orgId = localStorage.getItem('organizationId') || '';
-  const userId = localStorage.getItem('userId') || '';
+  // Пробуем несколько вариантов ключей
+  const orgId = localStorage.getItem('organizationId')
+    || localStorage.getItem('organization_id')
+    || localStorage.getItem('orgId')
+    || '';
+  const userId = localStorage.getItem('userId') || localStorage.getItem('user_id') || '';
   const userRole = localStorage.getItem('userRole') || '';
   const userDept = (localStorage.getItem('userDepartment') || '').toLowerCase();
   const isAdmin = userRole === 'superadmin' || userRole === 'admin';
