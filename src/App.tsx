@@ -12,6 +12,10 @@ import Icon from "@/components/ui/icon";
 import { useOrganizationSync } from "@/hooks/useOrganizationSync";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useAntiCopy } from "@/hooks/useAntiCopy";
+import { lockPage } from "@/hooks/usePageLock";
+
+// Страницы заблокированные от внешнего импорта по умолчанию
+lockPage('Периодичность МО');
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import GlobalThemeToggle from "@/components/GlobalThemeToggle";
 import AlertWidget from "@/components/AlertWidget";

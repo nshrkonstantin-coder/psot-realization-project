@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
+import PageLockBadge from '@/components/ui/PageLockBadge';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -246,7 +247,8 @@ const PeriodichnostMOPage = () => {
               <p className="text-slate-400 text-xs">{rows.length} позиций · МО 1 раз в 2 года</p>
             </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            <PageLockBadge pageKey="Периодичность МО" defaultLocked={true} />
             <Button variant="outline" size="sm" onClick={exportExcel} className="border-slate-600 text-slate-300 hover:bg-slate-700 h-8">
               <Icon name="Download" size={14} className="mr-1" /> Excel
             </Button>

@@ -5,6 +5,8 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
+import PageLockBadge from '@/components/ui/PageLockBadge';
+import { isPageLocked } from '@/hooks/usePageLock';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import QRCode from 'qrcode';
@@ -271,8 +273,14 @@ const WorkersRegistryPage = () => {
   const confirmImport = async () => {
     setUploadStep('importing');
     let totalImported = 0;
+    const skippedSheets: string[] = [];
     try {
       for (const [sheetName, sheetData] of Object.entries(parsedSheets)) {
+        // Пропускаем заблокированные листы
+        if (isPageLocked(sheetName)) {
+          skippedSheets.push(sheetName);
+          continue;
+        }
         const res = await fetch(WORKERS_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -289,6 +297,9 @@ const WorkersRegistryPage = () => {
         });
         const data = await res.json();
         if (data.success) totalImported += (data.imported || 0);
+      }
+      if (skippedSheets.length > 0) {
+        toast.info(`Пропущено (защита): ${skippedSheets.join(', ')}`);
       }
       toast.success(`Импортировано ${totalImported} записей по ${Object.keys(parsedSheets).length} листам`);
       setUploadStep('idle');
@@ -526,7 +537,8 @@ const WorkersRegistryPage = () => {
               <p className="text-slate-400 text-xs">{allWorkers.length} записей · {sheets.length} разделов</p>
             </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            {activeSheet && <PageLockBadge pageKey={activeSheet} />}
             <Button variant="outline" size="sm" onClick={startQrScanner} className="border-slate-600 text-slate-300 hover:bg-slate-700">
               <Icon name="QrCode" size={15} className="mr-1" /> Сканировать QR
             </Button>
