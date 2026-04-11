@@ -1032,6 +1032,14 @@ const OtManagementPage = () => {
                 onOrdersCreated={loadData}
               />
             </div>
+            {!loading && overdueCount > 0 && (
+              <div className="mb-4 p-3 bg-red-900/30 border border-red-500/50 rounded-xl flex items-center gap-3">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+                <p className="text-red-300 text-sm font-semibold">
+                  ⚠️ Внимание: {overdueCount} просроченных поручений — выделены красным в таблице
+                </p>
+              </div>
+            )}
             {loading ? (
               <div className="text-center py-8 text-slate-400">Загрузка...</div>
             ) : orders.length === 0 ? (
