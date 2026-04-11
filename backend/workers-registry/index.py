@@ -87,7 +87,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     f"""SELECT id, worker_number, qr_token, fio, subdivision, position_name, sheet_name, extra_data
                         FROM {SCHEMA}.wr_employees
                         WHERE {org_cond} AND archived = FALSE AND sheet_name = %s
-                        ORDER BY id""",
+                        ORDER BY sort_order, id""",
                     org_args + [sheet_name]
                 )
             else:
@@ -95,7 +95,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     f"""SELECT id, worker_number, qr_token, fio, subdivision, position_name, sheet_name, extra_data
                         FROM {SCHEMA}.wr_employees
                         WHERE {org_cond} AND archived = FALSE
-                        ORDER BY sheet_name, id""",
+                        ORDER BY sheet_name, sort_order, id""",
                     org_args
                 )
             rows = cur.fetchall()

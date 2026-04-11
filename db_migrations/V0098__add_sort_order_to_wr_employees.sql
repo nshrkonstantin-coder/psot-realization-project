@@ -1,0 +1,1 @@
+ALTER TABLE t_p80499285_psot_realization_pro.wr_employees ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
