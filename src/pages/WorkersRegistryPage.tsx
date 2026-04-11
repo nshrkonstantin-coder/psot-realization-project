@@ -140,9 +140,9 @@ const WorkersRegistryPage = () => {
     }
   }, [columns, sheets]);
 
-  const generateQr = useCallback(async (token: string): Promise<string> => {
+  const generateQr = useCallback(async (token: string, size = 80): Promise<string> => {
     const internalUrl = `${window.location.origin}/workers-registry?qr=${token}`;
-    try { return await QRCode.toDataURL(internalUrl, { width: 120, margin: 1 }); }
+    try { return await QRCode.toDataURL(internalUrl, { width: size, margin: 1, errorCorrectionLevel: 'M' }); }
     catch { return ''; }
   }, []);
 
@@ -347,42 +347,114 @@ const WorkersRegistryPage = () => {
     XLSX.writeFile(wb, 'реестр_работников.xlsx');
   };
 
-  // ── Печать QR визитки ─────────────────────────────────────────────────────
+  // ── HTML карточки для печати ──────────────────────────────────────────────
+  const cardHtml = (w: Worker, qr: string) => `
+    <div class="card">
+      <div class="qr-wrap"><img src="${qr}" alt="QR"/></div>
+      <div class="info">
+        <div class="num">${w.worker_number}</div>
+        <div class="fio">${w.fio}</div>
+        <div class="pos">${w.position || ''}</div>
+        <div class="sub">${w.subdivision || ''}</div>
+      </div>
+    </div>`;
+
+  const CARD_CSS = `
+    @page { size: A4 portrait; margin: 10mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #fff; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6mm;
+      padding: 0;
+    }
+    .card {
+      border: 1.5px solid #ccc;
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #fff;
+      page-break-inside: avoid;
+    }
+    .qr-wrap {
+      background: #fff;
+      padding: 6px 6px 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+    .qr-wrap img {
+      width: 100%;
+      max-width: 120px;
+      height: auto;
+      display: block;
+    }
+    .info {
+      padding: 5px 6px 7px;
+      text-align: center;
+      width: 100%;
+    }
+    .num { font-size: 8pt; color: #888; font-family: monospace; margin-bottom: 3px; }
+    .fio { font-size: 8.5pt; font-weight: bold; color: #111; margin-bottom: 2px; line-height: 1.2; }
+    .pos { font-size: 7.5pt; color: #555; line-height: 1.2; margin-bottom: 1px; }
+    .sub { font-size: 7pt; color: #0066cc; line-height: 1.2; }
+  `;
+
+  // ── Печать одной QR визитки ────────────────────────────────────────────────
   const printQrCard = async (worker: Worker) => {
-    const qr = qrImages[worker.qr_token] || await generateQr(worker.qr_token);
+    const qr = await generateQr(worker.qr_token, 200);
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.write(`<html><head><title>QR - ${worker.fio}</title>
-      <style>body{font-family:Arial;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}
-      .c{border:2px solid #333;border-radius:8px;padding:12px;width:190px;text-align:center}
-      .c img{width:120px;height:120px}.id{font-size:10px;color:#666;margin-top:4px}
-      .fio{font-size:11px;font-weight:bold;margin:4px 0}.pos{font-size:10px;color:#444}</style></head>
-      <body><div class="c"><img src="${qr}"/><div class="id">${worker.worker_number}</div>
-      <div class="fio">${worker.fio}</div><div class="pos">${worker.position}</div>
-      <div class="pos">${worker.subdivision}</div></div>
-      <script>window.onload=()=>{window.print();window.close()}</script></body></html>`);
+      <style>
+        @page { size: A4 portrait; margin: 30mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial; display: flex; justify-content: center; align-items: flex-start; padding-top: 20mm; background: #fff; }
+        .card { border: 2px solid #333; border-radius: 10px; width: 65mm; overflow: hidden; }
+        .qr-wrap { padding: 8px; background: #fff; display: flex; justify-content: center; }
+        .qr-wrap img { width: 49mm; height: 49mm; display: block; }
+        .info { padding: 8px 10px 10px; text-align: center; border-top: 1px solid #eee; }
+        .num { font-size: 9pt; color: #888; font-family: monospace; margin-bottom: 4px; }
+        .fio { font-size: 10pt; font-weight: bold; color: #111; margin-bottom: 3px; line-height: 1.3; }
+        .pos { font-size: 8.5pt; color: #555; margin-bottom: 2px; line-height: 1.2; }
+        .sub { font-size: 8pt; color: #0066cc; line-height: 1.2; }
+      </style></head>
+      <body>${cardHtml(worker, qr)}</body>
+      <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}</script></html>`);
     win.document.close();
   };
 
-  // ── Печать всех QR текущего листа ─────────────────────────────────────────
+  // ── Печать всех QR — 12 карточек на А4 ────────────────────────────────────
   const printAllQr = async () => {
-    const list = filtered;
-    const cards = await Promise.all(list.map(async w => {
-      const qr = qrImages[w.qr_token] || await generateQr(w.qr_token);
-      return `<div class="c"><img src="${qr}"/><div class="id">${w.worker_number}</div>
-        <div class="fio">${w.fio}</div><div class="pos">${w.position}</div>
-        <div class="pos">${w.subdivision}</div></div>`;
+    toast.info(`Генерирую QR коды (${filtered.length} шт.)...`);
+    const cards = await Promise.all(filtered.map(async w => {
+      const qr = await generateQr(w.qr_token, 200);
+      return cardHtml(w, qr);
     }));
+
+    // По 12 карточек на страницу (4 колонки × 3 ряда)
+    const pages: string[] = [];
+    for (let i = 0; i < cards.length; i += 12) {
+      const chunk = cards.slice(i, i + 12);
+      while (chunk.length < 12) chunk.push('<div class="card" style="border:none;"></div>');
+      pages.push(`<div class="grid">${chunk.join('')}</div>`);
+    }
+
     const win = window.open('', '_blank');
     if (!win) return;
-    win.document.write(`<html><head><title>QR реестр</title>
-      <style>body{font-family:Arial;margin:0;padding:16px}
-      .g{display:flex;flex-wrap:wrap;gap:10px}
-      .c{border:2px solid #333;border-radius:6px;padding:10px;width:170px;text-align:center}
-      .c img{width:110px;height:110px}.id{font-size:9px;color:#666}
-      .fio{font-size:10px;font-weight:bold;margin:3px 0}.pos{font-size:9px;color:#444}</style></head>
-      <body><div class="g">${cards.join('')}</div>
-      <script>window.onload=()=>{window.print();window.close()}</script></body></html>`);
+    win.document.write(`<html><head><title>QR реестр работников</title>
+      <style>
+        ${CARD_CSS}
+        .page-wrap { page-break-after: always; padding-bottom: 8mm; }
+        .page-wrap:last-child { page-break-after: avoid; }
+      </style></head>
+      <body>
+        ${pages.map((p, i) => `<div class="page-wrap" ${i === pages.length - 1 ? '' : ''}>${p}</div>`).join('')}
+      </body>
+      <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),1000)}</script></html>`);
     win.document.close();
   };
 
@@ -637,16 +709,25 @@ const WorkersRegistryPage = () => {
                     <td className="p-3">
                       <span className="text-xs text-blue-400 font-mono bg-blue-500/10 px-1.5 py-0.5 rounded">{w.worker_number}</span>
                     </td>
-                    <td className="p-3" onClick={e => e.stopPropagation()}>
+                    <td className="p-2" onClick={e => e.stopPropagation()}>
                       {qrImages[w.qr_token] ? (
                         <div className="flex items-center gap-1">
-                          <img src={qrImages[w.qr_token]} alt="QR" className="w-9 h-9 rounded" />
-                          <button onClick={() => printQrCard(w)} className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition" title="Печать">
-                            <Icon name="Printer" size={13} />
+                          <img
+                            src={qrImages[w.qr_token]}
+                            alt="QR"
+                            style={{ width: 36, height: 36, imageRendering: 'pixelated' }}
+                            className="rounded border border-slate-600"
+                          />
+                          <button
+                            onClick={() => printQrCard(w)}
+                            className="p-1 rounded hover:bg-slate-700 text-slate-500 hover:text-white transition"
+                            title="Печать визитки"
+                          >
+                            <Icon name="Printer" size={12} />
                           </button>
                         </div>
                       ) : (
-                        <div className="w-9 h-9 bg-slate-700 rounded animate-pulse" />
+                        <div style={{ width: 36, height: 36 }} className="bg-slate-700 rounded animate-pulse" />
                       )}
                     </td>
                     {activeSheet === '__all__' ? (
@@ -701,8 +782,18 @@ const WorkersRegistryPage = () => {
               <div className="flex items-center gap-2">
                 {qrImages[selectedWorker.qr_token] && (
                   <div className="text-center">
-                    <img src={qrImages[selectedWorker.qr_token]} alt="QR" className="w-16 h-16 rounded" />
-                    <button onClick={() => printQrCard(selectedWorker as unknown as Worker)} className="text-xs text-blue-400 hover:text-blue-300 mt-0.5 block w-full">Печать</button>
+                    <img
+                      src={qrImages[selectedWorker.qr_token]}
+                      alt="QR"
+                      style={{ width: 72, height: 72, imageRendering: 'pixelated' }}
+                      className="rounded border border-slate-600 mx-auto"
+                    />
+                    <button
+                      onClick={() => printQrCard(selectedWorker as unknown as Worker)}
+                      className="text-xs text-blue-400 hover:text-blue-300 mt-1 flex items-center gap-1 mx-auto"
+                    >
+                      <Icon name="Printer" size={11} />Печать
+                    </button>
                   </div>
                 )}
                 <button onClick={() => { setSelectedWorker(null); setEditMode(false); }} className="p-2 rounded-lg hover:bg-slate-700 text-slate-400 ml-1">
