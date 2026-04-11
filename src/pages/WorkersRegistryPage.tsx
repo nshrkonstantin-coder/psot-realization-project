@@ -81,9 +81,9 @@ const WorkersRegistryPage = () => {
     if (!userId) { navigate('/'); return; }
     if (!isOtipb) { navigate('/dashboard'); return; }
 
-    // Проверяем QR из URL
+    // Проверяем QR из URL (ref= новый формат, qr= старый формат)
     const params = new URLSearchParams(window.location.search);
-    const token = params.get('qr');
+    const token = params.get('ref') || params.get('qr');
     if (token) {
       fetch(`${WORKERS_API}?action=qr&token=${token}`)
         .then(r => r.json())
@@ -117,9 +117,11 @@ const WorkersRegistryPage = () => {
   };
 
   const generateQr = useCallback(async (token: string): Promise<string> => {
-    const internalUrl = `${window.location.origin}/workers-registry?qr=${token}`;
+    // Внешнее сканирование (телефон) → открывает погоду
+    // Системное сканирование (камера в программе) → читает ref= и открывает карточку
+    const externalUrl = `https://pogoda.mail.ru/prognoz/?ref=${token}`;
     try {
-      return await QRCode.toDataURL(internalUrl, { width: 120, margin: 1 });
+      return await QRCode.toDataURL(externalUrl, { width: 160, margin: 1, errorCorrectionLevel: 'M' });
     } catch { return ''; }
   }, []);
 
@@ -389,40 +391,91 @@ const WorkersRegistryPage = () => {
     }, 400);
   };
 
-  // ── Печать QR визитки ─────────────────────────────────────────────────────
+  // ── CSS для печати QR карточек (12 на А4) ────────────────────────────────
+  const QR_PRINT_CSS = `
+    @page { size: A4 portrait; margin: 8mm; }
+    @media print { body { margin: 0; } }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #fff; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 4mm;
+      width: 100%;
+      height: 277mm;
+    }
+    .card {
+      border: 1.5px solid #333;
+      border-radius: 5px;
+      padding: 4px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      page-break-inside: avoid;
+    }
+    .card img { width: 55mm; height: 55mm; display: block; }
+    .id { font-size: 7pt; color: #555; margin-top: 2px; font-family: monospace; }
+    .fio { font-size: 7.5pt; font-weight: bold; margin: 2px 0; line-height: 1.2; }
+    .pos { font-size: 6.5pt; color: #444; line-height: 1.2; }
+  `;
+
+  // ── Печать одной QR визитки ────────────────────────────────────────────────
   const printQrCard = async (worker: Worker) => {
     const qr = qrImages[worker.qr_token] || await generateQr(worker.qr_token);
+    const card = `<div class="card">
+      <img src="${qr}"/>
+      <div class="id">${worker.worker_number}</div>
+      <div class="fio">${worker.fio}</div>
+      <div class="pos">${worker.position || ''}</div>
+      <div class="pos">${worker.subdivision || ''}</div>
+    </div>`;
     printHtml(`<html><head><title>QR - ${worker.fio}</title>
       <style>
+        @page { size: A4 portrait; margin: 20mm; }
         @media print { body { margin: 0; } }
-        body{font-family:Arial;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#fff}
-        .card{border:2px solid #333;border-radius:8px;padding:12px;width:200px;text-align:center}
-        .card img{width:120px;height:120px}.id{font-size:10px;color:#666;margin-top:4px}
-        .fio{font-size:11px;font-weight:bold;margin:4px 0}.pos{font-size:10px;color:#444}
+        body { font-family: Arial; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #fff; }
+        .card { border: 2px solid #333; border-radius: 8px; padding: 10px; width: 65mm; text-align: center; }
+        .card img { width: 55mm; height: 55mm; }
+        .id { font-size: 8pt; color: #555; margin-top: 4px; font-family: monospace; }
+        .fio { font-size: 9pt; font-weight: bold; margin: 4px 0; }
+        .pos { font-size: 8pt; color: #444; }
       </style></head>
-      <body><div class="card"><img src="${qr}"/>
-      <div class="id">${worker.worker_number}</div><div class="fio">${worker.fio}</div>
-      <div class="pos">${worker.position}</div><div class="pos">${worker.subdivision}</div>
-      </div></body></html>`);
+      <body>${card}</body></html>`);
   };
 
+  // ── Печать всех QR — 12 карточек на страницу А4 ───────────────────────────
   const printAllQr = async () => {
+    toast.info('Подготовка QR кодов...');
     const cards = await Promise.all(filtered.map(async w => {
       const qr = qrImages[w.qr_token] || await generateQr(w.qr_token);
-      return `<div class="card"><img src="${qr}"/>
-        <div class="id">${w.worker_number}</div><div class="fio">${w.fio}</div>
-        <div class="pos">${w.position}</div><div class="pos">${w.subdivision}</div></div>`;
+      return `<div class="card">
+        <img src="${qr}"/>
+        <div class="id">${w.worker_number}</div>
+        <div class="fio">${w.fio}</div>
+        <div class="pos">${w.position || ''}</div>
+        <div class="pos">${w.subdivision || ''}</div>
+      </div>`;
     }));
-    printHtml(`<html><head><title>QR реестр</title>
-      <style>
-        @media print { body { margin: 0; } }
-        body{font-family:Arial;margin:0;padding:16px;background:#fff}
-        .grid{display:flex;flex-wrap:wrap;gap:12px}
-        .card{border:2px solid #333;border-radius:8px;padding:10px;width:180px;text-align:center}
-        .card img{width:110px;height:110px}.id{font-size:9px;color:#666}
-        .fio{font-size:10px;font-weight:bold;margin:3px 0}.pos{font-size:9px;color:#444}
+
+    // Разбиваем по 12 штук на страницу
+    const pages: string[] = [];
+    for (let i = 0; i < cards.length; i += 12) {
+      const pageCards = cards.slice(i, i + 12);
+      // Добиваем пустыми карточками до 12 если нужно
+      while (pageCards.length < 12) pageCards.push('<div class="card" style="border:1.5px dashed #ddd;"></div>');
+      pages.push(`<div class="grid">${pageCards.join('')}</div>`);
+    }
+
+    printHtml(`<html><head><title>QR реестр работников</title>
+      <style>${QR_PRINT_CSS}
+        .page-break { page-break-after: always; }
+        .grid:not(:last-child) { page-break-after: always; }
       </style></head>
-      <body><div class="grid">${cards.join('')}</div></body></html>`);
+      <body>${pages.join('<div class="page-break"></div>')}</body></html>`);
   };
 
   // ── QR сканер ─────────────────────────────────────────────────────────────
@@ -442,7 +495,8 @@ const WorkersRegistryPage = () => {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(imageData.data, imageData.width, imageData.height);
         if (code) {
-          const match = code.data.match(/[?&]qr=([^&]+)/);
+          // Ищем токен из ref= (URL погоды) или qr= (старый формат)
+          const match = code.data.match(/[?&]ref=([^&]+)/) || code.data.match(/[?&]qr=([^&]+)/);
           if (match) {
             stopQrScanner();
             fetch(`${WORKERS_API}?action=qr&token=${match[1]}`)

@@ -1,0 +1,2 @@
+ALTER TABLE t_p80499285_psot_realization_pro.wr_employees ADD COLUMN IF NOT EXISTS sheet_name VARCHAR(255);
+ALTER TABLE t_p80499285_psot_realization_pro.workers_registry_files ADD COLUMN IF NOT EXISTS sheets_list JSONB;
