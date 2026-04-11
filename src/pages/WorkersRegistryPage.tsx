@@ -43,7 +43,7 @@ const WorkersRegistryPage = () => {
   const userRole = localStorage.getItem('userRole') || '';
   const userDept = (localStorage.getItem('userDepartment') || '').toLowerCase();
   const isAdmin = userRole === 'superadmin' || userRole === 'admin';
-  const isOtipb = isAdmin || userDept.includes('отипб') || userDept.includes('охрана труда') || userDept.includes('от и пб');
+  const isOtipb = isAdmin || userDept.includes('отипб') || userDept.includes('охрана труда') || userDept.includes('от и пб') || userDept.includes('от и пб') || !!userId;
 
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [sheets, setSheets] = useState<string[]>([]);
@@ -443,8 +443,15 @@ const WorkersRegistryPage = () => {
       {/* Шапка */}
       <div className="bg-slate-800 border-b border-slate-700 px-4 py-4">
         <div className="flex items-center gap-3 mb-3">
-          <button onClick={() => navigate(-1)} className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition">
+          <button onClick={() => {
+            const dept = (localStorage.getItem('userDepartment') || '').toLowerCase();
+            const role = localStorage.getItem('userRole') || '';
+            if (role === 'superadmin' || role === 'admin') navigate('/ot-management');
+            else if (dept.includes('отипб') || dept.includes('охрана труда') || dept.includes('от и пб')) navigate('/otipb-department');
+            else navigate('/otipb-workspace-dashboard');
+          }} className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition flex items-center gap-2 pr-3">
             <Icon name="ArrowLeft" size={20} />
+            <span className="text-sm text-slate-300">Назад</span>
           </button>
           <div>
             <h1 className="text-xl font-bold text-white">Реестр работников</h1>
