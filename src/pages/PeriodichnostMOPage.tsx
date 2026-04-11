@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,13 +36,14 @@ const PeriodichnostMOPage = () => {
   const [newShort,  setNewShort]  = useState('');
   const [newFull,   setNewFull]   = useState('');
 
-  // Drag-and-drop
-  const dragIdx   = useRef<number | null>(null);
+  // Drag state (pointer-based)
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
+  const rowsRef                 = useRef<Row[]>([]);
+  const reorderTimer            = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tbodyRef                = useRef<HTMLTableSectionElement>(null);
 
-  // Сохранение порядка — дебаунс
-  const reorderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
@@ -72,37 +73,43 @@ const PeriodichnostMOPage = () => {
     }, 600);
   };
 
-  // ── Drag-and-drop handlers ─────────────────────────────────────────────────
-  const onDragStart = (idx: number) => {
-    dragIdx.current = idx;
-  };
+  const getRowIdxFromY = useCallback((clientY: number): number | null => {
+    if (!tbodyRef.current) return null;
+    const trs = Array.from(tbodyRef.current.querySelectorAll('tr'));
+    for (let i = 0; i < trs.length; i++) {
+      const rect = trs[i].getBoundingClientRect();
+      if (clientY >= rect.top && clientY <= rect.bottom) return i;
+    }
+    return null;
+  }, []);
 
-  const onDragOver = (e: React.DragEvent, idx: number) => {
-    e.preventDefault();
+  const onPointerDown = (e: React.PointerEvent, idx: number) => {
+    if (e.button !== 0) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setDragFrom(idx);
     setDragOver(idx);
   };
 
-  const onDrop = (e: React.DragEvent, toIdx: number) => {
-    e.preventDefault();
-    const fromIdx = dragIdx.current;
-    if (fromIdx === null || fromIdx === toIdx) {
-      dragIdx.current = null;
-      setDragOver(null);
-      return;
-    }
-    const newRows = [...rows];
-    const [moved] = newRows.splice(fromIdx, 1);
-    newRows.splice(toIdx, 0, moved);
-    setRows(newRows);
-    saveOrder(newRows);
-    dragIdx.current = null;
-    setDragOver(null);
-  };
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    const toIdx = getRowIdxFromY(e.clientY);
+    if (toIdx !== null) setDragOver(toIdx);
+  }, [getRowIdxFromY]);
 
-  const onDragEnd = () => {
-    dragIdx.current = null;
-    setDragOver(null);
-  };
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    setDragFrom(prev => {
+      if (prev === null) return null;
+      const toIdx = getRowIdxFromY(e.clientY);
+      if (toIdx !== null && toIdx !== prev) {
+        const newRows = [...rowsRef.current];
+        const [moved] = newRows.splice(prev, 1);
+        newRows.splice(toIdx, 0, moved);
+        setRows(newRows);
+        saveOrder(newRows);
+      }
+      setDragOver(null);
+      return null;
+    });
+  }, [getRowIdxFromY]);
 
   // ── Заголовок ─────────────────────────────────────────────────────────────
   const startEditTitle = () => { setTitleDraft(title); setEditingTitle(true); };
@@ -315,7 +322,7 @@ const PeriodichnostMOPage = () => {
           </div>
         ) : (
           <div className="rounded-lg border border-slate-700 overflow-hidden shadow-xl">
-            <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+            <table className="w-full text-sm select-none" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr className="bg-slate-700 border-b border-slate-600">
                   <th className="w-8 p-2 border-r border-slate-600"></th>
@@ -325,30 +332,37 @@ const PeriodichnostMOPage = () => {
                   <th className="p-3 w-20 border-l border-slate-600"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody
+                ref={tbodyRef}
+                onPointerMove={dragFrom !== null ? onPointerMove : undefined}
+                onPointerUp={dragFrom !== null ? onPointerUp : undefined}
+                onPointerCancel={() => { setDragFrom(null); setDragOver(null); }}
+              >
                 {rows.map((row, idx) => {
-                  const isDragging  = dragIdx.current === idx;
-                  const isDropTarget = dragOver === idx && dragIdx.current !== idx;
+                  const isActive     = dragFrom === idx;
+                  const isDropTarget = dragOver === idx && dragFrom !== null && dragFrom !== idx;
 
                   return (
                     <tr
                       key={row.id}
-                      draggable={editingId !== row.id}
-                      onDragStart={() => onDragStart(idx)}
-                      onDragOver={e => onDragOver(e, idx)}
-                      onDrop={e => onDrop(e, idx)}
-                      onDragEnd={onDragEnd}
                       className={[
                         'group border-b border-slate-700/60 transition-colors',
+                        isActive      ? 'opacity-40 bg-cyan-900/30' :
+                        isDropTarget  ? 'bg-cyan-800/20' :
                         idx % 2 === 0 ? 'bg-slate-900' : 'bg-slate-800/50',
-                        editingId === row.id ? 'bg-cyan-950/40' : 'hover:bg-slate-800',
-                        isDragging ? 'opacity-40' : '',
-                        isDropTarget ? 'ring-2 ring-inset ring-cyan-500' : '',
+                        editingId === row.id ? 'bg-cyan-950/40' :
+                          (!isActive && !isDropTarget ? 'hover:bg-slate-800' : ''),
+                        isDropTarget ? 'border-t-2 border-t-cyan-400' : '',
                       ].join(' ')}
                     >
                       {/* Ручка перетаскивания */}
-                      <td className="w-8 text-center border-r border-slate-700/50 cursor-grab active:cursor-grabbing select-none">
-                        <Icon name="GripVertical" size={16} className="text-slate-600 group-hover:text-slate-400 transition mx-auto" />
+                      <td
+                        className="w-8 text-center border-r border-slate-700/50 select-none"
+                        style={{ cursor: dragFrom !== null ? 'grabbing' : 'grab' }}
+                        onPointerDown={editingId !== row.id ? (e) => onPointerDown(e, idx) : undefined}
+                      >
+                        <Icon name="GripVertical" size={16}
+                          className={`mx-auto transition ${isActive ? 'text-cyan-400' : 'text-slate-600 group-hover:text-slate-300'}`} />
                       </td>
 
                       {/* № */}
