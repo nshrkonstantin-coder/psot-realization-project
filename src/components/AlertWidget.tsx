@@ -42,9 +42,14 @@ const AlertWidget = () => {
     const dept = (localStorage.getItem('userDepartment') || '').toLowerCase();
 
     // Показываем виджет: superadmin, admin — видят все поручения отдела
-    // Специалисты ОТиПБ (любое название подразделения с "отипб" или "охрана труда") — свои поручения
+    // Начальник/руководитель ОТиПБ — видит все поручения отдела (даже с ролью user)
+    // Специалисты ОТиПБ — видят только свои поручения
+    const pos = (localStorage.getItem('userPosition') || '').toLowerCase();
     const isAdmin = role === 'superadmin' || role === 'admin';
     const isOtipbSpec = dept.includes('отипб') || dept.includes('охрана труда') || dept.includes('от и пб');
+    const isOtipbHead = isOtipbSpec && (
+      pos.includes('начальник') || pos.includes('руководитель') || pos.includes('заместитель') || pos.includes('главный')
+    );
 
     if (!userId || (!isAdmin && !isOtipbSpec)) {
       setLoaded(true);
@@ -53,8 +58,9 @@ const AlertWidget = () => {
 
     const params = new URLSearchParams();
     if (orgId) params.set('organization_id', orgId);
-    // Специалисты видят только свои поручения, admins — все по организации
-    if (!isAdmin && isOtipbSpec) params.set('user_id', userId);
+    // Начальники/руководители ОТиПБ и admins видят все поручения — без user_id фильтра
+    // Обычные специалисты ОТиПБ — только свои поручения
+    if (!isAdmin && !isOtipbHead && isOtipbSpec) params.set('user_id', userId);
 
     fetch(`${OT_ORDERS_URL}?${params.toString()}`)
       .then(r => r.json())
