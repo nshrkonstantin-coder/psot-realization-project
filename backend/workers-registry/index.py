@@ -84,23 +84,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
             if sheet_name:
                 cur.execute(
-                    f"""SELECT id, worker_number, qr_token, fio, subdivision, position_name, sheet_name
+                    f"""SELECT id, worker_number, qr_token, fio, subdivision, position_name, sheet_name, extra_data
                         FROM {SCHEMA}.wr_employees
                         WHERE {org_cond} AND archived = FALSE AND sheet_name = %s
-                        ORDER BY fio""",
+                        ORDER BY id""",
                     org_args + [sheet_name]
                 )
             else:
                 cur.execute(
-                    f"""SELECT id, worker_number, qr_token, fio, subdivision, position_name, sheet_name
+                    f"""SELECT id, worker_number, qr_token, fio, subdivision, position_name, sheet_name, extra_data
                         FROM {SCHEMA}.wr_employees
                         WHERE {org_cond} AND archived = FALSE
-                        ORDER BY sheet_name, fio""",
+                        ORDER BY sheet_name, id""",
                     org_args
                 )
             rows = cur.fetchall()
             workers = [{'id': r[0], 'worker_number': r[1], 'qr_token': r[2],
-                        'fio': r[3], 'subdivision': r[4], 'position': r[5], 'sheet_name': r[6]}
+                        'fio': r[3], 'subdivision': r[4], 'position': r[5], 'sheet_name': r[6],
+                        'extra_data': r[7] or {}}
                        for r in rows]
             return {'statusCode': 200, 'headers': CORS,
                     'body': json.dumps({'success': True, 'workers': workers}, ensure_ascii=False)}
