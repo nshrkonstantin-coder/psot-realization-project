@@ -438,34 +438,32 @@ const WorkersRegistryPage = () => {
     <div className="min-h-screen bg-slate-900 text-slate-100">
       {/* Шапка */}
       <div className="bg-slate-800 border-b border-slate-700 px-4 py-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition">
-              <Icon name="ArrowLeft" size={20} />
-            </button>
-            <div>
-              <h1 className="text-xl font-bold text-white">Реестр работников</h1>
-              <p className="text-slate-400 text-xs">{workers.length} работников · {sheets.length} раздел(ов)</p>
-            </div>
+        <div className="flex items-center gap-3 mb-3">
+          <button onClick={() => navigate(-1)} className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition">
+            <Icon name="ArrowLeft" size={20} />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-white">Реестр работников</h1>
+            <p className="text-slate-400 text-xs">{workers.length} работников · {sheets.length} раздел(ов)</p>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={startQrScanner} className="border-slate-600 text-slate-300 hover:bg-slate-700">
-              <Icon name="QrCode" size={15} className="mr-1" />Сканировать
-            </Button>
-            <Button variant="outline" size="sm" onClick={exportExcel} className="border-slate-600 text-slate-300 hover:bg-slate-700">
-              <Icon name="Download" size={15} className="mr-1" />Excel
-            </Button>
-            {isOtipb && (
-              <>
-                <Button size="sm" onClick={() => setShowAddForm(true)} className="bg-blue-600 hover:bg-blue-700">
-                  <Icon name="UserPlus" size={15} className="mr-1" />Добавить
-                </Button>
-                <Button size="sm" onClick={() => fileInputRef.current?.click()} className="bg-green-600 hover:bg-green-700">
-                  <Icon name="Upload" size={15} className="mr-1" />Загрузить Excel
-                </Button>
-              </>
-            )}
-          </div>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={startQrScanner} className="border-slate-600 text-slate-300 hover:bg-slate-700">
+            <Icon name="QrCode" size={15} className="mr-1" />Сканировать
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportExcel} className="border-slate-600 text-slate-300 hover:bg-slate-700">
+            <Icon name="Download" size={15} className="mr-1" />Выгрузить Excel
+          </Button>
+          {isOtipb && (
+            <>
+              <Button size="sm" onClick={() => setShowAddForm(true)} className="bg-blue-600 hover:bg-blue-700">
+                <Icon name="UserPlus" size={15} className="mr-1" />Добавить работника
+              </Button>
+              <Button size="sm" onClick={() => fileInputRef.current?.click()} className="bg-green-600 hover:bg-green-700">
+                <Icon name="Upload" size={15} className="mr-1" />Загрузить Excel
+              </Button>
+            </>
+          )}
         </div>
         <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.xlsm" className="hidden" onChange={handleFileSelect} />
       </div>
