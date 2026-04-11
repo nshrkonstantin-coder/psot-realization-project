@@ -5,6 +5,22 @@ import base64
 import psycopg2
 from typing import Dict, Any
 
+
+def next_worker_number(cur, schema: str) -> str:
+    """
+    Возвращает следующий уникальный №ID формата WR-XXXXX.
+    Берёт MAX существующего числового суффикса (включая archived)
+    и прибавляет 1 — номер никогда не переиспользуется.
+    """
+    cur.execute(
+        f"""SELECT MAX(CAST(SUBSTRING(worker_number FROM 4) AS INTEGER))
+            FROM {schema}.wr_employees
+            WHERE worker_number ~ '^WR-[0-9]+$'"""
+    )
+    row = cur.fetchone()
+    current_max = row[0] if row and row[0] else 0
+    return f"WR-{current_max + 1:05d}"
+
 SCHEMA = 't_p80499285_psot_realization_pro'
 CORS = {
     'Content-Type': 'application/json',
@@ -280,12 +296,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             (subdiv_val, pos_val, json.dumps(extra, ensure_ascii=False), existing[0])
                         )
                     else:
-                        cur.execute(
-                            f"SELECT COUNT(*) FROM {SCHEMA}.wr_employees WHERE archived = FALSE",
-                            ()
-                        )
-                        count = cur.fetchone()[0] + 1
-                        worker_number = f"WR-{count:05d}"
+                        worker_number = next_worker_number(cur, SCHEMA)
                         qr_token = str(uuid.uuid4()).replace('-', '')[:32]
 
                         cur.execute(
@@ -336,9 +347,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     return {'statusCode': 400, 'headers': CORS,
                             'body': json.dumps({'success': False, 'error': 'ФИО обязательно'})}
 
-                cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.wr_employees WHERE archived = FALSE")
-                count = cur.fetchone()[0] + 1
-                worker_number = f"WR-{count:05d}"
+                worker_number = next_worker_number(cur, SCHEMA)
                 qr_token = str(uuid.uuid4()).replace('-', '')[:32]
 
                 cur.execute(
