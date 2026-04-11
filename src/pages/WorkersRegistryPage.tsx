@@ -598,19 +598,27 @@ const WorkersRegistryPage = () => {
               const c = SHEET_COLORS[sheet] || { bg: 'from-slate-600 to-slate-700', border: 'border-slate-500', text: 'text-slate-300', icon: 'Table' };
               const isActive = activeSheet === sheet;
               const count = allWorkers.filter(w => w.sheet_name === sheet).length;
+              // Периодичность МО — отдельная страница-справочник
+              const isSpecial = sheet === 'Периодичность МО';
               return (
                 <button
                   key={sheet}
-                  onClick={() => { setActiveSheet(sheet); setSearch(''); }}
+                  onClick={() => {
+                    if (isSpecial) { navigate('/periodichnost-mo'); return; }
+                    setActiveSheet(sheet); setSearch('');
+                  }}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 transition-all font-medium text-sm ${
-                    isActive
-                      ? `bg-gradient-to-r ${c.bg} border-transparent text-white shadow-lg scale-105`
-                      : `bg-slate-800 ${c.border} ${c.text} hover:scale-102 hover:bg-slate-750`
+                    isSpecial
+                      ? 'bg-slate-800 border-cyan-600/50 text-cyan-400 hover:bg-cyan-900/20 hover:border-cyan-500'
+                      : isActive
+                        ? `bg-gradient-to-r ${c.bg} border-transparent text-white shadow-lg scale-105`
+                        : `bg-slate-800 ${c.border} ${c.text} hover:scale-102 hover:bg-slate-750`
                   }`}
                 >
-                  <Icon name={c.icon as Parameters<typeof Icon>[0]['name']} size={16} />
+                  <Icon name={isSpecial ? 'Stethoscope' : c.icon as Parameters<typeof Icon>[0]['name']} size={16} />
                   <span>{sheet}</span>
-                  {count > 0 && (
+                  {isSpecial && <Icon name="ExternalLink" size={12} className="opacity-60" />}
+                  {!isSpecial && count > 0 && (
                     <span className={`text-xs px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20' : 'bg-slate-700'}`}>
                       {count}
                     </span>

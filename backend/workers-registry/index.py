@@ -385,6 +385,51 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True}, ensure_ascii=False)}
 
+            # ── delete_row: пометить строку как archived ──────────────────────
+            if action_post == 'delete_row':
+                wid = body.get('id')
+                cur.execute(
+                    f"UPDATE {SCHEMA}.wr_employees SET archived = TRUE WHERE id = %s",
+                    (wid,)
+                )
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True}, ensure_ascii=False)}
+
+            # ── update_row: обновить fio + extra_data ────────────────────────
+            if action_post == 'update_row':
+                wid = body.get('id')
+                fio = body.get('fio', '').strip()
+                extra = body.get('extra_data', {})
+                cur.execute(
+                    f"""UPDATE {SCHEMA}.wr_employees
+                        SET fio = %s, extra_data = %s, updated_at = NOW()
+                        WHERE id = %s""",
+                    (fio, json.dumps(extra, ensure_ascii=False), wid)
+                )
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True}, ensure_ascii=False)}
+
+            # ── add_row: добавить строку в справочник ────────────────────────
+            if action_post == 'add_row':
+                sheet_name = body.get('sheet_name', '')
+                fio = body.get('fio', '').strip()
+                extra = body.get('extra_data', {})
+                if not fio:
+                    return {'statusCode': 400, 'headers': CORS,
+                            'body': json.dumps({'success': False, 'error': 'Значение обязательно'})}
+                cur.execute(
+                    f"""INSERT INTO {SCHEMA}.wr_employees
+                        (organization_id, worker_number, qr_token, fio, extra_data, sheet_name)
+                        VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
+                    (o_id, '', '', fio, json.dumps(extra, ensure_ascii=False), sheet_name)
+                )
+                new_id = cur.fetchone()[0]
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True, 'id': new_id}, ensure_ascii=False)}
+
         return {'statusCode': 400, 'headers': CORS,
                 'body': json.dumps({'success': False, 'error': 'Неизвестный запрос'})}
 

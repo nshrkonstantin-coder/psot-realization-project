@@ -91,6 +91,7 @@ import ExcelMailSenderPage from "./pages/ExcelMailSenderPage";
 import OtManagementPage from "./pages/OtManagementPage";
 import OtipbSpecialistPage from "./pages/OtipbSpecialistPage";
 import WorkersRegistryPage from "./pages/WorkersRegistryPage";
+import PeriodichnostMOPage from "./pages/PeriodichnostMOPage";
 import NotFound from "./pages/NotFound";
 import UnderDevelopment from "./pages/UnderDevelopment";
 import ExportCodePage from "./pages/ExportCodePage";
@@ -239,6 +240,7 @@ const App = () => {
           <Route path="/ot-management" element={<OtManagementPage />} />
           <Route path="/otipb-specialist" element={<OtipbSpecialistPage />} />
           <Route path="/workers-registry" element={<WorkersRegistryPage />} />
+          <Route path="/periodichnost-mo" element={<PeriodichnostMOPage />} />
           <Route path="/export-code" element={<ExportCodePage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<UnderDevelopment />} />
