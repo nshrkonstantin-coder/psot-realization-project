@@ -351,21 +351,40 @@ const WorkersRegistryPage = () => {
     XLSX.writeFile(wb, 'реестр_работников.xlsx');
   };
 
+  // ── Печать через скрытый iframe (обход блокировки popup) ──────────────────
+  const printHtml = (html: string) => {
+    const existing = document.getElementById('print-iframe');
+    if (existing) existing.remove();
+    const iframe = document.createElement('iframe');
+    iframe.id = 'print-iframe';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:800px;height:600px;border:none;';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    }, 400);
+  };
+
   // ── Печать QR визитки ─────────────────────────────────────────────────────
   const printQrCard = async (worker: Worker) => {
     const qr = qrImages[worker.qr_token] || await generateQr(worker.qr_token);
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`<html><head><title>QR - ${worker.fio}</title>
-      <style>body{font-family:Arial;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}
-      .card{border:2px solid #333;border-radius:8px;padding:12px;width:200px;text-align:center}
-      .card img{width:120px;height:120px}.id{font-size:10px;color:#666;margin-top:4px}
-      .fio{font-size:11px;font-weight:bold;margin:4px 0}.pos{font-size:10px;color:#444}</style></head>
+    printHtml(`<html><head><title>QR - ${worker.fio}</title>
+      <style>
+        @media print { body { margin: 0; } }
+        body{font-family:Arial;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#fff}
+        .card{border:2px solid #333;border-radius:8px;padding:12px;width:200px;text-align:center}
+        .card img{width:120px;height:120px}.id{font-size:10px;color:#666;margin-top:4px}
+        .fio{font-size:11px;font-weight:bold;margin:4px 0}.pos{font-size:10px;color:#444}
+      </style></head>
       <body><div class="card"><img src="${qr}"/>
       <div class="id">${worker.worker_number}</div><div class="fio">${worker.fio}</div>
-      <div class="pos">${worker.position}</div><div class="pos">${worker.subdivision}</div></div>
-      <script>window.onload=()=>{window.print();window.close()}</script></body></html>`);
-    win.document.close();
+      <div class="pos">${worker.position}</div><div class="pos">${worker.subdivision}</div>
+      </div></body></html>`);
   };
 
   const printAllQr = async () => {
@@ -375,16 +394,16 @@ const WorkersRegistryPage = () => {
         <div class="id">${w.worker_number}</div><div class="fio">${w.fio}</div>
         <div class="pos">${w.position}</div><div class="pos">${w.subdivision}</div></div>`;
     }));
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`<html><head><title>QR реестр</title>
-      <style>body{font-family:Arial;margin:0;padding:16px}.grid{display:flex;flex-wrap:wrap;gap:12px}
-      .card{border:2px solid #333;border-radius:8px;padding:10px;width:180px;text-align:center}
-      .card img{width:110px;height:110px}.id{font-size:9px;color:#666}
-      .fio{font-size:10px;font-weight:bold;margin:3px 0}.pos{font-size:9px;color:#444}</style></head>
-      <body><div class="grid">${cards.join('')}</div>
-      <script>window.onload=()=>{window.print();window.close()}</script></body></html>`);
-    win.document.close();
+    printHtml(`<html><head><title>QR реестр</title>
+      <style>
+        @media print { body { margin: 0; } }
+        body{font-family:Arial;margin:0;padding:16px;background:#fff}
+        .grid{display:flex;flex-wrap:wrap;gap:12px}
+        .card{border:2px solid #333;border-radius:8px;padding:10px;width:180px;text-align:center}
+        .card img{width:110px;height:110px}.id{font-size:9px;color:#666}
+        .fio{font-size:10px;font-weight:bold;margin:3px 0}.pos{font-size:9px;color:#444}
+      </style></head>
+      <body><div class="grid">${cards.join('')}</div></body></html>`);
   };
 
   // ── QR сканер ─────────────────────────────────────────────────────────────
@@ -727,7 +746,11 @@ const WorkersRegistryPage = () => {
                     <InfoRow label="Подразделение" value={selectedWorker.subdivision} />
                     <InfoRow label="Должность" value={selectedWorker.position} />
                     {Object.entries(selectedWorker.extra_data)
-                      .filter(([k]) => !['fio', 'subdivision', 'position'].includes(k))
+                      .filter(([k]) => {
+                        const kl = k.toLowerCase().trim();
+                        return !['fio', 'subdivision', 'position', 'фио', 'ф.и.о', 'ф.и.о.',
+                          'подразделение', 'должность', 'профессия'].includes(kl);
+                      })
                       .map(([k, v]) => <InfoRow key={k} label={k} value={String(v)} />)}
                   </div>
                   {isOtipb && (
