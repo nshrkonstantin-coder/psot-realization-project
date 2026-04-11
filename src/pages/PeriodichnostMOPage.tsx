@@ -36,6 +36,10 @@ const PeriodichnostMOPage = () => {
   const [newShort,  setNewShort]  = useState('');
   const [newFull,   setNewFull]   = useState('');
 
+  // Drag-and-drop
+  const dragIdx   = useRef<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+
   // Сохранение порядка — дебаунс
   const reorderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -57,6 +61,49 @@ const PeriodichnostMOPage = () => {
     finally  { setLoading(false); }
   };
 
+  const saveOrder = (newRows: Row[]) => {
+    if (reorderTimer.current) clearTimeout(reorderTimer.current);
+    reorderTimer.current = setTimeout(() => {
+      const orders = newRows.map((r, i) => ({ id: r.id, sort_order: i + 1 }));
+      fetch(API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reorder', orders })
+      }).catch(() => toast.error('Ошибка сохранения порядка'));
+    }, 600);
+  };
+
+  // ── Drag-and-drop handlers ─────────────────────────────────────────────────
+  const onDragStart = (idx: number) => {
+    dragIdx.current = idx;
+  };
+
+  const onDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setDragOver(idx);
+  };
+
+  const onDrop = (e: React.DragEvent, toIdx: number) => {
+    e.preventDefault();
+    const fromIdx = dragIdx.current;
+    if (fromIdx === null || fromIdx === toIdx) {
+      dragIdx.current = null;
+      setDragOver(null);
+      return;
+    }
+    const newRows = [...rows];
+    const [moved] = newRows.splice(fromIdx, 1);
+    newRows.splice(toIdx, 0, moved);
+    setRows(newRows);
+    saveOrder(newRows);
+    dragIdx.current = null;
+    setDragOver(null);
+  };
+
+  const onDragEnd = () => {
+    dragIdx.current = null;
+    setDragOver(null);
+  };
+
   // ── Заголовок ─────────────────────────────────────────────────────────────
   const startEditTitle = () => { setTitleDraft(title); setEditingTitle(true); };
   const saveTitle = () => {
@@ -65,25 +112,6 @@ const PeriodichnostMOPage = () => {
     localStorage.setItem(TITLE_KEY, t);
     setEditingTitle(false);
     toast.success('Заголовок сохранён');
-  };
-
-  // ── Перемещение строк ─────────────────────────────────────────────────────
-  const moveRow = (idx: number, dir: -1 | 1) => {
-    const newRows = [...rows];
-    const target = idx + dir;
-    if (target < 0 || target >= newRows.length) return;
-    [newRows[idx], newRows[target]] = [newRows[target], newRows[idx]];
-    setRows(newRows);
-
-    // Дебаунс — сохраняем в БД через 800мс после последнего движения
-    if (reorderTimer.current) clearTimeout(reorderTimer.current);
-    reorderTimer.current = setTimeout(() => {
-      const orders = newRows.map((r, i) => ({ id: r.id, sort_order: i + 1 }));
-      fetch(API, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reorder', orders })
-      }).catch(() => toast.error('Ошибка сохранения порядка'));
-    }, 800);
   };
 
   // ── Редактирование строки ─────────────────────────────────────────────────
@@ -147,7 +175,7 @@ const PeriodichnostMOPage = () => {
     finally  { setSaving(false); }
   };
 
-  // ── Выгрузка в Excel ──────────────────────────────────────────────────────
+  // ── Excel ─────────────────────────────────────────────────────────────────
   const exportExcel = () => {
     const wb  = XLSX.utils.book_new();
     const aoa: (string | number)[][] = [
@@ -242,8 +270,7 @@ const PeriodichnostMOPage = () => {
               </button>
             </div>
           ) : (
-            <div className="group flex items-start gap-2 cursor-pointer" onClick={startEditTitle}
-              title="Нажмите для редактирования заголовка">
+            <div className="group flex items-start gap-2 cursor-pointer" onClick={startEditTitle}>
               <div className="border-l-4 border-cyan-500 pl-3 py-1 flex-1">
                 <p className="text-white font-bold text-base leading-snug group-hover:text-cyan-300 transition">{title}</p>
               </div>
@@ -252,7 +279,7 @@ const PeriodichnostMOPage = () => {
           )}
         </div>
 
-        {/* Форма добавления строки */}
+        {/* Форма добавления */}
         {addingRow && (
           <div className="bg-slate-800 border border-cyan-600/50 rounded-lg p-3 mb-4">
             <p className="text-cyan-400 text-xs font-semibold mb-2 uppercase tracking-wide">Новая строка — добавится в конец списка</p>
@@ -288,99 +315,100 @@ const PeriodichnostMOPage = () => {
           </div>
         ) : (
           <div className="rounded-lg border border-slate-700 overflow-hidden shadow-xl">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr className="bg-slate-700 border-b border-slate-600">
+                  <th className="w-8 p-2 border-r border-slate-600"></th>
                   <th className="text-center p-3 text-slate-200 font-bold border-r border-slate-600 w-12">№</th>
                   <th className="text-center p-3 text-slate-200 font-bold border-r border-slate-600 w-[35%]">Наименование&nbsp;должности</th>
                   <th className="text-center p-3 text-slate-200 font-bold">Расшифровка должностей</th>
-                  <th className="p-3 w-28 border-l border-slate-600"></th>
+                  <th className="p-3 w-20 border-l border-slate-600"></th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, idx) => (
-                  <tr key={row.id}
-                    className={`group border-b border-slate-700/60 transition-colors ${
-                      idx % 2 === 0 ? 'bg-slate-900' : 'bg-slate-800/50'
-                    } ${editingId === row.id ? 'bg-cyan-950/40' : 'hover:bg-slate-800'}`}
-                  >
-                    {/* № */}
-                    <td className="p-3 text-center border-r border-slate-700/50 text-slate-400 text-xs font-mono w-12">
-                      {idx + 1}
-                    </td>
+                {rows.map((row, idx) => {
+                  const isDragging  = dragIdx.current === idx;
+                  const isDropTarget = dragOver === idx && dragIdx.current !== idx;
 
-                    {editingId === row.id ? (
-                      <>
-                        <td className="p-2 border-r border-slate-700/50">
-                          <Input value={editShort} onChange={e => setEditShort(e.target.value)}
-                            className="bg-slate-800 border-cyan-600 text-white h-8 text-sm w-full" autoFocus />
-                        </td>
-                        <td className="p-2">
-                          <Input value={editFull} onChange={e => setEditFull(e.target.value)}
-                            className="bg-slate-800 border-cyan-600 text-white h-8 text-sm w-full"
-                            onKeyDown={e => e.key === 'Enter' && saveEdit(row.id)} />
-                        </td>
-                        <td className="p-2 border-l border-slate-700/50">
-                          <div className="flex gap-1 justify-center">
-                            <button onClick={() => saveEdit(row.id)} disabled={saving}
-                              className="p-1.5 rounded bg-green-600 hover:bg-green-500 text-white transition">
-                              {saving ? <Icon name="Loader" size={13} className="animate-spin" /> : <Icon name="Check" size={13} />}
-                            </button>
-                            <button onClick={cancelEdit}
-                              className="p-1.5 rounded bg-slate-600 hover:bg-slate-500 text-white transition">
-                              <Icon name="X" size={13} />
-                            </button>
-                          </div>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="p-3 border-r border-slate-700/50 text-white font-medium leading-snug">
-                          {row.short}
-                        </td>
-                        <td className="p-3 text-slate-300 leading-snug">
-                          {row.full || <span className="text-slate-600 italic text-xs">—</span>}
-                        </td>
-                        <td className="p-2 border-l border-slate-700/50">
-                          <div className="flex gap-1 justify-center items-center opacity-0 group-hover:opacity-100 transition">
-                            {/* Вверх */}
-                            <button
-                              onClick={() => moveRow(idx, -1)}
-                              disabled={idx === 0}
-                              className="p-1 rounded hover:bg-slate-600 text-slate-400 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition"
-                              title="Переместить вверх"
-                            >
-                              <Icon name="ChevronUp" size={15} />
-                            </button>
-                            {/* Вниз */}
-                            <button
-                              onClick={() => moveRow(idx, 1)}
-                              disabled={idx === rows.length - 1}
-                              className="p-1 rounded hover:bg-slate-600 text-slate-400 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition"
-                              title="Переместить вниз"
-                            >
-                              <Icon name="ChevronDown" size={15} />
-                            </button>
-                            {/* Редактировать */}
-                            <button onClick={() => startEdit(row)}
-                              className="p-1 rounded hover:bg-blue-600/30 text-slate-500 hover:text-blue-300 transition" title="Редактировать">
-                              <Icon name="Pencil" size={13} />
-                            </button>
-                            {/* Удалить */}
-                            <button onClick={() => deleteRow(row.id)}
-                              className="p-1 rounded hover:bg-red-600/30 text-slate-500 hover:text-red-400 transition" title="Удалить">
-                              <Icon name="Trash2" size={13} />
-                            </button>
-                          </div>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))}
+                  return (
+                    <tr
+                      key={row.id}
+                      draggable={editingId !== row.id}
+                      onDragStart={() => onDragStart(idx)}
+                      onDragOver={e => onDragOver(e, idx)}
+                      onDrop={e => onDrop(e, idx)}
+                      onDragEnd={onDragEnd}
+                      className={[
+                        'group border-b border-slate-700/60 transition-colors',
+                        idx % 2 === 0 ? 'bg-slate-900' : 'bg-slate-800/50',
+                        editingId === row.id ? 'bg-cyan-950/40' : 'hover:bg-slate-800',
+                        isDragging ? 'opacity-40' : '',
+                        isDropTarget ? 'ring-2 ring-inset ring-cyan-500' : '',
+                      ].join(' ')}
+                    >
+                      {/* Ручка перетаскивания */}
+                      <td className="w-8 text-center border-r border-slate-700/50 cursor-grab active:cursor-grabbing select-none">
+                        <Icon name="GripVertical" size={16} className="text-slate-600 group-hover:text-slate-400 transition mx-auto" />
+                      </td>
+
+                      {/* № */}
+                      <td className="p-3 text-center border-r border-slate-700/50 text-slate-400 text-xs font-mono">
+                        {idx + 1}
+                      </td>
+
+                      {editingId === row.id ? (
+                        <>
+                          <td className="p-2 border-r border-slate-700/50">
+                            <Input value={editShort} onChange={e => setEditShort(e.target.value)}
+                              className="bg-slate-800 border-cyan-600 text-white h-8 text-sm w-full" autoFocus />
+                          </td>
+                          <td className="p-2">
+                            <Input value={editFull} onChange={e => setEditFull(e.target.value)}
+                              className="bg-slate-800 border-cyan-600 text-white h-8 text-sm w-full"
+                              onKeyDown={e => e.key === 'Enter' && saveEdit(row.id)} />
+                          </td>
+                          <td className="p-2 border-l border-slate-700/50">
+                            <div className="flex gap-1 justify-center">
+                              <button onClick={() => saveEdit(row.id)} disabled={saving}
+                                className="p-1.5 rounded bg-green-600 hover:bg-green-500 text-white transition">
+                                {saving ? <Icon name="Loader" size={13} className="animate-spin" /> : <Icon name="Check" size={13} />}
+                              </button>
+                              <button onClick={cancelEdit}
+                                className="p-1.5 rounded bg-slate-600 hover:bg-slate-500 text-white transition">
+                                <Icon name="X" size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-3 border-r border-slate-700/50 text-white font-medium leading-snug">
+                            {row.short}
+                          </td>
+                          <td className="p-3 text-slate-300 leading-snug">
+                            {row.full || <span className="text-slate-600 italic text-xs">—</span>}
+                          </td>
+                          <td className="p-2 border-l border-slate-700/50">
+                            <div className="flex gap-1 justify-center items-center opacity-0 group-hover:opacity-100 transition">
+                              <button onClick={() => startEdit(row)}
+                                className="p-1 rounded hover:bg-blue-600/30 text-slate-500 hover:text-blue-300 transition" title="Редактировать">
+                                <Icon name="Pencil" size={13} />
+                              </button>
+                              <button onClick={() => deleteRow(row.id)}
+                                className="p-1 rounded hover:bg-red-600/30 text-slate-500 hover:text-red-400 transition" title="Удалить">
+                                <Icon name="Trash2" size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
 
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-12 text-center text-slate-500">
+                    <td colSpan={5} className="py-12 text-center text-slate-500">
                       <Icon name="Table" size={30} className="mx-auto mb-2 opacity-30" />
                       Список пуст — добавьте первую строку
                     </td>
@@ -392,7 +420,7 @@ const PeriodichnostMOPage = () => {
         )}
 
         <p className="text-slate-600 text-xs mt-3 text-right">
-          Наведите на строку — появятся кнопки перемещения ▲▼, редактирования и удаления
+          Перетащите строку за иконку ⠿ слева · При наведении — редактирование и удаление
         </p>
       </div>
     </div>
