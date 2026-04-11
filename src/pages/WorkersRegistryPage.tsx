@@ -177,6 +177,25 @@ const WorkersRegistryPage = () => {
     finally { setSavingWorker(false); }
   };
 
+  // ── Конвертация Excel Serial Date в DD.MM.YYYY ───────────────────────────
+  const convertExcelDate = (val: unknown): string => {
+    if (val === null || val === undefined) return '';
+    const str = String(val).trim();
+    // Если число 4-6 цифр — это Excel serial date
+    if (/^\d{4,6}$/.test(str)) {
+      const serial = parseInt(str, 10);
+      // Excel epoch: 1899-12-30
+      const date = new Date((serial - 25569) * 86400 * 1000);
+      if (!isNaN(date.getTime())) {
+        const d = date.getUTCDate().toString().padStart(2, '0');
+        const m = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+        const y = date.getUTCFullYear();
+        return `${d}.${m}.${y}`;
+      }
+    }
+    return str;
+  };
+
   // ── Загрузка Excel ────────────────────────────────────────────────────────
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -218,7 +237,7 @@ const WorkersRegistryPage = () => {
           let hasValue = false;
           headers.forEach((h, idx) => {
             const val = rowArr[idx];
-            const strVal = val !== null && val !== undefined ? String(val).trim() : '';
+            const strVal = val !== null && val !== undefined ? convertExcelDate(val) : '';
             rowObj[h] = strVal;
             if (strVal) hasValue = true;
           });
