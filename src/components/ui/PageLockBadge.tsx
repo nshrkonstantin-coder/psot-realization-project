@@ -3,30 +3,10 @@ import { isPageLocked, togglePageLock } from '@/hooks/usePageLock';
 
 interface PageLockBadgeProps {
   pageKey: string;
-  defaultLocked?: boolean;
 }
 
-const PageLockBadge = ({ pageKey, defaultLocked = false }: PageLockBadgeProps) => {
-  const [locked, setLocked] = useState(() => {
-    const stored = localStorage.getItem('page_locks');
-    if (stored) {
-      try {
-        const arr = JSON.parse(stored);
-        if (arr.includes(pageKey)) return true;
-        // Если страница не в localStorage вообще — применяем defaultLocked
-        return false;
-      } catch { return defaultLocked; }
-    }
-    // Первый запуск — применяем default
-    if (defaultLocked) {
-      const locks = [];
-      locks.push(pageKey);
-      localStorage.setItem('page_locks', JSON.stringify(locks));
-      return true;
-    }
-    return false;
-  });
-
+const PageLockBadge = ({ pageKey }: PageLockBadgeProps) => {
+  const [locked, setLocked] = useState(() => isPageLocked(pageKey));
   const [tooltip, setTooltip] = useState(false);
 
   useEffect(() => {
@@ -50,12 +30,12 @@ const PageLockBadge = ({ pageKey, defaultLocked = false }: PageLockBadgeProps) =
     <div className="relative inline-flex items-center">
       <button
         onClick={() => setTooltip(v => !v)}
-        title={locked ? 'Страница защищена от внешнего импорта' : 'Страница не защищена'}
+        title={locked ? 'Защита включена — импорт Excel не изменит эту страницу' : 'Защита выключена — данные могут быть перезаписаны при импорте'}
         className={[
-          'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all select-none',
+          'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all select-none shadow-sm',
           locked
-            ? 'bg-amber-500/20 border border-amber-500/50 text-amber-400 hover:bg-amber-500/30'
-            : 'bg-slate-700/60 border border-slate-600 text-slate-400 hover:bg-slate-700',
+            ? 'bg-red-600 border border-red-500 text-white hover:bg-red-500 shadow-red-900/40'
+            : 'bg-green-600 border border-green-500 text-white hover:bg-green-500 shadow-green-900/40',
         ].join(' ')}
       >
         <svg
@@ -79,26 +59,23 @@ const PageLockBadge = ({ pageKey, defaultLocked = false }: PageLockBadgeProps) =
 
       {tooltip && (
         <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setTooltip(false)}
-          />
+          <div className="fixed inset-0 z-40" onClick={() => setTooltip(false)} />
           <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl p-4">
-            <p className="text-white text-xs font-semibold mb-1">
+            <p className={`text-xs font-bold mb-1 ${locked ? 'text-red-400' : 'text-green-400'}`}>
               {locked ? '🔒 Страница защищена' : '🔓 Страница открыта'}
             </p>
             <p className="text-slate-400 text-xs mb-3 leading-snug">
               {locked
-                ? 'Импорт Excel не затронет данные этой страницы. Изменения только вручную.'
+                ? 'Импорт Excel не затронет данные этой страницы. Редактирование только вручную.'
                 : 'При загрузке Excel данные этой страницы могут быть перезаписаны.'}
             </p>
             <button
               onClick={handleToggle}
               className={[
-                'w-full py-2 rounded-lg text-xs font-semibold transition',
+                'w-full py-2 rounded-lg text-xs font-bold transition',
                 locked
-                  ? 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                  : 'bg-amber-500 hover:bg-amber-400 text-slate-900',
+                  ? 'bg-green-600 hover:bg-green-500 text-white'
+                  : 'bg-red-600 hover:bg-red-500 text-white',
               ].join(' ')}
             >
               {locked ? '🔓 Снять защиту' : '🔒 Включить защиту'}

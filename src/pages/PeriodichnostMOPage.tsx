@@ -248,7 +248,7 @@ const PeriodichnostMOPage = () => {
             </div>
           </div>
           <div className="flex gap-2 flex-wrap items-center">
-            <PageLockBadge pageKey="Периодичность МО" defaultLocked={true} />
+            <PageLockBadge pageKey="Периодичность МО" />
             <Button variant="outline" size="sm" onClick={exportExcel} className="border-slate-600 text-slate-300 hover:bg-slate-700 h-8">
               <Icon name="Download" size={14} className="mr-1" /> Excel
             </Button>

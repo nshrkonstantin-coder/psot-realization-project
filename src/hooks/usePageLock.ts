@@ -1,4 +1,17 @@
 const LOCK_KEY = 'page_locks';
+const INIT_KEY = 'page_locks_initialized';
+
+// Инициализируем дефолты ОДИН раз (при первом запуске приложения)
+export function initDefaultLocks(defaults: string[]) {
+  const initialized = localStorage.getItem(INIT_KEY);
+  if (initialized) return; // уже было — не трогаем
+  const existing = getLockedPages();
+  for (const page of defaults) {
+    if (!existing.includes(page)) existing.push(page);
+  }
+  localStorage.setItem(LOCK_KEY, JSON.stringify(existing));
+  localStorage.setItem(INIT_KEY, '1');
+}
 
 export function getLockedPages(): string[] {
   try {
@@ -10,7 +23,7 @@ export function isPageLocked(pageKey: string): boolean {
   return getLockedPages().includes(pageKey);
 }
 
-export function togglePageLock(pageKey: string): boolean {
+export function togglePageLock(pageKey: string) {
   const locked = getLockedPages();
   const idx = locked.indexOf(pageKey);
   if (idx === -1) {
@@ -19,16 +32,5 @@ export function togglePageLock(pageKey: string): boolean {
     locked.splice(idx, 1);
   }
   localStorage.setItem(LOCK_KEY, JSON.stringify(locked));
-  // Уведомляем другие компоненты
   window.dispatchEvent(new CustomEvent('page-lock-changed', { detail: { pageKey } }));
-  return !locked.includes(pageKey); // возвращает true если теперь заблокирована
-}
-
-export function lockPage(pageKey: string) {
-  const locked = getLockedPages();
-  if (!locked.includes(pageKey)) {
-    locked.push(pageKey);
-    localStorage.setItem(LOCK_KEY, JSON.stringify(locked));
-    window.dispatchEvent(new CustomEvent('page-lock-changed', { detail: { pageKey } }));
-  }
 }
