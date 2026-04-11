@@ -23,6 +23,15 @@
       "expectedStatus": 200,
       "expectedBody": {"success": true},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Load datasets",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "load_datasets"},
+      "expectedStatus": 200,
+      "expectedBody": {"success": true},
+      "bodyMatcher": "partial"
     }
   ]
 }

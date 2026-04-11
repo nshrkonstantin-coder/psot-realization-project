@@ -22,6 +22,16 @@ interface RowState {
   openedAt?: string;
 }
 
+interface Dataset {
+  id: number;
+  name: string;
+  file_name: string;
+  sender_name: string;
+  subject: string;
+  rows_count: number;
+  updated_at: string | null;
+}
+
 const BACKEND_URL = (func2url as Record<string, string>)['excel-mail-sender'] || '';
 
 export default function ExcelMailSenderPage() {
@@ -43,6 +53,21 @@ export default function ExcelMailSenderPage() {
   const [senderName, setSenderName] = useState('АСУБТ');
   const [subject, setSubject] = useState('Информационное сообщение');
 
+  // БД
+  const [datasetId, setDatasetId] = useState<number | null>(null);
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [loadingDatasets, setLoadingDatasets] = useState(false);
+  const [savingDataset, setSavingDataset] = useState(false);
+  const [showDatasets, setShowDatasets] = useState(false);
+  const [deletingDatasetId, setDeletingDatasetId] = useState<number | null>(null);
+
+  const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+  const orgId = typeof window !== 'undefined' ? localStorage.getItem('organizationId') : null;
+  const userRole = typeof window !== 'undefined' ? localStorage.getItem('userRole') : null;
+
+  // Куда вернуться назад
+  const backRoute = userRole === 'superadmin' ? '/superadmin' : '/admin';
+
   const isUrl = (val: string) => /^https?:\/\//i.test(val.trim());
 
   const emailCol = headers.find(h => {
@@ -56,27 +81,129 @@ export default function ExcelMailSenderPage() {
   const excludeFromBody = new Set([emailCol, includeCol].filter(Boolean) as string[]);
   const bodyColumns = headers.filter(h => !excludeFromBody.has(h));
 
-  const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
-
-  const STORAGE_KEY = 'excel_mailer_state';
-
-  // Восстановление из localStorage при монтировании
-  useEffect(() => {
+  // Загружаем список сохранённых датасетов
+  const loadDatasets = useCallback(async () => {
+    setLoadingDatasets(true);
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'load_datasets',
+          user_id: userId ? parseInt(userId) : null,
+          organization_id: orgId ? parseInt(orgId) : null,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) setDatasets(data.datasets || []);
+    } catch { /* ignore */ }
+    finally { setLoadingDatasets(false); }
+  }, [userId, orgId]);
+
+  // Сохранить текущее состояние в БД (автосохранение)
+  const saveDataset = useCallback(async (
+    h: string[], r: RowData[], rs: RowState[], fn: string, sn: string, subj: string, dsId: number | null
+  ) => {
+    if (!h.length || !r.length) return dsId;
+    setSavingDataset(true);
+    try {
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_dataset',
+          dataset_id: dsId,
+          headers: h,
+          rows: r,
+          row_states: rs,
+          file_name: fn,
+          name: fn || 'Рассылка',
+          sender_name: sn,
+          subject: subj,
+          user_id: userId ? parseInt(userId) : null,
+          organization_id: orgId ? parseInt(orgId) : null,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSavingDataset(false);
+        return data.dataset_id as number;
+      }
+    } catch { /* ignore */ }
+    setSavingDataset(false);
+    return dsId;
+  }, [userId, orgId]);
+
+  // Загрузить конкретный датасет
+  const loadDataset = async (id: number) => {
+    try {
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'load_dataset', dataset_id: id }),
+      });
+      const data = await res.json();
+      if (data.success && data.dataset) {
+        const ds = data.dataset;
+        setHeaders(ds.headers || []);
+        setRows(ds.rows || []);
+        const storedStates = ds.row_states || [];
+        const normalizedStates = (ds.rows || []).map((_: RowData, i: number) =>
+          storedStates[i] || { sendStatus: 'idle', sendProgress: 0 }
+        );
+        setRowStates(normalizedStates);
+        setFileName(ds.file_name || '');
+        setSenderName(ds.sender_name || 'АСУБТ');
+        setSubject(ds.subject || 'Информационное сообщение');
+        setDatasetId(ds.id);
+        setStep('table');
+        setShowDatasets(false);
+        toast({ title: 'Файл загружен', description: `${ds.rows?.length || 0} строк` });
+      }
+    } catch {
+      toast({ title: 'Ошибка загрузки', variant: 'destructive' });
+    }
+  };
+
+  const deleteDataset = async (id: number) => {
+    setDeletingDatasetId(id);
+    try {
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_dataset', dataset_id: id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDatasets(prev => prev.filter(d => d.id !== id));
+        if (datasetId === id) {
+          setDatasetId(null);
+          setStep('upload');
+          setHeaders([]); setRows([]); setRowStates([]); setFileName('');
+        }
+        toast({ title: 'Файл удалён' });
+      }
+    } catch { toast({ title: 'Ошибка удаления', variant: 'destructive' }); }
+    finally { setDeletingDatasetId(null); }
+  };
+
+  // При монтировании — грузим список датасетов и восстанавливаем из localStorage если нет в БД
+  useEffect(() => {
+    loadDatasets();
+    // Фоллбэк из localStorage если нет датасетов
+    try {
+      const saved = localStorage.getItem('excel_mailer_state');
       if (!saved) return;
       const { headers: h, rows: r, fileName: fn, rowStates: rs } = JSON.parse(saved);
       if (h && r && fn) {
-        setHeaders(h);
-        setRows(r);
-        setFileName(fn);
+        setHeaders(h); setRows(r); setFileName(fn);
         setRowStates(rs || r.map(() => ({ sendStatus: 'idle', sendProgress: 0 })));
         setStep('table');
       }
     } catch { /* ignore */ }
   }, []);
 
-  // Поллинг статусов
+  // Поллинг статусов открытия
   const pollStatuses = useCallback(async (states: RowState[]) => {
     const toCheck = states
       .map((s, i) => ({ i, trackId: s.trackId }))
@@ -104,10 +231,7 @@ export default function ExcelMailSenderPage() {
       });
       newlyOpened.forEach(i => {
         const email = rows[i]?.[emailCol || ''] || '';
-        toast({
-          title: '📬 Письмо открыто!',
-          description: email ? `${email} открыл письмо` : `Строка ${i + 1} — письмо открыто`,
-        });
+        toast({ title: '📬 Письмо открыто!', description: email ? `${email} открыл письмо` : `Строка ${i + 1}` });
       });
     } catch { /* ignore */ }
   }, [rows, emailCol, toast]);
@@ -120,20 +244,27 @@ export default function ExcelMailSenderPage() {
     return () => clearInterval(timer);
   }, [step, rowStates, pollStatuses]);
 
-  // Сохранение состояния в localStorage
+  // Автосохранение в БД при изменении данных (debounce через таймаут)
   useEffect(() => {
-    if (step !== 'table' || !headers.length) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ headers, rows, fileName, rowStates }));
-    } catch { /* ignore */ }
-  }, [step, headers, rows, fileName, rowStates]);
+    if (step !== 'table' || !headers.length || !rows.length) return;
+    const timer = setTimeout(async () => {
+      const newId = await saveDataset(headers, rows, rowStates, fileName, senderName, subject, datasetId);
+      if (newId && !datasetId) {
+        setDatasetId(newId);
+        await loadDatasets();
+      }
+      // Также в localStorage как резервный копию
+      try { localStorage.setItem('excel_mailer_state', JSON.stringify({ headers, rows, fileName, rowStates })); }
+      catch { /* ignore */ }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [rows, rowStates, senderName, subject]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-      toast({ title: 'Ошибка', description: 'Загрузите файл .xlsx или .xls', variant: 'destructive' });
-      return;
+      toast({ title: 'Ошибка', description: 'Загрузите файл .xlsx или .xls', variant: 'destructive' }); return;
     }
     setFileName(file.name);
     setLoading(true);
@@ -141,8 +272,7 @@ export default function ExcelMailSenderPage() {
       const buffer = await file.arrayBuffer();
       const b64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
       const res = await fetch(BACKEND_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'parse', file_base64: b64 }),
       });
       const data = await res.json();
@@ -150,33 +280,30 @@ export default function ExcelMailSenderPage() {
       setHeaders(data.headers);
       setRows(data.rows);
       setRowStates(data.rows.map(() => ({ sendStatus: 'idle', sendProgress: 0 })));
+      setDatasetId(null);
       setStep('table');
     } catch (err: unknown) {
       toast({ title: 'Ошибка', description: err instanceof Error ? err.message : 'Ошибка', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
+  // Добавить новый файл — строки добавляются БЕЗ удаления старых
   const handleAppendFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-      toast({ title: 'Ошибка', description: 'Загрузите файл .xlsx или .xls', variant: 'destructive' });
-      return;
+      toast({ title: 'Ошибка', description: 'Загрузите файл .xlsx или .xls', variant: 'destructive' }); return;
     }
     setAppendLoading(true);
     try {
       const buffer = await file.arrayBuffer();
       const b64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
       const res = await fetch(BACKEND_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'parse', file_base64: b64 }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Ошибка парсинга');
-      // Новые строки — сверху, старые уходят вниз
       const newRows = data.rows as RowData[];
       const newStates: RowState[] = newRows.map(() => ({ sendStatus: 'idle', sendProgress: 0 }));
       setRows(prev => [...newRows, ...prev]);
@@ -227,30 +354,19 @@ export default function ExcelMailSenderPage() {
 
   const handleSendRow = async (idx: number) => {
     if (!emailCol) {
-      toast({ title: 'Ошибка', description: 'Не найдена колонка «Электронная почта»', variant: 'destructive' });
-      return;
+      toast({ title: 'Ошибка', description: 'Не найдена колонка «Электронная почта»', variant: 'destructive' }); return;
     }
     setPreviewRow(null);
     updateRowState(idx, { sendStatus: 'sending', sendProgress: 10, errorMsg: undefined });
-
     let progress = 10;
     const progressInterval = setInterval(() => {
       progress = Math.min(progress + 15, 85);
       updateRowState(idx, { sendProgress: progress });
     }, 400);
-
     try {
       const res = await fetch(BACKEND_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'send',
-          headers,
-          row: rows[idx],
-          sender_name: senderName,
-          subject,
-          user_id: userId ? parseInt(userId) : null,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send', headers, row: rows[idx], sender_name: senderName, subject, user_id: userId ? parseInt(userId) : null }),
       });
       const data = await res.json();
       clearInterval(progressInterval);
@@ -266,93 +382,58 @@ export default function ExcelMailSenderPage() {
 
   const reset = () => {
     setStep('upload');
-    setHeaders([]);
-    setRows([]);
-    setRowStates([]);
-    setFileName('');
-    setPreviewRow(null);
+    setHeaders([]); setRows([]); setRowStates([]); setFileName('');
+    setPreviewRow(null); setDatasetId(null);
     if (fileRef.current) fileRef.current.value = '';
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('excel_mailer_state');
   };
 
-  // Светлое письмо
   const buildPreviewHtml = (row: RowData) => {
     const renderVal = (val: string) => {
-      if (isUrl(val) && !val.includes(' ')) {
-        return `<a href="${val}" target="_blank" style="color:#2563eb;word-break:break-all">${val}</a>`;
-      }
+      if (isUrl(val) && !val.includes(' ')) return `<a href="${val}" target="_blank" style="color:#2563eb;word-break:break-all">${val}</a>`;
       return `<span style="white-space:pre-wrap;word-break:break-word">${val}</span>`;
     };
     const rowsHtml = bodyColumns.map(col =>
-      `<tr>
-        <td style="padding:10px 14px;border:1px solid #e2e8f0;font-weight:600;background:#f8fafc;width:40%;vertical-align:top;color:#374151">${col}</td>
-        <td style="padding:10px 14px;border:1px solid #e2e8f0;vertical-align:top;color:#111827">${renderVal(row[col] || '')}</td>
-      </tr>`
+      `<tr><td style="padding:10px 14px;border:1px solid #e2e8f0;font-weight:600;background:#f8fafc;width:40%;vertical-align:top;color:#374151">${col}</td>
+       <td style="padding:10px 14px;border:1px solid #e2e8f0;vertical-align:top;color:#111827">${renderVal(row[col] || '')}</td></tr>`
     ).join('');
-
-    // Все URL из строки — выводим кнопками
     const urlEntries = Object.entries(row).filter(([, val]) => isUrl(val) && !val.includes(' '));
     const urlButtons = urlEntries.map(([col, val]) =>
-      `<a href="${val}" target="_blank"
-        style="display:inline-block;margin:4px 6px 4px 0;padding:10px 20px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600">
-        ${col} →
-      </a>`
+      `<a href="${val}" target="_blank" style="display:inline-block;margin:4px 6px 4px 0;padding:10px 20px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600">${col} →</a>`
     ).join('');
     const urlBlock = urlButtons
-      ? `<div style="margin-top:20px;padding:16px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe">
-           <div style="font-size:13px;font-weight:600;color:#1e40af;margin-bottom:8px">Ссылки для перехода:</div>
-           ${urlButtons}
-         </div>`
-      : '';
-
-    const fromDisplay = senderName;
-
+      ? `<div style="margin-top:20px;padding:16px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe"><div style="font-size:13px;font-weight:600;color:#1e40af;margin-bottom:8px">Ссылки для перехода:</div>${urlButtons}</div>` : '';
     return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:16px;background:#f1f5f9;font-family:Arial,sans-serif">
 <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-  <div style="background:#2563eb;padding:24px 28px">
-    <div style="font-size:20px;font-weight:700;color:#fff;margin:0">${senderName}</div>
-    <div style="font-size:13px;color:#bfdbfe;margin-top:4px">Информационное сообщение</div>
-  </div>
+  <div style="background:#2563eb;padding:24px 28px"><div style="font-size:20px;font-weight:700;color:#fff;margin:0">${senderName}</div>
+  <div style="font-size:13px;color:#bfdbfe;margin-top:4px">Информационное сообщение</div></div>
   <div style="padding:24px 28px">
     <p style="margin:0 0 16px;font-size:15px;color:#374151">Уважаемый сотрудник,<br>направляем вам следующую информацию:</p>
-    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px">
-      ${rowsHtml}
-    </table>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px">${rowsHtml}</table>
     ${urlBlock}
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
-    <div style="font-size:12px;color:#6b7280">${fromDisplay}</div>
+    <div style="font-size:12px;color:#6b7280">${senderName}</div>
   </div>
-</div>
-</body></html>`;
+</div></body></html>`;
   };
 
   const [sendingAll, setSendingAll] = useState(false);
 
   const handleSendAll = async () => {
     if (!emailCol) {
-      toast({ title: 'Ошибка', description: 'Не найдена колонка «Электронная почта»', variant: 'destructive' });
-      return;
+      toast({ title: 'Ошибка', description: 'Не найдена колонка «Электронная почта»', variant: 'destructive' }); return;
     }
     const pendingIdxs = rows
       .map((row, i) => {
         const rs = rowStates[i];
         const hasEmail = !!(emailCol && row[emailCol]);
-        const notSending = rs.sendStatus !== 'sending';
-        const needsSend = rs.sendStatus === 'idle' || rs.sendStatus === 'error';
-        return hasEmail && notSending && needsSend ? i : -1;
-      })
-      .filter(i => i >= 0);
-
-    if (!pendingIdxs.length) {
-      toast({ title: 'Нет писем для отправки', description: 'Все строки уже отправлены или не имеют email' });
-      return;
-    }
-
+        return hasEmail && rs.sendStatus !== 'sending' && (rs.sendStatus === 'idle' || rs.sendStatus === 'error') ? i : -1;
+      }).filter(i => i >= 0);
+    if (!pendingIdxs.length) { toast({ title: 'Нет писем для отправки' }); return; }
     setSendingAll(true);
     for (const idx of pendingIdxs) {
       await handleSendRow(idx);
-      // Небольшая пауза между письмами чтобы не перегружать сервер
       await new Promise(r => setTimeout(r, 300));
     }
     setSendingAll(false);
@@ -363,9 +444,13 @@ export default function ExcelMailSenderPage() {
     const rs = rowStates[i];
     return !!(emailCol && row[emailCol]) && (rs?.sendStatus === 'idle' || rs?.sendStatus === 'error');
   }).length;
-
   const sentCount = rowStates.filter(s => s.sendStatus === 'sent').length;
   const openedCount = rowStates.filter(s => s.trackStatus === 'opened').length;
+
+  const fmtDate = (iso: string | null) => {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:via-indigo-900 dark:to-slate-900 p-4 md:p-6">
@@ -373,14 +458,12 @@ export default function ExcelMailSenderPage() {
 
         {/* Header */}
         <div className="flex flex-wrap items-center gap-3 mb-6">
-          <Button variant="outline" onClick={() => navigate('/admin')} className="border-blue-600/50 text-blue-600 dark:text-blue-400">
-            <Icon name="ArrowLeft" size={18} className="mr-2" />
-            Назад
+          <Button variant="outline" onClick={() => navigate(backRoute)} className="border-blue-600/50 text-blue-600 dark:text-blue-400">
+            <Icon name="ArrowLeft" size={18} className="mr-2" />Назад
           </Button>
           {step === 'table' && (
             <Button variant="outline" onClick={reset} className="border-slate-400/50 text-slate-600 dark:text-slate-400">
-              <Icon name="RefreshCcw" size={16} className="mr-2" />
-              Новый файл
+              <Icon name="RefreshCcw" size={16} className="mr-2" />Новый файл
             </Button>
           )}
           {step === 'table' && (
@@ -388,23 +471,93 @@ export default function ExcelMailSenderPage() {
               <input ref={appendFileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleAppendFile} />
               <Button variant="outline" onClick={() => appendFileRef.current?.click()} disabled={appendLoading}
                 className="border-green-500/60 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20">
-                {appendLoading
-                  ? <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
-                  : <Icon name="FilePlus2" size={16} className="mr-2" />}
-                Добавить файл
+                {appendLoading ? <Icon name="Loader2" size={16} className="mr-2 animate-spin" /> : <Icon name="FilePlus2" size={16} className="mr-2" />}
+                Добавить строки
               </Button>
               <Button variant="outline" onClick={downloadTable}
                 className="border-violet-500/60 text-violet-700 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20">
-                <Icon name="FileDown" size={16} className="mr-2" />
-                Выгрузить таблицу
+                <Icon name="FileDown" size={16} className="mr-2" />Выгрузить таблицу
               </Button>
             </>
+          )}
+          {/* Кнопка истории / сохранённых */}
+          <Button variant="outline" onClick={() => { setShowDatasets(s => !s); if (!showDatasets) loadDatasets(); }}
+            className="border-amber-500/60 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20">
+            <Icon name="FolderOpen" size={16} className="mr-2" />
+            Сохранённые {datasets.length > 0 && `(${datasets.length})`}
+          </Button>
+          {savingDataset && (
+            <span className="text-xs text-slate-400 flex items-center gap-1">
+              <Icon name="Loader2" size={12} className="animate-spin" />Сохраняю...
+            </span>
+          )}
+          {datasetId && !savingDataset && (
+            <span className="text-xs text-green-500 flex items-center gap-1">
+              <Icon name="CheckCircle2" size={12} />Сохранено в базе
+            </span>
           )}
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Рассылка по Excel</h1>
             {fileName && <p className="text-slate-500 dark:text-slate-400 text-sm truncate">{fileName}</p>}
           </div>
         </div>
+
+        {/* Панель сохранённых файлов */}
+        {showDatasets && (
+          <Card className="p-4 mb-5 bg-white dark:bg-slate-800/60 border-amber-500/30">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <Icon name="FolderOpen" size={18} className="text-amber-500" />
+                Сохранённые файлы рассылки
+              </h3>
+              <button onClick={() => setShowDatasets(false)} className="text-slate-400 hover:text-slate-600">
+                <Icon name="X" size={18} />
+              </button>
+            </div>
+            {loadingDatasets ? (
+              <div className="text-center py-4 text-slate-400 text-sm flex items-center justify-center gap-2">
+                <Icon name="Loader2" size={16} className="animate-spin" />Загрузка...
+              </div>
+            ) : datasets.length === 0 ? (
+              <div className="text-center py-6 text-slate-500 text-sm">
+                <Icon name="FileX2" size={32} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                Нет сохранённых файлов
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                {datasets.map(ds => (
+                  <div key={ds.id}
+                    className={`flex items-center gap-3 py-2.5 px-1 rounded-lg transition-colors group ${ds.id === datasetId ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'}`}>
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => loadDataset(ds.id)}>
+                      <div className="flex items-center gap-2">
+                        <Icon name="FileSpreadsheet" size={16} className="text-green-500 shrink-0" />
+                        <span className="font-medium text-slate-800 dark:text-white text-sm truncate">{ds.name}</span>
+                        {ds.id === datasetId && <span className="text-xs text-blue-500 font-medium">(текущий)</span>}
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400">
+                        <span>{ds.rows_count} строк</span>
+                        {ds.updated_at && <span>обновлён {fmtDate(ds.updated_at)}</span>}
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline"
+                      onClick={() => loadDataset(ds.id)}
+                      className="h-7 text-xs border-blue-500/40 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 shrink-0">
+                      Открыть
+                    </Button>
+                    <Button size="sm" variant="ghost"
+                      onClick={() => deleteDataset(ds.id)}
+                      disabled={deletingDatasetId === ds.id}
+                      className="h-7 w-7 p-0 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0">
+                      {deletingDatasetId === ds.id
+                        ? <Icon name="Loader2" size={13} className="animate-spin" />
+                        : <Icon name="Trash2" size={13} />}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
 
         {/* Upload */}
         {step === 'upload' && (
@@ -421,18 +574,26 @@ export default function ExcelMailSenderPage() {
               <label className="cursor-pointer block">
                 <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChange} disabled={loading} />
                 <div className="flex flex-col items-center gap-3 border-2 border-dashed border-blue-400 dark:border-blue-600 rounded-xl p-10 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                  {loading
-                    ? <Icon name="Loader2" size={36} className="text-blue-500 animate-spin" />
-                    : <Icon name="Upload" size={36} className="text-blue-500" />}
+                  {loading ? <Icon name="Loader2" size={36} className="text-blue-500 animate-spin" /> : <Icon name="Upload" size={36} className="text-blue-500" />}
                   <span className="text-blue-600 dark:text-blue-400 font-medium">
                     {loading ? 'Обрабатываю файл...' : 'Нажмите для выбора .xlsx / .xls'}
                   </span>
                 </div>
               </label>
+              {datasets.length > 0 && (
+                <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-400/30 rounded-xl">
+                  <p className="text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                    <Icon name="FolderOpen" size={16} />
+                    У вас есть {datasets.length} сохранённых файл(а).
+                    <button onClick={() => setShowDatasets(true)} className="underline font-medium hover:no-underline">
+                      Открыть
+                    </button>
+                  </p>
+                </div>
+              )}
               <div className="mt-5 pt-5 border-t border-slate-200 dark:border-slate-700">
                 <Button variant="outline" onClick={downloadSample} className="border-slate-300 text-slate-600 dark:text-slate-400 w-full">
-                  <Icon name="Download" size={16} className="mr-2" />
-                  Скачать образец таблицы
+                  <Icon name="Download" size={16} className="mr-2" />Скачать образец таблицы
                 </Button>
               </div>
             </div>
@@ -442,8 +603,7 @@ export default function ExcelMailSenderPage() {
         {/* Table view */}
         {step === 'table' && (
           <div className="space-y-4">
-
-            {/* ── Настройки письма ── */}
+            {/* Настройки письма */}
             <Card className="p-4 bg-white dark:bg-slate-800/50 border-blue-600/20">
               <div className="flex flex-wrap gap-4 items-end">
                 <div className="flex-1 min-w-40">
@@ -471,22 +631,11 @@ export default function ExcelMailSenderPage() {
                   </div>
                 </div>
                 {emailCol && pendingCount > 0 && (
-                  <Button
-                    onClick={handleSendAll}
-                    disabled={sendingAll}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white h-10 px-5 whitespace-nowrap"
-                  >
-                    {sendingAll ? (
-                      <>
-                        <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
-                        Рассылка...
-                      </>
-                    ) : (
-                      <>
-                        <Icon name="SendHorizonal" size={16} className="mr-2" />
-                        Отправить всем ({pendingCount})
-                      </>
-                    )}
+                  <Button onClick={handleSendAll} disabled={sendingAll}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white h-10 px-5 whitespace-nowrap">
+                    {sendingAll
+                      ? <><Icon name="Loader2" size={16} className="mr-2 animate-spin" />Рассылка...</>
+                      : <><Icon name="SendHorizonal" size={16} className="mr-2" />Отправить всем ({pendingCount})</>}
                   </Button>
                 )}
               </div>
@@ -494,8 +643,7 @@ export default function ExcelMailSenderPage() {
 
             {!emailCol && (
               <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-400/40 rounded-lg px-4 py-3 text-red-700 dark:text-red-400 text-sm">
-                <Icon name="AlertCircle" size={18} />
-                Колонка «Электронная почта» не найдена — отправка недоступна
+                <Icon name="AlertCircle" size={18} />Колонка «Электронная почта» не найдена — отправка недоступна
               </div>
             )}
 
@@ -536,25 +684,16 @@ export default function ExcelMailSenderPage() {
                             const urlOnly = isUrl(val) && !val.includes(' ');
                             return (
                               <td key={ci} className="px-3 py-2.5 text-slate-700 dark:text-slate-300 align-top">
-                                {urlOnly ? (
-                                  <a href={val} target="_blank" rel="noopener noreferrer"
-                                    className="text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap">
-                                    {val}
-                                  </a>
-                                ) : (
-                                  <span className="block min-w-[120px] max-w-xs whitespace-pre-wrap break-words">{val}</span>
-                                )}
+                                {urlOnly
+                                  ? <a href={val} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap">{val}</a>
+                                  : <span className="block min-w-[120px] max-w-xs whitespace-pre-wrap break-words">{val}</span>}
                               </td>
                             );
                           })}
                           <td className="px-3 py-2.5 sticky right-0 bg-white dark:bg-slate-800 border-l border-slate-100 dark:border-slate-700">
-                            <RowAction
-                              rs={rs}
-                              isIncluded={isIncluded}
-                              hasEmail={!!emailCol}
+                            <RowAction rs={rs} isIncluded={isIncluded} hasEmail={!!emailCol}
                               onPreview={() => setPreviewRow({ row, idx: ri })}
-                              onSend={() => handleSendRow(ri)}
-                            />
+                              onSend={() => handleSendRow(ri)} />
                           </td>
                         </tr>
                       );
@@ -566,56 +705,33 @@ export default function ExcelMailSenderPage() {
           </div>
         )}
 
-        {/* ── Модалка предпросмотра ── */}
+        {/* Модалка предпросмотра */}
         {previewRow && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
             onClick={() => setPreviewRow(null)}>
             <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-              style={{ maxHeight: '90vh' }}
-              onClick={e => e.stopPropagation()}>
-
-              {/* Modal header */}
+              style={{ maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-lg">Предпросмотр письма</h3>
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    Строка #{previewRow.idx + 1}
-                    {emailCol && ` · ${previewRow.row[emailCol]}`}
-                  </p>
+                  <p className="text-sm text-slate-500 mt-0.5">Строка #{previewRow.idx + 1}{emailCol && ` · ${previewRow.row[emailCol]}`}</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setPreviewRow(null)}>
-                  <Icon name="X" size={16} />
-                </Button>
+                <Button variant="outline" size="sm" onClick={() => setPreviewRow(null)}><Icon name="X" size={16} /></Button>
               </div>
-
-              {/* Meta */}
               <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs text-slate-500 flex-shrink-0 flex flex-wrap gap-4">
                 <span><strong className="text-slate-700 dark:text-slate-300">От:</strong> {senderName}</span>
                 <span><strong className="text-slate-700 dark:text-slate-300">Кому:</strong> {emailCol ? previewRow.row[emailCol] : '—'}</span>
                 <span><strong className="text-slate-700 dark:text-slate-300">Тема:</strong> {subject}</span>
               </div>
-
-              {/* iframe — большой */}
               <div className="flex-1 overflow-hidden">
-                <iframe
-                  srcDoc={buildPreviewHtml(previewRow.row)}
-                  className="w-full h-full border-0"
-                  style={{ minHeight: '500px' }}
-                  title="preview"
-                  sandbox="allow-same-origin allow-popups allow-top-navigation"
-                />
+                <iframe srcDoc={buildPreviewHtml(previewRow.row)} className="w-full h-full border-0" style={{ minHeight: '500px' }}
+                  title="preview" sandbox="allow-same-origin allow-popups allow-top-navigation" />
               </div>
-
-              {/* Actions */}
               <div className="flex gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700 justify-end flex-shrink-0">
                 <Button variant="outline" onClick={() => setPreviewRow(null)}>Закрыть</Button>
-                <Button
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-                  onClick={() => { handleSendRow(previewRow.idx); setPreviewRow(null); }}
-                  disabled={!emailCol}
-                >
-                  <Icon name="Send" size={16} className="mr-2" />
-                  Отправить
+                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                  onClick={() => { handleSendRow(previewRow.idx); setPreviewRow(null); }} disabled={!emailCol}>
+                  <Icon name="Send" size={16} className="mr-2" />Отправить
                 </Button>
               </div>
             </div>
@@ -627,11 +743,8 @@ export default function ExcelMailSenderPage() {
 }
 
 interface RowActionProps {
-  rs: RowState;
-  isIncluded: boolean;
-  hasEmail: boolean;
-  onPreview: () => void;
-  onSend: () => void;
+  rs: RowState; isIncluded: boolean; hasEmail: boolean;
+  onPreview: () => void; onSend: () => void;
 }
 
 function RowAction({ rs, isIncluded, hasEmail, onPreview, onSend }: RowActionProps) {
@@ -639,80 +752,62 @@ function RowAction({ rs, isIncluded, hasEmail, onPreview, onSend }: RowActionPro
     return (
       <div className="space-y-1 min-w-36">
         <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs">
-          <Icon name="Loader2" size={14} className="animate-spin" />
-          Отправляю...
+          <Icon name="Loader2" size={14} className="animate-spin" />Отправляю...
         </div>
         <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
-          <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-500"
-            style={{ width: `${rs.sendProgress}%` }} />
+          <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${rs.sendProgress}%` }} />
         </div>
       </div>
     );
   }
-
   if (rs.sendStatus === 'sent') {
     const fmtTime = (iso?: string) => {
       if (!iso) return '';
-      const d = new Date(iso);
-      return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     };
     return (
       <div className="space-y-1 min-w-36">
         <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 text-xs font-medium">
-          <Icon name="CheckCircle2" size={14} />
-          Отправлено {rs.sentAt && <span className="text-green-500/70 font-normal">{fmtTime(rs.sentAt)}</span>}
+          <Icon name="CheckCircle2" size={14} />Отправлено {rs.sentAt && <span className="text-green-500/70 font-normal">{fmtTime(rs.sentAt)}</span>}
         </div>
-        {rs.trackStatus === 'opened' ? (
-          <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 text-xs font-medium">
-            <Icon name="MailOpen" size={14} />
-            Открыто {rs.openedAt && <span className="text-blue-500/70 font-normal">{fmtTime(rs.openedAt)}</span>}
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 text-slate-400 text-xs">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-            </span>
-            Слежу за открытием...
-          </div>
-        )}
-        <button onClick={onSend}
-          className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 hover:underline transition-colors">
-          <Icon name="RefreshCcw" size={11} />
-          Отправить повторно
+        {rs.trackStatus === 'opened'
+          ? <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 text-xs font-medium">
+              <Icon name="MailOpen" size={14} />Открыто {rs.openedAt && <span className="text-blue-500/70 font-normal">{fmtTime(rs.openedAt)}</span>}
+            </div>
+          : <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+              </span>
+              Слежу за открытием...
+            </div>}
+        <button onClick={onSend} className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 hover:underline transition-colors">
+          <Icon name="RefreshCcw" size={11} />Отправить повторно
         </button>
       </div>
     );
   }
-
   if (rs.sendStatus === 'error') {
     return (
       <div className="space-y-1 min-w-36">
-        <div className="flex items-center gap-1.5 text-red-500 text-xs font-medium">
-          <Icon name="XCircle" size={14} />
-          Ошибка
-        </div>
+        <div className="flex items-center gap-1.5 text-red-500 text-xs font-medium"><Icon name="XCircle" size={14} />Ошибка</div>
         <p className="text-red-400 text-xs max-w-[180px] break-words" title={rs.errorMsg}>{rs.errorMsg}</p>
         <button onClick={onSend} className="text-xs text-blue-500 hover:underline">Повторить</button>
       </div>
     );
   }
-
   if (!hasEmail) return <span className="text-slate-400 text-xs">Нет email</span>;
-
   return (
     <div className="flex gap-1.5">
       <Button size="sm" variant="outline"
         className="h-7 px-2 text-xs border-slate-300 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
         onClick={onPreview}>
-        <Icon name="Eye" size={13} className="mr-1" />
-        Просмотр
+        <Icon name="Eye" size={13} className="mr-1" />Просмотр
       </Button>
       <Button size="sm"
         className={`h-7 px-2 text-xs text-white ${isIncluded ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-400 hover:bg-slate-500'}`}
         onClick={onSend}>
-        <Icon name="Send" size={13} className="mr-1" />
-        Отправить
+        <Icon name="Send" size={13} className="mr-1" />Отправить
       </Button>
     </div>
   );

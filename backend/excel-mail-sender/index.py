@@ -267,6 +267,121 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {'statusCode': 200, 'headers': {**cors, 'Content-Type': 'application/json'},
                 'body': json.dumps({'success': True, 'track_id': track_id, 'email': to_email})}
 
+    # ── save_dataset ── сохранить / обновить датасет в БД ──
+    elif action == 'save_dataset':
+        ds_headers = body.get('headers', [])
+        ds_rows = body.get('rows', [])
+        ds_row_states = body.get('row_states', [])
+        ds_file_name = (body.get('file_name') or '').strip()
+        ds_name = (body.get('name') or ds_file_name or 'Рассылка').strip()
+        ds_sender = (body.get('sender_name') or 'АСУБТ').strip()
+        ds_subject = (body.get('subject') or 'Информационное сообщение').strip()
+        ds_user_id = body.get('user_id')
+        ds_org_id = body.get('organization_id')
+        dataset_id = body.get('dataset_id')
+        SCHEMA = 't_p80499285_psot_realization_pro'
+        try:
+            db = get_db()
+            cur = db.cursor()
+            if dataset_id:
+                cur.execute(
+                    f"UPDATE {SCHEMA}.excel_mail_datasets SET headers=%s, rows=%s, row_states=%s, file_name=%s, name=%s, sender_name=%s, subject=%s, updated_at=NOW() WHERE id=%s",
+                    (json.dumps(ds_headers, ensure_ascii=False), json.dumps(ds_rows, ensure_ascii=False),
+                     json.dumps(ds_row_states, ensure_ascii=False), ds_file_name, ds_name, ds_sender, ds_subject, int(dataset_id))
+                )
+                db.commit()
+                cur.close(); db.close()
+                return {'statusCode': 200, 'headers': {**cors, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'success': True, 'dataset_id': int(dataset_id)})}
+            else:
+                uid_val = int(ds_user_id) if ds_user_id else None
+                org_val = int(ds_org_id) if ds_org_id else None
+                cur.execute(
+                    f"INSERT INTO {SCHEMA}.excel_mail_datasets (user_id, organization_id, name, headers, rows, row_states, file_name, sender_name, subject) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    (uid_val, org_val, ds_name, json.dumps(ds_headers, ensure_ascii=False), json.dumps(ds_rows, ensure_ascii=False),
+                     json.dumps(ds_row_states, ensure_ascii=False), ds_file_name, ds_sender, ds_subject)
+                )
+                new_id = cur.fetchone()[0]
+                db.commit()
+                cur.close(); db.close()
+                return {'statusCode': 200, 'headers': {**cors, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'success': True, 'dataset_id': new_id})}
+        except Exception as e:
+            return {'statusCode': 500, 'headers': {**cors, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'error': str(e)})}
+
+    # ── load_datasets ── получить список датасетов ──
+    elif action == 'load_datasets':
+        ds_user_id = body.get('user_id')
+        ds_org_id = body.get('organization_id')
+        SCHEMA = 't_p80499285_psot_realization_pro'
+        try:
+            db = get_db()
+            cur = db.cursor()
+            conditions = []
+            if ds_user_id:
+                conditions.append(f"user_id = {int(ds_user_id)}")
+            elif ds_org_id:
+                conditions.append(f"organization_id = {int(ds_org_id)}")
+            where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
+            cur.execute(f"SELECT id, name, file_name, sender_name, subject, created_at, updated_at, array_length(ARRAY(SELECT jsonb_array_elements(rows)), 1) FROM {SCHEMA}.excel_mail_datasets {where} ORDER BY updated_at DESC NULLS LAST")
+            datasets = []
+            for r in cur.fetchall():
+                datasets.append({'id': r[0], 'name': r[1], 'file_name': r[2], 'sender_name': r[3],
+                                  'subject': r[4], 'created_at': r[5].isoformat() if r[5] else None,
+                                  'updated_at': r[6].isoformat() if r[6] else None, 'rows_count': r[7] or 0})
+            cur.close(); db.close()
+            return {'statusCode': 200, 'headers': {**cors, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'success': True, 'datasets': datasets})}
+        except Exception as e:
+            return {'statusCode': 500, 'headers': {**cors, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'error': str(e)})}
+
+    # ── load_dataset ── получить один датасет (с данными) ──
+    elif action == 'load_dataset':
+        dataset_id = body.get('dataset_id')
+        if not dataset_id:
+            return {'statusCode': 400, 'headers': {**cors, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'error': 'dataset_id обязателен'})}
+        SCHEMA = 't_p80499285_psot_realization_pro'
+        try:
+            db = get_db()
+            cur = db.cursor()
+            cur.execute(f"SELECT id, name, file_name, headers, rows, row_states, sender_name, subject FROM {SCHEMA}.excel_mail_datasets WHERE id = %s", (int(dataset_id),))
+            r = cur.fetchone()
+            cur.close(); db.close()
+            if not r:
+                return {'statusCode': 404, 'headers': {**cors, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Датасет не найден'})}
+            return {'statusCode': 200, 'headers': {**cors, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'success': True, 'dataset': {
+                        'id': r[0], 'name': r[1], 'file_name': r[2],
+                        'headers': r[3], 'rows': r[4], 'row_states': r[5],
+                        'sender_name': r[6], 'subject': r[7]
+                    }})}
+        except Exception as e:
+            return {'statusCode': 500, 'headers': {**cors, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'error': str(e)})}
+
+    # ── delete_dataset ── удалить датасет ──
+    elif action == 'delete_dataset':
+        dataset_id = body.get('dataset_id')
+        if not dataset_id:
+            return {'statusCode': 400, 'headers': {**cors, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'error': 'dataset_id обязателен'})}
+        SCHEMA = 't_p80499285_psot_realization_pro'
+        try:
+            db = get_db()
+            cur = db.cursor()
+            cur.execute(f"DELETE FROM {SCHEMA}.excel_mail_datasets WHERE id = %s", (int(dataset_id),))
+            db.commit()
+            cur.close(); db.close()
+            return {'statusCode': 200, 'headers': {**cors, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'success': True})}
+        except Exception as e:
+            return {'statusCode': 500, 'headers': {**cors, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'error': str(e)})}
+
     # ── status ──
     elif action == 'status':
         track_ids: List[str] = body.get('track_ids', [])
