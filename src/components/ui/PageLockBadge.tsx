@@ -1,28 +1,32 @@
 import { useState, useEffect } from 'react';
-import { isPageLocked, togglePageLock } from '@/hooks/usePageLock';
+import { isPageLocked, togglePageLock, canManageLocks } from '@/hooks/usePageLock';
 
 interface PageLockBadgeProps {
   pageKey: string;
 }
 
 const PageLockBadge = ({ pageKey }: PageLockBadgeProps) => {
-  const [locked, setLocked] = useState(() => isPageLocked(pageKey));
+  const [locked, setLocked]   = useState(() => isPageLocked(pageKey));
   const [tooltip, setTooltip] = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const canManage             = canManageLocks();
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.pageKey === pageKey) {
-        setLocked(isPageLocked(pageKey));
-      }
+    const sync = () => setLocked(isPageLocked(pageKey));
+    window.addEventListener('page-lock-changed', sync);
+    window.addEventListener('page-locks-updated', sync);
+    return () => {
+      window.removeEventListener('page-lock-changed', sync);
+      window.removeEventListener('page-locks-updated', sync);
     };
-    window.addEventListener('page-lock-changed', handler);
-    return () => window.removeEventListener('page-lock-changed', handler);
   }, [pageKey]);
 
-  const handleToggle = () => {
-    togglePageLock(pageKey);
+  const handleToggle = async () => {
+    if (!canManage) return;
+    setSaving(true);
+    await togglePageLock(pageKey);
     setLocked(isPageLocked(pageKey));
+    setSaving(false);
     setTooltip(false);
   };
 
@@ -30,18 +34,16 @@ const PageLockBadge = ({ pageKey }: PageLockBadgeProps) => {
     <div className="relative inline-flex items-center">
       <button
         onClick={() => setTooltip(v => !v)}
-        title={locked ? 'Защита включена — импорт Excel не изменит эту страницу' : 'Защита выключена — данные могут быть перезаписаны при импорте'}
+        title={locked ? 'Защита включена — импорт Excel не изменит эту страницу' : 'Защита выключена'}
         className={[
           'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all select-none shadow-sm',
           locked
-            ? 'bg-red-600 border border-red-500 text-white hover:bg-red-500 shadow-red-900/40'
-            : 'bg-green-600 border border-green-500 text-white hover:bg-green-500 shadow-green-900/40',
+            ? 'bg-red-600 border border-red-500 text-white hover:bg-red-500'
+            : 'bg-green-600 border border-green-500 text-white hover:bg-green-500',
         ].join(' ')}
       >
-        <svg
-          width="13" height="13" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-        >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           {locked ? (
             <>
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
@@ -66,20 +68,28 @@ const PageLockBadge = ({ pageKey }: PageLockBadgeProps) => {
             </p>
             <p className="text-slate-400 text-xs mb-3 leading-snug">
               {locked
-                ? 'Импорт Excel не затронет данные этой страницы. Редактирование только вручную.'
+                ? 'Импорт Excel не затронет данные этой страницы. Изменения только вручную.'
                 : 'При загрузке Excel данные этой страницы могут быть перезаписаны.'}
             </p>
-            <button
-              onClick={handleToggle}
-              className={[
-                'w-full py-2 rounded-lg text-xs font-bold transition',
-                locked
-                  ? 'bg-green-600 hover:bg-green-500 text-white'
-                  : 'bg-red-600 hover:bg-red-500 text-white',
-              ].join(' ')}
-            >
-              {locked ? '🔓 Снять защиту' : '🔒 Включить защиту'}
-            </button>
+            {canManage ? (
+              <button
+                onClick={handleToggle}
+                disabled={saving}
+                className={[
+                  'w-full py-2 rounded-lg text-xs font-bold transition',
+                  locked
+                    ? 'bg-green-600 hover:bg-green-500 text-white'
+                    : 'bg-red-600 hover:bg-red-500 text-white',
+                  saving ? 'opacity-60 cursor-not-allowed' : '',
+                ].join(' ')}
+              >
+                {saving ? '...' : locked ? '🔓 Снять защиту' : '🔒 Включить защиту'}
+              </button>
+            ) : (
+              <p className="text-slate-500 text-xs text-center italic">
+                Только администратор или начальник отдела ОТиПБ могут изменить защиту
+              </p>
+            )}
           </div>
         </>
       )}

@@ -59,6 +59,8 @@ export default function Login() {
         localStorage.setItem('userId', data.userId);
         localStorage.setItem('userFio', data.fio || fio);
         localStorage.setItem('userRole', data.role || 'user');
+        localStorage.setItem('userPosition', data.position || '');
+        localStorage.setItem('userDepartment', data.subdivision || '');
         // Сохраняем email пользователя для техподдержки и других функций
         localStorage.setItem('userEmail', email);
         // Сохраняем organizationId для ВСЕХ пользователей, чтобы отображался логотип

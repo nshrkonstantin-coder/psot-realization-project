@@ -150,6 +150,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return {'statusCode': 200, 'headers': CORS,
                     'body': json.dumps({'success': True, 'columns': cols}, ensure_ascii=False)}
 
+        # ── GET page_locks ────────────────────────────────────────────────────
+        if method == 'GET' and action == 'page_locks':
+            cur.execute(f"SELECT page_key, is_locked FROM {SCHEMA}.page_locks")
+            locks = {r[0]: r[1] for r in cur.fetchall()}
+            return {'statusCode': 200, 'headers': CORS,
+                    'body': json.dumps({'success': True, 'locks': locks}, ensure_ascii=False)}
+
         # ── GET sheets ────────────────────────────────────────────────────────
         if method == 'GET' and action == 'sheets':
             cur.execute(
@@ -449,6 +456,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 conn.commit()
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True}, ensure_ascii=False)}
+
+            # ── set_page_lock: установить/снять блокировку страницы ──────────
+            if action_post == 'set_page_lock':
+                page_key = body.get('page_key', '')
+                is_locked = bool(body.get('is_locked', True))
+                user_id = body.get('user_id')
+                if not page_key:
+                    return {'statusCode': 400, 'headers': CORS,
+                            'body': json.dumps({'success': False, 'error': 'page_key обязателен'})}
+                cur.execute(
+                    f"""INSERT INTO {SCHEMA}.page_locks (page_key, is_locked, updated_at, updated_by_user_id)
+                        VALUES (%s, %s, NOW(), %s)
+                        ON CONFLICT (page_key) DO UPDATE
+                        SET is_locked = EXCLUDED.is_locked,
+                            updated_at = NOW(),
+                            updated_by_user_id = EXCLUDED.updated_by_user_id""",
+                    (page_key, is_locked, user_id)
+                )
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True, 'page_key': page_key, 'is_locked': is_locked}, ensure_ascii=False)}
 
         return {'statusCode': 400, 'headers': CORS,
                 'body': json.dumps({'success': False, 'error': 'Неизвестный запрос'})}

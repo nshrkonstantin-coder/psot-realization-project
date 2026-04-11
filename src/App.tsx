@@ -12,10 +12,10 @@ import Icon from "@/components/ui/icon";
 import { useOrganizationSync } from "@/hooks/useOrganizationSync";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useAntiCopy } from "@/hooks/useAntiCopy";
-import { initDefaultLocks } from "@/hooks/usePageLock";
+import { fetchPageLocks } from "@/hooks/usePageLock";
 
-// Первый запуск — блокируем по умолчанию. Повторно не трогает.
-initDefaultLocks(['Периодичность МО']);
+// Загружаем блокировки из БД при старте приложения
+fetchPageLocks();
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import GlobalThemeToggle from "@/components/GlobalThemeToggle";
 import AlertWidget from "@/components/AlertWidget";

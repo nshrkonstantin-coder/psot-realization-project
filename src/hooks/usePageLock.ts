@@ -1,36 +1,73 @@
-const LOCK_KEY = 'page_locks';
-const INIT_KEY = 'page_locks_initialized';
+const API = 'https://functions.poehali.dev/85a795aa-16f4-4214-8690-191bbd6e73d2';
+const CACHE_KEY = 'page_locks_cache';
 
-// Инициализируем дефолты ОДИН раз (при первом запуске приложения)
-export function initDefaultLocks(defaults: string[]) {
-  const initialized = localStorage.getItem(INIT_KEY);
-  if (initialized) return; // уже было — не трогаем
-  const existing = getLockedPages();
-  for (const page of defaults) {
-    if (!existing.includes(page)) existing.push(page);
-  }
-  localStorage.setItem(LOCK_KEY, JSON.stringify(existing));
-  localStorage.setItem(INIT_KEY, '1');
+// Кэш в памяти — синхронный, обновляется при загрузке из БД
+let memCache: Record<string, boolean> = {};
+
+function loadCache(): Record<string, boolean> {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { return {}; }
+}
+function saveCache(locks: Record<string, boolean>) {
+  localStorage.setItem(CACHE_KEY, JSON.stringify(locks));
+  memCache = { ...locks };
 }
 
-export function getLockedPages(): string[] {
+// Инициализация — загружаем из localStorage пока БД не ответит
+memCache = loadCache();
+
+// Загрузить блокировки из БД (вызывается при старте приложения)
+export async function fetchPageLocks(): Promise<void> {
   try {
-    return JSON.parse(localStorage.getItem(LOCK_KEY) || '[]');
-  } catch { return []; }
+    const res = await fetch(`${API}?action=page_locks`);
+    const data = await res.json();
+    if (data.success && data.locks) {
+      saveCache(data.locks);
+      window.dispatchEvent(new CustomEvent('page-locks-updated'));
+    }
+  } catch { /* используем кэш */ }
 }
 
 export function isPageLocked(pageKey: string): boolean {
-  return getLockedPages().includes(pageKey);
+  return memCache[pageKey] === true;
 }
 
-export function togglePageLock(pageKey: string) {
-  const locked = getLockedPages();
-  const idx = locked.indexOf(pageKey);
-  if (idx === -1) {
-    locked.push(pageKey);
-  } else {
-    locked.splice(idx, 1);
-  }
-  localStorage.setItem(LOCK_KEY, JSON.stringify(locked));
-  window.dispatchEvent(new CustomEvent('page-lock-changed', { detail: { pageKey } }));
+// Определяем может ли текущий пользователь управлять блокировками
+export function canManageLocks(): boolean {
+  const role = localStorage.getItem('userRole') || '';
+  const dept = (localStorage.getItem('userDepartment') || '').toLowerCase();
+  const pos = (localStorage.getItem('userPosition') || '').toLowerCase();
+
+  const isAdmin = role === 'superadmin' || role === 'admin';
+  const isOtipbHead = (
+    dept.includes('отипб') || dept.includes('от и пб') || dept.includes('дирекция по от')
+  ) && (
+    pos.includes('начальник') || pos.includes('директор') || pos.includes('руководитель')
+  );
+
+  return isAdmin || isOtipbHead;
 }
+
+export async function togglePageLock(pageKey: string): Promise<void> {
+  const newVal = !isPageLocked(pageKey);
+  const userId = localStorage.getItem('userId');
+
+  // Оптимистично обновляем кэш
+  memCache = { ...memCache, [pageKey]: newVal };
+  saveCache(memCache);
+  window.dispatchEvent(new CustomEvent('page-lock-changed', { detail: { pageKey } }));
+
+  // Сохраняем в БД
+  await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'set_page_lock', page_key: pageKey, is_locked: newVal, user_id: userId })
+  });
+}
+
+// Для проверки при импорте (синхронная, из кэша)
+export function getLockedPages(): string[] {
+  return Object.entries(memCache).filter(([, v]) => v).map(([k]) => k);
+}
+
+// Обратная совместимость — уже не нужна, но оставляем пустой
+export function initDefaultLocks(_defaults: string[]) { /* управляется через БД */ }

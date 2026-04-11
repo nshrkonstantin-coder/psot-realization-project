@@ -57,7 +57,13 @@ const WorkersRegistryPage = () => {
   const userRole = localStorage.getItem('userRole') || '';
   const userDept = (localStorage.getItem('userDepartment') || '').toLowerCase();
   const isAdmin = userRole === 'superadmin' || userRole === 'admin';
-  const isOtipb = isAdmin || userDept.includes('отипб') || userDept.includes('охрана труда') || userDept.includes('от и пб');
+  const isOtipb = isAdmin
+    || userDept.includes('отипб')
+    || userDept.includes('от и пб')
+    || userDept.includes('охрана труда')
+    || userDept.includes('дирекция по от')
+    || userDept.includes('отдел от')
+    || userDept.includes('пб');
 
   const [allWorkers, setAllWorkers] = useState<Worker[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
