@@ -38,14 +38,23 @@ const AlertWidget = () => {
   const fetchOverdue = () => {
     const userId = localStorage.getItem('userId');
     const orgId = localStorage.getItem('organizationId');
-    const dept = localStorage.getItem('userDepartment');
-    if (!userId || (dept !== 'ОТиПБ' && dept !== 'Отдел ОТиПБ')) {
+    const role = localStorage.getItem('userRole');
+    const dept = (localStorage.getItem('userDepartment') || '').toLowerCase();
+
+    // Показываем виджет: superadmin, admin — видят все поручения отдела
+    // Специалисты ОТиПБ (любое название подразделения с "отипб" или "охрана труда") — свои поручения
+    const isAdmin = role === 'superadmin' || role === 'admin';
+    const isOtipbSpec = dept.includes('отипб') || dept.includes('охрана труда') || dept.includes('от и пб');
+
+    if (!userId || (!isAdmin && !isOtipbSpec)) {
       setLoaded(true);
       return;
     }
+
     const params = new URLSearchParams();
     if (orgId) params.set('organization_id', orgId);
-    if (userId) params.set('user_id', userId);
+    // Специалисты видят только свои поручения, admins — все по организации
+    if (!isAdmin && isOtipbSpec) params.set('user_id', userId);
 
     fetch(`${OT_ORDERS_URL}?${params.toString()}`)
       .then(r => r.json())
@@ -54,6 +63,13 @@ const AlertWidget = () => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const overdue: OverdueItem[] = [];
+
+        const role2 = localStorage.getItem('userRole');
+        const overdueLink = role2 === 'superadmin'
+          ? '/ot-management'
+          : role2 === 'admin'
+          ? '/otipb-department'
+          : '/otipb-workspace-dashboard';
 
         (data.orders || []).forEach((o: {
           id: number; title: string; deadline: string;
@@ -72,7 +88,7 @@ const AlertWidget = () => {
               area: 'Поручения ОТиПБ',
               deadline: rawDeadline,
               daysOverdue: diff,
-              link: '/otipb-workspace-dashboard',
+              link: overdueLink,
             });
           }
         });
