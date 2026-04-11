@@ -173,7 +173,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # ── analyze_excel: сохранить структуру всех листов (этап 1) ──────
             if action_post == 'analyze_excel':
                 sheets_data = body.get('sheets', [])  # [{name, headers: []}]
-                o_id = body.get('organization_id', org_id)
+                _o_raw = body.get('organization_id', org_id)
+                o_id = int(_o_raw) if _o_raw and str(_o_raw).strip() else None
                 print(f"[analyze_excel] org={o_id} sheets_count={len(sheets_data)}")
 
                 # Удаляем старую структуру если работников нет
@@ -231,11 +232,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 rows_data = body.get('rows', [])
                 sheet_name = body.get('sheet_name', '')
                 headers_list = body.get('headers', [])
-                o_id = body.get('organization_id', org_id)
-                user_id = body.get('user_id', '')
+                _o_id_raw = body.get('organization_id', org_id)
+                _u_id_raw = body.get('user_id', '')
+                o_id = int(_o_id_raw) if _o_id_raw and str(_o_id_raw).strip() else None
+                uid = int(_u_id_raw) if _u_id_raw and str(_u_id_raw).strip() else None
                 file_name = body.get('file_name', 'registry.xlsx')
-                file_size = body.get('file_size', 0)
-                print(f"[import_sheet] sheet={sheet_name} rows={len(rows_data)} org={o_id}")
+                file_size = int(body.get('file_size', 0) or 0)
+                print(f"[import_sheet] sheet={sheet_name} rows={len(rows_data)} org={o_id} uid={uid}")
 
                 # Определяем ключевые поля
                 fio_key = ''
@@ -299,8 +302,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                  position_name, extra_data, sheet_name, created_by_user_id)
                                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                             (o_id, worker_number, qr_token, fio_val, sub_val, pos_val,
-                             json.dumps(extra, ensure_ascii=False), sheet_name,
-                             int(user_id) if user_id else None)
+                             json.dumps(extra, ensure_ascii=False), sheet_name, uid)
                         )
                         imported += 1
 
@@ -316,7 +318,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             f"""INSERT INTO {SCHEMA}.workers_registry_files
                                 (organization_id, file_name, file_url, file_size, uploaded_by_user_id, is_active)
                                 VALUES (%s, %s, %s, %s, %s, TRUE)""",
-                            (o_id, file_name, '', file_size, int(user_id) if user_id else None)
+                            (o_id, file_name, '', file_size, uid)
                         )
 
                 conn.commit()
@@ -329,12 +331,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
             # ── add_worker ────────────────────────────────────────────────────
             if action_post == 'add_worker':
-                o_id = body.get('organization_id', org_id)
+                _o_raw2 = body.get('organization_id', org_id)
+                _u_raw2 = body.get('user_id', '')
+                o_id = int(_o_raw2) if _o_raw2 and str(_o_raw2).strip() else None
+                uid2 = int(_u_raw2) if _u_raw2 and str(_u_raw2).strip() else None
                 fio = str(body.get('fio', '')).strip()
                 subdivision = body.get('subdivision', '')
                 position_name = body.get('position_name', '')
                 extra = body.get('extra_data', {})
-                user_id = body.get('user_id', '')
                 sheet_name = body.get('sheet_name', '')
 
                 if not fio:
@@ -355,8 +359,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                          position_name, extra_data, sheet_name, created_by_user_id)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
                     (o_id, worker_number, qr_token, fio, subdivision, position_name,
-                     json.dumps(extra, ensure_ascii=False), sheet_name,
-                     int(user_id) if user_id else None)
+                     json.dumps(extra, ensure_ascii=False), sheet_name, uid2)
                 )
                 new_id = cur.fetchone()[0]
                 conn.commit()
