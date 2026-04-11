@@ -924,8 +924,22 @@ const OtManagementPage = () => {
                 </div>
               </div>
               {!loading && (
-                <div className="mt-4 pt-4 border-t border-slate-700">
-                  <p className="text-xs text-slate-400">{pendingOrders.length === 0 ? '✅ Все поручения отдела выполнены' : `⚠️ ${pendingOrders.length} пункт(ов) требуют передачи`}</p>
+                <div className="mt-4 pt-4 border-t border-slate-700 space-y-1">
+                  {pendingOrders.length === 0 ? (
+                    <p className="text-xs text-green-400 flex items-center gap-1">
+                      <span>✅</span> Все поручения отдела выполнены
+                    </p>
+                  ) : (
+                    <p className="text-xs text-yellow-400 flex items-center gap-1">
+                      <span>⚠️</span> {pendingOrders.length} пункт(ов) требуют передачи
+                    </p>
+                  )}
+                  {overdueCount > 0 && (
+                    <p className="text-xs text-red-400 font-semibold flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-red-500 inline-block animate-pulse" />
+                      Просрочено: {overdueCount} — требует внимания!
+                    </p>
+                  )}
                 </div>
               )}
             </Card>
