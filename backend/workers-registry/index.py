@@ -51,21 +51,38 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # ── GET list ──────────────────────────────────────────────────────────
         if method == 'GET' and action == 'list':
             sheet_name = params.get('sheet', '')
+            user_id_param = params.get('user_id', '')
+            uid_p = int(user_id_param) if user_id_param and user_id_param.isdigit() else None
+
+            # Если org_id не передан — пробуем через user_id
+            if not org_id and uid_p:
+                cur.execute(f"SELECT organization_id FROM {SCHEMA}.users WHERE id = %s", (uid_p,))
+                r0 = cur.fetchone()
+                if r0 and r0[0]: org_id = r0[0]
+
+            # Строим условие по org_id (NULL = показать всё)
+            if org_id:
+                org_cond = "organization_id = %s"
+                org_args = [org_id]
+            else:
+                org_cond = "1=1"
+                org_args = []
+
             if sheet_name:
                 cur.execute(
                     f"""SELECT id, worker_number, qr_token, fio, subdivision, position_name, sheet_name
                         FROM {SCHEMA}.wr_employees
-                        WHERE organization_id = %s AND archived = FALSE AND sheet_name = %s
+                        WHERE {org_cond} AND archived = FALSE AND sheet_name = %s
                         ORDER BY fio""",
-                    (org_id, sheet_name)
+                    org_args + [sheet_name]
                 )
             else:
                 cur.execute(
                     f"""SELECT id, worker_number, qr_token, fio, subdivision, position_name, sheet_name
                         FROM {SCHEMA}.wr_employees
-                        WHERE organization_id = %s AND archived = FALSE
+                        WHERE {org_cond} AND archived = FALSE
                         ORDER BY sheet_name, fio""",
-                    (org_id,)
+                    org_args
                 )
             rows = cur.fetchall()
             workers = [{'id': r[0], 'worker_number': r[1], 'qr_token': r[2],
@@ -119,12 +136,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # ── GET sheets (листы) ────────────────────────────────────────────────
         if method == 'GET' and action == 'sheets':
-            cur.execute(
-                f"""SELECT DISTINCT sheet_name FROM {SCHEMA}.workers_registry_columns
-                    WHERE organization_id = %s AND sheet_name IS NOT NULL AND sheet_name != ''
-                    ORDER BY sheet_name""",
-                (org_id,)
-            )
+            # Берём листы из wr_employees (там точно есть данные)
+            if org_id:
+                cur.execute(
+                    f"""SELECT DISTINCT sheet_name FROM {SCHEMA}.wr_employees
+                        WHERE organization_id = %s AND sheet_name IS NOT NULL AND sheet_name != ''
+                        AND archived = FALSE ORDER BY sheet_name""",
+                    (org_id,)
+                )
+            else:
+                cur.execute(
+                    f"""SELECT DISTINCT sheet_name FROM {SCHEMA}.wr_employees
+                        WHERE sheet_name IS NOT NULL AND sheet_name != ''
+                        AND archived = FALSE ORDER BY sheet_name"""
+                )
             sheets = [r[0] for r in cur.fetchall()]
             return {'statusCode': 200, 'headers': CORS,
                     'body': json.dumps({'success': True, 'sheets': sheets}, ensure_ascii=False)}

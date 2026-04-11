@@ -97,8 +97,8 @@ const WorkersRegistryPage = () => {
     setLoading(true);
     try {
       const [wRes, sRes] = await Promise.all([
-        fetch(`${WORKERS_API}?action=list&organization_id=${orgId}`),
-        fetch(`${WORKERS_API}?action=sheets&organization_id=${orgId}`)
+        fetch(`${WORKERS_API}?action=list&organization_id=${orgId}&user_id=${userId}`),
+        fetch(`${WORKERS_API}?action=sheets&organization_id=${orgId}&user_id=${userId}`)
       ]);
       const wData = await wRes.json();
       const sData = await sRes.json();
