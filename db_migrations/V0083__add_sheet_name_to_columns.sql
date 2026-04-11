@@ -1,0 +1,1 @@
+ALTER TABLE t_p80499285_psot_realization_pro.workers_registry_columns ADD COLUMN IF NOT EXISTS sheet_name VARCHAR(255) DEFAULT '';
