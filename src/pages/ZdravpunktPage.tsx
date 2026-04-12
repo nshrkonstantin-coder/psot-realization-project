@@ -278,16 +278,28 @@ const ZdravpunktPage = () => {
     }
   };
 
-  // ── Удаление файла (только главный администратор) ───────────────────────
-  const archiveFile = async (fileId: number) => {
-    if (!confirm('Удалить запись о файле?')) return;
-    await fetch(API, {
+  // ── Удаление конкретного файла вместе с его данными ─────────────────────
+  const [deleteConfirm, setDeleteConfirm] = useState<{fileId: number; fileName: string; rows: number} | null>(null);
+
+  const archiveFile = async (fileId: number, fileName: string, rows: number) => {
+    setDeleteConfirm({ fileId, fileName, rows });
+  };
+
+  const confirmDeleteFile = async () => {
+    if (!deleteConfirm) return;
+    const res = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'archive_file', file_id: fileId, user_id: userId })
+      body: JSON.stringify({ action: 'delete_file', file_id: deleteConfirm.fileId, user_id: userId })
     });
-    toast.success('Файл удалён');
-    loadAll();
+    const data = await res.json();
+    if (data.success) {
+      toast.success(`Файл удалён, убрано ${data.deleted_rows} записей из БД`);
+      loadAll();
+    } else {
+      toast.error('Ошибка удаления');
+    }
+    setDeleteConfirm(null);
   };
 
   // ── Отчёт ───────────────────────────────────────────────────────────────
@@ -524,7 +536,7 @@ const ZdravpunktPage = () => {
                         </div>
                       </div>
                       {isAdmin && (
-                        <button onClick={() => archiveFile(f.id)}
+                        <button onClick={() => archiveFile(f.id, f.file_name, f.rows_count)}
                           className="text-slate-500 hover:text-red-400 transition shrink-0 ml-2">
                           <Icon name="Trash2" size={14} />
                         </button>
@@ -616,7 +628,7 @@ const ZdravpunktPage = () => {
                           </div>
                         </div>
                         {isAdmin && (
-                          <button onClick={() => archiveFile(f.id)}
+                          <button onClick={() => archiveFile(f.id, f.file_name, f.new_rows ?? f.rows_count)}
                             className="text-slate-500 hover:text-red-400 transition shrink-0">
                             <Icon name="Trash2" size={14} />
                           </button>
@@ -851,6 +863,52 @@ const ZdravpunktPage = () => {
           </div>
         )}
       </div>
+
+      {/* ── Подтверждение удаления файла ── */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-red-700/40 rounded-2xl shadow-2xl p-7 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-red-900/50 p-3 rounded-xl shrink-0">
+                <Icon name="FileX" size={26} className="text-red-400" />
+              </div>
+              <div>
+                <h2 className="text-white font-bold">Удалить файл?</h2>
+                <p className="text-slate-400 text-sm mt-0.5 break-all">{deleteConfirm.fileName}</p>
+              </div>
+            </div>
+            <div className="bg-slate-700/50 rounded-xl p-4 mb-5 space-y-2 text-sm">
+              <div className="flex items-center gap-2 text-red-300">
+                <Icon name="AlertTriangle" size={15} />
+                <span>Из базы данных будет удалено <span className="font-bold text-red-200">{deleteConfirm.rows.toLocaleString('ru')} записей</span> этого файла</span>
+              </div>
+              <div className="flex items-center gap-2 text-green-400">
+                <Icon name="CheckCircle" size={15} />
+                <span>Данные других файлов <span className="font-bold">останутся нетронутыми</span></span>
+              </div>
+              <div className="flex items-center gap-2 text-teal-400">
+                <Icon name="RefreshCw" size={15} />
+                <span>После удаления можно загрузить исправленный файл заново</span>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium transition"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={confirmDeleteFile}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition flex items-center justify-center gap-2"
+              >
+                <Icon name="Trash2" size={15} />
+                Удалить этот файл
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Карточка работника ── */}
       {workerModal && (

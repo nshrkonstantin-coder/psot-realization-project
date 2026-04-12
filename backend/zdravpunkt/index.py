@@ -362,7 +362,33 @@ def handler(event: dict, context) -> dict:
                             'skipped': skipped_count
                         }, ensure_ascii=False)}
 
-            # Архивировать файл (только главный администратор)
+            # Удалить данные конкретного файла (только главный администратор)
+            if action_post == 'delete_file':
+                file_id = body.get('file_id')
+                user_id = body.get('user_id')
+
+                # Считаем сколько записей удалим
+                cur.execute(
+                    f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE file_id = %s AND exam_result NOT IN ('cleared','archived_test')",
+                    (file_id,)
+                )
+                rows_count = cur.fetchone()[0]
+
+                # Помечаем данные этого файла как очищенные
+                cur.execute(
+                    f"UPDATE {SCHEMA}.zdravpunkt_esmo SET exam_result = 'cleared' WHERE file_id = %s AND exam_result NOT IN ('cleared','archived_test')",
+                    (file_id,)
+                )
+                # Архивируем запись файла
+                cur.execute(
+                    f"UPDATE {SCHEMA}.zdravpunkt_files SET is_archived = TRUE, archived_by = %s, archived_at = NOW() WHERE id = %s",
+                    (user_id, file_id)
+                )
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True, 'deleted_rows': rows_count}, ensure_ascii=False)}
+
+            # Архивировать файл без удаления данных (устаревший, оставляем для совместимости)
             if action_post == 'archive_file':
                 file_id = body.get('file_id')
                 user_id = body.get('user_id')
