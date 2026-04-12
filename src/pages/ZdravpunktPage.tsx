@@ -51,6 +51,7 @@ const ZdravpunktPage = () => {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<'workers' | 'esmo' | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0); // 0-100
   const [activeTab, setActiveTab] = useState<'upload' | 'report'>('upload');
 
   // Фильтры отчёта
@@ -219,23 +220,38 @@ const ZdravpunktPage = () => {
           };
         }).filter(w => w.fio.trim());
 
-        const BATCH = 2000;
+        const BATCH = 500;
+        const totalBatches = Math.ceil(records.length / BATCH);
+        let totalImported = 0;
+        setUploadProgress(10);
+
         for (let i = 0; i < records.length; i += BATCH) {
           const batch = records.slice(i, i + BATCH);
-          await fetch(API, {
+          const res = await fetch(API, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'import_esmo', file_id: fileId, records: batch, organization_id: orgId })
           });
+          const resData = await res.json();
+          if (!resData.success) throw new Error(`Ошибка батча ${i / BATCH + 1}: ${resData.error}`);
+          totalImported += resData.imported || batch.length;
+          const progress = 10 + Math.round(((i / BATCH + 1) / totalBatches) * 88);
+          setUploadProgress(progress);
+        }
+
+        if (totalImported !== records.length) {
+          toast.warning(`Загружено ${totalImported} из ${records.length} строк`);
         }
       }
 
+      setUploadProgress(100);
       toast.success(`Файл "${file.name}" загружен — ${raw.length} строк`);
       loadAll();
     } catch (err: unknown) {
       toast.error(`Ошибка: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setUploading(null);
+      setTimeout(() => setUploadProgress(0), 1500);
     }
   };
 
@@ -514,14 +530,30 @@ const ZdravpunktPage = () => {
                 <Button
                   onClick={() => esmoRef.current?.click()}
                   disabled={uploading === 'esmo'}
-                  className="w-full bg-teal-600 hover:bg-teal-500 text-white mb-4"
+                  className="w-full bg-teal-600 hover:bg-teal-500 text-white mb-3"
                 >
                   {uploading === 'esmo' ? (
-                    <><Icon name="Loader" size={16} className="animate-spin mr-2" />Загружаю...</>
+                    <><Icon name="Loader" size={16} className="animate-spin mr-2" />Загружаю... {uploadProgress}%</>
                   ) : (
                     <><Icon name="Upload" size={16} className="mr-2" />Загрузить ЭСМО</>
                   )}
                 </Button>
+
+                {/* Прогресс-бар */}
+                {uploading === 'esmo' && uploadProgress > 0 && (
+                  <div className="mb-3">
+                    <div className="flex justify-between text-xs text-slate-400 mb-1">
+                      <span>Сохранение в базу данных...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-700 rounded-full h-2">
+                      <div
+                        className="bg-teal-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {loading ? (
