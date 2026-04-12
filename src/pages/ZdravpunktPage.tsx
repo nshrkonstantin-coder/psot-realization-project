@@ -288,7 +288,7 @@ const ZdravpunktPage = () => {
       'Подразделение': r.subdivision || '',
       'ФИО сотрудника': r.fio,
       'Результат осмотра': r.exam_detail || r.reject_reason || '',
-      'Допуск': r.exam_result === 'admitted' ? 'Разрешен' : r.exam_result === 'not_admitted' ? 'Запрещен' : r.exam_result === 'evaded' ? 'Уклонился' : 'Не определён',
+      'Допуск': r.exam_result === 'admitted' ? 'Разрешен' : r.exam_result === 'not_admitted' ? 'Запрещен' : r.exam_result === 'evaded' ? 'Уклонился' : 'Допуск дан медработником',
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -662,22 +662,22 @@ const ZdravpunktPage = () => {
                             {/* Результат осмотра */}
                             <td className="px-4 py-2.5 text-slate-300 text-xs">{r.exam_detail || r.reject_reason || '—'}</td>
                             {/* Допуск */}
-                            <td className="px-4 py-2.5 whitespace-nowrap">
+                            <td className="px-4 py-2.5">
                               {r.exam_result === 'admitted' ? (
-                                <span className="inline-flex items-center gap-1 bg-green-900/40 text-green-400 font-semibold px-2 py-0.5 rounded-full text-xs">
+                                <span className="inline-flex items-center gap-1.5 bg-green-900/40 border border-green-700/40 text-green-400 font-semibold px-3 py-1 rounded-full text-xs whitespace-nowrap">
                                   <Icon name="CheckCircle" size={13} />Разрешен
                                 </span>
                               ) : r.exam_result === 'not_admitted' ? (
-                                <span className="inline-flex items-center gap-1 bg-red-900/40 text-red-400 font-semibold px-2 py-0.5 rounded-full text-xs">
+                                <span className="inline-flex items-center gap-1.5 bg-red-900/40 border border-red-700/40 text-red-400 font-semibold px-3 py-1 rounded-full text-xs whitespace-nowrap">
                                   <Icon name="XCircle" size={13} />Запрещен
                                 </span>
                               ) : r.exam_result === 'evaded' ? (
-                                <span className="inline-flex items-center gap-1 bg-yellow-900/40 text-yellow-400 font-semibold px-2 py-0.5 rounded-full text-xs">
+                                <span className="inline-flex items-center gap-1.5 bg-yellow-900/40 border border-yellow-700/40 text-yellow-400 font-semibold px-3 py-1 rounded-full text-xs whitespace-nowrap">
                                   <Icon name="AlertCircle" size={13} />Уклонился
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 bg-slate-700/50 text-slate-400 font-semibold px-2 py-0.5 rounded-full text-xs">
-                                  <Icon name="Minus" size={13} />Не определён
+                                <span className="inline-flex items-center gap-1.5 bg-blue-900/30 border border-blue-700/40 text-blue-300 font-semibold px-3 py-1 rounded-full text-xs whitespace-nowrap">
+                                  <Icon name="Stethoscope" size={13} />Допуск дан медработником
                                 </span>
                               )}
                             </td>
