@@ -87,12 +87,13 @@ const ZdravpunktPage = () => {
   } | null>(null);
   const [quickTab, setQuickTab] = useState<'list' | 'by_subdivision' | 'by_company'>('list');
 
-  const openQuickReport = async (type: QuickReportType, title: string) => {
+  const openQuickReport = async (type: QuickReportType, title: string, extraParams?: Record<string, string>) => {
     setQuickTab('list');
     setQuickReport({ type, title, records: [], loading: true });
     try {
       const p = new URLSearchParams({ action: 'report', limit: '5000', offset: '0' });
       if (type !== 'all_esmo') p.set('exam_result', type);
+      if (extraParams) Object.entries(extraParams).forEach(([k, v]) => v && p.set(k, v));
       const res = await fetch(`${API}?${p.toString()}`);
       const data = await res.json();
       if (data.success) {
@@ -102,6 +103,20 @@ const ZdravpunktPage = () => {
       toast.error('Ошибка загрузки');
       setQuickReport(null);
     }
+  };
+
+  // Открыть быстрый отчёт с текущими фильтрами периода/подразделения/компании из формы отчёта
+  const openQuickReportWithPeriod = (type: QuickReportType, title: string) => {
+    const periodLabel = dateFrom || dateTo
+      ? ` (${dateFrom ? new Date(dateFrom).toLocaleDateString('ru') : ''}–${dateTo ? new Date(dateTo).toLocaleDateString('ru') : ''})`
+      : '';
+    openQuickReport(type, `${title}${periodLabel}`, {
+      date_from: dateFrom,
+      date_to: dateTo,
+      subdivision: filterSubdivision,
+      company: filterCompany,
+      fio: filterFio,
+    });
   };
 
   const exportQuickExcel = (records: ReportRecord[], title: string) => {
@@ -832,16 +847,20 @@ const ZdravpunktPage = () => {
             {/* Результаты — статистика */}
             {reportStats && (
               <div className="space-y-3">
-                {/* Главная карточка — уникальные работники */}
-                <Card className="bg-gradient-to-r from-teal-900/50 to-cyan-900/30 border-teal-600/50 p-5">
+                {/* Главная карточка — уникальных работников — кликабельная */}
+                <Card
+                  onClick={() => openQuickReportWithPeriod('all_esmo', 'Все осмотры')}
+                  className="bg-gradient-to-r from-teal-900/50 to-cyan-900/30 border-teal-600/50 p-5 cursor-pointer hover:border-teal-400/70 hover:scale-[1.01] transition-all group"
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="bg-teal-500/20 border border-teal-500/40 p-3 rounded-xl">
+                      <div className="bg-teal-500/20 border border-teal-500/40 p-3 rounded-xl group-hover:scale-110 transition-transform">
                         <Icon name="Users" size={26} className="text-teal-400" />
                       </div>
                       <div>
                         <div className="text-slate-400 text-sm">Уникальных работников прошли ЭСМО</div>
                         <div className="text-4xl font-bold text-teal-300 mt-0.5">{reportStats.unique_workers.toLocaleString('ru')}</div>
+                        <div className="text-teal-600 text-xs mt-1 opacity-0 group-hover:opacity-100 transition-opacity">↗ Открыть полный список за период</div>
                       </div>
                     </div>
                     <div className="text-right text-slate-500 text-sm border-l border-slate-700 pl-5">
@@ -854,19 +873,28 @@ const ZdravpunktPage = () => {
                   </div>
                 </Card>
 
-                {/* Детализация по допуску */}
+                {/* Детализация по допуску — кликабельные карточки с фильтром периода */}
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { label: 'Разрешен', value: reportStats.admitted, color: 'text-green-400', bg: 'bg-green-900/20 border-green-700/30' },
-                    { label: 'Запрещен', value: reportStats.not_admitted, color: 'text-red-400', bg: 'bg-red-900/20 border-red-700/30' },
-                    { label: 'Уклонился', value: reportStats.evaded, color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-700/30' },
+                    { label: 'Разрешен', value: reportStats.admitted, color: 'text-green-400', bg: 'bg-green-900/20 border-green-700/30', hover: 'hover:border-green-500/60 hover:bg-green-900/30', clickType: null as null },
+                    { label: 'Запрещен', value: reportStats.not_admitted, color: 'text-red-400', bg: 'bg-red-900/20 border-red-700/30', hover: 'hover:border-red-500/60 hover:bg-red-900/30', clickType: 'not_admitted' as const },
+                    { label: 'Уклонился', value: reportStats.evaded, color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-700/30', hover: 'hover:border-yellow-500/60 hover:bg-yellow-900/30', clickType: 'evaded' as const },
                   ].map((s, i) => (
-                    <Card key={i} className={`${s.bg} border p-4 text-center`}>
+                    <Card
+                      key={i}
+                      onClick={() => s.clickType && s.value > 0 && openQuickReportWithPeriod(s.clickType, s.label)}
+                      className={`${s.bg} border p-4 text-center transition-all ${s.clickType && s.value > 0 ? `cursor-pointer ${s.hover} hover:scale-[1.02] group` : ''}`}
+                    >
                       <div className={`text-3xl font-bold ${s.color}`}>{s.value.toLocaleString('ru')}</div>
                       <div className="text-slate-400 text-sm mt-1">{s.label}</div>
                       {reportStats.total > 0 && (
                         <div className="text-slate-600 text-xs mt-0.5">
                           {((s.value / reportStats.total) * 100).toFixed(1)}% от всех записей
+                        </div>
+                      )}
+                      {s.clickType && s.value > 0 && (
+                        <div className="text-slate-600 text-xs mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          ↗ Открыть список за период
                         </div>
                       )}
                     </Card>
