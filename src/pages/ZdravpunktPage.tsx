@@ -220,7 +220,7 @@ const ZdravpunktPage = () => {
           };
         }).filter(w => w.fio.trim());
 
-        const BATCH = 500;
+        const BATCH = 1000;
         const totalBatches = Math.ceil(records.length / BATCH);
         let totalImported = 0;
         setUploadProgress(10);

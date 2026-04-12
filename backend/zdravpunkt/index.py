@@ -2,6 +2,7 @@ import json
 import os
 import base64
 import psycopg2
+import psycopg2.extras
 from datetime import datetime, date
 
 SCHEMA = 't_p80499285_psot_realization_pro'
@@ -246,48 +247,52 @@ def handler(event: dict, context) -> dict:
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True, 'file_id': file_id}, ensure_ascii=False)}
 
-            # Сохранить список работников — executemany для скорости
+            # Сохранить список работников — execute_values (быстрый bulk insert)
             if action_post == 'import_workers':
                 file_id = body.get('file_id')
                 workers = body.get('workers', [])
-                data = [
-                    (file_id, org_id,
-                     w.get('worker_number', ''), w.get('fio', ''),
-                     w.get('subdivision', ''), w.get('position', ''),
-                     w.get('company', ''), '{}')
-                    for w in workers
-                ]
-                cur.executemany(
-                    f"""INSERT INTO {SCHEMA}.zdravpunkt_workers
-                        (file_id, organization_id, worker_number, fio, subdivision, position, company, extra_data)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                    data
-                )
-                conn.commit()
+                if workers:
+                    data = [
+                        (file_id, org_id,
+                         w.get('worker_number', ''), w.get('fio', ''),
+                         w.get('subdivision', ''), w.get('position', ''),
+                         w.get('company', ''), '{}')
+                        for w in workers
+                    ]
+                    psycopg2.extras.execute_values(
+                        cur,
+                        f"""INSERT INTO {SCHEMA}.zdravpunkt_workers
+                            (file_id, organization_id, worker_number, fio, subdivision, position, company, extra_data)
+                            VALUES %s""",
+                        data, page_size=500
+                    )
+                    conn.commit()
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True, 'imported': len(workers)}, ensure_ascii=False)}
 
-            # Сохранить результаты ЭСМО — executemany для скорости
+            # Сохранить результаты ЭСМО — execute_values (быстрый bulk insert)
             if action_post == 'import_esmo':
                 file_id = body.get('file_id')
                 records = body.get('records', [])
-                data = [
-                    (file_id, org_id,
-                     r.get('fio', ''), r.get('worker_number', ''),
-                     r.get('subdivision', ''), r.get('position', ''),
-                     r.get('company', ''), r.get('exam_date') or None,
-                     r.get('exam_result', ''), r.get('reject_reason', ''),
-                     json.dumps(r.get('extra', {}), ensure_ascii=False))
-                    for r in records
-                ]
-                cur.executemany(
-                    f"""INSERT INTO {SCHEMA}.zdravpunkt_esmo
-                        (file_id, organization_id, fio, worker_number, subdivision, position,
-                         company, exam_date, exam_result, reject_reason, extra_data)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                    data
-                )
-                conn.commit()
+                if records:
+                    data = [
+                        (file_id, org_id,
+                         r.get('fio', ''), r.get('worker_number', ''),
+                         r.get('subdivision', ''), r.get('position', ''),
+                         r.get('company', ''), r.get('exam_date') or None,
+                         r.get('exam_result', ''), r.get('reject_reason', ''),
+                         json.dumps(r.get('extra', {}), ensure_ascii=False))
+                        for r in records
+                    ]
+                    psycopg2.extras.execute_values(
+                        cur,
+                        f"""INSERT INTO {SCHEMA}.zdravpunkt_esmo
+                            (file_id, organization_id, fio, worker_number, subdivision, position,
+                             company, exam_date, exam_result, reject_reason, extra_data)
+                            VALUES %s""",
+                        data, page_size=500
+                    )
+                    conn.commit()
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True, 'imported': len(records)}, ensure_ascii=False)}
 
