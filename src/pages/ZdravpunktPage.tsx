@@ -117,6 +117,256 @@ const ZdravpunktPage = () => {
     XLSX.writeFile(wb, `${title}_${new Date().toLocaleDateString('ru')}.xlsx`);
   };
 
+  const exportUniquePDF = (workers: UniqueWorker[], title: string) => {
+    const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
+    doc.setFontSize(14);
+    doc.text(title, 14, 16);
+    doc.setFontSize(9);
+    doc.text(`Сформирован: ${new Date().toLocaleString('ru')}  Всего работников: ${workers.length}`, 14, 23);
+    autoTable(doc, {
+      startY: 28,
+      head: [['#', 'ФИО', 'Организация', 'Подразделение', 'Осмотров', 'Первый', 'Последний', 'Запрещён', 'Уклонялся']],
+      body: workers.map((w, i) => [
+        i + 1,
+        w.fio,
+        w.company || '',
+        w.subdivision || '',
+        w.total_exams,
+        w.first_date ? new Date(w.first_date).toLocaleDateString('ru') : '',
+        w.last_date ? new Date(w.last_date).toLocaleDateString('ru') : '',
+        w.has_not_admitted ? 'Да' : '',
+        w.has_evaded ? 'Да' : '',
+      ]),
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [15, 118, 110], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: {
+        0: { cellWidth: 8 }, 1: { cellWidth: 50 }, 2: { cellWidth: 45 },
+        3: { cellWidth: 50 }, 4: { cellWidth: 16 }, 5: { cellWidth: 20 },
+        6: { cellWidth: 20 }, 7: { cellWidth: 16 }, 8: { cellWidth: 16 },
+      },
+      didParseCell: (data) => {
+        if (data.column.index === 7 && data.cell.raw === 'Да') data.cell.styles.textColor = [220, 38, 38];
+        if (data.column.index === 8 && data.cell.raw === 'Да') data.cell.styles.textColor = [202, 138, 4];
+      },
+    });
+    doc.save(`${title}_${new Date().toLocaleDateString('ru')}.pdf`);
+  };
+
+  const printUniqueWorkers = (workers: UniqueWorker[], title: string) => {
+    const html = `
+      <html><head><title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 10px; margin: 20px; }
+        h2 { font-size: 13px; margin-bottom: 4px; }
+        .meta { color: #666; font-size: 9px; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #0f766e; color: white; padding: 4px 5px; text-align: left; font-size: 9px; }
+        td { padding: 3px 5px; border-bottom: 1px solid #e2e8f0; font-size: 9px; }
+        tr:nth-child(even) td { background: #f8fafc; }
+        .red { color: #dc2626; font-weight: bold; }
+        .yellow { color: #ca8a04; font-weight: bold; }
+        @media print { body { margin: 8px; } }
+      </style></head><body>
+      <h2>${title}</h2>
+      <div class="meta">Сформирован: ${new Date().toLocaleString('ru')} &nbsp;|&nbsp; Всего работников: ${workers.length}</div>
+      <table>
+        <thead><tr>
+          <th>#</th><th>ФИО</th><th>Организация</th><th>Подразделение</th>
+          <th>Осмотров</th><th>Первый</th><th>Последний</th><th>Запрещён</th><th>Уклонялся</th>
+        </tr></thead>
+        <tbody>${workers.map((w, i) => `<tr>
+          <td>${i + 1}</td>
+          <td><b>${w.fio}</b></td>
+          <td>${w.company || ''}</td>
+          <td>${w.subdivision || ''}</td>
+          <td style="text-align:center">${w.total_exams}</td>
+          <td>${w.first_date ? new Date(w.first_date).toLocaleDateString('ru') : ''}</td>
+          <td>${w.last_date ? new Date(w.last_date).toLocaleDateString('ru') : ''}</td>
+          <td class="${w.has_not_admitted ? 'red' : ''}">${w.has_not_admitted ? 'Да' : ''}</td>
+          <td class="${w.has_evaded ? 'yellow' : ''}">${w.has_evaded ? 'Да' : ''}</td>
+        </tr>`).join('')}</tbody>
+      </table></body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
+  };
+
+  const exportWorkerPDF = (records: ReportRecord[], fio: string) => {
+    const title = `ЭСМО — ${fio}`;
+    const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
+    doc.setFontSize(14);
+    doc.text(title, 14, 16);
+    doc.setFontSize(9);
+    doc.text(`Сформирован: ${new Date().toLocaleString('ru')}  Всего осмотров: ${records.length}`, 14, 23);
+    autoTable(doc, {
+      startY: 28,
+      head: [['Дата/время', 'Группа МО', 'Организация', 'Подразделение', 'Результат осмотра', 'Допуск']],
+      body: records.map(r => [
+        r.exam_datetime ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : r.exam_date || '',
+        r.group_mo || '',
+        r.company || '',
+        r.subdivision || '',
+        r.exam_detail || r.reject_reason || '',
+        r.exam_result === 'admitted' ? 'Разрешен' : r.exam_result === 'not_admitted' ? 'Запрещен' : r.exam_result === 'evaded' ? 'Уклонился' : 'Допуск дан медработником',
+      ]),
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [15, 118, 110], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: {
+        0: { cellWidth: 30 }, 1: { cellWidth: 22 }, 2: { cellWidth: 50 },
+        3: { cellWidth: 55 }, 4: { cellWidth: 60 }, 5: { cellWidth: 30 },
+      },
+      didParseCell: (data) => {
+        if (data.column.index === 5) {
+          if (data.cell.raw === 'Запрещен') data.cell.styles.textColor = [220, 38, 38];
+          else if (data.cell.raw === 'Уклонился') data.cell.styles.textColor = [202, 138, 4];
+          else if (data.cell.raw === 'Разрешен') data.cell.styles.textColor = [22, 163, 74];
+        }
+      },
+    });
+    doc.save(`${title}_${new Date().toLocaleDateString('ru')}.pdf`);
+  };
+
+  const printWorker = (records: ReportRecord[], fio: string) => {
+    const title = `ЭСМО — ${fio}`;
+    const resultLabel = (r: ReportRecord) =>
+      r.exam_result === 'admitted' ? 'Разрешен' :
+      r.exam_result === 'not_admitted' ? 'Запрещен' :
+      r.exam_result === 'evaded' ? 'Уклонился' : 'Допуск дан медработником';
+    const resultColor = (r: ReportRecord) =>
+      r.exam_result === 'not_admitted' ? 'color:#dc2626' :
+      r.exam_result === 'evaded' ? 'color:#ca8a04' :
+      r.exam_result === 'admitted' ? 'color:#16a34a' : '';
+    const html = `
+      <html><head><title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px; }
+        h2 { font-size: 14px; margin-bottom: 2px; }
+        .sub { color: #555; font-size: 10px; margin-bottom: 4px; }
+        .meta { color: #666; font-size: 10px; margin-bottom: 12px; }
+        .stats { display: flex; gap: 20px; margin-bottom: 12px; }
+        .stat { border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 14px; text-align: center; }
+        .stat .val { font-size: 20px; font-weight: bold; }
+        .stat .lbl { font-size: 9px; color: #666; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #0f766e; color: white; padding: 5px 6px; text-align: left; font-size: 10px; }
+        td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; font-size: 10px; }
+        tr:nth-child(even) td { background: #f8fafc; }
+        @media print { body { margin: 10px; } }
+      </style></head><body>
+      <h2>${fio}</h2>
+      ${records[0] ? `<div class="sub">${records[0].company || ''} · ${records[0].subdivision || ''}</div>` : ''}
+      <div class="meta">Сформирован: ${new Date().toLocaleString('ru')}</div>
+      <div class="stats">
+        <div class="stat"><div class="val">${records.length}</div><div class="lbl">Всего</div></div>
+        <div class="stat"><div class="val" style="color:#16a34a">${records.filter(r => r.exam_result === 'admitted').length}</div><div class="lbl">Разрешен</div></div>
+        <div class="stat"><div class="val" style="color:#dc2626">${records.filter(r => r.exam_result === 'not_admitted').length}</div><div class="lbl">Запрещен</div></div>
+        <div class="stat"><div class="val" style="color:#ca8a04">${records.filter(r => r.exam_result === 'evaded').length}</div><div class="lbl">Уклонился</div></div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Дата/время</th><th>Группа МО</th><th>Подразделение</th>
+          <th>Результат осмотра</th><th>Допуск</th>
+        </tr></thead>
+        <tbody>${records.map(r => `<tr>
+          <td>${r.exam_datetime ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : r.exam_date || ''}</td>
+          <td>${r.group_mo || ''}</td>
+          <td>${r.subdivision || ''}</td>
+          <td>${r.exam_detail || r.reject_reason || ''}</td>
+          <td style="${resultColor(r)};font-weight:bold">${resultLabel(r)}</td>
+        </tr>`).join('')}</tbody>
+      </table></body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
+  };
+
+  const exportGroupedPDF = (records: ReportRecord[], title: string, groupKey: 'subdivision' | 'company') => {
+    const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
+    const grouped = records.reduce((acc, r) => {
+      const key = r[groupKey] || '— не указано —';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(r);
+      return acc;
+    }, {} as Record<string, ReportRecord[]>);
+    const sorted = Object.entries(grouped).sort((a, b) => b[1].length - a[1].length);
+    const label = groupKey === 'subdivision' ? 'Подразделение' : 'Компания';
+
+    doc.setFontSize(14);
+    doc.text(title, 14, 16);
+    doc.setFontSize(9);
+    doc.text(`Сформирован: ${new Date().toLocaleString('ru')}  Записей: ${records.length}  ${label === 'Подразделение' ? 'Подразделений' : 'Компаний'}: ${sorted.length}`, 14, 23);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [[label, 'Всего', 'Разрешен', 'Запрещен', 'Уклонился', 'ФИО (краткий список)']],
+      body: sorted.map(([name, recs]) => {
+        const admitted = recs.filter(r => r.exam_result === 'admitted').length;
+        const not_admitted = recs.filter(r => r.exam_result === 'not_admitted').length;
+        const evaded = recs.filter(r => r.exam_result === 'evaded').length;
+        const uniqueFio = [...new Set(recs.map(r => r.fio))].slice(0, 5).join(', ') + (new Set(recs.map(r => r.fio)).size > 5 ? '...' : '');
+        return [name, recs.length, admitted, not_admitted, evaded, uniqueFio];
+      }),
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [15, 118, 110], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: {
+        0: { cellWidth: 65 }, 1: { cellWidth: 16 }, 2: { cellWidth: 20 },
+        3: { cellWidth: 20 }, 4: { cellWidth: 20 }, 5: { cellWidth: 105 },
+      },
+      didParseCell: (data) => {
+        if (data.column.index === 3 && Number(data.cell.raw) > 0) data.cell.styles.textColor = [220, 38, 38];
+        if (data.column.index === 4 && Number(data.cell.raw) > 0) data.cell.styles.textColor = [202, 138, 4];
+        if (data.column.index === 2 && Number(data.cell.raw) > 0) data.cell.styles.textColor = [22, 163, 74];
+      },
+    });
+    doc.save(`${title}_${new Date().toLocaleDateString('ru')}.pdf`);
+  };
+
+  const printGroupedReport = (records: ReportRecord[], title: string, groupKey: 'subdivision' | 'company') => {
+    const grouped = records.reduce((acc, r) => {
+      const key = r[groupKey] || '— не указано —';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(r);
+      return acc;
+    }, {} as Record<string, ReportRecord[]>);
+    const sorted = Object.entries(grouped).sort((a, b) => b[1].length - a[1].length);
+    const label = groupKey === 'subdivision' ? 'Подразделение' : 'Компания';
+    const html = `
+      <html><head><title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 10px; margin: 20px; }
+        h2 { font-size: 13px; margin-bottom: 4px; }
+        .meta { color: #666; font-size: 9px; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th { background: #0f766e; color: white; padding: 4px 5px; text-align: left; font-size: 9px; }
+        td { padding: 3px 5px; border-bottom: 1px solid #e2e8f0; font-size: 9px; }
+        tr:nth-child(even) td { background: #f8fafc; }
+        .red { color: #dc2626; font-weight: bold; } .green { color: #16a34a; font-weight: bold; } .yellow { color: #ca8a04; font-weight: bold; }
+        @media print { body { margin: 8px; } }
+      </style></head><body>
+      <h2>${title}</h2>
+      <div class="meta">Сформирован: ${new Date().toLocaleString('ru')} &nbsp;|&nbsp; Записей: ${records.length} &nbsp;|&nbsp; ${label === 'Подразделение' ? 'Подразделений' : 'Компаний'}: ${sorted.length}</div>
+      <table>
+        <thead><tr><th>${label}</th><th>Всего</th><th>Разрешен</th><th>Запрещен</th><th>Уклонился</th><th>Работники</th></tr></thead>
+        <tbody>${sorted.map(([name, recs]) => {
+          const admitted = recs.filter(r => r.exam_result === 'admitted').length;
+          const not_admitted = recs.filter(r => r.exam_result === 'not_admitted').length;
+          const evaded = recs.filter(r => r.exam_result === 'evaded').length;
+          const uniqueFio = [...new Set(recs.map(r => r.fio))].slice(0, 6).join(', ') + (new Set(recs.map(r => r.fio)).size > 6 ? '...' : '');
+          return `<tr>
+            <td><b>${name}</b></td>
+            <td style="text-align:center">${recs.length}</td>
+            <td class="green" style="text-align:center">${admitted || ''}</td>
+            <td class="${not_admitted ? 'red' : ''}" style="text-align:center">${not_admitted || ''}</td>
+            <td class="${evaded ? 'yellow' : ''}" style="text-align:center">${evaded || ''}</td>
+            <td style="font-size:8px">${uniqueFio}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
+  };
+
   // Быстрый отчёт из окошек статистики
   type QuickReportType = 'not_admitted' | 'evaded' | 'all_esmo';
   const [quickReport, setQuickReport] = useState<{
@@ -976,6 +1226,27 @@ const ZdravpunktPage = () => {
                     Нет данных по выбранным фильтрам
                   </div>
                 ) : (
+                  <div>
+                    {/* Панель экспорта основного отчёта */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-800/80">
+                      <span className="text-slate-400 text-sm">
+                        Показано: <span className="text-white font-semibold">{reportRecords.length.toLocaleString('ru')}</span> записей
+                      </span>
+                      <div className="flex gap-2">
+                        <button onClick={exportReport}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-700/30 border border-green-600/40 text-green-400 text-xs hover:bg-green-700/50 transition">
+                          <Icon name="FileSpreadsheet" size={13} />Excel
+                        </button>
+                        <button onClick={() => exportQuickPDF(reportRecords, 'Отчёт ЭСМО')}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-700/30 border border-red-600/40 text-red-400 text-xs hover:bg-red-700/50 transition">
+                          <Icon name="FileText" size={13} />PDF
+                        </button>
+                        <button onClick={() => printQuickReport(reportRecords, 'Отчёт ЭСМО')}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700/30 border border-blue-600/40 text-blue-400 text-xs hover:bg-blue-700/50 transition">
+                          <Icon name="Printer" size={13} />Печать
+                        </button>
+                      </div>
+                    </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-slate-700/50 text-xs">
@@ -1043,6 +1314,7 @@ const ZdravpunktPage = () => {
                       </tbody>
                     </table>
                   </div>
+                  </div>
                 )}
               </Card>
             )}
@@ -1092,12 +1364,20 @@ const ZdravpunktPage = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {!uniqueModal.loading && uniqueModal.workers.length > 0 && (
+                {!uniqueModal.loading && uniqueModal.workers.length > 0 && (<>
                   <button onClick={() => exportUniqueExcel(uniqueModal.workers, uniqueModal.title)}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-700/30 border border-green-600/40 text-green-400 text-sm hover:bg-green-700/50 transition">
                     <Icon name="FileSpreadsheet" size={15} />Excel
                   </button>
-                )}
+                  <button onClick={() => exportUniquePDF(uniqueModal.workers, uniqueModal.title)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-700/30 border border-red-600/40 text-red-400 text-sm hover:bg-red-700/50 transition">
+                    <Icon name="FileText" size={15} />PDF
+                  </button>
+                  <button onClick={() => printUniqueWorkers(uniqueModal.workers, uniqueModal.title)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-700/30 border border-blue-600/40 text-blue-400 text-sm hover:bg-blue-700/50 transition">
+                    <Icon name="Printer" size={15} />Печать
+                  </button>
+                </>)}
                 <button onClick={() => setUniqueModal(null)} className="text-slate-400 hover:text-white transition ml-1">
                   <Icon name="X" size={22} />
                 </button>
@@ -1290,6 +1570,17 @@ const ZdravpunktPage = () => {
 
                 return (
                   <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                    {/* Кнопки экспорта для группированного вида */}
+                    <div className="flex gap-2 mb-2">
+                      <button onClick={() => exportGroupedPDF(quickReport.records, quickReport.title, groupKey as 'subdivision' | 'company')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-700/30 border border-red-600/40 text-red-400 text-xs hover:bg-red-700/50 transition">
+                        <Icon name="FileText" size={13} />PDF сводки
+                      </button>
+                      <button onClick={() => printGroupedReport(quickReport.records, quickReport.title, groupKey as 'subdivision' | 'company')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700/30 border border-blue-600/40 text-blue-400 text-xs hover:bg-blue-700/50 transition">
+                        <Icon name="Printer" size={13} />Печать сводки
+                      </button>
+                    </div>
                     {/* Топ-сводка */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                       <div className="bg-slate-800/60 rounded-xl p-3 text-center">
@@ -1510,28 +1801,40 @@ const ZdravpunktPage = () => {
               )}
 
               {/* Кнопки */}
-              <div className="flex justify-between items-center mt-5">
-                <button
-                  onClick={() => {
-                    if (!workerModal.records.length) return;
-                    const rows = workerModal.records.map(r => ({
-                      'Дата/время': r.exam_datetime ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : r.exam_date || '',
-                      'Группа МО': r.group_mo || '',
-                      'Организация': r.company || '',
-                      'Подразделение': r.subdivision || '',
-                      'ФИО сотрудника': r.fio,
-                      'Результат осмотра': r.exam_detail || r.reject_reason || '',
-                      'Допуск': r.exam_result === 'admitted' ? 'Разрешен' : r.exam_result === 'not_admitted' ? 'Запрещен' : r.exam_result === 'evaded' ? 'Уклонился' : 'Допуск дан медработником',
-                    }));
-                    const ws = XLSX.utils.json_to_sheet(rows);
-                    const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, 'Осмотры');
-                    XLSX.writeFile(wb, `ЭСМО_${workerModal.fio}_${new Date().toLocaleDateString('ru')}.xlsx`);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-700/30 border border-green-600/40 text-green-400 text-sm hover:bg-green-700/50 transition"
-                >
-                  <Icon name="Download" size={16} />Скачать Excel
-                </button>
+              <div className="flex justify-between items-center mt-5 flex-wrap gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => {
+                      if (!workerModal.records.length) return;
+                      const rows = workerModal.records.map(r => ({
+                        'Дата/время': r.exam_datetime ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : r.exam_date || '',
+                        'Группа МО': r.group_mo || '',
+                        'Организация': r.company || '',
+                        'Подразделение': r.subdivision || '',
+                        'ФИО сотрудника': r.fio,
+                        'Результат осмотра': r.exam_detail || r.reject_reason || '',
+                        'Допуск': r.exam_result === 'admitted' ? 'Разрешен' : r.exam_result === 'not_admitted' ? 'Запрещен' : r.exam_result === 'evaded' ? 'Уклонился' : 'Допуск дан медработником',
+                      }));
+                      const ws = XLSX.utils.json_to_sheet(rows);
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, ws, 'Осмотры');
+                      XLSX.writeFile(wb, `ЭСМО_${workerModal.fio}_${new Date().toLocaleDateString('ru')}.xlsx`);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-700/30 border border-green-600/40 text-green-400 text-sm hover:bg-green-700/50 transition"
+                  >
+                    <Icon name="FileSpreadsheet" size={15} />Excel
+                  </button>
+                  {workerModal.records.length > 0 && (<>
+                    <button onClick={() => exportWorkerPDF(workerModal.records, workerModal.fio)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-700/30 border border-red-600/40 text-red-400 text-sm hover:bg-red-700/50 transition">
+                      <Icon name="FileText" size={15} />PDF
+                    </button>
+                    <button onClick={() => printWorker(workerModal.records, workerModal.fio)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-700/30 border border-blue-600/40 text-blue-400 text-sm hover:bg-blue-700/50 transition">
+                      <Icon name="Printer" size={15} />Печать
+                    </button>
+                  </>)}
+                </div>
                 <button onClick={() => setWorkerModal(null)}
                   className="px-5 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium transition">
                   Закрыть
