@@ -60,6 +60,8 @@ def handler(event: dict, context) -> dict:
             admitted = cur.fetchone()[0]
             cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE exam_result = 'not_admitted'")
             not_admitted = cur.fetchone()[0]
+            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE exam_result = 'evaded'")
+            evaded = cur.fetchone()[0]
             cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_files WHERE is_archived = FALSE")
             total_files = cur.fetchone()[0]
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
@@ -68,6 +70,7 @@ def handler(event: dict, context) -> dict:
                 'total_esmo': total_esmo,
                 'admitted': admitted,
                 'not_admitted': not_admitted,
+                'evaded': evaded,
                 'total_files': total_files
             }, ensure_ascii=False)}
 

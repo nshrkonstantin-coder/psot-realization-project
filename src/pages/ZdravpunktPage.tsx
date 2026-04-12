@@ -272,7 +272,7 @@ const ZdravpunktPage = () => {
       'Должность': r.position,
       'Компания': r.company,
       'Дата осмотра': r.exam_date || '',
-      'Результат': r.exam_result === 'admitted' ? 'Допущен' : r.exam_result === 'not_admitted' ? 'Не допущен' : r.exam_result,
+      'Результат': r.exam_result === 'admitted' ? 'Допущен' : r.exam_result === 'not_admitted' ? 'Не допущен' : r.exam_result === 'evaded' ? 'Уклонился' : r.exam_result,
       'Причина недопуска': r.reject_reason || '',
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -338,6 +338,7 @@ const ZdravpunktPage = () => {
               { label: 'Записей ЭСМО', value: stats.total_esmo, icon: 'ClipboardList', color: 'from-purple-500 to-purple-600' },
               { label: 'Допущено', value: stats.admitted, icon: 'CheckCircle', color: 'from-green-500 to-emerald-600' },
               { label: 'Не допущено', value: stats.not_admitted, icon: 'XCircle', color: 'from-red-500 to-red-600' },
+              { label: 'Уклонились', value: (stats as Stats & {evaded?: number}).evaded ?? 0, icon: 'AlertCircle', color: 'from-yellow-500 to-amber-600' },
               { label: 'Файлов загружено', value: stats.total_files, icon: 'FileSpreadsheet', color: 'from-teal-500 to-cyan-600' },
             ].map((s, i) => (
               <Card key={i} className="bg-slate-800/50 border-slate-700 p-4">
@@ -579,6 +580,10 @@ const ZdravpunktPage = () => {
                               ) : r.exam_result === 'not_admitted' ? (
                                 <span className="inline-flex items-center gap-1 text-red-400 font-medium">
                                   <Icon name="XCircle" size={14} />Не допущен
+                                </span>
+                              ) : r.exam_result === 'evaded' ? (
+                                <span className="inline-flex items-center gap-1 text-yellow-400 font-medium">
+                                  <Icon name="AlertCircle" size={14} />Уклонился
                                 </span>
                               ) : (
                                 <span className="text-slate-500">{r.exam_result || '—'}</span>
