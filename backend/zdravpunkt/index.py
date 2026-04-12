@@ -287,30 +287,30 @@ def handler(event: dict, context) -> dict:
                 skipped_count = 0
 
                 if records:
-                    # Собираем ключи дедупликации: fio_lower + datetime
-                    incoming_keys = set()
-                    for r in records:
-                        dt = (r.get('extra') or {}).get('Дата/время', '')
-                        key = (r.get('fio', '').strip().lower(), dt)
-                        incoming_keys.add(key)
+                    # Ключ дедупликации: fio_lower + exam_date + точное Дата/время
+                    def make_key(r):
+                        fio = r.get('fio', '').strip().lower()
+                        exam_date = str(r.get('exam_date') or '')
+                        dt = str((r.get('extra') or {}).get('Дата/время', '') or '')
+                        return (fio, exam_date, dt)
 
                     # Проверяем какие уже есть в БД среди активных записей
                     fios = list({r.get('fio', '').strip().lower() for r in records})
                     cur.execute(
-                        f"""SELECT TRIM(LOWER(fio)), extra_data->>'Дата/время'
+                        f"""SELECT TRIM(LOWER(fio)),
+                                   COALESCE(exam_date::text, ''),
+                                   COALESCE(extra_data->>'Дата/время', '')
                             FROM {SCHEMA}.zdravpunkt_esmo
                             WHERE TRIM(LOWER(fio)) = ANY(%s)
                             AND exam_result NOT IN ('cleared', 'archived_test')""",
                         (fios,)
                     )
-                    existing_keys = set((row[0], row[1]) for row in cur.fetchall())
+                    existing_keys = set((row[0], row[1], row[2]) for row in cur.fetchall())
 
                     # Фильтруем — только новые
                     new_records = []
                     for r in records:
-                        dt = (r.get('extra') or {}).get('Дата/время', '')
-                        key = (r.get('fio', '').strip().lower(), dt)
-                        if key not in existing_keys:
+                        if make_key(r) not in existing_keys:
                             new_records.append(r)
                         else:
                             skipped_count += 1
