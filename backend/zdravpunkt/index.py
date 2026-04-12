@@ -103,10 +103,13 @@ def handler(event: dict, context) -> dict:
             where_sql = ' AND '.join(where)
             cur.execute(
                 f"""SELECT e.fio, e.worker_number, e.subdivision, e.position, e.company,
-                           e.exam_date, e.exam_result, e.reject_reason, e.created_at
+                           e.exam_date, e.exam_result, e.reject_reason, e.created_at,
+                           e.extra_data->>'Дата/время' AS exam_datetime,
+                           e.extra_data->>'Группа МО' AS group_mo,
+                           e.extra_data->>'Результат осмотра' AS exam_detail
                     FROM {SCHEMA}.zdravpunkt_esmo e
                     WHERE {where_sql}
-                    ORDER BY e.fio, e.exam_date DESC""",
+                    ORDER BY (e.extra_data->>'Дата/время') DESC NULLS LAST""",
                 args
             )
             rows = cur.fetchall()
@@ -117,6 +120,9 @@ def handler(event: dict, context) -> dict:
                     'position': r[3], 'company': r[4],
                     'exam_date': r[5].isoformat() if r[5] else None,
                     'exam_result': r[6], 'reject_reason': r[7],
+                    'exam_datetime': r[9],
+                    'group_mo': r[10],
+                    'exam_detail': r[11],
                     'created_at': r[8].isoformat() if r[8] else None
                 })
 

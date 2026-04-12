@@ -33,8 +33,11 @@ interface ReportRecord {
   position: string;
   company: string;
   exam_date: string | null;
+  exam_datetime: string | null;
   exam_result: string;
   reject_reason: string | null;
+  group_mo: string | null;
+  exam_detail: string | null;
 }
 
 const ZdravpunktPage = () => {
@@ -266,14 +269,15 @@ const ZdravpunktPage = () => {
   const exportReport = () => {
     if (!reportRecords || reportRecords.length === 0) return;
     const rows = reportRecords.map(r => ({
-      'ФИО': r.fio,
-      'Таб. номер': r.worker_number,
-      'Подразделение': r.subdivision,
-      'Должность': r.position,
-      'Компания': r.company,
-      'Дата осмотра': r.exam_date || '',
-      'Результат': r.exam_result === 'admitted' ? 'Допущен' : r.exam_result === 'not_admitted' ? 'Не допущен' : r.exam_result === 'evaded' ? 'Уклонился' : r.exam_result,
-      'Причина недопуска': r.reject_reason || '',
+      'Дата/время': r.exam_datetime
+        ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : r.exam_date || '',
+      'Группа МО': r.group_mo || '',
+      'Организация': r.company || '',
+      'Подразделение': r.subdivision || '',
+      'ФИО сотрудника': r.fio,
+      'Результат осмотра': r.exam_detail || r.reject_reason || '',
+      'Допуск': r.exam_result === 'admitted' ? 'Разрешен' : r.exam_result === 'not_admitted' ? 'Запрещен' : r.exam_result === 'evaded' ? 'Уклонился' : '',
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -556,40 +560,58 @@ const ZdravpunktPage = () => {
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-700/50 text-slate-400 text-xs uppercase">
+                      <thead className="bg-slate-700/50 text-xs">
                         <tr>
-                          {['ФИО', 'Таб. №', 'Подразделение', 'Должность', 'Компания', 'Дата осмотра', 'Результат', 'Причина'].map(h => (
-                            <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+                          {[
+                            'Дата/время',
+                            'Группа МО',
+                            'Организация',
+                            'Подразделение',
+                            'ФИО сотрудника',
+                            'Результат осмотра',
+                            'Допуск',
+                          ].map(h => (
+                            <th key={h} className="px-4 py-3 text-left font-semibold text-amber-300 bg-slate-700/80 border-b border-slate-600 whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-700/50">
                         {reportRecords.map((r, i) => (
                           <tr key={i} className="hover:bg-slate-700/30 transition">
-                            <td className="px-4 py-2.5 text-white font-medium">{r.fio}</td>
-                            <td className="px-4 py-2.5 text-slate-300">{r.worker_number}</td>
-                            <td className="px-4 py-2.5 text-slate-300">{r.subdivision}</td>
-                            <td className="px-4 py-2.5 text-slate-300">{r.position}</td>
-                            <td className="px-4 py-2.5 text-slate-300">{r.company}</td>
-                            <td className="px-4 py-2.5 text-slate-300">{r.exam_date ? formatDate(r.exam_date) : '—'}</td>
-                            <td className="px-4 py-2.5">
+                            {/* Дата/время */}
+                            <td className="px-4 py-2.5 text-slate-300 whitespace-nowrap">
+                              {r.exam_datetime
+                                ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                : r.exam_date ? formatDate(r.exam_date) : '—'}
+                            </td>
+                            {/* Группа МО */}
+                            <td className="px-4 py-2.5 text-slate-300">{r.group_mo || '—'}</td>
+                            {/* Организация */}
+                            <td className="px-4 py-2.5 text-slate-300">{r.company || '—'}</td>
+                            {/* Подразделение */}
+                            <td className="px-4 py-2.5 text-slate-300">{r.subdivision || '—'}</td>
+                            {/* ФИО сотрудника */}
+                            <td className="px-4 py-2.5 text-white font-medium whitespace-nowrap">{r.fio}</td>
+                            {/* Результат осмотра */}
+                            <td className="px-4 py-2.5 text-slate-300 text-xs">{r.exam_detail || r.reject_reason || '—'}</td>
+                            {/* Допуск */}
+                            <td className="px-4 py-2.5 whitespace-nowrap">
                               {r.exam_result === 'admitted' ? (
-                                <span className="inline-flex items-center gap-1 text-green-400 font-medium">
-                                  <Icon name="CheckCircle" size={14} />Допущен
+                                <span className="inline-flex items-center gap-1 bg-green-900/40 text-green-400 font-semibold px-2 py-0.5 rounded-full text-xs">
+                                  <Icon name="CheckCircle" size={13} />Разрешен
                                 </span>
                               ) : r.exam_result === 'not_admitted' ? (
-                                <span className="inline-flex items-center gap-1 text-red-400 font-medium">
-                                  <Icon name="XCircle" size={14} />Не допущен
+                                <span className="inline-flex items-center gap-1 bg-red-900/40 text-red-400 font-semibold px-2 py-0.5 rounded-full text-xs">
+                                  <Icon name="XCircle" size={13} />Запрещен
                                 </span>
                               ) : r.exam_result === 'evaded' ? (
-                                <span className="inline-flex items-center gap-1 text-yellow-400 font-medium">
-                                  <Icon name="AlertCircle" size={14} />Уклонился
+                                <span className="inline-flex items-center gap-1 bg-yellow-900/40 text-yellow-400 font-semibold px-2 py-0.5 rounded-full text-xs">
+                                  <Icon name="AlertCircle" size={13} />Уклонился
                                 </span>
                               ) : (
-                                <span className="text-slate-500">{r.exam_result || '—'}</span>
+                                <span className="text-slate-500 text-xs">—</span>
                               )}
                             </td>
-                            <td className="px-4 py-2.5 text-slate-400 text-xs">{r.reject_reason || '—'}</td>
                           </tr>
                         ))}
                       </tbody>
