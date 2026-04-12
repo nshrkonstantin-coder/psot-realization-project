@@ -85,8 +85,10 @@ const ZdravpunktPage = () => {
     records: ReportRecord[];
     loading: boolean;
   } | null>(null);
+  const [quickTab, setQuickTab] = useState<'list' | 'by_subdivision' | 'by_company'>('list');
 
   const openQuickReport = async (type: QuickReportType, title: string) => {
+    setQuickTab('list');
     setQuickReport({ type, title, records: [], loading: true });
     try {
       const p = new URLSearchParams({ action: 'report', limit: '5000', offset: '0' });
@@ -1021,6 +1023,22 @@ const ZdravpunktPage = () => {
               </div>
             </div>
 
+            {/* Вкладки — только для не_допущен и уклонился */}
+            {!quickReport.loading && quickReport.records.length > 0 && quickReport.type !== 'all_esmo' && (
+              <div className="flex gap-1 px-6 pt-4">
+                {([
+                  { key: 'list', label: 'Список', icon: 'List' },
+                  { key: 'by_subdivision', label: 'По подразделениям', icon: 'Building2' },
+                  { key: 'by_company', label: 'По компаниям', icon: 'Briefcase' },
+                ] as const).map(t => (
+                  <button key={t.key} onClick={() => setQuickTab(t.key)}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${quickTab === t.key ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}>
+                    <Icon name={t.icon} size={14} />{t.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Содержимое */}
             <div className="p-6">
               {quickReport.loading ? (
@@ -1033,7 +1051,7 @@ const ZdravpunktPage = () => {
                   <Icon name="CheckCircle" size={40} className="mx-auto mb-3 opacity-30" />
                   <p className="text-lg">Записей нет</p>
                 </div>
-              ) : (
+              ) : quickTab === 'list' ? (
                 <div className="overflow-x-auto rounded-xl border border-slate-700 max-h-[60vh] overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0">
@@ -1055,12 +1073,12 @@ const ZdravpunktPage = () => {
                           <td className="px-4 py-2 text-white font-medium whitespace-nowrap text-xs">{r.fio}</td>
                           <td className="px-4 py-2 text-slate-400 text-xs">{r.exam_detail || r.reject_reason || '—'}</td>
                           <td className="px-4 py-2">
-                            {r.exam_result === 'admitted' ? (
-                              <span className="inline-flex items-center gap-1 bg-green-900/40 border border-green-700/40 text-green-400 font-semibold px-2 py-0.5 rounded-full text-xs whitespace-nowrap"><Icon name="CheckCircle" size={11} />Разрешен</span>
-                            ) : r.exam_result === 'not_admitted' ? (
+                            {r.exam_result === 'not_admitted' ? (
                               <span className="inline-flex items-center gap-1 bg-red-900/40 border border-red-700/40 text-red-400 font-semibold px-2 py-0.5 rounded-full text-xs whitespace-nowrap"><Icon name="XCircle" size={11} />Запрещен</span>
                             ) : r.exam_result === 'evaded' ? (
                               <span className="inline-flex items-center gap-1 bg-yellow-900/40 border border-yellow-700/40 text-yellow-400 font-semibold px-2 py-0.5 rounded-full text-xs whitespace-nowrap"><Icon name="AlertCircle" size={11} />Уклонился</span>
+                            ) : r.exam_result === 'admitted' ? (
+                              <span className="inline-flex items-center gap-1 bg-green-900/40 border border-green-700/40 text-green-400 font-semibold px-2 py-0.5 rounded-full text-xs whitespace-nowrap"><Icon name="CheckCircle" size={11} />Разрешен</span>
                             ) : (
                               <span className="inline-flex items-center gap-1 bg-blue-900/30 border border-blue-700/40 text-blue-300 font-semibold px-2 py-0.5 rounded-full text-xs whitespace-nowrap"><Icon name="Stethoscope" size={11} />Допуск дан медработником</span>
                             )}
@@ -1070,7 +1088,85 @@ const ZdravpunktPage = () => {
                     </tbody>
                   </table>
                 </div>
-              )}
+              ) : (() => {
+                // Группировка
+                const groupKey = quickTab === 'by_subdivision' ? 'subdivision' : 'company';
+                const groupLabel = quickTab === 'by_subdivision' ? 'Подразделение' : 'Компания / Подрядчик';
+                const grouped = quickReport.records.reduce((acc, r) => {
+                  const key = r[groupKey] || '— не указано —';
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(r);
+                  return acc;
+                }, {} as Record<string, ReportRecord[]>);
+
+                const sorted = Object.entries(grouped).sort((a, b) => b[1].length - a[1].length);
+                const total = quickReport.records.length;
+
+                return (
+                  <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                    {/* Топ-сводка */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                      <div className="bg-slate-800/60 rounded-xl p-3 text-center">
+                        <div className="text-2xl font-bold text-white">{sorted.length}</div>
+                        <div className="text-slate-400 text-xs mt-0.5">{quickTab === 'by_subdivision' ? 'Подразделений' : 'Компаний'}</div>
+                      </div>
+                      <div className="bg-slate-800/60 rounded-xl p-3 text-center">
+                        <div className="text-2xl font-bold text-white">{total}</div>
+                        <div className="text-slate-400 text-xs mt-0.5">Всего записей</div>
+                      </div>
+                      <div className="bg-slate-800/60 rounded-xl p-3 text-center col-span-2">
+                        <div className="text-lg font-bold text-white truncate">{sorted[0]?.[0] || '—'}</div>
+                        <div className="text-slate-400 text-xs mt-0.5">Больше всего ({sorted[0]?.[1].length || 0} чел.)</div>
+                      </div>
+                    </div>
+
+                    {/* Список групп */}
+                    {sorted.map(([name, recs]) => (
+                      <div key={name} className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                        {/* Заголовок группы */}
+                        <div className="flex items-center justify-between px-4 py-3 bg-slate-700/40 border-b border-slate-700">
+                          <div className="flex items-center gap-2">
+                            <Icon name={quickTab === 'by_subdivision' ? 'Building2' : 'Briefcase'} size={14} className="text-teal-400 shrink-0" />
+                            <span className="text-white font-semibold text-sm">{name}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${quickReport.type === 'not_admitted' ? 'bg-red-900/50 text-red-300' : 'bg-yellow-900/50 text-yellow-300'}`}>
+                              {recs.length} {recs.length === 1 ? 'запись' : recs.length < 5 ? 'записи' : 'записей'}
+                            </span>
+                            <span className="text-slate-500 text-xs">{((recs.length / total) * 100).toFixed(1)}%</span>
+                            {/* Мини прогресс-бар */}
+                            <div className="w-16 bg-slate-600 rounded-full h-1.5">
+                              <div className={`h-1.5 rounded-full ${quickReport.type === 'not_admitted' ? 'bg-red-500' : 'bg-yellow-500'}`}
+                                style={{ width: `${(recs.length / total) * 100}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                        {/* Список работников группы */}
+                        <div className="divide-y divide-slate-700/30">
+                          {recs.map((r, i) => (
+                            <div key={i} className="flex items-center justify-between px-4 py-2 hover:bg-slate-700/20 transition">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
+                                  <Icon name="User" size={12} className="text-slate-400" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-white text-xs font-medium">{r.fio}</div>
+                                  <div className="text-slate-500 text-xs">
+                                    {r.exam_datetime ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : r.exam_date || ''}
+                                    {quickTab === 'by_subdivision' && r.company ? <span className="ml-2 text-slate-600">· {r.company}</span> : ''}
+                                    {quickTab === 'by_company' && r.subdivision ? <span className="ml-2 text-slate-600">· {r.subdivision}</span> : ''}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-slate-400 text-xs shrink-0 ml-2">{r.exam_detail || r.reject_reason || ''}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
