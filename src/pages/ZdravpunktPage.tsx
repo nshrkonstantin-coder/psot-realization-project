@@ -288,7 +288,7 @@ const ZdravpunktPage = () => {
       'Подразделение': r.subdivision || '',
       'ФИО сотрудника': r.fio,
       'Результат осмотра': r.exam_detail || r.reject_reason || '',
-      'Допуск': r.exam_result === 'admitted' ? 'Разрешен' : r.exam_result === 'not_admitted' ? 'Запрещен' : r.exam_result === 'evaded' ? 'Уклонился' : '',
+      'Допуск': r.exam_result === 'admitted' ? 'Разрешен' : r.exam_result === 'not_admitted' ? 'Запрещен' : r.exam_result === 'evaded' ? 'Уклонился' : 'Не определён',
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -676,7 +676,9 @@ const ZdravpunktPage = () => {
                                   <Icon name="AlertCircle" size={13} />Уклонился
                                 </span>
                               ) : (
-                                <span className="text-slate-500 text-xs">—</span>
+                                <span className="inline-flex items-center gap-1 bg-slate-700/50 text-slate-400 font-semibold px-2 py-0.5 rounded-full text-xs">
+                                  <Icon name="Minus" size={13} />Не определён
+                                </span>
                               )}
                             </td>
                           </tr>

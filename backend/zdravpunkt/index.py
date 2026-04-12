@@ -87,14 +87,14 @@ def handler(event: dict, context) -> dict:
             limit = int(params.get('limit', '500'))
             offset_val = int(params.get('offset', '0'))
 
-            # Исключаем тестовые/архивные данные
-            where = ["e.exam_result != 'archived_test'"]
+            # Исключаем служебные статусы (очищенные и тестовые)
+            where = ["e.exam_result NOT IN ('archived_test', 'cleared', '')"]
             args = []
             if date_from:
-                where.append('e.exam_date >= %s')
+                where.append('e.exam_date >= %s::date')
                 args.append(date_from)
             if date_to:
-                where.append('e.exam_date <= %s')
+                where.append('e.exam_date <= %s::date')
                 args.append(date_to)
             if subdivision:
                 where.append('e.subdivision ILIKE %s')
