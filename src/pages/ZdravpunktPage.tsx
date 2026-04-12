@@ -59,11 +59,14 @@ const ZdravpunktPage = () => {
   const [filterSubdivision, setFilterSubdivision] = useState('');
   const [filterCompany, setFilterCompany] = useState('');
   const [filterFio, setFilterFio] = useState('');
+  const [filterResult, setFilterResult] = useState('');
   const [subdivisions, setSubdivisions] = useState<string[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
   const [reportRecords, setReportRecords] = useState<ReportRecord[] | null>(null);
-  const [reportStats, setReportStats] = useState<{ total: number; admitted: number; not_admitted: number } | null>(null);
+  const [reportStats, setReportStats] = useState<{ total: number; admitted: number; not_admitted: number; evaded: number } | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [reportPage, setReportPage] = useState(0);
+  const PAGE_SIZE = 500;
 
   const workersRef = useRef<HTMLInputElement>(null);
   const esmoRef = useRef<HTMLInputElement>(null);
@@ -245,24 +248,32 @@ const ZdravpunktPage = () => {
   };
 
   // ── Отчёт ───────────────────────────────────────────────────────────────
-  const buildReport = async () => {
+  const buildReport = async (page = 0) => {
     setReportLoading(true);
+    setReportPage(page);
     try {
-      const p = new URLSearchParams({ action: 'report' });
+      const p = new URLSearchParams({ action: 'report', limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) });
       if (dateFrom) p.set('date_from', dateFrom);
       if (dateTo) p.set('date_to', dateTo);
       if (filterSubdivision) p.set('subdivision', filterSubdivision);
       if (filterCompany) p.set('company', filterCompany);
       if (filterFio) p.set('fio', filterFio);
+      if (filterResult) p.set('exam_result', filterResult);
 
       const res = await fetch(`${API}?${p.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.success) {
         setReportRecords(data.records);
-        setReportStats({ total: data.total, admitted: data.admitted, not_admitted: data.not_admitted });
+        setReportStats({ total: data.total, admitted: data.admitted, not_admitted: data.not_admitted, evaded: data.evaded });
+      } else {
+        toast.error('Ошибка получения данных');
       }
-    } catch { toast.error('Ошибка формирования отчёта'); }
-    finally { setReportLoading(false); }
+    } catch (e) {
+      toast.error(`Ошибка формирования отчёта: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setReportLoading(false);
+    }
   };
 
   // ── Экспорт отчёта в Excel ───────────────────────────────────────────────
@@ -519,9 +530,19 @@ const ZdravpunktPage = () => {
                     {companies.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Допуск</label>
+                  <select value={filterResult} onChange={e => setFilterResult(e.target.value)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm">
+                    <option value="">Все результаты</option>
+                    <option value="admitted">Разрешен</option>
+                    <option value="not_admitted">Запрещен</option>
+                    <option value="evaded">Уклонился</option>
+                  </select>
+                </div>
               </div>
-              <div className="flex gap-3">
-                <Button onClick={buildReport} disabled={reportLoading}
+              <div className="flex gap-3 flex-wrap">
+                <Button onClick={() => buildReport(0)} disabled={reportLoading}
                   className="bg-teal-600 hover:bg-teal-500 text-white">
                   {reportLoading ? <><Icon name="Loader" size={16} className="animate-spin mr-2" />Формирую...</> : <><Icon name="BarChart2" size={16} className="mr-2" />Сформировать отчёт</>}
                 </Button>
@@ -534,13 +555,14 @@ const ZdravpunktPage = () => {
               </div>
             </Card>
 
-            {/* Результаты */}
+            {/* Результаты — статистика */}
             {reportStats && (
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 {[
                   { label: 'Всего записей', value: reportStats.total, color: 'text-white' },
-                  { label: 'Допущено', value: reportStats.admitted, color: 'text-green-400' },
-                  { label: 'Не допущено', value: reportStats.not_admitted, color: 'text-red-400' },
+                  { label: 'Разрешен', value: reportStats.admitted, color: 'text-green-400' },
+                  { label: 'Запрещен', value: reportStats.not_admitted, color: 'text-red-400' },
+                  { label: 'Уклонился', value: reportStats.evaded, color: 'text-yellow-400' },
                 ].map((s, i) => (
                   <Card key={i} className="bg-slate-800/50 border-slate-700 p-4 text-center">
                     <div className={`text-3xl font-bold ${s.color}`}>{s.value}</div>
@@ -619,6 +641,33 @@ const ZdravpunktPage = () => {
                   </div>
                 )}
               </Card>
+            )}
+
+            {/* Пагинация */}
+            {reportStats && reportStats.total > PAGE_SIZE && (
+              <div className="flex items-center justify-between bg-slate-800/50 border border-slate-700 rounded-xl px-5 py-3">
+                <span className="text-slate-400 text-sm">
+                  Показано {reportPage * PAGE_SIZE + 1}–{Math.min((reportPage + 1) * PAGE_SIZE, reportStats.total)} из {reportStats.total.toLocaleString('ru')}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline" size="sm"
+                    disabled={reportPage === 0 || reportLoading}
+                    onClick={() => buildReport(reportPage - 1)}
+                    className="border-slate-600 text-slate-300"
+                  >
+                    <Icon name="ChevronLeft" size={16} />Назад
+                  </Button>
+                  <Button
+                    variant="outline" size="sm"
+                    disabled={(reportPage + 1) * PAGE_SIZE >= reportStats.total || reportLoading}
+                    onClick={() => buildReport(reportPage + 1)}
+                    className="border-slate-600 text-slate-300"
+                  >
+                    Вперёд<Icon name="ChevronRight" size={16} />
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
         )}

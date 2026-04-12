@@ -81,8 +81,12 @@ def handler(event: dict, context) -> dict:
             subdivision = params.get('subdivision', '')
             company = params.get('company', '')
             fio = params.get('fio', '')
+            exam_result_filter = params.get('exam_result', '')
+            limit = int(params.get('limit', '500'))
+            offset_val = int(params.get('offset', '0'))
 
-            where = ['1=1']
+            # Исключаем тестовые/архивные данные
+            where = ["e.exam_result != 'archived_test'"]
             args = []
             if date_from:
                 where.append('e.exam_date >= %s')
@@ -99,8 +103,26 @@ def handler(event: dict, context) -> dict:
             if fio:
                 where.append('e.fio ILIKE %s')
                 args.append(f'%{fio}%')
+            if exam_result_filter:
+                where.append('e.exam_result = %s')
+                args.append(exam_result_filter)
 
             where_sql = ' AND '.join(where)
+
+            # Сначала считаем итоги
+            cur.execute(
+                f"""SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE e.exam_result = 'admitted') AS admitted,
+                    COUNT(*) FILTER (WHERE e.exam_result = 'not_admitted') AS not_admitted,
+                    COUNT(*) FILTER (WHERE e.exam_result = 'evaded') AS evaded
+                FROM {SCHEMA}.zdravpunkt_esmo e WHERE {where_sql}""",
+                args
+            )
+            stat = cur.fetchone()
+            total_count = stat[0]
+
+            # Затем страницу данных
             cur.execute(
                 f"""SELECT e.fio, e.worker_number, e.subdivision, e.position, e.company,
                            e.exam_date, e.exam_result, e.reject_reason, e.created_at,
@@ -109,8 +131,9 @@ def handler(event: dict, context) -> dict:
                            e.extra_data->>'Результат осмотра' AS exam_detail
                     FROM {SCHEMA}.zdravpunkt_esmo e
                     WHERE {where_sql}
-                    ORDER BY (e.extra_data->>'Дата/время') DESC NULLS LAST""",
-                args
+                    ORDER BY (e.extra_data->>'Дата/время') DESC NULLS LAST
+                    LIMIT %s OFFSET %s""",
+                args + [limit, offset_val]
             )
             rows = cur.fetchall()
             records = []
@@ -126,16 +149,15 @@ def handler(event: dict, context) -> dict:
                     'created_at': r[8].isoformat() if r[8] else None
                 })
 
-            # Статистика по фильтру
-            admitted_count = sum(1 for r in records if r['exam_result'] == 'admitted')
-            not_admitted_count = sum(1 for r in records if r['exam_result'] == 'not_admitted')
-
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
                 'success': True,
                 'records': records,
-                'total': len(records),
-                'admitted': admitted_count,
-                'not_admitted': not_admitted_count
+                'total': total_count,
+                'admitted': stat[1],
+                'not_admitted': stat[2],
+                'evaded': stat[3],
+                'limit': limit,
+                'offset': offset_val,
             }, ensure_ascii=False)}
 
         # ── GET: список подразделений и компаний для фильтров ─────────────────
