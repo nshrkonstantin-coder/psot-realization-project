@@ -76,6 +76,7 @@ const SuperAdmin = () => {
     { label: 'Управление Графиком личных показателей ПАБ', icon: 'LineChart', color: 'from-amber-500 to-amber-600', route: '/charts' },
     { label: 'Управление Отделом ОТиПБ', icon: 'HardHat', color: 'from-orange-500 to-red-600', route: '/ot-management' },
     { label: 'Рассылка по Excel', icon: 'FileSpreadsheet', color: 'from-green-500 to-emerald-600', route: '/excel-mail-sender' },
+    { label: 'Управление ЗДРАВПУНКТОМ', icon: 'HeartPulse', color: 'from-teal-500 to-cyan-600', route: '/zdravpunkt' },
   ];
 
   return (

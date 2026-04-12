@@ -1,0 +1,231 @@
+import json
+import os
+import base64
+import psycopg2
+from datetime import datetime, date
+
+SCHEMA = 't_p80499285_psot_realization_pro'
+CORS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-User-Id, X-User-Role, X-Auth-Token',
+}
+
+
+def handler(event: dict, context) -> dict:
+    """Здравпункт: загрузка файлов, хранение данных, формирование отчётов"""
+
+    if event.get('httpMethod') == 'OPTIONS':
+        return {'statusCode': 200, 'headers': CORS, 'body': ''}
+
+    conn = psycopg2.connect(os.environ['DATABASE_URL'])
+    cur = conn.cursor()
+
+    try:
+        method = event.get('httpMethod', 'GET')
+        params = event.get('queryStringParameters') or {}
+        action = params.get('action', '')
+        org_id_raw = params.get('organization_id', '')
+        org_id = int(org_id_raw) if org_id_raw and org_id_raw.isdigit() else None
+
+        # ── GET: список загруженных файлов ────────────────────────────────────
+        if method == 'GET' and action == 'files':
+            cur.execute(
+                f"""SELECT id, file_type, file_name, file_url, file_size, rows_count,
+                           uploaded_by, uploaded_at, is_archived
+                    FROM {SCHEMA}.zdravpunkt_files
+                    WHERE is_archived = FALSE
+                    ORDER BY uploaded_at DESC"""
+            )
+            rows = cur.fetchall()
+            files = []
+            for r in rows:
+                files.append({
+                    'id': r[0], 'file_type': r[1], 'file_name': r[2],
+                    'file_url': r[3], 'file_size': r[4], 'rows_count': r[5],
+                    'uploaded_by': r[6],
+                    'uploaded_at': r[7].isoformat() if r[7] else None,
+                    'is_archived': r[8]
+                })
+            return {'statusCode': 200, 'headers': CORS,
+                    'body': json.dumps({'success': True, 'files': files}, ensure_ascii=False)}
+
+        # ── GET: статистика для дашборда ──────────────────────────────────────
+        if method == 'GET' and action == 'stats':
+            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_workers WHERE 1=1")
+            total_workers = cur.fetchone()[0]
+            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE 1=1")
+            total_esmo = cur.fetchone()[0]
+            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE exam_result = 'admitted'")
+            admitted = cur.fetchone()[0]
+            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE exam_result = 'not_admitted'")
+            not_admitted = cur.fetchone()[0]
+            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_files WHERE is_archived = FALSE")
+            total_files = cur.fetchone()[0]
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
+                'success': True,
+                'total_workers': total_workers,
+                'total_esmo': total_esmo,
+                'admitted': admitted,
+                'not_admitted': not_admitted,
+                'total_files': total_files
+            }, ensure_ascii=False)}
+
+        # ── GET: отчёт ────────────────────────────────────────────────────────
+        if method == 'GET' and action == 'report':
+            date_from = params.get('date_from', '')
+            date_to = params.get('date_to', '')
+            subdivision = params.get('subdivision', '')
+            company = params.get('company', '')
+            fio = params.get('fio', '')
+
+            where = ['1=1']
+            args = []
+            if date_from:
+                where.append('e.exam_date >= %s')
+                args.append(date_from)
+            if date_to:
+                where.append('e.exam_date <= %s')
+                args.append(date_to)
+            if subdivision:
+                where.append('e.subdivision ILIKE %s')
+                args.append(f'%{subdivision}%')
+            if company:
+                where.append('e.company ILIKE %s')
+                args.append(f'%{company}%')
+            if fio:
+                where.append('e.fio ILIKE %s')
+                args.append(f'%{fio}%')
+
+            where_sql = ' AND '.join(where)
+            cur.execute(
+                f"""SELECT e.fio, e.worker_number, e.subdivision, e.position, e.company,
+                           e.exam_date, e.exam_result, e.reject_reason, e.created_at
+                    FROM {SCHEMA}.zdravpunkt_esmo e
+                    WHERE {where_sql}
+                    ORDER BY e.fio, e.exam_date DESC""",
+                args
+            )
+            rows = cur.fetchall()
+            records = []
+            for r in rows:
+                records.append({
+                    'fio': r[0], 'worker_number': r[1], 'subdivision': r[2],
+                    'position': r[3], 'company': r[4],
+                    'exam_date': r[5].isoformat() if r[5] else None,
+                    'exam_result': r[6], 'reject_reason': r[7],
+                    'created_at': r[8].isoformat() if r[8] else None
+                })
+
+            # Статистика по фильтру
+            admitted_count = sum(1 for r in records if r['exam_result'] == 'admitted')
+            not_admitted_count = sum(1 for r in records if r['exam_result'] == 'not_admitted')
+
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
+                'success': True,
+                'records': records,
+                'total': len(records),
+                'admitted': admitted_count,
+                'not_admitted': not_admitted_count
+            }, ensure_ascii=False)}
+
+        # ── GET: список подразделений и компаний для фильтров ─────────────────
+        if method == 'GET' and action == 'filters':
+            cur.execute(f"SELECT DISTINCT subdivision FROM {SCHEMA}.zdravpunkt_esmo WHERE subdivision IS NOT NULL AND subdivision != '' ORDER BY subdivision")
+            subdivisions = [r[0] for r in cur.fetchall()]
+            cur.execute(f"SELECT DISTINCT company FROM {SCHEMA}.zdravpunkt_esmo WHERE company IS NOT NULL AND company != '' ORDER BY company")
+            companies = [r[0] for r in cur.fetchall()]
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
+                'success': True, 'subdivisions': subdivisions, 'companies': companies
+            }, ensure_ascii=False)}
+
+        # ── POST: сохранить строки из Excel ──────────────────────────────────
+        if method == 'POST':
+            body_raw = event.get('body', '{}') or '{}'
+            if event.get('isBase64Encoded'):
+                body_raw = base64.b64decode(body_raw).decode('utf-8')
+            body = json.loads(body_raw)
+            action_post = body.get('action', action)
+
+            # Сохранить запись о файле
+            if action_post == 'save_file':
+                file_type = body.get('file_type', '')
+                file_name = body.get('file_name', '')
+                file_url = body.get('file_url', '')
+                file_size = body.get('file_size', 0)
+                rows_count = body.get('rows_count', 0)
+                uploaded_by = body.get('uploaded_by')
+
+                cur.execute(
+                    f"""INSERT INTO {SCHEMA}.zdravpunkt_files
+                        (file_type, file_name, file_url, file_size, rows_count, organization_id, uploaded_by)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                    (file_type, file_name, file_url, file_size, rows_count, org_id, uploaded_by)
+                )
+                file_id = cur.fetchone()[0]
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True, 'file_id': file_id}, ensure_ascii=False)}
+
+            # Сохранить список работников
+            if action_post == 'import_workers':
+                file_id = body.get('file_id')
+                workers = body.get('workers', [])
+                for w in workers:
+                    cur.execute(
+                        f"""INSERT INTO {SCHEMA}.zdravpunkt_workers
+                            (file_id, organization_id, worker_number, fio, subdivision, position, company, extra_data)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                        (file_id, org_id,
+                         w.get('worker_number', ''), w.get('fio', ''),
+                         w.get('subdivision', ''), w.get('position', ''),
+                         w.get('company', ''), json.dumps(w.get('extra', {}), ensure_ascii=False))
+                    )
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True, 'imported': len(workers)}, ensure_ascii=False)}
+
+            # Сохранить результаты ЭСМО
+            if action_post == 'import_esmo':
+                file_id = body.get('file_id')
+                records = body.get('records', [])
+                for r in records:
+                    exam_date = r.get('exam_date') or None
+                    cur.execute(
+                        f"""INSERT INTO {SCHEMA}.zdravpunkt_esmo
+                            (file_id, organization_id, fio, worker_number, subdivision, position,
+                             company, exam_date, exam_result, reject_reason, extra_data)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                        (file_id, org_id,
+                         r.get('fio', ''), r.get('worker_number', ''),
+                         r.get('subdivision', ''), r.get('position', ''),
+                         r.get('company', ''), exam_date,
+                         r.get('exam_result', ''), r.get('reject_reason', ''),
+                         json.dumps(r.get('extra', {}), ensure_ascii=False))
+                    )
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True, 'imported': len(records)}, ensure_ascii=False)}
+
+            # Архивировать файл (только главный администратор)
+            if action_post == 'archive_file':
+                file_id = body.get('file_id')
+                user_id = body.get('user_id')
+                cur.execute(
+                    f"UPDATE {SCHEMA}.zdravpunkt_files SET is_archived = TRUE, archived_by = %s, archived_at = NOW() WHERE id = %s",
+                    (user_id, file_id)
+                )
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True}, ensure_ascii=False)}
+
+        return {'statusCode': 400, 'headers': CORS,
+                'body': json.dumps({'success': False, 'error': 'Неизвестный запрос'}, ensure_ascii=False)}
+
+    except Exception as e:
+        conn.rollback()
+        return {'statusCode': 500, 'headers': CORS,
+                'body': json.dumps({'success': False, 'error': str(e)}, ensure_ascii=False)}
+    finally:
+        cur.close()
+        conn.close()

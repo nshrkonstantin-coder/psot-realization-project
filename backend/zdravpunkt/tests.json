@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET files",
+      "method": "GET",
+      "path": "/?action=files",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET filters",
+      "method": "GET",
+      "path": "/?action=filters",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET stats",
+      "method": "GET",
+      "path": "/?action=stats",
+      "expectedStatus": 200
+    }
+  ]
+}
