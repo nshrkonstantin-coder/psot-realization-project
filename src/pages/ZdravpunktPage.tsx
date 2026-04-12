@@ -114,8 +114,11 @@ const ZdravpunktPage = () => {
       // Определяем маппинг колонок по первому ряду
       const keys = Object.keys(raw[0]);
 
+      // Сначала ищем точное совпадение, потом частичное без учёта регистра
       const findKey = (...variants: string[]) =>
-        keys.find(k => variants.some(v => k.toLowerCase().includes(v.toLowerCase()))) || '';
+        keys.find(k => variants.includes(k)) ||
+        keys.find(k => variants.some(v => k.toLowerCase().includes(v.toLowerCase()))) ||
+        '';
 
       // Сохраняем запись о файле в БД
       const saveRes = await fetch(API, {
@@ -162,31 +165,38 @@ const ZdravpunktPage = () => {
           });
         }
       } else {
-        const fioKey = findKey('фио', 'имя', 'работник', 'name', 'сотрудник');
+        // Точный маппинг для формата ЭСМО (приоритет — точные названия колонок)
+        const fioKey = findKey('ФИО сотрудника', 'фио', 'имя', 'работник', 'name', 'сотрудник');
         const numKey = findKey('табел', 'номер', 'id', 'code', 'код');
         const divKey = findKey('подразделение', 'отдел', 'subdivision', 'участок');
         const posKey = findKey('должность', 'position');
-        const compKey = findKey('компания', 'организация', 'company', 'предприятие');
-        const dateKey = findKey('дата', 'date', 'осмотр', 'прохождение');
-        const resultKey = findKey('результат', 'допуск', 'result', 'статус');
-        const reasonKey = findKey('причина', 'reason', 'основание', 'недопуск');
+        const compKey = findKey('Организация', 'компания', 'organization', 'company', 'предприятие');
+        const dateKey = findKey('Дата/время', 'дата', 'date', 'прохождение');
+        // Для ЭСМО: сначала ищем точную колонку "Допуск", потом общие
+        const dopuskKey = findKey('Допуск', 'допуск');
+        const resultKey = findKey('Результат осмотра', 'результат', 'result', 'статус');
+        const groupKey = findKey('Группа МО', 'группа');
 
         for (let i = 0; i < raw.length; i += BATCH) {
           const batch = raw.slice(i, i + BATCH).map(r => {
-            const resultRaw = String(r[resultKey] || '').toLowerCase();
+            // exam_result берём из колонки "Допуск"
+            const dopuskRaw = String(r[dopuskKey] || '').toLowerCase().trim();
             let examResult = '';
-            if (resultRaw.includes('допущ') || resultRaw.includes('admit') || resultRaw === 'да' || resultRaw === 'yes') {
+            if (dopuskRaw === 'разрешен' || dopuskRaw.includes('разреш') || dopuskRaw.includes('допущ') || dopuskRaw === 'да') {
               examResult = 'admitted';
-            } else if (resultRaw.includes('не допущ') || resultRaw.includes('not') || resultRaw === 'нет' || resultRaw === 'no') {
+            } else if (dopuskRaw === 'запрещен' || dopuskRaw.includes('запрещ') || dopuskRaw.includes('не допущ') || dopuskRaw === 'нет') {
               examResult = 'not_admitted';
             }
+
+            // reject_reason — "Результат осмотра" когда не допущен, иначе тоже сохраняем
+            const resultOsmotra = String(r[resultKey] || '').trim();
 
             let examDate: string | null = null;
             const rawDate = r[dateKey];
             if (rawDate instanceof Date) {
               examDate = rawDate.toISOString().split('T')[0];
             } else if (typeof rawDate === 'string' && rawDate.trim()) {
-              examDate = rawDate.trim();
+              examDate = rawDate.trim().split('T')[0];
             }
 
             return {
@@ -197,8 +207,8 @@ const ZdravpunktPage = () => {
               company: String(r[compKey] || ''),
               exam_date: examDate,
               exam_result: examResult,
-              reject_reason: String(r[reasonKey] || ''),
-              extra: r
+              reject_reason: examResult === 'not_admitted' ? resultOsmotra : '',
+              extra: { ...r, group_mo: r[groupKey] || '' }
             };
           }).filter(w => w.fio.trim());
 
