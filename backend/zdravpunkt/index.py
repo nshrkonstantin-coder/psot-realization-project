@@ -117,7 +117,7 @@ def handler(event: dict, context) -> dict:
 
             where_sql = ' AND '.join(where)
 
-            # Сначала считаем итоги
+            # Сначала считаем итоги по записям
             cur.execute(
                 f"""SELECT
                     COUNT(*) AS total,
@@ -130,6 +130,18 @@ def handler(event: dict, context) -> dict:
             )
             stat = cur.fetchone()
             total_count = stat[0]
+
+            # Уникальные работники по категориям (человек, у которого хотя бы 1 раз был такой статус)
+            cur.execute(
+                f"""SELECT
+                    COUNT(DISTINCT CASE WHEN e.exam_result = 'not_admitted' THEN TRIM(LOWER(e.fio)) END) AS unique_not_admitted,
+                    COUNT(DISTINCT CASE WHEN e.exam_result = 'evaded'       THEN TRIM(LOWER(e.fio)) END) AS unique_evaded
+                FROM {SCHEMA}.zdravpunkt_esmo e WHERE {where_sql}""",
+                args
+            )
+            stat2 = cur.fetchone()
+            unique_not_admitted = stat2[0]
+            unique_evaded = stat2[1]
 
             # Затем страницу данных
             cur.execute(
@@ -166,6 +178,8 @@ def handler(event: dict, context) -> dict:
                 'not_admitted': stat[2],
                 'evaded': stat[3],
                 'unique_workers': stat[4],
+                'unique_not_admitted': unique_not_admitted,
+                'unique_evaded': unique_evaded,
                 'limit': limit,
                 'offset': offset_val,
             }, ensure_ascii=False)}

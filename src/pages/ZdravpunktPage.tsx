@@ -70,7 +70,7 @@ const ZdravpunktPage = () => {
   const [subdivisions, setSubdivisions] = useState<string[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
   const [reportRecords, setReportRecords] = useState<ReportRecord[] | null>(null);
-  const [reportStats, setReportStats] = useState<{ total: number; admitted: number; not_admitted: number; evaded: number; unique_workers: number } | null>(null);
+  const [reportStats, setReportStats] = useState<{ total: number; admitted: number; not_admitted: number; evaded: number; unique_workers: number; unique_not_admitted: number; unique_evaded: number } | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportPage, setReportPage] = useState(0);
   const PAGE_SIZE = 500;
@@ -450,7 +450,7 @@ const ZdravpunktPage = () => {
       const data = await res.json();
       if (data.success) {
         setReportRecords(data.records);
-        setReportStats({ total: data.total, admitted: data.admitted, not_admitted: data.not_admitted, evaded: data.evaded, unique_workers: data.unique_workers ?? 0 });
+        setReportStats({ total: data.total, admitted: data.admitted, not_admitted: data.not_admitted, evaded: data.evaded, unique_workers: data.unique_workers ?? 0, unique_not_admitted: data.unique_not_admitted ?? 0, unique_evaded: data.unique_evaded ?? 0 });
       } else {
         toast.error('Ошибка получения данных');
       }
@@ -860,6 +860,26 @@ const ZdravpunktPage = () => {
                       <div>
                         <div className="text-slate-400 text-sm">Уникальных работников прошли ЭСМО</div>
                         <div className="text-4xl font-bold text-teal-300 mt-0.5">{reportStats.unique_workers.toLocaleString('ru')}</div>
+                        {/* Расшифровка: сколько из них с проблемами */}
+                        <div className="flex items-center gap-3 mt-2">
+                          {reportStats.unique_not_admitted > 0 && (
+                            <span className="flex items-center gap-1 text-red-400 text-xs">
+                              <Icon name="XCircle" size={12} />
+                              {reportStats.unique_not_admitted} не допущен{reportStats.unique_not_admitted === 1 ? '' : reportStats.unique_not_admitted < 5 ? 'ы' : 'о'}
+                            </span>
+                          )}
+                          {reportStats.unique_evaded > 0 && (
+                            <span className="flex items-center gap-1 text-yellow-400 text-xs">
+                              <Icon name="AlertCircle" size={12} />
+                              {reportStats.unique_evaded} уклонил{reportStats.unique_evaded === 1 ? 'ся' : reportStats.unique_evaded < 5 ? 'ись' : 'ись'}
+                            </span>
+                          )}
+                          {reportStats.unique_not_admitted === 0 && reportStats.unique_evaded === 0 && (
+                            <span className="flex items-center gap-1 text-green-400 text-xs">
+                              <Icon name="CheckCircle" size={12} />все допущены
+                            </span>
+                          )}
+                        </div>
                         <div className="text-teal-600 text-xs mt-1 opacity-0 group-hover:opacity-100 transition-opacity">↗ Открыть полный список за период</div>
                       </div>
                     </div>
@@ -876,9 +896,9 @@ const ZdravpunktPage = () => {
                 {/* Детализация по допуску — кликабельные карточки с фильтром периода */}
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { label: 'Разрешен', value: reportStats.admitted, color: 'text-green-400', bg: 'bg-green-900/20 border-green-700/30', hover: 'hover:border-green-500/60 hover:bg-green-900/30', clickType: null as null },
-                    { label: 'Запрещен', value: reportStats.not_admitted, color: 'text-red-400', bg: 'bg-red-900/20 border-red-700/30', hover: 'hover:border-red-500/60 hover:bg-red-900/30', clickType: 'not_admitted' as const },
-                    { label: 'Уклонился', value: reportStats.evaded, color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-700/30', hover: 'hover:border-yellow-500/60 hover:bg-yellow-900/30', clickType: 'evaded' as const },
+                    { label: 'Разрешен', value: reportStats.admitted, color: 'text-green-400', bg: 'bg-green-900/20 border-green-700/30', hover: 'hover:border-green-500/60 hover:bg-green-900/30', clickType: null as null, unique: null as number | null },
+                    { label: 'Запрещен', value: reportStats.not_admitted, color: 'text-red-400', bg: 'bg-red-900/20 border-red-700/30', hover: 'hover:border-red-500/60 hover:bg-red-900/30', clickType: 'not_admitted' as const, unique: reportStats.unique_not_admitted },
+                    { label: 'Уклонился', value: reportStats.evaded, color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-700/30', hover: 'hover:border-yellow-500/60 hover:bg-yellow-900/30', clickType: 'evaded' as const, unique: reportStats.unique_evaded },
                   ].map((s, i) => (
                     <Card
                       key={i}
@@ -892,8 +912,13 @@ const ZdravpunktPage = () => {
                           {((s.value / reportStats.total) * 100).toFixed(1)}% от всех записей
                         </div>
                       )}
+                      {s.unique != null && s.unique > 0 && (
+                        <div className={`text-xs mt-1.5 font-medium ${s.color} opacity-80`}>
+                          {s.unique} уник. {s.unique === 1 ? 'чел.' : 'чел.'} из {reportStats.unique_workers}
+                        </div>
+                      )}
                       {s.clickType && s.value > 0 && (
-                        <div className="text-slate-600 text-xs mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="text-slate-500 text-xs mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           ↗ Открыть список за период
                         </div>
                       )}
