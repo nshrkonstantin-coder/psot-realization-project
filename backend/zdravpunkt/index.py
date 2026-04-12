@@ -60,26 +60,25 @@ def handler(event: dict, context) -> dict:
 
         # ── GET: статистика для дашборда ──────────────────────────────────────
         if method == 'GET' and action == 'stats':
-            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_workers WHERE file_id IS NOT NULL")
-            total_workers = cur.fetchone()[0]
-            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE {ACTIVE}")
-            total_esmo = cur.fetchone()[0]
-            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE exam_result = 'admitted'")
-            admitted = cur.fetchone()[0]
-            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE exam_result = 'not_admitted'")
-            not_admitted = cur.fetchone()[0]
-            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE exam_result = 'evaded'")
-            evaded = cur.fetchone()[0]
-            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_files WHERE is_archived = FALSE")
-            total_files = cur.fetchone()[0]
+            cur.execute(f"""
+                SELECT
+                    (SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_workers WHERE file_id IS NOT NULL),
+                    COUNT(*),
+                    COUNT(*) FILTER (WHERE exam_result = 'admitted'),
+                    COUNT(*) FILTER (WHERE exam_result = 'not_admitted'),
+                    COUNT(*) FILTER (WHERE exam_result = 'evaded'),
+                    (SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_files WHERE is_archived = FALSE)
+                FROM {SCHEMA}.zdravpunkt_esmo WHERE {ACTIVE}
+            """)
+            s = cur.fetchone()
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
                 'success': True,
-                'total_workers': total_workers,
-                'total_esmo': total_esmo,
-                'admitted': admitted,
-                'not_admitted': not_admitted,
-                'evaded': evaded,
-                'total_files': total_files
+                'total_workers': s[0],
+                'total_esmo': s[1],
+                'admitted': s[2],
+                'not_admitted': s[3],
+                'evaded': s[4],
+                'total_files': s[5]
             }, ensure_ascii=False)}
 
         # ── GET: отчёт ────────────────────────────────────────────────────────
@@ -117,31 +116,23 @@ def handler(event: dict, context) -> dict:
 
             where_sql = ' AND '.join(where)
 
-            # Сначала считаем итоги по записям
+            # Все агрегаты в одном запросе — один проход по таблице
             cur.execute(
                 f"""SELECT
                     COUNT(*) AS total,
                     COUNT(*) FILTER (WHERE e.exam_result = 'admitted') AS admitted,
                     COUNT(*) FILTER (WHERE e.exam_result = 'not_admitted') AS not_admitted,
                     COUNT(*) FILTER (WHERE e.exam_result = 'evaded') AS evaded,
-                    COUNT(DISTINCT TRIM(LOWER(e.fio))) AS unique_workers
-                FROM {SCHEMA}.zdravpunkt_esmo e WHERE {where_sql}""",
-                args
-            )
-            stat = cur.fetchone()
-            total_count = stat[0]
-
-            # Уникальные работники по категориям (человек, у которого хотя бы 1 раз был такой статус)
-            cur.execute(
-                f"""SELECT
+                    COUNT(DISTINCT TRIM(LOWER(e.fio))) AS unique_workers,
                     COUNT(DISTINCT CASE WHEN e.exam_result = 'not_admitted' THEN TRIM(LOWER(e.fio)) END) AS unique_not_admitted,
                     COUNT(DISTINCT CASE WHEN e.exam_result = 'evaded'       THEN TRIM(LOWER(e.fio)) END) AS unique_evaded
                 FROM {SCHEMA}.zdravpunkt_esmo e WHERE {where_sql}""",
                 args
             )
-            stat2 = cur.fetchone()
-            unique_not_admitted = stat2[0]
-            unique_evaded = stat2[1]
+            stat = cur.fetchone()
+            total_count = stat[0]
+            unique_not_admitted = stat[5]
+            unique_evaded = stat[6]
 
             # Затем страницу данных
             cur.execute(
@@ -152,7 +143,7 @@ def handler(event: dict, context) -> dict:
                            e.extra_data->>'Результат осмотра' AS exam_detail
                     FROM {SCHEMA}.zdravpunkt_esmo e
                     WHERE {where_sql}
-                    ORDER BY (e.extra_data->>'Дата/время') ASC NULLS LAST
+                    ORDER BY e.exam_date DESC NULLS LAST, e.id DESC
                     LIMIT %s OFFSET %s""",
                 args + [limit, offset_val]
             )
