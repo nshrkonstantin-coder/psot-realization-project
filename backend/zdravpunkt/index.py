@@ -50,11 +50,13 @@ def handler(event: dict, context) -> dict:
             return {'statusCode': 200, 'headers': CORS,
                     'body': json.dumps({'success': True, 'files': files}, ensure_ascii=False)}
 
+        ACTIVE = "exam_result NOT IN ('cleared', 'archived_test')"
+
         # ── GET: статистика для дашборда ──────────────────────────────────────
         if method == 'GET' and action == 'stats':
-            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_workers WHERE 1=1")
+            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_workers WHERE file_id IS NOT NULL")
             total_workers = cur.fetchone()[0]
-            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE 1=1")
+            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE {ACTIVE}")
             total_esmo = cur.fetchone()[0]
             cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE exam_result = 'admitted'")
             admitted = cur.fetchone()[0]
@@ -162,9 +164,9 @@ def handler(event: dict, context) -> dict:
 
         # ── GET: список подразделений и компаний для фильтров ─────────────────
         if method == 'GET' and action == 'filters':
-            cur.execute(f"SELECT DISTINCT subdivision FROM {SCHEMA}.zdravpunkt_esmo WHERE subdivision IS NOT NULL AND subdivision != '' ORDER BY subdivision")
+            cur.execute(f"SELECT DISTINCT subdivision FROM {SCHEMA}.zdravpunkt_esmo WHERE {ACTIVE} AND subdivision IS NOT NULL AND subdivision != '' ORDER BY subdivision")
             subdivisions = [r[0] for r in cur.fetchall()]
-            cur.execute(f"SELECT DISTINCT company FROM {SCHEMA}.zdravpunkt_esmo WHERE company IS NOT NULL AND company != '' ORDER BY company")
+            cur.execute(f"SELECT DISTINCT company FROM {SCHEMA}.zdravpunkt_esmo WHERE {ACTIVE} AND company IS NOT NULL AND company != '' ORDER BY company")
             companies = [r[0] for r in cur.fetchall()]
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
                 'success': True, 'subdivisions': subdivisions, 'companies': companies
