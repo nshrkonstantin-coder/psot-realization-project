@@ -228,6 +228,69 @@ def handler(event: dict, context) -> dict:
                 'not_admitted': not_admitted, 'evaded': evaded
             }, ensure_ascii=False)}
 
+        # ── GET: список уникальных работников (по одной записи на человека) ────
+        if method == 'GET' and action == 'unique_workers':
+            date_from = params.get('date_from', '')
+            date_to   = params.get('date_to', '')
+            subdivision = params.get('subdivision', '')
+            company     = params.get('company', '')
+            fio_filter  = params.get('fio', '')
+
+            where_u = [f"{ACTIVE}"]
+            args_u  = []
+            if date_from:
+                where_u.append('e.exam_date >= %s::date')
+                args_u.append(date_from)
+            if date_to:
+                where_u.append('e.exam_date <= %s::date')
+                args_u.append(date_to)
+            if subdivision:
+                where_u.append('e.subdivision ILIKE %s')
+                args_u.append(f'%{subdivision}%')
+            if company:
+                where_u.append('e.company ILIKE %s')
+                args_u.append(f'%{company}%')
+            if fio_filter:
+                where_u.append('e.fio ILIKE %s')
+                args_u.append(f'%{fio_filter}%')
+
+            where_sql_u = ' AND '.join(where_u)
+
+            # Одна строка на человека: последнее подразделение, кол-во осмотров,
+            # есть ли хоть один не допуск / уклон
+            cur.execute(
+                f"""SELECT
+                    TRIM(e.fio) AS fio,
+                    MAX(e.company) AS company,
+                    MAX(e.subdivision) AS subdivision,
+                    COUNT(*) AS total_exams,
+                    MAX(CASE WHEN e.exam_result = 'admitted'     THEN 1 ELSE 0 END) AS has_admitted,
+                    MAX(CASE WHEN e.exam_result = 'not_admitted' THEN 1 ELSE 0 END) AS has_not_admitted,
+                    MAX(CASE WHEN e.exam_result = 'evaded'       THEN 1 ELSE 0 END) AS has_evaded,
+                    MIN(e.exam_date) AS first_date,
+                    MAX(e.exam_date) AS last_date
+                FROM {SCHEMA}.zdravpunkt_esmo e
+                WHERE {where_sql_u}
+                GROUP BY TRIM(LOWER(e.fio)), TRIM(e.fio)
+                ORDER BY TRIM(e.fio)""",
+                args_u
+            )
+            rows = cur.fetchall()
+            workers = [{
+                'fio':              r[0],
+                'company':          r[1] or '',
+                'subdivision':      r[2] or '',
+                'total_exams':      r[3],
+                'has_admitted':     bool(r[4]),
+                'has_not_admitted': bool(r[5]),
+                'has_evaded':       bool(r[6]),
+                'first_date':       r[7].isoformat() if r[7] else None,
+                'last_date':        r[8].isoformat() if r[8] else None,
+            } for r in rows]
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
+                'success': True, 'workers': workers, 'total': len(workers)
+            }, ensure_ascii=False)}
+
         # ── GET: список подразделений и компаний для фильтров ─────────────────
         if method == 'GET' and action == 'filters':
             cur.execute(f"SELECT DISTINCT subdivision FROM {SCHEMA}.zdravpunkt_esmo WHERE {ACTIVE} AND subdivision IS NOT NULL AND subdivision != '' ORDER BY subdivision")

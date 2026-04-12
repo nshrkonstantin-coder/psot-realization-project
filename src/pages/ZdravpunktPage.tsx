@@ -77,6 +77,46 @@ const ZdravpunktPage = () => {
   const [clearing, setClearing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
+  // Модальное окно списка уникальных работников
+  interface UniqueWorker {
+    fio: string; company: string; subdivision: string;
+    total_exams: number; has_admitted: boolean;
+    has_not_admitted: boolean; has_evaded: boolean;
+    first_date: string | null; last_date: string | null;
+  }
+  const [uniqueModal, setUniqueModal] = useState<{ title: string; workers: UniqueWorker[]; loading: boolean } | null>(null);
+
+  const openUniqueWorkers = async () => {
+    setUniqueModal({ title: `Уникальных работников${dateFrom || dateTo ? ` (${dateFrom ? new Date(dateFrom).toLocaleDateString('ru') : ''}–${dateTo ? new Date(dateTo).toLocaleDateString('ru') : ''})` : ''}`, workers: [], loading: true });
+    try {
+      const p = new URLSearchParams({ action: 'unique_workers' });
+      if (dateFrom) p.set('date_from', dateFrom);
+      if (dateTo) p.set('date_to', dateTo);
+      if (filterSubdivision) p.set('subdivision', filterSubdivision);
+      if (filterCompany) p.set('company', filterCompany);
+      const res = await fetch(`${API}?${p.toString()}`);
+      const data = await res.json();
+      if (data.success) setUniqueModal(prev => prev ? { ...prev, workers: data.workers, loading: false } : null);
+    } catch { toast.error('Ошибка загрузки'); setUniqueModal(null); }
+  };
+
+  const exportUniqueExcel = (workers: UniqueWorker[], title: string) => {
+    const rows = workers.map(w => ({
+      'ФИО': w.fio,
+      'Организация': w.company,
+      'Подразделение': w.subdivision,
+      'Кол-во осмотров': w.total_exams,
+      'Первый осмотр': w.first_date ? new Date(w.first_date).toLocaleDateString('ru') : '',
+      'Последний осмотр': w.last_date ? new Date(w.last_date).toLocaleDateString('ru') : '',
+      'Был запрещён': w.has_not_admitted ? 'Да' : 'Нет',
+      'Уклонялся': w.has_evaded ? 'Да' : 'Нет',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Работники');
+    XLSX.writeFile(wb, `${title}_${new Date().toLocaleDateString('ru')}.xlsx`);
+  };
+
   // Быстрый отчёт из окошек статистики
   type QuickReportType = 'not_admitted' | 'evaded' | 'all_esmo';
   const [quickReport, setQuickReport] = useState<{
@@ -849,7 +889,7 @@ const ZdravpunktPage = () => {
               <div className="space-y-3">
                 {/* Главная карточка — уникальных работников — кликабельная */}
                 <Card
-                  onClick={() => openQuickReportWithPeriod('all_esmo', 'Все осмотры')}
+                  onClick={openUniqueWorkers}
                   className="bg-gradient-to-r from-teal-900/50 to-cyan-900/30 border-teal-600/50 p-5 cursor-pointer hover:border-teal-400/70 hover:scale-[1.01] transition-all group"
                 >
                   <div className="flex items-center justify-between">
@@ -1036,6 +1076,99 @@ const ZdravpunktPage = () => {
           </div>
         )}
       </div>
+
+      {/* ── Список уникальных работников ── */}
+      {uniqueModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/75 backdrop-blur-sm overflow-y-auto py-6 px-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-5xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="bg-teal-900/50 p-2.5 rounded-xl">
+                  <Icon name="Users" size={22} className="text-teal-400" />
+                </div>
+                <div>
+                  <h2 className="text-white text-lg font-bold">{uniqueModal.title}</h2>
+                  {!uniqueModal.loading && <p className="text-slate-400 text-sm">{uniqueModal.workers.length} уникальных работников</p>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {!uniqueModal.loading && uniqueModal.workers.length > 0 && (
+                  <button onClick={() => exportUniqueExcel(uniqueModal.workers, uniqueModal.title)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-700/30 border border-green-600/40 text-green-400 text-sm hover:bg-green-700/50 transition">
+                    <Icon name="FileSpreadsheet" size={15} />Excel
+                  </button>
+                )}
+                <button onClick={() => setUniqueModal(null)} className="text-slate-400 hover:text-white transition ml-1">
+                  <Icon name="X" size={22} />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              {uniqueModal.loading ? (
+                <div className="text-center py-16 text-slate-400">
+                  <Icon name="Loader" size={36} className="animate-spin mx-auto mb-3 text-teal-400" />
+                  <p>Загружаю список работников...</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-700 max-h-[65vh] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0">
+                      <tr>
+                        {['#','ФИО','Организация','Подразделение','Осмотров','Период','Статус'].map(h => (
+                          <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-amber-300 bg-slate-800 border-b border-slate-600 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/50">
+                      {uniqueModal.workers.map((w, i) => (
+                        <tr key={i}
+                          onClick={() => { setUniqueModal(null); openWorker(w.fio); }}
+                          className={`transition cursor-pointer hover:bg-teal-900/20 group ${w.has_not_admitted ? 'bg-red-900/5' : w.has_evaded ? 'bg-yellow-900/5' : ''}`}>
+                          <td className="px-4 py-2.5 text-slate-500 text-xs">{i + 1}</td>
+                          <td className="px-4 py-2.5">
+                            <span className="text-white font-medium text-xs group-hover:text-teal-300 transition flex items-center gap-1.5">
+                              {w.fio}
+                              <Icon name="ExternalLink" size={11} className="opacity-0 group-hover:opacity-60 transition" />
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-slate-400 text-xs">{w.company || '—'}</td>
+                          <td className="px-4 py-2.5 text-slate-400 text-xs">{w.subdivision || '—'}</td>
+                          <td className="px-4 py-2.5 text-center">
+                            <span className="bg-slate-700/60 text-white text-xs font-bold px-2 py-0.5 rounded-full">{w.total_exams}</span>
+                          </td>
+                          <td className="px-4 py-2.5 text-slate-500 text-xs whitespace-nowrap">
+                            {w.first_date ? new Date(w.first_date).toLocaleDateString('ru') : '—'}
+                            {w.first_date !== w.last_date && w.last_date ? ` — ${new Date(w.last_date).toLocaleDateString('ru')}` : ''}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex gap-1 flex-wrap">
+                              {w.has_not_admitted && (
+                                <span className="inline-flex items-center gap-1 bg-red-900/40 border border-red-700/40 text-red-400 font-semibold px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
+                                  <Icon name="XCircle" size={11} />Запрещён
+                                </span>
+                              )}
+                              {w.has_evaded && (
+                                <span className="inline-flex items-center gap-1 bg-yellow-900/40 border border-yellow-700/40 text-yellow-400 font-semibold px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
+                                  <Icon name="AlertCircle" size={11} />Уклонился
+                                </span>
+                              )}
+                              {!w.has_not_admitted && !w.has_evaded && (
+                                <span className="inline-flex items-center gap-1 bg-green-900/40 border border-green-700/40 text-green-400 font-semibold px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
+                                  <Icon name="CheckCircle" size={11} />Без нарушений
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Быстрый отчёт из окошек статистики ── */}
       {quickReport && (
