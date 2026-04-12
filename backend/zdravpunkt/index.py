@@ -33,7 +33,8 @@ def handler(event: dict, context) -> dict:
         if method == 'GET' and action == 'files':
             cur.execute(
                 f"""SELECT id, file_type, file_name, file_url, file_size, rows_count,
-                           uploaded_by, uploaded_at, is_archived
+                           uploaded_by, uploaded_at, is_archived,
+                           period_from, period_to, new_rows, skipped_rows
                     FROM {SCHEMA}.zdravpunkt_files
                     WHERE is_archived = FALSE
                     ORDER BY uploaded_at DESC"""
@@ -46,7 +47,11 @@ def handler(event: dict, context) -> dict:
                     'file_url': r[3], 'file_size': r[4], 'rows_count': r[5],
                     'uploaded_by': r[6],
                     'uploaded_at': r[7].isoformat() if r[7] else None,
-                    'is_archived': r[8]
+                    'is_archived': r[8],
+                    'period_from': r[9].isoformat() if r[9] else None,
+                    'period_to': r[10].isoformat() if r[10] else None,
+                    'new_rows': r[11],
+                    'skipped_rows': r[12],
                 })
             return {'statusCode': 200, 'headers': CORS,
                     'body': json.dumps({'success': True, 'files': files}, ensure_ascii=False)}
@@ -270,32 +275,92 @@ def handler(event: dict, context) -> dict:
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True, 'imported': len(workers)}, ensure_ascii=False)}
 
-            # Сохранить результаты ЭСМО — execute_values максимальная скорость
+            # Сохранить результаты ЭСМО — с дедупликацией по ФИО + дата/время
             if action_post == 'import_esmo':
                 file_id = body.get('file_id')
                 records = body.get('records', [])
+                is_last_batch = body.get('is_last_batch', False)
+                period_from = body.get('period_from')
+                period_to = body.get('period_to')
+
+                new_count = 0
+                skipped_count = 0
+
                 if records:
-                    data = [
-                        (file_id, org_id,
-                         r.get('fio', ''), r.get('worker_number', ''),
-                         r.get('subdivision', ''), r.get('position', ''),
-                         r.get('company', ''), r.get('exam_date') or None,
-                         r.get('exam_result', ''), r.get('reject_reason', ''),
-                         json.dumps(r.get('extra', {}), ensure_ascii=False))
-                        for r in records
-                    ]
-                    # page_size = len(data) — один запрос для всего батча
-                    psycopg2.extras.execute_values(
-                        cur,
-                        f"""INSERT INTO {SCHEMA}.zdravpunkt_esmo
-                            (file_id, organization_id, fio, worker_number, subdivision, position,
-                             company, exam_date, exam_result, reject_reason, extra_data)
-                            VALUES %s""",
-                        data, page_size=len(data)
+                    # Собираем ключи дедупликации: fio_lower + datetime
+                    incoming_keys = set()
+                    for r in records:
+                        dt = (r.get('extra') or {}).get('Дата/время', '')
+                        key = (r.get('fio', '').strip().lower(), dt)
+                        incoming_keys.add(key)
+
+                    # Проверяем какие уже есть в БД среди активных записей
+                    fios = list({r.get('fio', '').strip().lower() for r in records})
+                    cur.execute(
+                        f"""SELECT TRIM(LOWER(fio)), extra_data->>'Дата/время'
+                            FROM {SCHEMA}.zdravpunkt_esmo
+                            WHERE TRIM(LOWER(fio)) = ANY(%s)
+                            AND exam_result NOT IN ('cleared', 'archived_test')""",
+                        (fios,)
                     )
+                    existing_keys = set((row[0], row[1]) for row in cur.fetchall())
+
+                    # Фильтруем — только новые
+                    new_records = []
+                    for r in records:
+                        dt = (r.get('extra') or {}).get('Дата/время', '')
+                        key = (r.get('fio', '').strip().lower(), dt)
+                        if key not in existing_keys:
+                            new_records.append(r)
+                        else:
+                            skipped_count += 1
+
+                    if new_records:
+                        data = [
+                            (file_id, org_id,
+                             r.get('fio', ''), r.get('worker_number', ''),
+                             r.get('subdivision', ''), r.get('position', ''),
+                             r.get('company', ''), r.get('exam_date') or None,
+                             r.get('exam_result', ''), r.get('reject_reason', ''),
+                             json.dumps(r.get('extra', {}), ensure_ascii=False))
+                            for r in new_records
+                        ]
+                        psycopg2.extras.execute_values(
+                            cur,
+                            f"""INSERT INTO {SCHEMA}.zdravpunkt_esmo
+                                (file_id, organization_id, fio, worker_number, subdivision, position,
+                                 company, exam_date, exam_result, reject_reason, extra_data)
+                                VALUES %s""",
+                            data, page_size=len(data)
+                        )
+                        new_count = len(new_records)
+
+                    # Обновляем статистику файла после последнего батча
+                    if is_last_batch:
+                        cur.execute(
+                            f"""UPDATE {SCHEMA}.zdravpunkt_files
+                                SET period_from = %s, period_to = %s,
+                                    new_rows = COALESCE(new_rows,0) + %s,
+                                    skipped_rows = COALESCE(skipped_rows,0) + %s
+                                WHERE id = %s""",
+                            (period_from, period_to, new_count, skipped_count, file_id)
+                        )
+                    else:
+                        cur.execute(
+                            f"""UPDATE {SCHEMA}.zdravpunkt_files
+                                SET new_rows = COALESCE(new_rows,0) + %s,
+                                    skipped_rows = COALESCE(skipped_rows,0) + %s
+                                WHERE id = %s""",
+                            (new_count, skipped_count, file_id)
+                        )
                     conn.commit()
+
                 return {'statusCode': 200, 'headers': CORS,
-                        'body': json.dumps({'success': True, 'imported': len(records)}, ensure_ascii=False)}
+                        'body': json.dumps({
+                            'success': True,
+                            'imported': new_count,
+                            'skipped': skipped_count
+                        }, ensure_ascii=False)}
 
             # Архивировать файл (только главный администратор)
             if action_post == 'archive_file':

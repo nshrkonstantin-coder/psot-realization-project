@@ -16,6 +16,10 @@ interface UploadedFile {
   file_size: number;
   rows_count: number;
   uploaded_at: string;
+  period_from?: string | null;
+  period_to?: string | null;
+  new_rows?: number;
+  skipped_rows?: number;
 }
 
 interface Stats {
@@ -220,46 +224,51 @@ const ZdravpunktPage = () => {
           };
         }).filter(w => w.fio.trim());
 
-        // Батч 2000 строк, параллельно по 3 запроса — надёжно для любого размера файла
+        // Определяем период файла по данным
+        const datesInFile = records.map(r => r.exam_date).filter(Boolean).sort() as string[];
+        const periodFrom = datesInFile[0] || null;
+        const periodTo = datesInFile[datesInFile.length - 1] || null;
+
+        // Батч 2000 строк, последовательно (дедупликация требует порядка)
         const BATCH = 2000;
-        const PARALLEL = 3;
         const totalBatches = Math.ceil(records.length / BATCH);
         let totalImported = 0;
+        let totalSkipped = 0;
         let completedBatches = 0;
         setUploadProgress(10);
 
-        // Разбиваем на группы параллельных запросов
-        for (let i = 0; i < records.length; i += BATCH * PARALLEL) {
-          const group = [];
-          for (let j = 0; j < PARALLEL && (i + j * BATCH) < records.length; j++) {
-            const start = i + j * BATCH;
-            const batch = records.slice(start, start + BATCH);
-            group.push(
-              fetch(API, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'import_esmo', file_id: fileId, records: batch, organization_id: orgId })
-              }).then(r => r.json())
-            );
-          }
-
-          const results = await Promise.all(group);
-          for (const resData of results) {
-            if (!resData.success) throw new Error(`Ошибка загрузки: ${resData.error}`);
-            totalImported += resData.imported || 0;
-            completedBatches++;
-          }
+        for (let i = 0; i < records.length; i += BATCH) {
+          const batch = records.slice(i, i + BATCH);
+          const isLastBatch = i + BATCH >= records.length;
+          const res = await fetch(API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'import_esmo',
+              file_id: fileId,
+              records: batch,
+              organization_id: orgId,
+              is_last_batch: isLastBatch,
+              period_from: periodFrom,
+              period_to: periodTo,
+            })
+          });
+          const resData = await res.json();
+          if (!resData.success) throw new Error(`Ошибка загрузки: ${resData.error}`);
+          totalImported += resData.imported || 0;
+          totalSkipped += resData.skipped || 0;
+          completedBatches++;
           const progress = 10 + Math.round((completedBatches / totalBatches) * 88);
           setUploadProgress(Math.min(progress, 98));
         }
 
-        if (totalImported < records.length) {
-          toast.warning(`Загружено ${totalImported} из ${records.length} строк — попробуй ещё раз`);
+        if (totalSkipped > 0) {
+          toast.info(`Добавлено новых: ${totalImported}, уже было в БД: ${totalSkipped} (пропущено)`);
         }
       }
 
       setUploadProgress(100);
-      toast.success(`Файл "${file.name}" загружен — ${raw.length} строк`);
+      toast.success(`Файл "${file.name}" загружен — ${raw.length} строк в файле`);
       loadAll();
     } catch (err: unknown) {
       toast.error(`Ошибка: ${err instanceof Error ? err.message : String(err)}`);
@@ -578,20 +587,41 @@ const ZdravpunktPage = () => {
                       Файлы ещё не загружались
                     </div>
                   ) : esmoFiles.map(f => (
-                    <div key={f.id} className="flex items-center justify-between bg-slate-700/50 rounded-lg px-3 py-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Icon name="FileSpreadsheet" size={16} className="text-teal-400 shrink-0" />
-                        <div className="min-w-0">
-                          <div className="text-white text-xs font-medium truncate">{f.file_name}</div>
-                          <div className="text-slate-400 text-xs">{f.rows_count} строк · {formatDate(f.uploaded_at)} · {formatSize(f.file_size)}</div>
+                    <div key={f.id} className="bg-slate-700/50 rounded-lg px-3 py-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <Icon name="FileSpreadsheet" size={16} className="text-teal-400 shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <div className="text-white text-xs font-semibold truncate">{f.file_name}</div>
+                            {/* Период файла */}
+                            {f.period_from && f.period_to && (
+                              <div className="text-teal-400 text-xs font-medium mt-0.5">
+                                Период: {formatDate(f.period_from)} — {formatDate(f.period_to)}
+                              </div>
+                            )}
+                            <div className="text-slate-500 text-xs mt-0.5">
+                              {f.rows_count} строк в файле · загружен {formatDate(f.uploaded_at)} · {formatSize(f.file_size)}
+                            </div>
+                            {/* Статистика дедупликации */}
+                            {(f.new_rows != null || f.skipped_rows != null) && (
+                              <div className="flex gap-2 mt-1">
+                                {(f.new_rows ?? 0) > 0 && (
+                                  <span className="text-green-400 text-xs">+{f.new_rows} новых</span>
+                                )}
+                                {(f.skipped_rows ?? 0) > 0 && (
+                                  <span className="text-slate-500 text-xs">{f.skipped_rows} уже были</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
+                        {isAdmin && (
+                          <button onClick={() => archiveFile(f.id)}
+                            className="text-slate-500 hover:text-red-400 transition shrink-0">
+                            <Icon name="Trash2" size={14} />
+                          </button>
+                        )}
                       </div>
-                      {isAdmin && (
-                        <button onClick={() => archiveFile(f.id)}
-                          className="text-slate-500 hover:text-red-400 transition shrink-0 ml-2">
-                          <Icon name="Trash2" size={14} />
-                        </button>
-                      )}
                     </div>
                   ))}
                 </div>
