@@ -145,8 +145,7 @@ const ZdravpunktPage = () => {
       if (!saveData.success) throw new Error(saveData.error);
       const fileId = saveData.file_id;
 
-      // Батч-импорт данных
-      const BATCH = 200;
+      // Парсим все строки и отправляем ОДНИМ запросом
       if (fileType === 'workers') {
         const fioKey = findKey('фио', 'имя', 'наименование', 'работник', 'name');
         const numKey = findKey('табел', 'номер', 'id', 'code', 'код');
@@ -154,70 +153,69 @@ const ZdravpunktPage = () => {
         const posKey = findKey('должность', 'position');
         const compKey = findKey('компания', 'организация', 'company', 'предприятие');
 
-        for (let i = 0; i < raw.length; i += BATCH) {
-          const batch = raw.slice(i, i + BATCH).map(r => ({
-            fio: String(r[fioKey] || ''),
-            worker_number: String(r[numKey] || ''),
-            subdivision: String(r[divKey] || ''),
-            position: String(r[posKey] || ''),
-            company: String(r[compKey] || ''),
-            extra: r
-          })).filter(w => w.fio.trim());
+        const workers = raw.map(r => ({
+          fio: String(r[fioKey] || ''),
+          worker_number: String(r[numKey] || ''),
+          subdivision: String(r[divKey] || ''),
+          position: String(r[posKey] || ''),
+          company: String(r[compKey] || ''),
+        })).filter(w => w.fio.trim());
 
-          await fetch(API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'import_workers', file_id: fileId, workers: batch, organization_id: orgId })
-          });
-        }
+        await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'import_workers', file_id: fileId, workers, organization_id: orgId })
+        });
+
       } else {
-        // Точный маппинг для формата ЭСМО (приоритет — точные названия колонок)
+        // Точный маппинг для формата ЭСМО
         const fioKey = findKey('ФИО сотрудника', 'фио', 'имя', 'работник', 'name', 'сотрудник');
         const numKey = findKey('табел', 'номер', 'id', 'code', 'код');
         const divKey = findKey('подразделение', 'отдел', 'subdivision', 'участок');
         const posKey = findKey('должность', 'position');
         const compKey = findKey('Организация', 'компания', 'organization', 'company', 'предприятие');
         const dateKey = findKey('Дата/время', 'дата', 'date', 'прохождение');
-        // Для ЭСМО: сначала ищем точную колонку "Допуск", потом общие
         const dopuskKey = findKey('Допуск', 'допуск');
         const resultKey = findKey('Результат осмотра', 'результат', 'result', 'статус');
         const groupKey = findKey('Группа МО', 'группа');
 
-        for (let i = 0; i < raw.length; i += BATCH) {
-          const batch = raw.slice(i, i + BATCH).map(r => {
-            // exam_result берём из колонки "Допуск"
-            const dopuskRaw = String(r[dopuskKey] || '').toLowerCase().trim();
-            let examResult = '';
-            if (dopuskRaw === 'разрешен' || dopuskRaw.includes('разреш') || dopuskRaw.includes('допущ') || dopuskRaw === 'да') {
-              examResult = 'admitted';
-            } else if (dopuskRaw === 'запрещен' || dopuskRaw.includes('запрещ') || dopuskRaw.includes('не допущ') || dopuskRaw === 'нет') {
-              examResult = 'not_admitted';
-            }
+        const records = raw.map(r => {
+          const dopuskRaw = String(r[dopuskKey] || '').toLowerCase().trim();
+          let examResult = '';
+          if (dopuskRaw === 'разрешен' || dopuskRaw.includes('разреш') || dopuskRaw === 'да') {
+            examResult = 'admitted';
+          } else if (dopuskRaw === 'запрещен' || dopuskRaw.includes('запрещ') || dopuskRaw === 'нет') {
+            examResult = 'not_admitted';
+          } else if (dopuskRaw === 'уклонился' || dopuskRaw.includes('уклон')) {
+            examResult = 'evaded';
+          }
 
-            // reject_reason — "Результат осмотра" когда не допущен, иначе тоже сохраняем
-            const resultOsmotra = String(r[resultKey] || '').trim();
+          const resultOsmotra = String(r[resultKey] || '').trim();
 
-            let examDate: string | null = null;
-            const rawDate = r[dateKey];
-            if (rawDate instanceof Date) {
-              examDate = rawDate.toISOString().split('T')[0];
-            } else if (typeof rawDate === 'string' && rawDate.trim()) {
-              examDate = rawDate.trim().split('T')[0];
-            }
+          let examDate: string | null = null;
+          const rawDate = r[dateKey];
+          if (rawDate instanceof Date) {
+            examDate = rawDate.toISOString().split('T')[0];
+          } else if (typeof rawDate === 'string' && rawDate.trim()) {
+            examDate = rawDate.trim().split('T')[0];
+          }
 
-            return {
-              fio: String(r[fioKey] || ''),
-              worker_number: String(r[numKey] || ''),
-              subdivision: String(r[divKey] || ''),
-              position: String(r[posKey] || ''),
-              company: String(r[compKey] || ''),
-              exam_date: examDate,
-              exam_result: examResult,
-              reject_reason: examResult === 'not_admitted' ? resultOsmotra : '',
-              extra: { ...r, group_mo: r[groupKey] || '' }
-            };
-          }).filter(w => w.fio.trim());
+          return {
+            fio: String(r[fioKey] || ''),
+            worker_number: String(r[numKey] || ''),
+            subdivision: String(r[divKey] || ''),
+            position: String(r[posKey] || ''),
+            company: String(r[compKey] || ''),
+            exam_date: examDate,
+            exam_result: examResult,
+            reject_reason: examResult === 'not_admitted' ? resultOsmotra : '',
+            extra: { ...r, group_mo: String(r[groupKey] || '') }
+          };
+        }).filter(w => w.fio.trim());
 
+        const BATCH = 2000;
+        for (let i = 0; i < records.length; i += BATCH) {
+          const batch = records.slice(i, i + BATCH);
           await fetch(API, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

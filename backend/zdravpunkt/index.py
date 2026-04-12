@@ -198,42 +198,47 @@ def handler(event: dict, context) -> dict:
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True, 'file_id': file_id}, ensure_ascii=False)}
 
-            # Сохранить список работников
+            # Сохранить список работников — executemany для скорости
             if action_post == 'import_workers':
                 file_id = body.get('file_id')
                 workers = body.get('workers', [])
-                for w in workers:
-                    cur.execute(
-                        f"""INSERT INTO {SCHEMA}.zdravpunkt_workers
-                            (file_id, organization_id, worker_number, fio, subdivision, position, company, extra_data)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                        (file_id, org_id,
-                         w.get('worker_number', ''), w.get('fio', ''),
-                         w.get('subdivision', ''), w.get('position', ''),
-                         w.get('company', ''), json.dumps(w.get('extra', {}), ensure_ascii=False))
-                    )
+                data = [
+                    (file_id, org_id,
+                     w.get('worker_number', ''), w.get('fio', ''),
+                     w.get('subdivision', ''), w.get('position', ''),
+                     w.get('company', ''), '{}')
+                    for w in workers
+                ]
+                cur.executemany(
+                    f"""INSERT INTO {SCHEMA}.zdravpunkt_workers
+                        (file_id, organization_id, worker_number, fio, subdivision, position, company, extra_data)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                    data
+                )
                 conn.commit()
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True, 'imported': len(workers)}, ensure_ascii=False)}
 
-            # Сохранить результаты ЭСМО
+            # Сохранить результаты ЭСМО — executemany для скорости
             if action_post == 'import_esmo':
                 file_id = body.get('file_id')
                 records = body.get('records', [])
-                for r in records:
-                    exam_date = r.get('exam_date') or None
-                    cur.execute(
-                        f"""INSERT INTO {SCHEMA}.zdravpunkt_esmo
-                            (file_id, organization_id, fio, worker_number, subdivision, position,
-                             company, exam_date, exam_result, reject_reason, extra_data)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                        (file_id, org_id,
-                         r.get('fio', ''), r.get('worker_number', ''),
-                         r.get('subdivision', ''), r.get('position', ''),
-                         r.get('company', ''), exam_date,
-                         r.get('exam_result', ''), r.get('reject_reason', ''),
-                         json.dumps(r.get('extra', {}), ensure_ascii=False))
-                    )
+                data = [
+                    (file_id, org_id,
+                     r.get('fio', ''), r.get('worker_number', ''),
+                     r.get('subdivision', ''), r.get('position', ''),
+                     r.get('company', ''), r.get('exam_date') or None,
+                     r.get('exam_result', ''), r.get('reject_reason', ''),
+                     json.dumps(r.get('extra', {}), ensure_ascii=False))
+                    for r in records
+                ]
+                cur.executemany(
+                    f"""INSERT INTO {SCHEMA}.zdravpunkt_esmo
+                        (file_id, organization_id, fio, worker_number, subdivision, position,
+                         company, exam_date, exam_result, reject_reason, extra_data)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    data
+                )
                 conn.commit()
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True, 'imported': len(records)}, ensure_ascii=False)}
