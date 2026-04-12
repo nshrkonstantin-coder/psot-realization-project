@@ -270,7 +270,7 @@ def handler(event: dict, context) -> dict:
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True, 'imported': len(workers)}, ensure_ascii=False)}
 
-            # Сохранить результаты ЭСМО — execute_values (быстрый bulk insert)
+            # Сохранить результаты ЭСМО — execute_values максимальная скорость
             if action_post == 'import_esmo':
                 file_id = body.get('file_id')
                 records = body.get('records', [])
@@ -284,13 +284,14 @@ def handler(event: dict, context) -> dict:
                          json.dumps(r.get('extra', {}), ensure_ascii=False))
                         for r in records
                     ]
+                    # page_size = len(data) — один запрос для всего батча
                     psycopg2.extras.execute_values(
                         cur,
                         f"""INSERT INTO {SCHEMA}.zdravpunkt_esmo
                             (file_id, organization_id, fio, worker_number, subdivision, position,
                              company, exam_date, exam_result, reject_reason, extra_data)
                             VALUES %s""",
-                        data, page_size=500
+                        data, page_size=len(data)
                     )
                     conn.commit()
                 return {'statusCode': 200, 'headers': CORS,

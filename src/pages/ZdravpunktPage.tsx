@@ -220,27 +220,41 @@ const ZdravpunktPage = () => {
           };
         }).filter(w => w.fio.trim());
 
-        const BATCH = 1000;
+        // Батч 2000 строк, параллельно по 3 запроса — надёжно для любого размера файла
+        const BATCH = 2000;
+        const PARALLEL = 3;
         const totalBatches = Math.ceil(records.length / BATCH);
         let totalImported = 0;
+        let completedBatches = 0;
         setUploadProgress(10);
 
-        for (let i = 0; i < records.length; i += BATCH) {
-          const batch = records.slice(i, i + BATCH);
-          const res = await fetch(API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'import_esmo', file_id: fileId, records: batch, organization_id: orgId })
-          });
-          const resData = await res.json();
-          if (!resData.success) throw new Error(`Ошибка батча ${i / BATCH + 1}: ${resData.error}`);
-          totalImported += resData.imported || batch.length;
-          const progress = 10 + Math.round(((i / BATCH + 1) / totalBatches) * 88);
-          setUploadProgress(progress);
+        // Разбиваем на группы параллельных запросов
+        for (let i = 0; i < records.length; i += BATCH * PARALLEL) {
+          const group = [];
+          for (let j = 0; j < PARALLEL && (i + j * BATCH) < records.length; j++) {
+            const start = i + j * BATCH;
+            const batch = records.slice(start, start + BATCH);
+            group.push(
+              fetch(API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'import_esmo', file_id: fileId, records: batch, organization_id: orgId })
+              }).then(r => r.json())
+            );
+          }
+
+          const results = await Promise.all(group);
+          for (const resData of results) {
+            if (!resData.success) throw new Error(`Ошибка загрузки: ${resData.error}`);
+            totalImported += resData.imported || 0;
+            completedBatches++;
+          }
+          const progress = 10 + Math.round((completedBatches / totalBatches) * 88);
+          setUploadProgress(Math.min(progress, 98));
         }
 
-        if (totalImported !== records.length) {
-          toast.warning(`Загружено ${totalImported} из ${records.length} строк`);
+        if (totalImported < records.length) {
+          toast.warning(`Загружено ${totalImported} из ${records.length} строк — попробуй ещё раз`);
         }
       }
 
