@@ -64,7 +64,7 @@ const ZdravpunktPage = () => {
   const [subdivisions, setSubdivisions] = useState<string[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
   const [reportRecords, setReportRecords] = useState<ReportRecord[] | null>(null);
-  const [reportStats, setReportStats] = useState<{ total: number; admitted: number; not_admitted: number; evaded: number } | null>(null);
+  const [reportStats, setReportStats] = useState<{ total: number; admitted: number; not_admitted: number; evaded: number; unique_workers: number } | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportPage, setReportPage] = useState(0);
   const PAGE_SIZE = 500;
@@ -285,7 +285,7 @@ const ZdravpunktPage = () => {
       const data = await res.json();
       if (data.success) {
         setReportRecords(data.records);
-        setReportStats({ total: data.total, admitted: data.admitted, not_admitted: data.not_admitted, evaded: data.evaded });
+        setReportStats({ total: data.total, admitted: data.admitted, not_admitted: data.not_admitted, evaded: data.evaded, unique_workers: data.unique_workers ?? 0 });
       } else {
         toast.error('Ошибка получения данных');
       }
@@ -655,18 +655,47 @@ const ZdravpunktPage = () => {
 
             {/* Результаты — статистика */}
             {reportStats && (
-              <div className="grid grid-cols-4 gap-4">
-                {[
-                  { label: 'Всего записей', value: reportStats.total, color: 'text-white' },
-                  { label: 'Разрешен', value: reportStats.admitted, color: 'text-green-400' },
-                  { label: 'Запрещен', value: reportStats.not_admitted, color: 'text-red-400' },
-                  { label: 'Уклонился', value: reportStats.evaded, color: 'text-yellow-400' },
-                ].map((s, i) => (
-                  <Card key={i} className="bg-slate-800/50 border-slate-700 p-4 text-center">
-                    <div className={`text-3xl font-bold ${s.color}`}>{s.value}</div>
-                    <div className="text-slate-400 text-sm mt-1">{s.label}</div>
-                  </Card>
-                ))}
+              <div className="space-y-3">
+                {/* Главная карточка — уникальные работники */}
+                <Card className="bg-gradient-to-r from-teal-900/50 to-cyan-900/30 border-teal-600/50 p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-teal-500/20 border border-teal-500/40 p-3 rounded-xl">
+                        <Icon name="Users" size={26} className="text-teal-400" />
+                      </div>
+                      <div>
+                        <div className="text-slate-400 text-sm">Уникальных работников прошли ЭСМО</div>
+                        <div className="text-4xl font-bold text-teal-300 mt-0.5">{reportStats.unique_workers.toLocaleString('ru')}</div>
+                      </div>
+                    </div>
+                    <div className="text-right text-slate-500 text-sm border-l border-slate-700 pl-5">
+                      <div>Всего записей осмотров</div>
+                      <div className="text-2xl font-bold text-white mt-0.5">{reportStats.total.toLocaleString('ru')}</div>
+                      <div className="text-xs text-slate-600 mt-1">
+                        в среднем {reportStats.unique_workers > 0 ? (reportStats.total / reportStats.unique_workers).toFixed(1) : '—'} осмотра на работника
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Детализация по допуску */}
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: 'Разрешен', value: reportStats.admitted, color: 'text-green-400', bg: 'bg-green-900/20 border-green-700/30' },
+                    { label: 'Запрещен', value: reportStats.not_admitted, color: 'text-red-400', bg: 'bg-red-900/20 border-red-700/30' },
+                    { label: 'Уклонился', value: reportStats.evaded, color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-700/30' },
+                  ].map((s, i) => (
+                    <Card key={i} className={`${s.bg} border p-4 text-center`}>
+                      <div className={`text-3xl font-bold ${s.color}`}>{s.value.toLocaleString('ru')}</div>
+                      <div className="text-slate-400 text-sm mt-1">{s.label}</div>
+                      {reportStats.total > 0 && (
+                        <div className="text-slate-600 text-xs mt-0.5">
+                          {((s.value / reportStats.total) * 100).toFixed(1)}% от всех записей
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
               </div>
             )}
 

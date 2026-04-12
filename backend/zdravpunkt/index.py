@@ -117,7 +117,8 @@ def handler(event: dict, context) -> dict:
                     COUNT(*) AS total,
                     COUNT(*) FILTER (WHERE e.exam_result = 'admitted') AS admitted,
                     COUNT(*) FILTER (WHERE e.exam_result = 'not_admitted') AS not_admitted,
-                    COUNT(*) FILTER (WHERE e.exam_result = 'evaded') AS evaded
+                    COUNT(*) FILTER (WHERE e.exam_result = 'evaded') AS evaded,
+                    COUNT(DISTINCT TRIM(LOWER(e.fio))) AS unique_workers
                 FROM {SCHEMA}.zdravpunkt_esmo e WHERE {where_sql}""",
                 args
             )
@@ -158,6 +159,7 @@ def handler(event: dict, context) -> dict:
                 'admitted': stat[1],
                 'not_admitted': stat[2],
                 'evaded': stat[3],
+                'unique_workers': stat[4],
                 'limit': limit,
                 'offset': offset_val,
             }, ensure_ascii=False)}
