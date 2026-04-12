@@ -255,6 +255,27 @@ def handler(event: dict, context) -> dict:
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True}, ensure_ascii=False)}
 
+            # Полная очистка БД Здравпункта (только superadmin)
+            if action_post == 'clear_all':
+                user_role = body.get('user_role', '')
+                if user_role not in ('superadmin', 'admin'):
+                    return {'statusCode': 403, 'headers': CORS,
+                            'body': json.dumps({'success': False, 'error': 'Нет прав'}, ensure_ascii=False)}
+                # Помечаем все ЭСМО как очищенные
+                cur.execute(f"UPDATE {SCHEMA}.zdravpunkt_esmo SET exam_result = 'cleared' WHERE 1=1")
+                esmo_count = cur.rowcount
+                # Помечаем все записи работников как очищенные (через file_id = -1)
+                cur.execute(f"UPDATE {SCHEMA}.zdravpunkt_workers SET file_id = NULL WHERE 1=1")
+                workers_count = cur.rowcount
+                # Архивируем все файлы
+                cur.execute(
+                    f"UPDATE {SCHEMA}.zdravpunkt_files SET is_archived = TRUE, archived_by = %s, archived_at = NOW() WHERE is_archived = FALSE",
+                    (body.get('user_id'),)
+                )
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True, 'esmo_cleared': esmo_count, 'workers_cleared': workers_count}, ensure_ascii=False)}
+
         return {'statusCode': 400, 'headers': CORS,
                 'body': json.dumps({'success': False, 'error': 'Неизвестный запрос'}, ensure_ascii=False)}
 

@@ -67,6 +67,8 @@ const ZdravpunktPage = () => {
   const [reportLoading, setReportLoading] = useState(false);
   const [reportPage, setReportPage] = useState(0);
   const PAGE_SIZE = 500;
+  const [clearing, setClearing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const workersRef = useRef<HTMLInputElement>(null);
   const esmoRef = useRef<HTMLInputElement>(null);
@@ -294,6 +296,40 @@ const ZdravpunktPage = () => {
     XLSX.writeFile(wb, `Здравпункт_отчёт_${new Date().toLocaleDateString('ru')}.xlsx`);
   };
 
+  // ── Очистка всей БД Здравпункта ─────────────────────────────────────────
+  const clearAll = async () => {
+    setClearing(true);
+    setShowClearConfirm(false);
+    try {
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clear_all', user_id: userId, user_role: userRole })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`База очищена: ЭСМО ${data.esmo_cleared} записей, работники ${data.workers_cleared}`);
+        // Сбрасываем все состояния
+        setFiles([]);
+        setStats(null);
+        setReportRecords(null);
+        setReportStats(null);
+        setSubdivisions([]);
+        setCompanies([]);
+        setDateFrom('');
+        setDateTo('');
+        setFilterSubdivision('');
+        setFilterCompany('');
+        setFilterFio('');
+        setFilterResult('');
+        loadAll();
+      } else {
+        toast.error(data.error || 'Ошибка очистки');
+      }
+    } catch { toast.error('Ошибка соединения'); }
+    finally { setClearing(false); }
+  };
+
   const formatDate = (s: string) => {
     try { return new Date(s).toLocaleDateString('ru'); } catch { return s; }
   };
@@ -325,7 +361,7 @@ const ZdravpunktPage = () => {
               <p className="text-teal-400 text-xs">Управление медицинскими осмотрами</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveTab('upload')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'upload' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-white'}`}
@@ -338,6 +374,17 @@ const ZdravpunktPage = () => {
             >
               Отчёты
             </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowClearConfirm(true)}
+                disabled={clearing}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-red-900/40 border border-red-700/50 text-red-400 hover:bg-red-800/50 hover:text-red-300 transition ml-2"
+              >
+                {clearing
+                  ? <><Icon name="Loader" size={15} className="animate-spin" />Очистка...</>
+                  : <><Icon name="Trash2" size={15} />Очистка БД</>}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -670,6 +717,44 @@ const ZdravpunktPage = () => {
           </div>
         )}
       </div>
+
+      {/* Модальное окно подтверждения очистки */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-red-700/50 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-red-900/50 p-3 rounded-xl">
+                <Icon name="AlertTriangle" size={28} className="text-red-400" />
+              </div>
+              <div>
+                <h2 className="text-white font-bold text-lg">Очистка базы данных</h2>
+                <p className="text-red-400 text-sm">Это действие нельзя отменить</p>
+              </div>
+            </div>
+            <p className="text-slate-300 text-sm mb-2">
+              Будут удалены <span className="text-white font-semibold">все</span> записи ЭСМО, список работников и история загрузок из базы данных Здравпункта.
+            </p>
+            <p className="text-slate-400 text-xs mb-6 bg-slate-700/50 rounded-lg p-3">
+              Используй эту функцию только для очистки тестовых данных перед загрузкой реальных файлов.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium transition"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={clearAll}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition flex items-center justify-center gap-2"
+              >
+                <Icon name="Trash2" size={16} />
+                Да, очистить всё
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
