@@ -162,6 +162,50 @@ def handler(event: dict, context) -> dict:
                 'offset': offset_val,
             }, ensure_ascii=False)}
 
+        # ── GET: история осмотров конкретного работника ───────────────────────
+        if method == 'GET' and action == 'worker_history':
+            fio = params.get('fio', '')
+            date_from = params.get('date_from', '')
+            date_to = params.get('date_to', '')
+            if not fio:
+                return {'statusCode': 400, 'headers': CORS,
+                        'body': json.dumps({'success': False, 'error': 'fio обязателен'}, ensure_ascii=False)}
+            where_w = [f"{ACTIVE}", "e.fio = %s"]
+            args_w = [fio]
+            if date_from:
+                where_w.append('e.exam_date >= %s::date')
+                args_w.append(date_from)
+            if date_to:
+                where_w.append('e.exam_date <= %s::date')
+                args_w.append(date_to)
+            cur.execute(
+                f"""SELECT e.fio, e.subdivision, e.company, e.position,
+                           e.exam_date, e.exam_result, e.reject_reason,
+                           e.extra_data->>'Дата/время' AS exam_datetime,
+                           e.extra_data->>'Группа МО' AS group_mo,
+                           e.extra_data->>'Результат осмотра' AS exam_detail
+                    FROM {SCHEMA}.zdravpunkt_esmo e
+                    WHERE {' AND '.join(where_w)}
+                    ORDER BY (e.extra_data->>'Дата/время') ASC NULLS LAST""",
+                args_w
+            )
+            rows = cur.fetchall()
+            # Считаем сводку
+            admitted = sum(1 for r in rows if r[5] == 'admitted')
+            not_admitted = sum(1 for r in rows if r[5] == 'not_admitted')
+            evaded = sum(1 for r in rows if r[5] == 'evaded')
+            records = [{
+                'fio': r[0], 'subdivision': r[1], 'company': r[2], 'position': r[3],
+                'exam_date': r[4].isoformat() if r[4] else None,
+                'exam_result': r[5], 'reject_reason': r[6],
+                'exam_datetime': r[7], 'group_mo': r[8], 'exam_detail': r[9]
+            } for r in rows]
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
+                'success': True, 'records': records,
+                'total': len(records), 'admitted': admitted,
+                'not_admitted': not_admitted, 'evaded': evaded
+            }, ensure_ascii=False)}
+
         # ── GET: список подразделений и компаний для фильтров ─────────────────
         if method == 'GET' and action == 'filters':
             cur.execute(f"SELECT DISTINCT subdivision FROM {SCHEMA}.zdravpunkt_esmo WHERE {ACTIVE} AND subdivision IS NOT NULL AND subdivision != '' ORDER BY subdivision")

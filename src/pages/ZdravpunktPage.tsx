@@ -70,6 +70,10 @@ const ZdravpunktPage = () => {
   const [clearing, setClearing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
+  // Карточка работника
+  const [workerModal, setWorkerModal] = useState<{fio: string; records: ReportRecord[]; total: number; admitted: number; not_admitted: number; evaded: number} | null>(null);
+  const [workerLoading, setWorkerLoading] = useState(false);
+
   const workersRef = useRef<HTMLInputElement>(null);
   const esmoRef = useRef<HTMLInputElement>(null);
 
@@ -328,6 +332,23 @@ const ZdravpunktPage = () => {
       }
     } catch { toast.error('Ошибка соединения'); }
     finally { setClearing(false); }
+  };
+
+  // ── Открыть карточку работника ──────────────────────────────────────────
+  const openWorker = async (fio: string) => {
+    setWorkerLoading(true);
+    setWorkerModal({ fio, records: [], total: 0, admitted: 0, not_admitted: 0, evaded: 0 });
+    try {
+      const p = new URLSearchParams({ action: 'worker_history', fio });
+      if (dateFrom) p.set('date_from', dateFrom);
+      if (dateTo) p.set('date_to', dateTo);
+      const res = await fetch(`${API}?${p.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        setWorkerModal({ fio, records: data.records, total: data.total, admitted: data.admitted, not_admitted: data.not_admitted, evaded: data.evaded });
+      }
+    } catch { /* оставляем пустую карточку */ }
+    finally { setWorkerLoading(false); }
   };
 
   const formatDate = (s: string) => {
@@ -644,7 +665,8 @@ const ZdravpunktPage = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-700/50">
                         {reportRecords.map((r, i) => (
-                          <tr key={i} className="hover:bg-slate-700/30 transition">
+                          <tr key={i} onClick={() => openWorker(r.fio)}
+                            className="hover:bg-teal-900/30 cursor-pointer transition group">
                             {/* Дата/время */}
                             <td className="px-4 py-2.5 text-slate-300 whitespace-nowrap">
                               {r.exam_datetime
@@ -658,7 +680,12 @@ const ZdravpunktPage = () => {
                             {/* Подразделение */}
                             <td className="px-4 py-2.5 text-slate-300">{r.subdivision || '—'}</td>
                             {/* ФИО сотрудника */}
-                            <td className="px-4 py-2.5 text-white font-medium whitespace-nowrap">{r.fio}</td>
+                            <td className="px-4 py-2.5 font-medium whitespace-nowrap">
+                              <span className="text-white group-hover:text-teal-300 transition flex items-center gap-1.5">
+                                {r.fio}
+                                <Icon name="ExternalLink" size={12} className="opacity-0 group-hover:opacity-60 transition" />
+                              </span>
+                            </td>
                             {/* Результат осмотра */}
                             <td className="px-4 py-2.5 text-slate-300 text-xs">{r.exam_detail || r.reject_reason || '—'}</td>
                             {/* Допуск */}
@@ -719,6 +746,144 @@ const ZdravpunktPage = () => {
           </div>
         )}
       </div>
+
+      {/* ── Карточка работника ── */}
+      {workerModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm overflow-y-auto py-6 px-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-4xl">
+
+            {/* Шапка карточки */}
+            <div className="flex items-start justify-between p-6 border-b border-slate-700">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shrink-0">
+                  <Icon name="User" size={28} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-white text-xl font-bold">{workerModal.fio}</h2>
+                  {workerModal.records[0] && (
+                    <p className="text-slate-400 text-sm mt-0.5">
+                      {workerModal.records[0].company} · {workerModal.records[0].subdivision}
+                    </p>
+                  )}
+                  {(dateFrom || dateTo) && (
+                    <p className="text-teal-400 text-xs mt-1">
+                      Период: {dateFrom ? new Date(dateFrom).toLocaleDateString('ru') : '—'} — {dateTo ? new Date(dateTo).toLocaleDateString('ru') : '—'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button onClick={() => setWorkerModal(null)}
+                className="text-slate-400 hover:text-white transition p-1">
+                <Icon name="X" size={22} />
+              </button>
+            </div>
+
+            {/* Сводная статистика */}
+            <div className="grid grid-cols-4 gap-4 p-6 border-b border-slate-700">
+              {[
+                { label: 'Всего осмотров', value: workerModal.total, color: 'text-white', bg: 'bg-slate-700/50' },
+                { label: 'Разрешен', value: workerModal.admitted, color: 'text-green-400', bg: 'bg-green-900/20' },
+                { label: 'Запрещен', value: workerModal.not_admitted, color: 'text-red-400', bg: 'bg-red-900/20' },
+                { label: 'Уклонился', value: workerModal.evaded, color: 'text-yellow-400', bg: 'bg-yellow-900/20' },
+              ].map((s, i) => (
+                <div key={i} className={`${s.bg} rounded-xl p-4 text-center`}>
+                  <div className={`text-3xl font-bold ${s.color}`}>{s.value}</div>
+                  <div className="text-slate-400 text-xs mt-1">{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Таблица осмотров */}
+            <div className="p-6">
+              {workerLoading ? (
+                <div className="text-center py-12 text-slate-400">
+                  <Icon name="Loader" size={32} className="animate-spin mx-auto mb-3" />
+                  Загружаю данные...
+                </div>
+              ) : workerModal.records.length === 0 ? (
+                <div className="text-center py-12 text-slate-500">
+                  <Icon name="SearchX" size={32} className="mx-auto mb-3 opacity-40" />
+                  Нет записей за выбранный период
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-700">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr>
+                        {['Дата/время', 'Группа МО', 'Подразделение', 'Результат осмотра', 'Допуск'].map(h => (
+                          <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-amber-300 bg-slate-700/80 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/50">
+                      {workerModal.records.map((r, i) => (
+                        <tr key={i} className={`transition ${r.exam_result === 'not_admitted' ? 'bg-red-900/10' : r.exam_result === 'evaded' ? 'bg-yellow-900/10' : ''}`}>
+                          <td className="px-4 py-2.5 text-slate-300 whitespace-nowrap">
+                            {r.exam_datetime
+                              ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              : r.exam_date ? formatDate(r.exam_date) : '—'}
+                          </td>
+                          <td className="px-4 py-2.5 text-slate-300">{r.group_mo || '—'}</td>
+                          <td className="px-4 py-2.5 text-slate-300 text-xs max-w-xs">{r.subdivision || '—'}</td>
+                          <td className="px-4 py-2.5 text-slate-300 text-xs">{r.exam_detail || r.reject_reason || '—'}</td>
+                          <td className="px-4 py-2.5">
+                            {r.exam_result === 'admitted' ? (
+                              <span className="inline-flex items-center gap-1.5 bg-green-900/40 border border-green-700/40 text-green-400 font-semibold px-3 py-1 rounded-full text-xs whitespace-nowrap">
+                                <Icon name="CheckCircle" size={13} />Разрешен
+                              </span>
+                            ) : r.exam_result === 'not_admitted' ? (
+                              <span className="inline-flex items-center gap-1.5 bg-red-900/40 border border-red-700/40 text-red-400 font-semibold px-3 py-1 rounded-full text-xs whitespace-nowrap">
+                                <Icon name="XCircle" size={13} />Запрещен
+                              </span>
+                            ) : r.exam_result === 'evaded' ? (
+                              <span className="inline-flex items-center gap-1.5 bg-yellow-900/40 border border-yellow-700/40 text-yellow-400 font-semibold px-3 py-1 rounded-full text-xs whitespace-nowrap">
+                                <Icon name="AlertCircle" size={13} />Уклонился
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 bg-blue-900/30 border border-blue-700/40 text-blue-300 font-semibold px-3 py-1 rounded-full text-xs whitespace-nowrap">
+                                <Icon name="Stethoscope" size={13} />Допуск дан медработником
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Кнопки */}
+              <div className="flex justify-between items-center mt-5">
+                <button
+                  onClick={() => {
+                    if (!workerModal.records.length) return;
+                    const rows = workerModal.records.map(r => ({
+                      'Дата/время': r.exam_datetime ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : r.exam_date || '',
+                      'Группа МО': r.group_mo || '',
+                      'Организация': r.company || '',
+                      'Подразделение': r.subdivision || '',
+                      'ФИО сотрудника': r.fio,
+                      'Результат осмотра': r.exam_detail || r.reject_reason || '',
+                      'Допуск': r.exam_result === 'admitted' ? 'Разрешен' : r.exam_result === 'not_admitted' ? 'Запрещен' : r.exam_result === 'evaded' ? 'Уклонился' : 'Допуск дан медработником',
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(rows);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Осмотры');
+                    XLSX.writeFile(wb, `ЭСМО_${workerModal.fio}_${new Date().toLocaleDateString('ru')}.xlsx`);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-700/30 border border-green-600/40 text-green-400 text-sm hover:bg-green-700/50 transition"
+                >
+                  <Icon name="Download" size={16} />Скачать Excel
+                </button>
+                <button onClick={() => setWorkerModal(null)}
+                  className="px-5 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium transition">
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Модальное окно подтверждения очистки */}
       {showClearConfirm && (
