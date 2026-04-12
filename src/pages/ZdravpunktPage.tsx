@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const API = 'https://functions.poehali.dev/9dcd6f1a-ad53-4c5e-af05-0fd74e20e8b4';
 
@@ -74,6 +76,117 @@ const ZdravpunktPage = () => {
   const PAGE_SIZE = 500;
   const [clearing, setClearing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // Быстрый отчёт из окошек статистики
+  type QuickReportType = 'not_admitted' | 'evaded' | 'all_esmo';
+  const [quickReport, setQuickReport] = useState<{
+    type: QuickReportType;
+    title: string;
+    records: ReportRecord[];
+    loading: boolean;
+  } | null>(null);
+
+  const openQuickReport = async (type: QuickReportType, title: string) => {
+    setQuickReport({ type, title, records: [], loading: true });
+    try {
+      const p = new URLSearchParams({ action: 'report', limit: '5000', offset: '0' });
+      if (type !== 'all_esmo') p.set('exam_result', type);
+      const res = await fetch(`${API}?${p.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        setQuickReport({ type, title, records: data.records, loading: false });
+      }
+    } catch {
+      toast.error('Ошибка загрузки');
+      setQuickReport(null);
+    }
+  };
+
+  const exportQuickExcel = (records: ReportRecord[], title: string) => {
+    const rows = records.map(r => ({
+      'Дата/время': r.exam_datetime ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : r.exam_date || '',
+      'Группа МО': r.group_mo || '',
+      'Организация': r.company || '',
+      'Подразделение': r.subdivision || '',
+      'ФИО сотрудника': r.fio,
+      'Результат осмотра': r.exam_detail || r.reject_reason || '',
+      'Допуск': r.exam_result === 'admitted' ? 'Разрешен' : r.exam_result === 'not_admitted' ? 'Запрещен' : r.exam_result === 'evaded' ? 'Уклонился' : 'Допуск дан медработником',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31));
+    XLSX.writeFile(wb, `${title}_${new Date().toLocaleDateString('ru')}.xlsx`);
+  };
+
+  const exportQuickPDF = (records: ReportRecord[], title: string) => {
+    const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
+    // Заголовок
+    doc.setFontSize(14);
+    doc.text(title, 14, 16);
+    doc.setFontSize(9);
+    doc.text(`Сформирован: ${new Date().toLocaleString('ru')}  Всего записей: ${records.length}`, 14, 23);
+    autoTable(doc, {
+      startY: 28,
+      head: [['Дата/время', 'Группа МО', 'Организация', 'Подразделение', 'ФИО сотрудника', 'Результат осмотра', 'Допуск']],
+      body: records.map(r => [
+        r.exam_datetime ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : r.exam_date || '',
+        r.group_mo || '',
+        r.company || '',
+        r.subdivision || '',
+        r.fio,
+        r.exam_detail || r.reject_reason || '',
+        r.exam_result === 'admitted' ? 'Разрешен' : r.exam_result === 'not_admitted' ? 'Запрещен' : r.exam_result === 'evaded' ? 'Уклонился' : 'Допуск дан медработником',
+      ]),
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [15, 118, 110], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: {
+        0: { cellWidth: 28 }, 1: { cellWidth: 22 }, 2: { cellWidth: 40 },
+        3: { cellWidth: 50 }, 4: { cellWidth: 38 }, 5: { cellWidth: 45 }, 6: { cellWidth: 22 }
+      },
+    });
+    doc.save(`${title}_${new Date().toLocaleDateString('ru')}.pdf`);
+  };
+
+  const printQuickReport = (records: ReportRecord[], title: string) => {
+    const resultLabel = (r: ReportRecord) =>
+      r.exam_result === 'admitted' ? 'Разрешен' :
+      r.exam_result === 'not_admitted' ? 'Запрещен' :
+      r.exam_result === 'evaded' ? 'Уклонился' : 'Допуск дан медработником';
+
+    const html = `
+      <html><head><title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px; }
+        h2 { font-size: 14px; margin-bottom: 4px; }
+        .meta { color: #666; font-size: 10px; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #0f766e; color: white; padding: 5px 6px; text-align: left; font-size: 10px; }
+        td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; font-size: 10px; }
+        tr:nth-child(even) td { background: #f8fafc; }
+        @media print { body { margin: 10px; } }
+      </style></head><body>
+      <h2>${title}</h2>
+      <div class="meta">Сформирован: ${new Date().toLocaleString('ru')} &nbsp;|&nbsp; Всего записей: ${records.length}</div>
+      <table>
+        <thead><tr>
+          <th>Дата/время</th><th>Группа МО</th><th>Организация</th>
+          <th>Подразделение</th><th>ФИО сотрудника</th>
+          <th>Результат осмотра</th><th>Допуск</th>
+        </tr></thead>
+        <tbody>${records.map(r => `<tr>
+          <td>${r.exam_datetime ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : r.exam_date || ''}</td>
+          <td>${r.group_mo || ''}</td>
+          <td>${r.company || ''}</td>
+          <td>${r.subdivision || ''}</td>
+          <td><b>${r.fio}</b></td>
+          <td>${r.exam_detail || r.reject_reason || ''}</td>
+          <td>${resultLabel(r)}</td>
+        </tr>`).join('')}</tbody>
+      </table></body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
+  };
 
   // Карточка работника
   const [workerModal, setWorkerModal] = useState<{fio: string; records: ReportRecord[]; total: number; admitted: number; not_admitted: number; evaded: number} | null>(null);
@@ -464,23 +577,28 @@ const ZdravpunktPage = () => {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Статистика */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
             {[
-              { label: 'Работников', value: stats.total_workers, icon: 'Users', color: 'from-blue-500 to-blue-600' },
-              { label: 'Записей ЭСМО', value: stats.total_esmo, icon: 'ClipboardList', color: 'from-purple-500 to-purple-600' },
-              { label: 'Допущено', value: stats.admitted, icon: 'CheckCircle', color: 'from-green-500 to-emerald-600' },
-              { label: 'Не допущено', value: stats.not_admitted, icon: 'XCircle', color: 'from-red-500 to-red-600' },
-              { label: 'Уклонились', value: (stats as Stats & {evaded?: number}).evaded ?? 0, icon: 'AlertCircle', color: 'from-yellow-500 to-amber-600' },
-              { label: 'Файлов загружено', value: stats.total_files, icon: 'FileSpreadsheet', color: 'from-teal-500 to-cyan-600' },
+              { label: 'Работников', value: stats.total_workers, icon: 'Users', color: 'from-blue-500 to-blue-600', clickType: null as null },
+              { label: 'Записей ЭСМО', value: stats.total_esmo, icon: 'ClipboardList', color: 'from-purple-500 to-purple-600', clickType: 'all_esmo' as const },
+              { label: 'Допущено', value: stats.admitted, icon: 'CheckCircle', color: 'from-green-500 to-emerald-600', clickType: null as null },
+              { label: 'Не допущено', value: stats.not_admitted, icon: 'XCircle', color: 'from-red-500 to-red-600', clickType: 'not_admitted' as const },
+              { label: 'Уклонились', value: (stats as Stats & {evaded?: number}).evaded ?? 0, icon: 'AlertCircle', color: 'from-yellow-500 to-amber-600', clickType: 'evaded' as const },
+              { label: 'Файлов загружено', value: stats.total_files, icon: 'FileSpreadsheet', color: 'from-teal-500 to-cyan-600', clickType: null as null },
             ].map((s, i) => (
-              <Card key={i} className="bg-slate-800/50 border-slate-700 p-4">
+              <Card
+                key={i}
+                onClick={() => s.clickType && openQuickReport(s.clickType, s.label)}
+                className={`bg-slate-800/50 border-slate-700 p-4 transition-all ${s.clickType ? 'cursor-pointer hover:border-teal-500/60 hover:bg-slate-700/60 hover:scale-[1.03] group' : ''}`}
+              >
                 <div className="flex items-center gap-3">
-                  <div className={`bg-gradient-to-br ${s.color} p-2 rounded-lg`}>
+                  <div className={`bg-gradient-to-br ${s.color} p-2 rounded-lg ${s.clickType ? 'group-hover:scale-110 transition-transform' : ''}`}>
                     <Icon name={s.icon} size={18} className="text-white" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-2xl font-bold text-white">{s.value.toLocaleString('ru')}</div>
                     <div className="text-xs text-slate-400">{s.label}</div>
+                    {s.clickType && <div className="text-xs text-teal-500 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">↗ Открыть список</div>}
                   </div>
                 </div>
               </Card>
@@ -863,6 +981,100 @@ const ZdravpunktPage = () => {
           </div>
         )}
       </div>
+
+      {/* ── Быстрый отчёт из окошек статистики ── */}
+      {quickReport && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/75 backdrop-blur-sm overflow-y-auto py-6 px-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-6xl">
+
+            {/* Шапка */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-xl ${quickReport.type === 'not_admitted' ? 'bg-red-900/50' : quickReport.type === 'evaded' ? 'bg-yellow-900/50' : 'bg-purple-900/50'}`}>
+                  <Icon name={quickReport.type === 'not_admitted' ? 'XCircle' : quickReport.type === 'evaded' ? 'AlertCircle' : 'ClipboardList'} size={22}
+                    className={quickReport.type === 'not_admitted' ? 'text-red-400' : quickReport.type === 'evaded' ? 'text-yellow-400' : 'text-purple-400'} />
+                </div>
+                <div>
+                  <h2 className="text-white text-lg font-bold">{quickReport.title}</h2>
+                  {!quickReport.loading && <p className="text-slate-400 text-sm">Всего записей: {quickReport.records.length.toLocaleString('ru')}</p>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {!quickReport.loading && quickReport.records.length > 0 && (<>
+                  <button onClick={() => exportQuickExcel(quickReport.records, quickReport.title)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-700/30 border border-green-600/40 text-green-400 text-sm hover:bg-green-700/50 transition">
+                    <Icon name="FileSpreadsheet" size={15} />Excel
+                  </button>
+                  <button onClick={() => exportQuickPDF(quickReport.records, quickReport.title)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-700/30 border border-red-600/40 text-red-400 text-sm hover:bg-red-700/50 transition">
+                    <Icon name="FileText" size={15} />PDF
+                  </button>
+                  <button onClick={() => printQuickReport(quickReport.records, quickReport.title)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-700/30 border border-blue-600/40 text-blue-400 text-sm hover:bg-blue-700/50 transition">
+                    <Icon name="Printer" size={15} />Печать
+                  </button>
+                </>)}
+                <button onClick={() => setQuickReport(null)}
+                  className="text-slate-400 hover:text-white transition ml-1">
+                  <Icon name="X" size={22} />
+                </button>
+              </div>
+            </div>
+
+            {/* Содержимое */}
+            <div className="p-6">
+              {quickReport.loading ? (
+                <div className="text-center py-16 text-slate-400">
+                  <Icon name="Loader" size={36} className="animate-spin mx-auto mb-3 text-teal-400" />
+                  <p>Загружаю данные...</p>
+                </div>
+              ) : quickReport.records.length === 0 ? (
+                <div className="text-center py-16 text-slate-500">
+                  <Icon name="CheckCircle" size={40} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-lg">Записей нет</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-700 max-h-[60vh] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0">
+                      <tr>
+                        {['Дата/время','Группа МО','Организация','Подразделение','ФИО сотрудника','Результат осмотра','Допуск'].map(h => (
+                          <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-amber-300 bg-slate-800 border-b border-slate-600 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/50">
+                      {quickReport.records.map((r, i) => (
+                        <tr key={i} className={`transition hover:bg-slate-700/20 ${r.exam_result === 'not_admitted' ? 'bg-red-900/10' : r.exam_result === 'evaded' ? 'bg-yellow-900/10' : ''}`}>
+                          <td className="px-4 py-2 text-slate-300 whitespace-nowrap text-xs">
+                            {r.exam_datetime ? new Date(r.exam_datetime).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : r.exam_date ? formatDate(r.exam_date) : '—'}
+                          </td>
+                          <td className="px-4 py-2 text-slate-300 text-xs">{r.group_mo || '—'}</td>
+                          <td className="px-4 py-2 text-slate-300 text-xs">{r.company || '—'}</td>
+                          <td className="px-4 py-2 text-slate-300 text-xs">{r.subdivision || '—'}</td>
+                          <td className="px-4 py-2 text-white font-medium whitespace-nowrap text-xs">{r.fio}</td>
+                          <td className="px-4 py-2 text-slate-400 text-xs">{r.exam_detail || r.reject_reason || '—'}</td>
+                          <td className="px-4 py-2">
+                            {r.exam_result === 'admitted' ? (
+                              <span className="inline-flex items-center gap-1 bg-green-900/40 border border-green-700/40 text-green-400 font-semibold px-2 py-0.5 rounded-full text-xs whitespace-nowrap"><Icon name="CheckCircle" size={11} />Разрешен</span>
+                            ) : r.exam_result === 'not_admitted' ? (
+                              <span className="inline-flex items-center gap-1 bg-red-900/40 border border-red-700/40 text-red-400 font-semibold px-2 py-0.5 rounded-full text-xs whitespace-nowrap"><Icon name="XCircle" size={11} />Запрещен</span>
+                            ) : r.exam_result === 'evaded' ? (
+                              <span className="inline-flex items-center gap-1 bg-yellow-900/40 border border-yellow-700/40 text-yellow-400 font-semibold px-2 py-0.5 rounded-full text-xs whitespace-nowrap"><Icon name="AlertCircle" size={11} />Уклонился</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 bg-blue-900/30 border border-blue-700/40 text-blue-300 font-semibold px-2 py-0.5 rounded-full text-xs whitespace-nowrap"><Icon name="Stethoscope" size={11} />Допуск дан медработником</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Подтверждение удаления файла ── */}
       {deleteConfirm && (
