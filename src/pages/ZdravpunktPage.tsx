@@ -1066,6 +1066,53 @@ const ZdravpunktPage = () => {
           </div>
         )}
 
+        {/* Карточки по типам осмотра */}
+        {examTypeStats && Object.keys(examTypeStats).length > 0 && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {([
+              { key: 'pre_shift',  label: 'Предсменный',   icon: 'Sunrise',  color: 'from-blue-500 to-indigo-600' },
+              { key: 'post_shift', label: 'Послесменный',  icon: 'Sunset',   color: 'from-violet-500 to-purple-600' },
+              { key: 'pre_trip',   label: 'Предрейсовый',  icon: 'Car',      color: 'from-orange-500 to-amber-600' },
+              { key: 'post_trip',  label: 'Послерейсовый', icon: 'CarFront', color: 'from-pink-500 to-rose-600' },
+            ] as const).map(({ key, label, icon, color }) => {
+              const s = examTypeStats[key];
+              if (!s) return null;
+              return (
+                <Card
+                  key={key}
+                  onClick={() => openExamTypeModal(key, label)}
+                  className="bg-slate-800/50 border-slate-700 p-4 cursor-pointer hover:border-teal-500/60 hover:bg-slate-700/60 hover:scale-[1.02] transition-all group"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`bg-gradient-to-br ${color} p-2 rounded-lg group-hover:scale-110 transition-transform`}>
+                      <Icon name={icon} size={18} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-white font-bold text-sm">{label}</div>
+                      <div className="text-slate-400 text-xs">{s.total.toLocaleString('ru')} осмотров</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 text-center">
+                    <div>
+                      <div className="text-green-400 font-bold text-sm">{s.admitted.toLocaleString('ru')}</div>
+                      <div className="text-slate-500 text-xs">допущено</div>
+                    </div>
+                    <div>
+                      <div className="text-red-400 font-bold text-sm">{s.not_admitted.toLocaleString('ru')}</div>
+                      <div className="text-slate-500 text-xs">не допущ.</div>
+                    </div>
+                    <div>
+                      <div className="text-yellow-400 font-bold text-sm">{s.evaded.toLocaleString('ru')}</div>
+                      <div className="text-slate-500 text-xs">уклон.</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-teal-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 text-center">↗ Открыть список</div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
         {/* ── Вкладка Загрузки ── */}
         {activeTab === 'upload' && (
           <div className="grid md:grid-cols-2 gap-6">
@@ -2093,6 +2140,76 @@ const ZdravpunktPage = () => {
                   Закрыть
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно по типу осмотра */}
+      {examTypeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-slate-700">
+              <div>
+                <h2 className="text-white font-bold text-lg">{examTypeModal.label} — список осмотров</h2>
+                <p className="text-slate-400 text-sm">{examTypeModal.total.toLocaleString('ru')} записей</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={printExamTypeModal}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm transition"
+                >
+                  <Icon name="Printer" size={14} />Печать
+                </button>
+                <button
+                  onClick={exportExamTypeExcel}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-600 text-white text-sm transition"
+                >
+                  <Icon name="Download" size={14} />Excel
+                </button>
+                <button onClick={() => setExamTypeModal(null)} className="text-slate-400 hover:text-white transition ml-1">
+                  <Icon name="X" size={20} />
+                </button>
+              </div>
+            </div>
+            <div className="overflow-auto flex-1">
+              {examTypeModalLoading ? (
+                <div className="flex items-center justify-center h-40 text-slate-400">
+                  <Icon name="Loader" size={24} className="animate-spin mr-2" />Загрузка...
+                </div>
+              ) : examTypeModal.records.length === 0 ? (
+                <div className="text-center text-slate-500 py-16">Нет данных</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-slate-900 z-10">
+                    <tr>
+                      <th className="text-left text-slate-400 text-xs font-semibold px-4 py-3">#</th>
+                      <th className="text-left text-slate-400 text-xs font-semibold px-4 py-3">ФИО</th>
+                      <th className="text-left text-slate-400 text-xs font-semibold px-4 py-3">Подразделение</th>
+                      <th className="text-left text-slate-400 text-xs font-semibold px-4 py-3">Организация</th>
+                      <th className="text-left text-slate-400 text-xs font-semibold px-4 py-3">Дата</th>
+                      <th className="text-left text-slate-400 text-xs font-semibold px-4 py-3">Результат</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {examTypeModal.records.map((r, i) => (
+                      <tr key={i} className="border-t border-slate-700/50 hover:bg-slate-700/30">
+                        <td className="px-4 py-2.5 text-slate-500 text-xs">{i + 1}</td>
+                        <td className="px-4 py-2.5 text-white text-xs font-medium">{r.fio}</td>
+                        <td className="px-4 py-2.5 text-slate-300 text-xs">{r.subdivision || '—'}</td>
+                        <td className="px-4 py-2.5 text-slate-300 text-xs">{r.company || '—'}</td>
+                        <td className="px-4 py-2.5 text-slate-400 text-xs whitespace-nowrap">{r.exam_date ? formatDate(r.exam_date) : '—'}</td>
+                        <td className="px-4 py-2.5 text-xs whitespace-nowrap">
+                          {r.exam_result === 'admitted' && <span className="text-green-400 font-semibold">Допущен</span>}
+                          {r.exam_result === 'not_admitted' && <span className="text-red-400 font-semibold">Не допущен</span>}
+                          {r.exam_result === 'evaded' && <span className="text-yellow-400 font-semibold">Уклонился</span>}
+                          {!['admitted','not_admitted','evaded'].includes(r.exam_result) && <span className="text-slate-400">{r.exam_result}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
