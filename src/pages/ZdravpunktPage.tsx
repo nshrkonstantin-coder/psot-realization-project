@@ -722,24 +722,36 @@ const ZdravpunktPage = () => {
 
           const resultOsmotra = String(r[resultKey] || '').trim();
           let examDate: string | null = null;
+          let examDatetimeLocal: string | null = null;
           const rawDate = r[dateKey];
-          // Конвертируем в локальную дату (не UTC), чтобы 31.03 19:19 UTC = 01.04 по Якутскому времени
+          // Используем локальное время браузера (не UTC), чтобы 31.03 19:19 UTC = 01.04 04:19 по Якутскому времени (+9)
+          const toLocalDateStr = (d: Date) => {
+            const y = d.getFullYear();
+            const mo = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const h = String(d.getHours()).padStart(2, '0');
+            const min = String(d.getMinutes()).padStart(2, '0');
+            const s = String(d.getSeconds()).padStart(2, '0');
+            return { date: `${y}-${mo}-${day}`, datetime: `${y}-${mo}-${day}T${h}:${min}:${s}` };
+          };
           if (rawDate instanceof Date) {
-            const y = rawDate.getFullYear();
-            const m = String(rawDate.getMonth() + 1).padStart(2, '0');
-            const d = String(rawDate.getDate()).padStart(2, '0');
-            examDate = `${y}-${m}-${d}`;
+            const { date, datetime } = toLocalDateStr(rawDate);
+            examDate = date;
+            examDatetimeLocal = datetime;
           } else if (typeof rawDate === 'string' && rawDate.trim()) {
             const parsed = new Date(rawDate.trim());
             if (!isNaN(parsed.getTime())) {
-              const y = parsed.getFullYear();
-              const m = String(parsed.getMonth() + 1).padStart(2, '0');
-              const d = String(parsed.getDate()).padStart(2, '0');
-              examDate = `${y}-${m}-${d}`;
+              const { date, datetime } = toLocalDateStr(parsed);
+              examDate = date;
+              examDatetimeLocal = datetime;
             } else {
               examDate = rawDate.trim().split('T')[0];
+              examDatetimeLocal = rawDate.trim();
             }
           }
+
+          const extraObj = { ...r, group_mo: String(r[groupKey] || '') };
+          if (examDatetimeLocal) extraObj['Дата/время'] = examDatetimeLocal;
 
           return {
             fio: String(r[fioKey] || ''),
@@ -751,7 +763,7 @@ const ZdravpunktPage = () => {
             exam_result: examResult,
             reject_reason: examResult === 'not_admitted' ? resultOsmotra : '',
             exam_type: examType,
-            extra: { ...r, group_mo: String(r[groupKey] || '') }
+            extra: extraObj
           };
         };
 
