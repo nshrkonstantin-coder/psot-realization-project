@@ -63,12 +63,18 @@ const ZdravpunktPage = () => {
   // Фильтры отчёта
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [filterSubdivision, setFilterSubdivision] = useState('');
-  const [filterCompany, setFilterCompany] = useState('');
+  const [filterSubdivisions, setFilterSubdivisions] = useState<string[]>([]);
+  const [filterCompanies, setFilterCompanies] = useState<string[]>([]);
   const [filterFio, setFilterFio] = useState('');
-  const [filterResult, setFilterResult] = useState('');
+  const [filterResults, setFilterResults] = useState<string[]>([]);
   const [subdivisions, setSubdivisions] = useState<string[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
+  const [msSubOpen, setMsSubOpen] = useState(false);
+  const [msCompOpen, setMsCompOpen] = useState(false);
+  const [msResOpen, setMsResOpen] = useState(false);
+  const msSubRef = useRef<HTMLDivElement>(null);
+  const msCompRef = useRef<HTMLDivElement>(null);
+  const msResRef = useRef<HTMLDivElement>(null);
   const [reportRecords, setReportRecords] = useState<ReportRecord[] | null>(null);
   const [reportStats, setReportStats] = useState<{ total: number; admitted: number; not_admitted: number; evaded: number; unique_workers: number; unique_not_admitted: number; unique_evaded: number } | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
@@ -722,6 +728,21 @@ const ZdravpunktPage = () => {
     setDeleteConfirm(null);
   };
 
+  // Закрытие мультиселектов при клике снаружи
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (msSubRef.current && !msSubRef.current.contains(e.target as Node)) setMsSubOpen(false);
+      if (msCompRef.current && !msCompRef.current.contains(e.target as Node)) setMsCompOpen(false);
+      if (msResRef.current && !msResRef.current.contains(e.target as Node)) setMsResOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const toggleItem = (arr: string[], val: string, setter: (v: string[]) => void) => {
+    setter(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
+  };
+
   // ── Отчёт ───────────────────────────────────────────────────────────────
   const buildReport = async (page = 0) => {
     setReportLoading(true);
@@ -730,10 +751,10 @@ const ZdravpunktPage = () => {
       const p = new URLSearchParams({ action: 'report', limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) });
       if (dateFrom) p.set('date_from', dateFrom);
       if (dateTo) p.set('date_to', dateTo);
-      if (filterSubdivision) p.set('subdivision', filterSubdivision);
-      if (filterCompany) p.set('company', filterCompany);
+      if (filterSubdivisions.length > 0) p.set('subdivision', filterSubdivisions.join('||'));
+      if (filterCompanies.length > 0) p.set('company', filterCompanies.join('||'));
       if (filterFio) p.set('fio', filterFio);
-      if (filterResult) p.set('exam_result', filterResult);
+      if (filterResults.length > 0) p.set('exam_result', filterResults.join(','));
 
       const res = await fetch(`${API}?${p.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1093,31 +1114,96 @@ const ZdravpunktPage = () => {
                     placeholder="Поиск по ФИО..."
                     className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder:text-slate-500" />
                 </div>
-                <div>
+                {/* Подразделение — мультиселект */}
+                <div className="relative" ref={msSubRef}>
                   <label className="text-slate-400 text-xs mb-1 block">Подразделение</label>
-                  <select value={filterSubdivision} onChange={e => setFilterSubdivision(e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm">
-                    <option value="">Все подразделения</option>
-                    {subdivisions.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  <button type="button" onClick={() => setMsSubOpen(o => !o)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-left flex items-center justify-between gap-2 hover:border-slate-500 transition-colors">
+                    <span className={filterSubdivisions.length === 0 ? 'text-slate-400' : 'text-white truncate'}>
+                      {filterSubdivisions.length === 0 ? 'Все подразделения' : filterSubdivisions.length === 1 ? filterSubdivisions[0] : `Выбрано: ${filterSubdivisions.length}`}
+                    </span>
+                    <Icon name="ChevronDown" size={14} className={`text-slate-400 flex-shrink-0 transition-transform ${msSubOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {msSubOpen && (
+                    <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-56 overflow-y-auto">
+                      {filterSubdivisions.length > 0 && (
+                        <button type="button" onClick={() => setFilterSubdivisions([])}
+                          className="w-full px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-slate-700 text-left border-b border-slate-700">
+                          Сбросить выбор
+                        </button>
+                      )}
+                      {subdivisions.map(s => (
+                        <label key={s} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-700 cursor-pointer">
+                          <input type="checkbox" checked={filterSubdivisions.includes(s)}
+                            onChange={() => toggleItem(filterSubdivisions, s, setFilterSubdivisions)}
+                            className="accent-teal-500 w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm text-white truncate">{s}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div>
+
+                {/* Подрядчик / компания — мультиселект */}
+                <div className="relative" ref={msCompRef}>
                   <label className="text-slate-400 text-xs mb-1 block">Подрядчик / компания</label>
-                  <select value={filterCompany} onChange={e => setFilterCompany(e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm">
-                    <option value="">Все компании</option>
-                    {companies.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <button type="button" onClick={() => setMsCompOpen(o => !o)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-left flex items-center justify-between gap-2 hover:border-slate-500 transition-colors">
+                    <span className={filterCompanies.length === 0 ? 'text-slate-400' : 'text-white truncate'}>
+                      {filterCompanies.length === 0 ? 'Все компании' : filterCompanies.length === 1 ? filterCompanies[0] : `Выбрано: ${filterCompanies.length}`}
+                    </span>
+                    <Icon name="ChevronDown" size={14} className={`text-slate-400 flex-shrink-0 transition-transform ${msCompOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {msCompOpen && (
+                    <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-56 overflow-y-auto">
+                      {filterCompanies.length > 0 && (
+                        <button type="button" onClick={() => setFilterCompanies([])}
+                          className="w-full px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-slate-700 text-left border-b border-slate-700">
+                          Сбросить выбор
+                        </button>
+                      )}
+                      {companies.map(c => (
+                        <label key={c} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-700 cursor-pointer">
+                          <input type="checkbox" checked={filterCompanies.includes(c)}
+                            onChange={() => toggleItem(filterCompanies, c, setFilterCompanies)}
+                            className="accent-teal-500 w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm text-white truncate">{c}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div>
+
+                {/* Допуск — мультиселект */}
+                <div className="relative" ref={msResRef}>
                   <label className="text-slate-400 text-xs mb-1 block">Допуск</label>
-                  <select value={filterResult} onChange={e => setFilterResult(e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm">
-                    <option value="">Все результаты</option>
-                    <option value="admitted">Разрешен</option>
-                    <option value="not_admitted">Запрещен</option>
-                    <option value="evaded">Уклонился</option>
-                  </select>
+                  <button type="button" onClick={() => setMsResOpen(o => !o)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-left flex items-center justify-between gap-2 hover:border-slate-500 transition-colors">
+                    <span className={filterResults.length === 0 ? 'text-slate-400' : 'text-white truncate'}>
+                      {filterResults.length === 0 ? 'Все результаты' : filterResults.length === 1
+                        ? ({ admitted: 'Разрешен', not_admitted: 'Запрещен', evaded: 'Уклонился' }[filterResults[0]] || filterResults[0])
+                        : `Выбрано: ${filterResults.length}`}
+                    </span>
+                    <Icon name="ChevronDown" size={14} className={`text-slate-400 flex-shrink-0 transition-transform ${msResOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {msResOpen && (
+                    <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl">
+                      {filterResults.length > 0 && (
+                        <button type="button" onClick={() => setFilterResults([])}
+                          className="w-full px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-slate-700 text-left border-b border-slate-700">
+                          Сбросить выбор
+                        </button>
+                      )}
+                      {[{v:'admitted',l:'Разрешен'},{v:'not_admitted',l:'Запрещен'},{v:'evaded',l:'Уклонился'}].map(({v,l}) => (
+                        <label key={v} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-700 cursor-pointer">
+                          <input type="checkbox" checked={filterResults.includes(v)}
+                            onChange={() => toggleItem(filterResults, v, setFilterResults)}
+                            className="accent-teal-500 w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm text-white">{l}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex gap-3 flex-wrap">

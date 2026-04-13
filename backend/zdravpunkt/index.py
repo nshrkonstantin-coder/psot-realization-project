@@ -85,12 +85,17 @@ def handler(event: dict, context) -> dict:
         if method == 'GET' and action == 'report':
             date_from = params.get('date_from', '')
             date_to = params.get('date_to', '')
-            subdivision = params.get('subdivision', '')
-            company = params.get('company', '')
+            subdivision_raw = params.get('subdivision', '')
+            company_raw = params.get('company', '')
             fio = params.get('fio', '')
-            exam_result_filter = params.get('exam_result', '')
+            exam_result_raw = params.get('exam_result', '')
             limit = int(params.get('limit', '500'))
             offset_val = int(params.get('offset', '0'))
+
+            # Мультизначения: subdivision и company разделены '||', exam_result — ','
+            subdivisions_list = [s.strip() for s in subdivision_raw.split('||') if s.strip()] if subdivision_raw else []
+            companies_list = [s.strip() for s in company_raw.split('||') if s.strip()] if company_raw else []
+            results_list = [s.strip() for s in exam_result_raw.split(',') if s.strip()] if exam_result_raw else []
 
             # Исключаем служебные статусы (очищенные и тестовые)
             where = ["e.exam_result NOT IN ('archived_test', 'cleared', '')"]
@@ -101,18 +106,21 @@ def handler(event: dict, context) -> dict:
             if date_to:
                 where.append('e.exam_date <= %s::date')
                 args.append(date_to)
-            if subdivision:
-                where.append('e.subdivision ILIKE %s')
-                args.append(f'%{subdivision}%')
-            if company:
-                where.append('e.company ILIKE %s')
-                args.append(f'%{company}%')
+            if subdivisions_list:
+                placeholders = ','.join(['%s'] * len(subdivisions_list))
+                where.append(f'e.subdivision IN ({placeholders})')
+                args.extend(subdivisions_list)
+            if companies_list:
+                placeholders = ','.join(['%s'] * len(companies_list))
+                where.append(f'e.company IN ({placeholders})')
+                args.extend(companies_list)
             if fio:
                 where.append('e.fio ILIKE %s')
                 args.append(f'%{fio}%')
-            if exam_result_filter:
-                where.append('e.exam_result = %s')
-                args.append(exam_result_filter)
+            if results_list:
+                placeholders = ','.join(['%s'] * len(results_list))
+                where.append(f'e.exam_result IN ({placeholders})')
+                args.extend(results_list)
 
             where_sql = ' AND '.join(where)
 
