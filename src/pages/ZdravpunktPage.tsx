@@ -492,7 +492,7 @@ const ZdravpunktPage = () => {
     doc.save(`${title}_${new Date().toLocaleDateString('ru')}.pdf`);
   };
 
-  const printQuickReport = (records: ReportRecord[], title: string) => {
+  const printQuickReport = (records: ReportRecord[], title: string, subtitle?: string) => {
     const resultLabel = (r: ReportRecord) =>
       r.exam_result === 'admitted' ? 'Разрешен' :
       r.exam_result === 'not_admitted' ? 'Запрещен' :
@@ -502,7 +502,8 @@ const ZdravpunktPage = () => {
       <html><head><title>${title}</title>
       <style>
         body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px; }
-        h2 { font-size: 14px; margin-bottom: 4px; }
+        h2 { font-size: 14px; margin-bottom: 2px; }
+        .subtitle { font-size: 11px; color: #333; margin-bottom: 4px; font-weight: bold; }
         .meta { color: #666; font-size: 10px; margin-bottom: 12px; }
         table { width: 100%; border-collapse: collapse; }
         th { background: #0f766e; color: white; padding: 5px 6px; text-align: left; font-size: 10px; }
@@ -511,7 +512,8 @@ const ZdravpunktPage = () => {
         @media print { body { margin: 10px; } }
       </style></head><body>
       <h2>${title}</h2>
-      <div class="meta">Сформирован: ${new Date().toLocaleString('ru')} &nbsp;|&nbsp; Всего записей: ${records.length}</div>
+      ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
+      <div class="meta">Дата формирования: ${new Date().toLocaleString('ru')} &nbsp;|&nbsp; Всего записей: ${records.length}</div>
       <table>
         <thead><tr>
           <th>Дата/время</th><th>Группа МО</th><th>Организация</th>
@@ -947,7 +949,10 @@ const ZdravpunktPage = () => {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Отчёт ЭСМО');
-    XLSX.writeFile(wb, `Здравпункт_отчёт_${new Date().toLocaleDateString('ru')}.xlsx`);
+    const orgPart = filterCompanies.length > 0 ? `_${filterCompanies.join('_')}` : '';
+    const periodPart = dateFrom || dateTo ? `_${[dateFrom, dateTo].filter(Boolean).join('-')}` : '';
+    const safeName = `Отчёт_ЭСМО${orgPart}${periodPart}`.replace(/[\\/:*?"<>|]/g, '_').slice(0, 100);
+    XLSX.writeFile(wb, `${safeName}.xlsx`);
   };
 
   // ── Очистка всей БД Здравпункта ─────────────────────────────────────────
@@ -1608,7 +1613,11 @@ const ZdravpunktPage = () => {
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-700/30 border border-red-600/40 text-red-400 text-xs hover:bg-red-700/50 transition">
                           <Icon name="FileText" size={13} />PDF
                         </button>
-                        <button onClick={() => printQuickReport(reportRecords, 'Отчёт ЭСМО')}
+                        <button onClick={() => {
+                          const org = filterCompanies.length === 1 ? filterCompanies[0] : filterCompanies.length > 1 ? filterCompanies.join(', ') : 'Все организации';
+                          const period = dateFrom || dateTo ? [dateFrom && `с ${dateFrom}`, dateTo && `по ${dateTo}`].filter(Boolean).join(' ') : 'Весь период';
+                          printQuickReport(reportRecords, 'Отчёт ЭСМО', `${org} | ${period}`);
+                        }}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700/30 border border-blue-600/40 text-blue-400 text-xs hover:bg-blue-700/50 transition">
                           <Icon name="Printer" size={13} />Печать
                         </button>
