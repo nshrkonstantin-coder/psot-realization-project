@@ -157,7 +157,7 @@ def handler(event: dict, context) -> dict:
                            e.extra_data->>'Результат осмотра' AS exam_detail
                     FROM {SCHEMA}.zdravpunkt_esmo e
                     WHERE {where_sql}
-                    ORDER BY e.exam_date DESC NULLS LAST, e.id DESC
+                    ORDER BY e.exam_date ASC NULLS LAST, e.id ASC
                     LIMIT %s OFFSET %s""",
                 args + [limit, offset_val]
             )
@@ -355,7 +355,7 @@ def handler(event: dict, context) -> dict:
                            extra_data->>'Результат осмотра' AS exam_detail
                     FROM {SCHEMA}.zdravpunkt_esmo
                     WHERE {where_sql}
-                    ORDER BY exam_date DESC NULLS LAST, id DESC
+                    ORDER BY exam_date ASC NULLS LAST, id ASC
                     LIMIT %s OFFSET %s""",
                 args + [limit, offset_val]
             )
