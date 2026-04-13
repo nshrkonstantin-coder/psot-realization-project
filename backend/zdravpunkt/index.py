@@ -89,13 +89,15 @@ def handler(event: dict, context) -> dict:
             company_raw = params.get('company', '')
             fio = params.get('fio', '')
             exam_result_raw = params.get('exam_result', '')
+            exam_type_raw = params.get('exam_type', '')
             limit = int(params.get('limit', '500'))
             offset_val = int(params.get('offset', '0'))
 
-            # Мультизначения: subdivision и company разделены '||', exam_result — ','
+            # Мультизначения: subdivision и company разделены '||', exam_result и exam_type — ','
             subdivisions_list = [s.strip() for s in subdivision_raw.split('||') if s.strip()] if subdivision_raw else []
             companies_list = [s.strip() for s in company_raw.split('||') if s.strip()] if company_raw else []
             results_list = [s.strip() for s in exam_result_raw.split(',') if s.strip()] if exam_result_raw else []
+            exam_types_list = [s.strip() for s in exam_type_raw.split(',') if s.strip()] if exam_type_raw else []
 
             # Исключаем служебные статусы (очищенные и тестовые)
             where = ["e.exam_result NOT IN ('archived_test', 'cleared', '')"]
@@ -121,6 +123,10 @@ def handler(event: dict, context) -> dict:
                 placeholders = ','.join(['%s'] * len(results_list))
                 where.append(f'e.exam_result IN ({placeholders})')
                 args.extend(results_list)
+            if exam_types_list:
+                placeholders = ','.join(['%s'] * len(exam_types_list))
+                where.append(f'e.exam_type IN ({placeholders})')
+                args.extend(exam_types_list)
 
             where_sql = ' AND '.join(where)
 

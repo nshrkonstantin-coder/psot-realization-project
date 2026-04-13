@@ -102,6 +102,7 @@ const ZdravpunktPage = () => {
   const [msSubOpen, setMsSubOpen] = useState(false);
   const [msCompOpen, setMsCompOpen] = useState(false);
   const [msResOpen, setMsResOpen] = useState(false);
+  const [filterExamTypes, setFilterExamTypes] = useState<string[]>([]);
   const msSubRef = useRef<HTMLDivElement>(null);
   const msCompRef = useRef<HTMLDivElement>(null);
   const msResRef = useRef<HTMLDivElement>(null);
@@ -887,6 +888,7 @@ const ZdravpunktPage = () => {
       if (filterCompanies.length > 0) p.set('company', filterCompanies.join('||'));
       if (filterFio) p.set('fio', filterFio);
       if (filterResults.length > 0) p.set('exam_result', filterResults.join(','));
+      if (filterExamTypes.length > 0) p.set('exam_type', filterExamTypes.join(','));
 
       const res = await fetch(`${API}?${p.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1311,6 +1313,47 @@ const ZdravpunktPage = () => {
                 <Icon name="Filter" size={18} className="text-teal-400" />
                 Параметры отчёта
               </h2>
+              {/* Тип осмотра */}
+              <div className="mb-4">
+                <label className="text-slate-400 text-xs mb-2 block">Тип осмотра</label>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { v: 'pre_shift',  l: 'Предсменный' },
+                    { v: 'post_shift', l: 'Послесменный' },
+                    { v: 'pre_trip',   l: 'Предрейсовый' },
+                    { v: 'post_trip',  l: 'Послерейсовый' },
+                  ] as const).map(({ v, l }) => {
+                    const active = filterExamTypes.includes(v);
+                    return (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => toggleItem(filterExamTypes, v, setFilterExamTypes)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                          active
+                            ? 'bg-teal-600 border-teal-500 text-white'
+                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                        }`}
+                      >
+                        {active && '✓ '}{l}
+                      </button>
+                    );
+                  })}
+                  {filterExamTypes.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setFilterExamTypes([])}
+                      className="px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-all"
+                    >
+                      Сбросить
+                    </button>
+                  )}
+                  {filterExamTypes.length === 0 && (
+                    <span className="text-slate-500 text-xs self-center ml-1">Все типы</span>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                   <label className="text-slate-400 text-xs mb-1 block">Период с</label>
