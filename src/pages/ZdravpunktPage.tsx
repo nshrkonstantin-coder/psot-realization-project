@@ -87,6 +87,7 @@ const ZdravpunktPage = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<'workers' | 'esmo' | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0); // 0-100
+  const [uploadSheetStats, setUploadSheetStats] = useState<{ label: string; count: number }[] | null>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'report'>('upload');
 
   // Фильтры отчёта
@@ -610,6 +611,7 @@ const ZdravpunktPage = () => {
     if (!file) return;
     e.target.value = '';
     setUploading(fileType);
+    setUploadSheetStats(null);
 
     try {
       // Читаем Excel
@@ -742,6 +744,8 @@ const ZdravpunktPage = () => {
 
         // Читаем все детальные вкладки (пропускаем "Общий" и неизвестные)
         const allRecords: ReturnType<typeof parseEsmoRow>[] = [];
+        const sheetStatsList: { label: string; count: number }[] = [];
+
         for (const sheetName of wb.SheetNames) {
           const normalized = sheetName.trim().toLowerCase();
           const examType = SHEET_TYPE_MAP[normalized];
@@ -752,10 +756,12 @@ const ZdravpunktPage = () => {
           );
           if (sheetData.length === 0) continue;
           const sheetKeys = Object.keys(sheetData[0]);
+          let sheetCount = 0;
           for (const row of sheetData) {
             const rec = parseEsmoRow(row, sheetKeys, examType);
-            if (rec.fio.trim()) allRecords.push(rec);
+            if (rec.fio.trim()) { allRecords.push(rec); sheetCount++; }
           }
+          sheetStatsList.push({ label: sheetName, count: sheetCount });
         }
 
         // Если не нашли ни одной детальной вкладки — читаем первую без типа
@@ -764,13 +770,16 @@ const ZdravpunktPage = () => {
             wb.Sheets[wb.SheetNames[0]], { defval: '' }
           );
           const sheetKeys = sheetData.length > 0 ? Object.keys(sheetData[0]) : [];
+          let sheetCount = 0;
           for (const row of sheetData) {
             const rec = parseEsmoRow(row, sheetKeys, 'general');
-            if (rec.fio.trim()) allRecords.push(rec);
+            if (rec.fio.trim()) { allRecords.push(rec); sheetCount++; }
           }
+          sheetStatsList.push({ label: wb.SheetNames[0], count: sheetCount });
         }
 
         const records = allRecords;
+        setUploadSheetStats(sheetStatsList);
 
         // Определяем период файла по данным
         const datesInFile = records.map(r => r.exam_date).filter(Boolean).sort() as string[];
@@ -1146,6 +1155,20 @@ const ZdravpunktPage = () => {
                 {/* Прогресс-бар */}
                 {uploading === 'esmo' && uploadProgress > 0 && (
                   <div className="mb-3">
+                    {uploadSheetStats && uploadSheetStats.length > 0 && (
+                      <div className="mb-2 space-y-0.5">
+                        {uploadSheetStats.map((s, i) => (
+                          <div key={i} className="flex justify-between text-xs text-slate-400">
+                            <span>{s.label}</span>
+                            <span className="text-slate-300">{s.count.toLocaleString('ru')}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between text-xs font-semibold text-teal-400 pt-0.5 border-t border-slate-700">
+                          <span>Итого</span>
+                          <span>{uploadSheetStats.reduce((sum, s) => sum + s.count, 0).toLocaleString('ru')}</span>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex justify-between text-xs text-slate-400 mb-1">
                       <span>Сохранение в базу данных...</span>
                       <span>{uploadProgress}%</span>
@@ -1155,6 +1178,27 @@ const ZdravpunktPage = () => {
                         className="bg-teal-500 h-2 rounded-full transition-all duration-300"
                         style={{ width: `${uploadProgress}%` }}
                       />
+                    </div>
+                  </div>
+                )}
+
+                {/* Статистика по вкладкам после загрузки */}
+                {uploadSheetStats && uploadSheetStats.length > 0 && !uploading && (
+                  <div className="mb-3 bg-slate-700/40 rounded-lg p-3 border border-teal-700/30">
+                    <div className="text-teal-400 text-xs font-semibold mb-2">Прочитано из файла по вкладкам:</div>
+                    <div className="space-y-1">
+                      {uploadSheetStats.map((s, i) => (
+                        <div key={i} className="flex justify-between text-xs">
+                          <span className="text-slate-300">{s.label}</span>
+                          <span className="text-white font-bold">{s.count.toLocaleString('ru')} записей</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between text-xs pt-1 border-t border-slate-600 mt-1">
+                        <span className="text-slate-400 font-semibold">Итого</span>
+                        <span className="text-teal-400 font-bold">
+                          {uploadSheetStats.reduce((sum, s) => sum + s.count, 0).toLocaleString('ru')} записей
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
