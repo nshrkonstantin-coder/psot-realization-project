@@ -723,10 +723,22 @@ const ZdravpunktPage = () => {
           const resultOsmotra = String(r[resultKey] || '').trim();
           let examDate: string | null = null;
           const rawDate = r[dateKey];
+          // Конвертируем в локальную дату (не UTC), чтобы 31.03 19:19 UTC = 01.04 по Якутскому времени
           if (rawDate instanceof Date) {
-            examDate = rawDate.toISOString().split('T')[0];
+            const y = rawDate.getFullYear();
+            const m = String(rawDate.getMonth() + 1).padStart(2, '0');
+            const d = String(rawDate.getDate()).padStart(2, '0');
+            examDate = `${y}-${m}-${d}`;
           } else if (typeof rawDate === 'string' && rawDate.trim()) {
-            examDate = rawDate.trim().split('T')[0];
+            const parsed = new Date(rawDate.trim());
+            if (!isNaN(parsed.getTime())) {
+              const y = parsed.getFullYear();
+              const m = String(parsed.getMonth() + 1).padStart(2, '0');
+              const d = String(parsed.getDate()).padStart(2, '0');
+              examDate = `${y}-${m}-${d}`;
+            } else {
+              examDate = rawDate.trim().split('T')[0];
+            }
           }
 
           return {
