@@ -23,6 +23,18 @@
       "method": "GET",
       "path": "/?action=stats",
       "expectedStatus": 200
+    },
+    {
+      "name": "GET exam_type_stats",
+      "method": "GET",
+      "path": "/?action=exam_type_stats",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET exam_type_list pre_shift",
+      "method": "GET",
+      "path": "/?action=exam_type_list&exam_type=pre_shift&limit=10",
+      "expectedStatus": 200
     }
   ]
 }

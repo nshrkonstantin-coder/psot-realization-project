@@ -290,6 +290,82 @@ def handler(event: dict, context) -> dict:
                 'success': True, 'workers': workers, 'total': len(workers)
             }, ensure_ascii=False)}
 
+        # ── GET: статистика по типам осмотров для карточек дашборда ─────────
+        if method == 'GET' and action == 'exam_type_stats':
+            date_from = params.get('date_from', '')
+            date_to = params.get('date_to', '')
+            where = [f"{ACTIVE}", "exam_type IS NOT NULL"]
+            args = []
+            if date_from:
+                where.append('exam_date >= %s::date')
+                args.append(date_from)
+            if date_to:
+                where.append('exam_date <= %s::date')
+                args.append(date_to)
+            where_sql = ' AND '.join(where)
+            cur.execute(
+                f"""SELECT exam_type,
+                           COUNT(*) AS total,
+                           COUNT(*) FILTER (WHERE exam_result = 'admitted') AS admitted,
+                           COUNT(*) FILTER (WHERE exam_result = 'not_admitted') AS not_admitted,
+                           COUNT(*) FILTER (WHERE exam_result = 'evaded') AS evaded
+                    FROM {SCHEMA}.zdravpunkt_esmo
+                    WHERE {where_sql}
+                    GROUP BY exam_type""",
+                args
+            )
+            rows = cur.fetchall()
+            result = {}
+            for r in rows:
+                result[r[0]] = {'total': r[1], 'admitted': r[2], 'not_admitted': r[3], 'evaded': r[4]}
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
+                'success': True, 'stats': result
+            }, ensure_ascii=False)}
+
+        # ── GET: список записей по типу осмотра (для модального окна) ────────
+        if method == 'GET' and action == 'exam_type_list':
+            exam_type = params.get('exam_type', '')
+            date_from = params.get('date_from', '')
+            date_to = params.get('date_to', '')
+            limit = int(params.get('limit', '2000'))
+            offset_val = int(params.get('offset', '0'))
+            where = [f"{ACTIVE}"]
+            args = []
+            if exam_type:
+                where.append('exam_type = %s')
+                args.append(exam_type)
+            if date_from:
+                where.append('exam_date >= %s::date')
+                args.append(date_from)
+            if date_to:
+                where.append('exam_date <= %s::date')
+                args.append(date_to)
+            where_sql = ' AND '.join(where)
+            cur.execute(
+                f"""SELECT fio, subdivision, company, exam_date,
+                           extra_data->>'Дата/время' AS exam_datetime,
+                           extra_data->>'Группа МО' AS group_mo,
+                           exam_result, reject_reason,
+                           extra_data->>'Результат осмотра' AS exam_detail
+                    FROM {SCHEMA}.zdravpunkt_esmo
+                    WHERE {where_sql}
+                    ORDER BY exam_date DESC NULLS LAST, id DESC
+                    LIMIT %s OFFSET %s""",
+                args + [limit, offset_val]
+            )
+            rows = cur.fetchall()
+            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_esmo WHERE {where_sql}", args)
+            total = cur.fetchone()[0]
+            records = [{
+                'fio': r[0], 'subdivision': r[1], 'company': r[2],
+                'exam_date': r[3].isoformat() if r[3] else None,
+                'exam_datetime': r[4], 'group_mo': r[5],
+                'exam_result': r[6], 'reject_reason': r[7], 'exam_detail': r[8]
+            } for r in rows]
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
+                'success': True, 'records': records, 'total': total
+            }, ensure_ascii=False)}
+
         # ── GET: список подразделений и компаний для фильтров ─────────────────
         if method == 'GET' and action == 'filters':
             cur.execute(f"SELECT DISTINCT subdivision FROM {SCHEMA}.zdravpunkt_esmo WHERE {ACTIVE} AND subdivision IS NOT NULL AND subdivision != '' ORDER BY subdivision")
@@ -363,25 +439,27 @@ def handler(event: dict, context) -> dict:
                 skipped_count = 0
 
                 if records:
-                    # Ключ дедупликации: fio_lower + exam_date + точное Дата/время
+                    # Ключ дедупликации: fio_lower + exam_date + точное Дата/время + exam_type
                     def make_key(r):
                         fio = r.get('fio', '').strip().lower()
                         exam_date = str(r.get('exam_date') or '')
                         dt = str((r.get('extra') or {}).get('Дата/время', '') or '')
-                        return (fio, exam_date, dt)
+                        etype = str(r.get('exam_type') or '')
+                        return (fio, exam_date, dt, etype)
 
                     # Проверяем какие уже есть в БД среди активных записей
                     fios = list({r.get('fio', '').strip().lower() for r in records})
                     cur.execute(
                         f"""SELECT TRIM(LOWER(fio)),
                                    COALESCE(exam_date::text, ''),
-                                   COALESCE(extra_data->>'Дата/время', '')
+                                   COALESCE(extra_data->>'Дата/время', ''),
+                                   COALESCE(exam_type, '')
                             FROM {SCHEMA}.zdravpunkt_esmo
                             WHERE TRIM(LOWER(fio)) = ANY(%s)
                             AND exam_result NOT IN ('cleared', 'archived_test')""",
                         (fios,)
                     )
-                    existing_keys = set((row[0], row[1], row[2]) for row in cur.fetchall())
+                    existing_keys = set((row[0], row[1], row[2], row[3]) for row in cur.fetchall())
 
                     # Фильтруем — только новые
                     new_records = []
@@ -398,14 +476,15 @@ def handler(event: dict, context) -> dict:
                              r.get('subdivision', ''), r.get('position', ''),
                              r.get('company', ''), r.get('exam_date') or None,
                              r.get('exam_result', ''), r.get('reject_reason', ''),
-                             json.dumps(r.get('extra', {}), ensure_ascii=False))
+                             json.dumps(r.get('extra', {}), ensure_ascii=False),
+                             r.get('exam_type') or None)
                             for r in new_records
                         ]
                         psycopg2.extras.execute_values(
                             cur,
                             f"""INSERT INTO {SCHEMA}.zdravpunkt_esmo
                                 (file_id, organization_id, fio, worker_number, subdivision, position,
-                                 company, exam_date, exam_result, reject_reason, extra_data)
+                                 company, exam_date, exam_result, reject_reason, extra_data, exam_type)
                                 VALUES %s""",
                             data, page_size=len(data)
                         )
