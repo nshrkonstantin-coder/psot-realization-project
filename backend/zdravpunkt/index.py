@@ -434,6 +434,7 @@ def handler(event: dict, context) -> dict:
                 is_last_batch = body.get('is_last_batch', False)
                 period_from = body.get('period_from')
                 period_to = body.get('period_to')
+                total_rows = body.get('total_rows')
 
                 new_count = 0
                 skipped_count = 0
@@ -497,8 +498,11 @@ def handler(event: dict, context) -> dict:
                                 SET period_from = %s, period_to = %s,
                                     new_rows = COALESCE(new_rows,0) + %s,
                                     skipped_rows = COALESCE(skipped_rows,0) + %s
+                                    {', rows_count = %s' if total_rows is not None else ''}
                                 WHERE id = %s""",
-                            (period_from, period_to, new_count, skipped_count, file_id)
+                            (period_from, period_to, new_count, skipped_count)
+                            + ((total_rows,) if total_rows is not None else ())
+                            + (file_id,)
                         )
                     else:
                         cur.execute(

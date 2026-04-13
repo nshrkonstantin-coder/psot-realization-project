@@ -24,12 +24,38 @@ interface UploadedFile {
   skipped_rows?: number;
 }
 
+interface ExamTypeRecord {
+  fio: string;
+  subdivision: string;
+  company: string;
+  exam_date: string | null;
+  exam_datetime: string | null;
+  group_mo: string | null;
+  exam_result: string;
+  reject_reason: string | null;
+  exam_detail: string | null;
+}
+
 interface Stats {
   total_workers: number;
   total_esmo: number;
   admitted: number;
   not_admitted: number;
   total_files: number;
+}
+
+interface ExamTypeStat {
+  total: number;
+  admitted: number;
+  not_admitted: number;
+  evaded: number;
+}
+
+interface ExamTypeStats {
+  pre_shift?: ExamTypeStat;
+  post_shift?: ExamTypeStat;
+  pre_trip?: ExamTypeStat;
+  post_trip?: ExamTypeStat;
 }
 
 interface ReportRecord {
@@ -55,6 +81,9 @@ const ZdravpunktPage = () => {
 
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [examTypeStats, setExamTypeStats] = useState<ExamTypeStats | null>(null);
+  const [examTypeModal, setExamTypeModal] = useState<{ type: string; label: string; records: ExamTypeRecord[]; total: number } | null>(null);
+  const [examTypeModalLoading, setExamTypeModalLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<'workers' | 'esmo' | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0); // 0-100
@@ -516,16 +545,19 @@ const ZdravpunktPage = () => {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [fRes, sRes, flRes] = await Promise.all([
+      const [fRes, sRes, flRes, etRes] = await Promise.all([
         fetch(`${API}?action=files&organization_id=${orgId}`),
         fetch(`${API}?action=stats&organization_id=${orgId}`),
-        fetch(`${API}?action=filters&organization_id=${orgId}`)
+        fetch(`${API}?action=filters&organization_id=${orgId}`),
+        fetch(`${API}?action=exam_type_stats&organization_id=${orgId}`)
       ]);
       const fData = await fRes.json();
       const sData = await sRes.json();
       const flData = await flRes.json();
+      const etData = await etRes.json();
       if (fData.success) setFiles(fData.files);
       if (sData.success) setStats(sData);
+      if (etData.success) setExamTypeStats(etData.stats || {});
       if (flData.success) {
         setSubdivisions(flData.subdivisions || []);
         setCompanies(flData.companies || []);
@@ -535,6 +567,44 @@ const ZdravpunktPage = () => {
   };
 
   // ── Универсальный загрузчик Excel ───────────────────────────────────────
+  const openExamTypeModal = async (examType: string, label: string) => {
+    setExamTypeModalLoading(true);
+    setExamTypeModal({ type: examType, label, records: [], total: 0 });
+    try {
+      const res = await fetch(`${API}?action=exam_type_list&exam_type=${examType}&limit=2000&organization_id=${orgId}`);
+      const data = await res.json();
+      if (data.success) {
+        setExamTypeModal({ type: examType, label, records: data.records || [], total: data.total || 0 });
+      }
+    } catch { toast.error('Ошибка загрузки данных'); }
+    finally { setExamTypeModalLoading(false); }
+  };
+
+  const printExamTypeModal = () => {
+    if (!examTypeModal) return;
+    const RESULT_LABEL: Record<string, string> = { admitted: 'Допущен', not_admitted: 'Не допущен', evaded: 'Уклонился' };
+    const rows = examTypeModal.records.map((r, i) =>
+      `<tr><td>${i+1}</td><td>${r.fio}</td><td>${r.subdivision||'—'}</td><td>${r.company||'—'}</td><td>${r.exam_date||'—'}</td><td>${RESULT_LABEL[r.exam_result]||r.exam_result}</td></tr>`
+    ).join('');
+    const html = `<html><head><title>${examTypeModal.label}</title><style>body{font-family:Arial,sans-serif;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#f0f0f0}@media print{button{display:none}}</style></head><body><h2>${examTypeModal.label} — список осмотров (${examTypeModal.total})</h2><table><thead><tr><th>#</th><th>ФИО</th><th>Подразделение</th><th>Организация</th><th>Дата</th><th>Результат</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
+  };
+
+  const exportExamTypeExcel = () => {
+    if (!examTypeModal) return;
+    const RESULT_LABEL: Record<string, string> = { admitted: 'Допущен', not_admitted: 'Не допущен', evaded: 'Уклонился' };
+    const data = examTypeModal.records.map(r => ({
+      'ФИО': r.fio, 'Подразделение': r.subdivision||'', 'Организация': r.company||'',
+      'Дата осмотра': r.exam_date||'', 'Результат': RESULT_LABEL[r.exam_result]||r.exam_result,
+      'Причина': r.reject_reason||'', 'Группа МО': r.group_mo||''
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb2 = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb2, ws, examTypeModal.label);
+    XLSX.writeFile(wb2, `${examTypeModal.label}.xlsx`);
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fileType: 'workers' | 'esmo') => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -563,7 +633,7 @@ const ZdravpunktPage = () => {
         keys.find(k => variants.some(v => k.toLowerCase().includes(v.toLowerCase()))) ||
         '';
 
-      // Сохраняем запись о файле в БД
+      // Сохраняем запись о файле в БД (rows_count уточним после парсинга для esmo)
       const saveRes = await fetch(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -573,7 +643,7 @@ const ZdravpunktPage = () => {
           file_name: file.name,
           file_url: '',
           file_size: file.size,
-          rows_count: raw.length,
+          rows_count: fileType === 'workers' ? raw.length : 0,
           uploaded_by: userId,
           organization_id: orgId
         })
@@ -605,18 +675,38 @@ const ZdravpunktPage = () => {
         });
 
       } else {
-        // Точный маппинг для формата ЭСМО
-        const fioKey = findKey('ФИО сотрудника', 'фио', 'имя', 'работник', 'name', 'сотрудник');
-        const numKey = findKey('табел', 'номер', 'id', 'code', 'код');
-        const divKey = findKey('подразделение', 'отдел', 'subdivision', 'участок');
-        const posKey = findKey('должность', 'position');
-        const compKey = findKey('Организация', 'компания', 'organization', 'company', 'предприятие');
-        const dateKey = findKey('Дата/время', 'дата', 'date', 'прохождение');
-        const dopuskKey = findKey('Допуск', 'допуск');
-        const resultKey = findKey('Результат осмотра', 'результат', 'result', 'статус');
-        const groupKey = findKey('Группа МО', 'группа');
+        // Маппинг имён вкладок → exam_type
+        const SHEET_TYPE_MAP: Record<string, string> = {
+          'предсменный': 'pre_shift',
+          'предсменные': 'pre_shift',
+          'pre_shift': 'pre_shift',
+          'послесменный': 'post_shift',
+          'послесменные': 'post_shift',
+          'post_shift': 'post_shift',
+          'предрейсовый': 'pre_trip',
+          'предрейсовые': 'pre_trip',
+          'pre_trip': 'pre_trip',
+          'послерейсовый': 'post_trip',
+          'послерейсовые': 'post_trip',
+          'post_trip': 'post_trip',
+        };
 
-        const records = raw.map(r => {
+        // Парсим одну строку из листа в запись ЭСМО
+        const parseEsmoRow = (r: Record<string, unknown>, sheetKeys: string[], examType: string) => {
+          const fkFind = (...v: string[]) =>
+            sheetKeys.find(k => v.includes(k)) ||
+            sheetKeys.find(k => v.some(s => k.toLowerCase().includes(s.toLowerCase()))) || '';
+
+          const fioKey = fkFind('ФИО сотрудника', 'фио', 'имя', 'работник', 'name', 'сотрудник');
+          const numKey = fkFind('табел', 'номер', 'id', 'code', 'код');
+          const divKey = fkFind('подразделение', 'отдел', 'subdivision', 'участок');
+          const posKey = fkFind('должность', 'position');
+          const compKey = fkFind('Организация', 'компания', 'organization', 'company', 'предприятие');
+          const dateKey = fkFind('Дата/время', 'дата', 'date', 'прохождение');
+          const dopuskKey = fkFind('Допуск', 'допуск');
+          const resultKey = fkFind('Результат осмотра', 'результат', 'result', 'статус');
+          const groupKey = fkFind('Группа МО', 'группа');
+
           const dopuskRaw = String(r[dopuskKey] || '').toLowerCase().trim();
           let examResult = '';
           if (dopuskRaw === 'разрешен' || dopuskRaw.includes('разреш') || dopuskRaw === 'да') {
@@ -628,7 +718,6 @@ const ZdravpunktPage = () => {
           }
 
           const resultOsmotra = String(r[resultKey] || '').trim();
-
           let examDate: string | null = null;
           const rawDate = r[dateKey];
           if (rawDate instanceof Date) {
@@ -646,9 +735,42 @@ const ZdravpunktPage = () => {
             exam_date: examDate,
             exam_result: examResult,
             reject_reason: examResult === 'not_admitted' ? resultOsmotra : '',
+            exam_type: examType,
             extra: { ...r, group_mo: String(r[groupKey] || '') }
           };
-        }).filter(w => w.fio.trim());
+        };
+
+        // Читаем все детальные вкладки (пропускаем "Общий" и неизвестные)
+        const allRecords: ReturnType<typeof parseEsmoRow>[] = [];
+        for (const sheetName of wb.SheetNames) {
+          const normalized = sheetName.trim().toLowerCase();
+          const examType = SHEET_TYPE_MAP[normalized];
+          if (!examType) continue;
+
+          const sheetData: Record<string, unknown>[] = XLSX.utils.sheet_to_json(
+            wb.Sheets[sheetName], { defval: '' }
+          );
+          if (sheetData.length === 0) continue;
+          const sheetKeys = Object.keys(sheetData[0]);
+          for (const row of sheetData) {
+            const rec = parseEsmoRow(row, sheetKeys, examType);
+            if (rec.fio.trim()) allRecords.push(rec);
+          }
+        }
+
+        // Если не нашли ни одной детальной вкладки — читаем первую без типа
+        if (allRecords.length === 0) {
+          const sheetData: Record<string, unknown>[] = XLSX.utils.sheet_to_json(
+            wb.Sheets[wb.SheetNames[0]], { defval: '' }
+          );
+          const sheetKeys = sheetData.length > 0 ? Object.keys(sheetData[0]) : [];
+          for (const row of sheetData) {
+            const rec = parseEsmoRow(row, sheetKeys, 'general');
+            if (rec.fio.trim()) allRecords.push(rec);
+          }
+        }
+
+        const records = allRecords;
 
         // Определяем период файла по данным
         const datesInFile = records.map(r => r.exam_date).filter(Boolean).sort() as string[];
@@ -657,7 +779,7 @@ const ZdravpunktPage = () => {
 
         // Батч 2000 строк, последовательно (дедупликация требует порядка)
         const BATCH = 2000;
-        const totalBatches = Math.ceil(records.length / BATCH);
+        const totalBatches = Math.ceil(records.length / BATCH) || 1;
         let totalImported = 0;
         let totalSkipped = 0;
         let completedBatches = 0;
@@ -677,6 +799,7 @@ const ZdravpunktPage = () => {
               is_last_batch: isLastBatch,
               period_from: periodFrom,
               period_to: periodTo,
+              total_rows: isLastBatch ? records.length : undefined,
             })
           });
           const resData = await res.json();
