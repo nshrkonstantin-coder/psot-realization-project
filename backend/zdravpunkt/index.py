@@ -183,7 +183,7 @@ def handler(event: dict, context) -> dict:
                     'created_at': r[8].isoformat() if r[8] else None
                 })
 
-            # Подрядчики — ручной ввод (за тот же период, что и основной отчёт)
+            # Подрядчики — ручной ввод (за тот же период + фильтр по exam_type)
             contr_where = ['organization_id = %s']
             contr_args = [org_id or 0]
             if date_from:
@@ -192,20 +192,36 @@ def handler(event: dict, context) -> dict:
             if date_to:
                 contr_where.append('record_date <= %s::date')
                 contr_args.append(date_to)
+            if exam_types_list:
+                placeholders_ct = ','.join(['%s'] * len(exam_types_list))
+                contr_where.append(f'exam_type IN ({placeholders_ct})')
+                contr_args.extend(exam_types_list)
             contr_sql = ' AND '.join(contr_where)
             cur.execute(
-                f"""SELECT COALESCE(SUM(workers_count), 0), COUNT(*)
+                f"""SELECT id, record_date, company_name, workers_count, admission, exam_type
                     FROM {SCHEMA}.zdravpunkt_contractor_records
-                    WHERE {contr_sql}""",
+                    WHERE {contr_sql}
+                    ORDER BY record_date ASC, id ASC""",
                 contr_args
             )
-            cr = cur.fetchone()
-            contr_workers_sum = int(cr[0] or 0)
-            contr_records_count = int(cr[1] or 0)
+            contr_rows = cur.fetchall()
+            contractor_list = []
+            for cr in contr_rows:
+                contractor_list.append({
+                    'id': cr[0],
+                    'record_date': cr[1].isoformat() if cr[1] else None,
+                    'company_name': cr[2],
+                    'workers_count': cr[3],
+                    'admission': cr[4],
+                    'exam_type': cr[5] or 'pre_shift',
+                })
+            contr_workers_sum = sum(r['workers_count'] for r in contractor_list)
+            contr_records_count = len(contractor_list)
 
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
                 'success': True,
                 'records': records,
+                'contractor_records_list': contractor_list,
                 'total': total_count + contr_records_count,
                 'admitted': stat[1],
                 'not_admitted': stat[2],
@@ -621,7 +637,7 @@ def handler(event: dict, context) -> dict:
             if not org_id:
                 return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'organization_id required'})}
             cur.execute(
-                f"""SELECT id, record_date, company_name, workers_count, admission, created_at
+                f"""SELECT id, record_date, company_name, workers_count, admission, created_at, exam_type
                     FROM {SCHEMA}.zdravpunkt_contractor_records
                     WHERE organization_id = %s
                     ORDER BY record_date DESC, id DESC""",
@@ -630,7 +646,8 @@ def handler(event: dict, context) -> dict:
             rows = cur.fetchall()
             records = [{'id': r[0], 'record_date': r[1].isoformat() if r[1] else None,
                         'company_name': r[2], 'workers_count': r[3], 'admission': r[4],
-                        'created_at': r[5].isoformat() if r[5] else None} for r in rows]
+                        'created_at': r[5].isoformat() if r[5] else None,
+                        'exam_type': r[6] or 'pre_shift'} for r in rows]
             return {'statusCode': 200, 'headers': CORS,
                     'body': json.dumps({'success': True, 'records': records}, ensure_ascii=False)}
 
@@ -653,14 +670,15 @@ def handler(event: dict, context) -> dict:
                     _cnt = rec.get('workers_count', 0)
                     count = int(_cnt) if str(_cnt).strip().lstrip('-').isdigit() else 0
                     admission = rec.get('admission', 'admitted')
+                    exam_type = rec.get('exam_type', 'pre_shift') or 'pre_shift'
                     if not company or not rec_date:
                         continue
                     if rid:
                         cur.execute(
                             f"""UPDATE {SCHEMA}.zdravpunkt_contractor_records
-                                SET record_date=%s, company_name=%s, workers_count=%s, admission=%s, updated_at=now()
+                                SET record_date=%s, company_name=%s, workers_count=%s, admission=%s, exam_type=%s, updated_at=now()
                                 WHERE id=%s AND organization_id=%s RETURNING id""",
-                            (rec_date, company, count, admission, rid, org_id_b)
+                            (rec_date, company, count, admission, exam_type, rid, org_id_b)
                         )
                         row = cur.fetchone()
                         if row:
@@ -668,9 +686,9 @@ def handler(event: dict, context) -> dict:
                     else:
                         cur.execute(
                             f"""INSERT INTO {SCHEMA}.zdravpunkt_contractor_records
-                                (organization_id, record_date, company_name, workers_count, admission)
-                                VALUES (%s, %s, %s, %s, %s) RETURNING id""",
-                            (org_id_b, rec_date, company, count, admission)
+                                (organization_id, record_date, company_name, workers_count, admission, exam_type)
+                                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
+                            (org_id_b, rec_date, company, count, admission, exam_type)
                         )
                         row = cur.fetchone()
                         if row:

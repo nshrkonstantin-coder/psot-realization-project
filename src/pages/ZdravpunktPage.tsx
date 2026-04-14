@@ -64,6 +64,7 @@ interface ContractorRecord {
   company_name: string;
   workers_count: number;
   admission: string;
+  exam_type: string;
   created_at?: string;
   _local?: boolean;
 }
@@ -128,6 +129,8 @@ const ZdravpunktPage = () => {
   const [contractorRecords, setContractorRecords] = useState<ContractorRecord[]>([]);
   const [contractorLoading, setContractorLoading] = useState(false);
   const [contractorSaving, setContractorSaving] = useState(false);
+  // Подрядчики в отчёте (секция снизу таблицы)
+  const [contractorReportList, setContractorReportList] = useState<ContractorRecord[]>([]);
 
   // Модальное окно списка уникальных работников
   interface UniqueWorker {
@@ -975,6 +978,7 @@ const ZdravpunktPage = () => {
       const data = await res.json();
       if (data.success) {
         setReportRecords(data.records);
+        setContractorReportList(data.contractor_records_list || []);
         setReportStats({ total: data.total, admitted: data.admitted, not_admitted: data.not_admitted, evaded: data.evaded, unique_workers: data.unique_workers ?? 0, unique_not_admitted: data.unique_not_admitted ?? 0, unique_evaded: data.unique_evaded ?? 0 });
       } else {
         toast.error('Ошибка получения данных');
@@ -1750,6 +1754,67 @@ const ZdravpunktPage = () => {
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Секция подрядчиков */}
+                  {contractorReportList.length > 0 && (() => {
+                    const examTypeLabel: Record<string, string> = {
+                      pre_shift: 'Предсменный', post_shift: 'Послесменный',
+                      pre_trip: 'Предрейсовый', post_trip: 'Послерейсовый',
+                    };
+                    const admissionLabel: Record<string, { label: string; cls: string; icon: string }> = {
+                      admitted: { label: 'Допущен', cls: 'bg-green-900/40 border-green-700/40 text-green-400', icon: 'CheckCircle' },
+                      not_admitted: { label: 'Не допущен', cls: 'bg-red-900/40 border-red-700/40 text-red-400', icon: 'XCircle' },
+                      evaded: { label: 'Уклонился', cls: 'bg-yellow-900/40 border-yellow-700/40 text-yellow-400', icon: 'AlertCircle' },
+                    };
+                    return (
+                      <div className="border-t-2 border-dashed border-teal-700/50 mt-1">
+                        <div className="flex items-center gap-2 px-4 py-2.5 bg-teal-900/20 border-b border-teal-700/30">
+                          <Icon name="Building2" size={14} className="text-teal-400" />
+                          <span className="text-teal-300 text-xs font-semibold">Подрядчики — ручной ввод</span>
+                          <span className="ml-auto text-teal-500 text-xs">{contractorReportList.length} строк · {contractorReportList.reduce((s, r) => s + (r.workers_count || 0), 0).toLocaleString('ru')} работников</span>
+                        </div>
+                        <table className="w-full text-sm">
+                          <thead className="bg-slate-700/30 text-xs">
+                            <tr>
+                              {['Дата', 'Наименование компании', 'Тип осмотра', 'Кол-во работников', 'Допуск'].map(h => (
+                                <th key={h} className="px-4 py-2.5 text-left font-semibold text-teal-300/80 border-b border-slate-600 whitespace-nowrap">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-700/40">
+                            {contractorReportList.map((cr, i) => {
+                              const adm = admissionLabel[cr.admission] || admissionLabel['admitted'];
+                              return (
+                                <tr key={cr.id ?? i} className="hover:bg-teal-900/10 transition">
+                                  <td className="px-4 py-2.5 text-slate-300 whitespace-nowrap">
+                                    {cr.record_date ? new Date(cr.record_date + 'T00:00:00').toLocaleDateString('ru') : '—'}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-white font-medium">{cr.company_name}</td>
+                                  <td className="px-4 py-2.5 text-slate-300">{examTypeLabel[cr.exam_type] || cr.exam_type}</td>
+                                  <td className="px-4 py-2.5 text-white font-bold">{cr.workers_count.toLocaleString('ru')}</td>
+                                  <td className="px-4 py-2.5">
+                                    <span className={`inline-flex items-center gap-1.5 border font-semibold px-3 py-1 rounded-full text-xs whitespace-nowrap ${adm.cls}`}>
+                                      <Icon name={adm.icon as Parameters<typeof Icon>[0]['name']} size={13} />{adm.label}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t border-slate-600">
+                              <td colSpan={3} className="px-4 pt-2.5 pb-3 text-slate-400 text-xs">Итого подрядчиков: {contractorReportList.length}</td>
+                              <td className="px-4 pt-2.5 pb-3 text-white font-bold">
+                                {contractorReportList.reduce((s, r) => s + (r.workers_count || 0), 0).toLocaleString('ru')}
+                              </td>
+                              <td></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    );
+                  })()}
+
                   </div>
                 )}
               </Card>
@@ -1797,7 +1862,7 @@ const ZdravpunktPage = () => {
                   <button
                     onClick={() => {
                       const today = new Date().toISOString().split('T')[0];
-                      setContractorRecords(prev => [...prev, { record_date: today, company_name: '', workers_count: 0, admission: 'admitted', _local: true }]);
+                      setContractorRecords(prev => [...prev, { record_date: today, company_name: '', workers_count: 0, admission: 'admitted', exam_type: 'pre_shift', _local: true }]);
                     }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-700/30 border border-teal-600/40 text-teal-400 text-sm hover:bg-teal-700/50 transition"
                   >
@@ -1827,7 +1892,8 @@ const ZdravpunktPage = () => {
                       <tr className="border-b border-slate-700">
                         <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-36">Дата</th>
                         <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3">Наименование компании</th>
-                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-32">Кол-во работников</th>
+                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-40">Тип осмотра</th>
+                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-28">Кол-во работников</th>
                         <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-36">Допуск</th>
                         <th className="pb-2 w-10"></th>
                       </tr>
@@ -1835,7 +1901,7 @@ const ZdravpunktPage = () => {
                     <tbody className="divide-y divide-slate-700/50">
                       {contractorRecords.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="text-slate-500 text-sm text-center py-10">
+                          <td colSpan={6} className="text-slate-500 text-sm text-center py-10">
                             <Icon name="Building2" size={32} className="mx-auto mb-2 opacity-30" />
                             Нет записей. Нажмите «Добавить строку» чтобы начать.
                           </td>
@@ -1858,6 +1924,18 @@ const ZdravpunktPage = () => {
                               onChange={e => setContractorRecords(prev => prev.map((r, i) => i === idx ? { ...r, company_name: e.target.value } : r))}
                               className="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:outline-none focus:border-teal-500 placeholder:text-slate-500"
                             />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <select
+                              value={rec.exam_type || 'pre_shift'}
+                              onChange={e => setContractorRecords(prev => prev.map((r, i) => i === idx ? { ...r, exam_type: e.target.value } : r))}
+                              className="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:outline-none focus:border-teal-500"
+                            >
+                              <option value="pre_shift">Предсменный</option>
+                              <option value="post_shift">Послесменный</option>
+                              <option value="pre_trip">Предрейсовый</option>
+                              <option value="post_trip">Послерейсовый</option>
+                            </select>
                           </td>
                           <td className="py-2 pr-3">
                             <input
@@ -1900,7 +1978,7 @@ const ZdravpunktPage = () => {
                     {contractorRecords.length > 0 && (
                       <tfoot>
                         <tr className="border-t border-slate-600">
-                          <td colSpan={2} className="pt-3 text-slate-400 text-xs">Итого строк: {contractorRecords.length}</td>
+                          <td colSpan={3} className="pt-3 text-slate-400 text-xs">Итого строк: {contractorRecords.length}</td>
                           <td className="pt-3 text-white font-bold text-sm">
                             {contractorRecords.reduce((s, r) => s + (r.workers_count || 0), 0).toLocaleString('ru')}
                           </td>
