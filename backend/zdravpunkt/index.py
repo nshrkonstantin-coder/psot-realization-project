@@ -67,18 +67,26 @@ def handler(event: dict, context) -> dict:
                     COUNT(*) FILTER (WHERE exam_result = 'admitted'),
                     COUNT(*) FILTER (WHERE exam_result = 'not_admitted'),
                     COUNT(*) FILTER (WHERE exam_result = 'evaded'),
-                    (SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_files WHERE is_archived = FALSE)
+                    (SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_files WHERE is_archived = FALSE),
+                    (SELECT COALESCE(SUM(workers_count), 0) FROM {SCHEMA}.zdravpunkt_contractor_records
+                     WHERE organization_id = %s),
+                    (SELECT COUNT(*) FROM {SCHEMA}.zdravpunkt_contractor_records
+                     WHERE organization_id = %s)
                 FROM {SCHEMA}.zdravpunkt_esmo WHERE {ACTIVE}
-            """)
+            """, (org_id or 0, org_id or 0))
             s = cur.fetchone()
+            contractor_workers = int(s[6] or 0)
+            contractor_records_count = int(s[7] or 0)
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
                 'success': True,
-                'total_workers': s[0],
-                'total_esmo': s[1],
+                'total_workers': int(s[0] or 0) + contractor_workers,
+                'total_esmo': int(s[1] or 0) + contractor_records_count,
                 'admitted': s[2],
                 'not_admitted': s[3],
                 'evaded': s[4],
-                'total_files': s[5]
+                'total_files': s[5],
+                'contractor_workers': contractor_workers,
+                'contractor_records': contractor_records_count,
             }, ensure_ascii=False)}
 
         # ── GET: отчёт ────────────────────────────────────────────────────────
@@ -175,18 +183,40 @@ def handler(event: dict, context) -> dict:
                     'created_at': r[8].isoformat() if r[8] else None
                 })
 
+            # Подрядчики — ручной ввод (за тот же период, что и основной отчёт)
+            contr_where = ['organization_id = %s']
+            contr_args = [org_id or 0]
+            if date_from:
+                contr_where.append('record_date >= %s::date')
+                contr_args.append(date_from)
+            if date_to:
+                contr_where.append('record_date <= %s::date')
+                contr_args.append(date_to)
+            contr_sql = ' AND '.join(contr_where)
+            cur.execute(
+                f"""SELECT COALESCE(SUM(workers_count), 0), COUNT(*)
+                    FROM {SCHEMA}.zdravpunkt_contractor_records
+                    WHERE {contr_sql}""",
+                contr_args
+            )
+            cr = cur.fetchone()
+            contr_workers_sum = int(cr[0] or 0)
+            contr_records_count = int(cr[1] or 0)
+
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
                 'success': True,
                 'records': records,
-                'total': total_count,
+                'total': total_count + contr_records_count,
                 'admitted': stat[1],
                 'not_admitted': stat[2],
                 'evaded': stat[3],
-                'unique_workers': stat[4],
+                'unique_workers': int(stat[4] or 0) + contr_workers_sum,
                 'unique_not_admitted': unique_not_admitted,
                 'unique_evaded': unique_evaded,
                 'limit': limit,
                 'offset': offset_val,
+                'contractor_workers': contr_workers_sum,
+                'contractor_records': contr_records_count,
             }, ensure_ascii=False)}
 
         # ── GET: история осмотров конкретного работника ───────────────────────
@@ -611,15 +641,17 @@ def handler(event: dict, context) -> dict:
             # Сохранить / обновить записи подрядчиков
             if action_post == 'save_contractor_records':
                 records_in = body.get('records', [])
-                org_id_b = int(body.get('organization_id', 0)) or None
+                _oid_raw = body.get('organization_id', '')
+                org_id_b = int(_oid_raw) if str(_oid_raw).strip().isdigit() else None
                 if not org_id_b:
                     return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'organization_id required'})}
                 saved = []
                 for rec in records_in:
-                    rid = rec.get('id')
+                    rid = rec.get('id') or None
                     rec_date = rec.get('record_date') or None
                     company = str(rec.get('company_name', '')).strip()
-                    count = int(rec.get('workers_count', 0))
+                    _cnt = rec.get('workers_count', 0)
+                    count = int(_cnt) if str(_cnt).strip().lstrip('-').isdigit() else 0
                     admission = rec.get('admission', 'admitted')
                     if not company or not rec_date:
                         continue
@@ -649,8 +681,9 @@ def handler(event: dict, context) -> dict:
 
             # Удалить запись подрядчика
             if action_post == 'delete_contractor_record':
-                rid = body.get('id')
-                org_id_b = int(body.get('organization_id', 0)) or None
+                rid = body.get('id') or None
+                _oid_raw2 = body.get('organization_id', '')
+                org_id_b = int(_oid_raw2) if str(_oid_raw2).strip().isdigit() else None
                 if not rid or not org_id_b:
                     return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'id and organization_id required'})}
                 cur.execute(
