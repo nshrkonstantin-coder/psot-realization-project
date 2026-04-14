@@ -668,16 +668,24 @@ const ZdravpunktPage = () => {
   };
 
   const deleteContractorRecord = async (id: number) => {
+    const currentOrgId = localStorage.getItem('organizationId') || '';
     try {
       const res = await fetch(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete_contractor_record', id, organization_id: orgId })
+        body: JSON.stringify({ action: 'delete_contractor_record', id, organization_id: currentOrgId })
       });
       const data = await res.json();
       if (data.success) {
         setContractorRecords(prev => prev.filter(r => r.id !== id));
         toast.success('Удалено');
+        // Обновляем фильтры — убираем компанию из выпадашки если записей больше нет
+        const flRes = await fetch(`${API}?action=filters&organization_id=${currentOrgId}`);
+        const flData = await flRes.json();
+        if (flData.success) {
+          setSubdivisions(flData.subdivisions || []);
+          setCompanies(flData.companies || []);
+        }
       }
     } catch { toast.error('Ошибка удаления'); }
   };
