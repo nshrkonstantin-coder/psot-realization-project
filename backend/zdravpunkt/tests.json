@@ -35,6 +35,14 @@
       "method": "GET",
       "path": "/?action=exam_type_list&exam_type=pre_shift&limit=10",
       "expectedStatus": 200
+    },
+    {
+      "name": "GET contractor_records",
+      "method": "GET",
+      "path": "/?action=contractor_records&organization_id=1",
+      "expectedStatus": 200,
+      "expectedBody": {"success": true},
+      "bodyMatcher": "partial"
     }
   ]
 }

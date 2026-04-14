@@ -58,6 +58,16 @@ interface ExamTypeStats {
   post_trip?: ExamTypeStat;
 }
 
+interface ContractorRecord {
+  id?: number;
+  record_date: string;
+  company_name: string;
+  workers_count: number;
+  admission: string;
+  created_at?: string;
+  _local?: boolean;
+}
+
 interface ReportRecord {
   fio: string;
   worker_number: string;
@@ -88,7 +98,7 @@ const ZdravpunktPage = () => {
   const [uploading, setUploading] = useState<'workers' | 'esmo' | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0); // 0-100
   const [uploadSheetStats, setUploadSheetStats] = useState<{ label: string; count: number }[] | null>(null);
-  const [activeTab, setActiveTab] = useState<'upload' | 'report'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'report' | 'contractors'>('upload');
 
   // Фильтры отчёта
   const [dateFrom, setDateFrom] = useState('');
@@ -113,6 +123,11 @@ const ZdravpunktPage = () => {
   const PAGE_SIZE = 500;
   const [clearing, setClearing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // Подрядчики — ручной ввод
+  const [contractorRecords, setContractorRecords] = useState<ContractorRecord[]>([]);
+  const [contractorLoading, setContractorLoading] = useState(false);
+  const [contractorSaving, setContractorSaving] = useState(false);
 
   // Модальное окно списка уникальных работников
   interface UniqueWorker {
@@ -549,16 +564,18 @@ const ZdravpunktPage = () => {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [fRes, sRes, flRes, etRes] = await Promise.all([
+      const [fRes, sRes, flRes, etRes, crRes] = await Promise.all([
         fetch(`${API}?action=files&organization_id=${orgId}`),
         fetch(`${API}?action=stats&organization_id=${orgId}`),
         fetch(`${API}?action=filters&organization_id=${orgId}`),
-        fetch(`${API}?action=exam_type_stats&organization_id=${orgId}`)
+        fetch(`${API}?action=exam_type_stats&organization_id=${orgId}`),
+        fetch(`${API}?action=contractor_records&organization_id=${orgId}`)
       ]);
       const fData = await fRes.json();
       const sData = await sRes.json();
       const flData = await flRes.json();
       const etData = await etRes.json();
+      const crData = await crRes.json();
       if (fData.success) setFiles(fData.files);
       if (sData.success) setStats(sData);
       if (etData.success) setExamTypeStats(etData.stats || {});
@@ -566,8 +583,45 @@ const ZdravpunktPage = () => {
         setSubdivisions(flData.subdivisions || []);
         setCompanies(flData.companies || []);
       }
+      if (crData.success) setContractorRecords(crData.records || []);
     } catch { toast.error('Ошибка загрузки данных'); }
     finally { setLoading(false); }
+  };
+
+  const saveContractorRecords = async (records: ContractorRecord[]) => {
+    setContractorSaving(true);
+    try {
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_contractor_records', organization_id: orgId, records })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Сохранено');
+        const crRes = await fetch(`${API}?action=contractor_records&organization_id=${orgId}`);
+        const crData = await crRes.json();
+        if (crData.success) setContractorRecords(crData.records || []);
+      } else {
+        toast.error(data.error || 'Ошибка сохранения');
+      }
+    } catch { toast.error('Ошибка сохранения'); }
+    finally { setContractorSaving(false); }
+  };
+
+  const deleteContractorRecord = async (id: number) => {
+    try {
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_contractor_record', id, organization_id: orgId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setContractorRecords(prev => prev.filter(r => r.id !== id));
+        toast.success('Удалено');
+      }
+    } catch { toast.error('Ошибка удаления'); }
   };
 
   // ── Универсальный загрузчик Excel ───────────────────────────────────────
@@ -1049,6 +1103,12 @@ const ZdravpunktPage = () => {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'report' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-white'}`}
             >
               Отчёты
+            </button>
+            <button
+              onClick={() => setActiveTab('contractors')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'contractors' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              Подрядчики
             </button>
             {isAdmin && (
               <button
@@ -1721,6 +1781,137 @@ const ZdravpunktPage = () => {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Вкладка Подрядчики ── */}
+        {activeTab === 'contractors' && (
+          <div className="space-y-4">
+            <Card className="bg-slate-800/50 border-slate-700 p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-white font-bold flex items-center gap-2">
+                  <Icon name="Building2" size={18} className="text-teal-400" />
+                  Ручной ввод — Подрядчик / компания
+                </h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const today = new Date().toISOString().split('T')[0];
+                      setContractorRecords(prev => [...prev, { record_date: today, company_name: '', workers_count: 0, admission: 'admitted', _local: true }]);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-700/30 border border-teal-600/40 text-teal-400 text-sm hover:bg-teal-700/50 transition"
+                  >
+                    <Icon name="Plus" size={15} />Добавить строку
+                  </button>
+                  <button
+                    onClick={() => {
+                      const toSave = contractorRecords.filter(r => r.company_name.trim() && r.record_date);
+                      saveContractorRecords(toSave);
+                    }}
+                    disabled={contractorSaving}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-700/40 border border-green-600/50 text-green-400 text-sm hover:bg-green-700/60 transition disabled:opacity-50"
+                  >
+                    {contractorSaving ? <><Icon name="Loader" size={15} className="animate-spin" />Сохранение...</> : <><Icon name="Save" size={15} />Сохранить</>}
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-slate-500 text-xs mb-4">Записи включаются в численность «Подрядчик / компания» при формировании отчётов. Добавьте строки, заполните данные и нажмите «Сохранить».</p>
+
+              {contractorLoading ? (
+                <div className="text-slate-500 text-sm text-center py-8"><Icon name="Loader" size={24} className="animate-spin mx-auto mb-2" />Загрузка...</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-700">
+                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-36">Дата</th>
+                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3">Наименование компании</th>
+                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-32">Кол-во работников</th>
+                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-36">Допуск</th>
+                        <th className="pb-2 w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/50">
+                      {contractorRecords.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-slate-500 text-sm text-center py-10">
+                            <Icon name="Building2" size={32} className="mx-auto mb-2 opacity-30" />
+                            Нет записей. Нажмите «Добавить строку» чтобы начать.
+                          </td>
+                        </tr>
+                      ) : contractorRecords.map((rec, idx) => (
+                        <tr key={rec.id ?? `new-${idx}`} className="group">
+                          <td className="py-2 pr-3">
+                            <input
+                              type="date"
+                              value={rec.record_date}
+                              onChange={e => setContractorRecords(prev => prev.map((r, i) => i === idx ? { ...r, record_date: e.target.value } : r))}
+                              className="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:outline-none focus:border-teal-500"
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              type="text"
+                              value={rec.company_name}
+                              placeholder="Наименование компании"
+                              onChange={e => setContractorRecords(prev => prev.map((r, i) => i === idx ? { ...r, company_name: e.target.value } : r))}
+                              className="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:outline-none focus:border-teal-500 placeholder:text-slate-500"
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              type="number"
+                              min={0}
+                              value={rec.workers_count}
+                              onChange={e => setContractorRecords(prev => prev.map((r, i) => i === idx ? { ...r, workers_count: parseInt(e.target.value) || 0 } : r))}
+                              className="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:outline-none focus:border-teal-500"
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <select
+                              value={rec.admission}
+                              onChange={e => setContractorRecords(prev => prev.map((r, i) => i === idx ? { ...r, admission: e.target.value } : r))}
+                              className="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:outline-none focus:border-teal-500"
+                            >
+                              <option value="admitted">Допущен</option>
+                              <option value="not_admitted">Не допущен</option>
+                              <option value="evaded">Уклонился</option>
+                            </select>
+                          </td>
+                          <td className="py-2">
+                            <button
+                              onClick={() => {
+                                if (rec.id) {
+                                  deleteContractorRecord(rec.id);
+                                } else {
+                                  setContractorRecords(prev => prev.filter((_, i) => i !== idx));
+                                }
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition p-1 rounded hover:bg-red-900/40 text-red-400"
+                              title="Удалить строку"
+                            >
+                              <Icon name="Trash2" size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    {contractorRecords.length > 0 && (
+                      <tfoot>
+                        <tr className="border-t border-slate-600">
+                          <td colSpan={2} className="pt-3 text-slate-400 text-xs">Итого строк: {contractorRecords.length}</td>
+                          <td className="pt-3 text-white font-bold text-sm">
+                            {contractorRecords.reduce((s, r) => s + (r.workers_count || 0), 0).toLocaleString('ru')}
+                          </td>
+                          <td colSpan={2}></td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              )}
+            </Card>
           </div>
         )}
       </div>

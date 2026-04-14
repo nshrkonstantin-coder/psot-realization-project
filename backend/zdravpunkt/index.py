@@ -586,6 +586,81 @@ def handler(event: dict, context) -> dict:
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True, 'esmo_cleared': esmo_count, 'workers_cleared': workers_count}, ensure_ascii=False)}
 
+        # ── GET: список записей подрядчиков (ручной ввод) ────────────────────
+        if method == 'GET' and action == 'contractor_records':
+            if not org_id:
+                return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'organization_id required'})}
+            cur.execute(
+                f"""SELECT id, record_date, company_name, workers_count, admission, created_at
+                    FROM {SCHEMA}.zdravpunkt_contractor_records
+                    WHERE organization_id = %s
+                    ORDER BY record_date DESC, id DESC""",
+                (org_id,)
+            )
+            rows = cur.fetchall()
+            records = [{'id': r[0], 'record_date': r[1].isoformat() if r[1] else None,
+                        'company_name': r[2], 'workers_count': r[3], 'admission': r[4],
+                        'created_at': r[5].isoformat() if r[5] else None} for r in rows]
+            return {'statusCode': 200, 'headers': CORS,
+                    'body': json.dumps({'success': True, 'records': records}, ensure_ascii=False)}
+
+        if method == 'POST':
+            body = json.loads(event.get('body') or '{}')
+            action_post = body.get('action', '')
+
+            # Сохранить / обновить записи подрядчиков
+            if action_post == 'save_contractor_records':
+                records_in = body.get('records', [])
+                org_id_b = int(body.get('organization_id', 0)) or None
+                if not org_id_b:
+                    return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'organization_id required'})}
+                saved = []
+                for rec in records_in:
+                    rid = rec.get('id')
+                    rec_date = rec.get('record_date') or None
+                    company = str(rec.get('company_name', '')).strip()
+                    count = int(rec.get('workers_count', 0))
+                    admission = rec.get('admission', 'admitted')
+                    if not company or not rec_date:
+                        continue
+                    if rid:
+                        cur.execute(
+                            f"""UPDATE {SCHEMA}.zdravpunkt_contractor_records
+                                SET record_date=%s, company_name=%s, workers_count=%s, admission=%s, updated_at=now()
+                                WHERE id=%s AND organization_id=%s RETURNING id""",
+                            (rec_date, company, count, admission, rid, org_id_b)
+                        )
+                        row = cur.fetchone()
+                        if row:
+                            saved.append(row[0])
+                    else:
+                        cur.execute(
+                            f"""INSERT INTO {SCHEMA}.zdravpunkt_contractor_records
+                                (organization_id, record_date, company_name, workers_count, admission)
+                                VALUES (%s, %s, %s, %s, %s) RETURNING id""",
+                            (org_id_b, rec_date, company, count, admission)
+                        )
+                        row = cur.fetchone()
+                        if row:
+                            saved.append(row[0])
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True, 'saved': len(saved)}, ensure_ascii=False)}
+
+            # Удалить запись подрядчика
+            if action_post == 'delete_contractor_record':
+                rid = body.get('id')
+                org_id_b = int(body.get('organization_id', 0)) or None
+                if not rid or not org_id_b:
+                    return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'id and organization_id required'})}
+                cur.execute(
+                    f"DELETE FROM {SCHEMA}.zdravpunkt_contractor_records WHERE id=%s AND organization_id=%s",
+                    (rid, org_id_b)
+                )
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True}, ensure_ascii=False)}
+
         return {'statusCode': 400, 'headers': CORS,
                 'body': json.dumps({'success': False, 'error': 'Неизвестный запрос'}, ensure_ascii=False)}
 
