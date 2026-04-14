@@ -658,8 +658,10 @@ def handler(event: dict, context) -> dict:
             # Сохранить / обновить записи подрядчиков
             if action_post == 'save_contractor_records':
                 records_in = body.get('records', [])
-                _oid_raw = body.get('organization_id', '')
-                org_id_b = int(_oid_raw) if str(_oid_raw).strip().isdigit() else None
+                try:
+                    org_id_b = int(body.get('organization_id') or 0) or None
+                except (TypeError, ValueError):
+                    org_id_b = None
                 if not org_id_b:
                     return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'organization_id required'})}
                 saved = []
@@ -700,8 +702,10 @@ def handler(event: dict, context) -> dict:
             # Удалить запись подрядчика
             if action_post == 'delete_contractor_record':
                 rid = body.get('id') or None
-                _oid_raw2 = body.get('organization_id', '')
-                org_id_b = int(_oid_raw2) if str(_oid_raw2).strip().isdigit() else None
+                try:
+                    org_id_b = int(body.get('organization_id') or 0) or None
+                except (TypeError, ValueError):
+                    org_id_b = None
                 if not rid or not org_id_b:
                     return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'id and organization_id required'})}
                 cur.execute(

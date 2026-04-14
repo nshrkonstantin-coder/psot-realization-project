@@ -480,9 +480,9 @@ const ZdravpunktPage = () => {
     XLSX.writeFile(wb, `${title}_${new Date().toLocaleDateString('ru')}.xlsx`);
   };
 
-  const exportQuickPDF = (records: ReportRecord[], title: string) => {
+  const exportQuickPDF = (records: ReportRecord[], title: string, contractors?: ContractorRecord[]) => {
+    const etLbl: Record<string, string> = { pre_shift: 'Предсменный', post_shift: 'Послесменный', pre_trip: 'Предрейсовый', post_trip: 'Послерейсовый' };
     const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
-    // Заголовок
     doc.setFontSize(14);
     doc.text(title, 14, 16);
     doc.setFontSize(9);
@@ -507,24 +507,48 @@ const ZdravpunktPage = () => {
         3: { cellWidth: 50 }, 4: { cellWidth: 38 }, 5: { cellWidth: 45 }, 6: { cellWidth: 22 }
       },
     });
+    if (contractors && contractors.length > 0) {
+      const lastY = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? 28;
+      doc.setFontSize(11);
+      doc.text('Подрядчики — ручной ввод', 14, lastY + 10);
+      autoTable(doc, {
+        startY: lastY + 15,
+        head: [['Дата', 'Наименование компании', 'Тип осмотра', 'Кол-во работников', 'Допуск']],
+        body: contractors.map(cr => [
+          cr.record_date ? new Date(cr.record_date + 'T00:00:00').toLocaleDateString('ru') : '',
+          cr.company_name,
+          etLbl[cr.exam_type] || cr.exam_type,
+          String(cr.workers_count),
+          cr.admission === 'admitted' ? 'Допущен' : cr.admission === 'not_admitted' ? 'Не допущен' : 'Уклонился',
+        ]),
+        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: [20, 90, 80], textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [240, 250, 248] },
+        columnStyles: { 0: { cellWidth: 24 }, 1: { cellWidth: 70 }, 2: { cellWidth: 30 }, 3: { cellWidth: 32 }, 4: { cellWidth: 24 } },
+      });
+    }
     doc.save(`${title}_${new Date().toLocaleDateString('ru')}.pdf`);
   };
 
-  const printQuickReport = (records: ReportRecord[], title: string, subtitle?: string) => {
+  const printQuickReport = (records: ReportRecord[], title: string, subtitle?: string, contractors?: ContractorRecord[]) => {
     const resultLabel = (r: ReportRecord) =>
       r.exam_result === 'admitted' ? 'Разрешен' :
       r.exam_result === 'not_admitted' ? 'Запрещен' :
       r.exam_result === 'evaded' ? 'Уклонился' : 'Допуск дан медработником';
+    const etLbl: Record<string, string> = { pre_shift: 'Предсменный', post_shift: 'Послесменный', pre_trip: 'Предрейсовый', post_trip: 'Послерейсовый' };
+    const contrAdmLabel = (a: string) => a === 'admitted' ? 'Допущен' : a === 'not_admitted' ? 'Не допущен' : 'Уклонился';
 
     const html = `
       <html><head><title>${title}</title>
       <style>
         body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px; }
         h2 { font-size: 14px; margin-bottom: 2px; }
+        h3 { font-size: 12px; margin: 16px 0 4px; color: #0f5e57; border-top: 2px dashed #0f766e; padding-top: 10px; }
         .subtitle { font-size: 11px; color: #333; margin-bottom: 4px; font-weight: bold; }
         .meta { color: #666; font-size: 10px; margin-bottom: 12px; }
-        table { width: 100%; border-collapse: collapse; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
         th { background: #0f766e; color: white; padding: 5px 6px; text-align: left; font-size: 10px; }
+        th.contr { background: #145a50; }
         td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; font-size: 10px; }
         tr:nth-child(even) td { background: #f8fafc; }
         @media print { body { margin: 10px; } }
@@ -547,7 +571,23 @@ const ZdravpunktPage = () => {
           <td>${r.exam_detail || r.reject_reason || ''}</td>
           <td>${resultLabel(r)}</td>
         </tr>`).join('')}</tbody>
-      </table></body></html>`;
+      </table>
+      ${contractors && contractors.length > 0 ? `
+        <h3>Подрядчики — ручной ввод (${contractors.length} строк, ${contractors.reduce((s, c) => s + c.workers_count, 0)} работников)</h3>
+        <table>
+          <thead><tr>
+            <th class="contr">Дата</th><th class="contr">Наименование компании</th>
+            <th class="contr">Тип осмотра</th><th class="contr">Кол-во работников</th><th class="contr">Допуск</th>
+          </tr></thead>
+          <tbody>${contractors.map(cr => `<tr>
+            <td>${cr.record_date ? new Date(cr.record_date + 'T00:00:00').toLocaleDateString('ru') : ''}</td>
+            <td><b>${cr.company_name}</b></td>
+            <td>${etLbl[cr.exam_type] || cr.exam_type}</td>
+            <td>${cr.workers_count}</td>
+            <td>${contrAdmLabel(cr.admission)}</td>
+          </tr>`).join('')}</tbody>
+        </table>` : ''}
+      </body></html>`;
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
   };
@@ -991,6 +1031,11 @@ const ZdravpunktPage = () => {
   };
 
   // ── Экспорт отчёта в Excel ───────────────────────────────────────────────
+  const examTypeLabel: Record<string, string> = {
+    pre_shift: 'Предсменный', post_shift: 'Послесменный',
+    pre_trip: 'Предрейсовый', post_trip: 'Послерейсовый',
+  };
+
   const exportReport = () => {
     if (!reportRecords || reportRecords.length === 0) return;
     const rows = reportRecords.map(r => ({
@@ -1004,9 +1049,18 @@ const ZdravpunktPage = () => {
       'Результат осмотра': r.exam_detail || r.reject_reason || '',
       'Допуск': r.exam_result === 'admitted' ? 'Разрешен' : r.exam_result === 'not_admitted' ? 'Запрещен' : r.exam_result === 'evaded' ? 'Уклонился' : 'Допуск дан медработником',
     }));
-    const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Отчёт ЭСМО');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Отчёт ЭСМО');
+    if (contractorReportList.length > 0) {
+      const contrRows = contractorReportList.map(cr => ({
+        'Дата': cr.record_date ? new Date(cr.record_date + 'T00:00:00').toLocaleDateString('ru') : '',
+        'Наименование компании': cr.company_name,
+        'Тип осмотра': examTypeLabel[cr.exam_type] || cr.exam_type,
+        'Кол-во работников': cr.workers_count,
+        'Допуск': cr.admission === 'admitted' ? 'Допущен' : cr.admission === 'not_admitted' ? 'Не допущен' : 'Уклонился',
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(contrRows), 'Подрядчики');
+    }
     const orgPart = filterCompanies.length > 0 ? `_${filterCompanies.join('_')}` : '';
     const periodPart = dateFrom || dateTo ? `_${[dateFrom, dateTo].filter(Boolean).join('-')}` : '';
     const safeName = `Отчёт_ЭСМО${orgPart}${periodPart}`.replace(/[\\/:*?"<>|]/g, '_').slice(0, 100);
@@ -1673,14 +1727,14 @@ const ZdravpunktPage = () => {
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-700/30 border border-green-600/40 text-green-400 text-xs hover:bg-green-700/50 transition">
                           <Icon name="FileSpreadsheet" size={13} />Excel
                         </button>
-                        <button onClick={() => exportQuickPDF(reportRecords, 'Отчёт ЭСМО')}
+                        <button onClick={() => exportQuickPDF(reportRecords, 'Отчёт ЭСМО', contractorReportList.length > 0 ? contractorReportList : undefined)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-700/30 border border-red-600/40 text-red-400 text-xs hover:bg-red-700/50 transition">
                           <Icon name="FileText" size={13} />PDF
                         </button>
                         <button onClick={() => {
                           const org = filterCompanies.length === 1 ? filterCompanies[0] : filterCompanies.length > 1 ? filterCompanies.join(', ') : 'Все организации';
                           const period = dateFrom || dateTo ? [dateFrom && `с ${dateFrom}`, dateTo && `по ${dateTo}`].filter(Boolean).join(' ') : 'Весь период';
-                          printQuickReport(reportRecords, 'Отчёт ЭСМО', `${org} | ${period}`);
+                          printQuickReport(reportRecords, 'Отчёт ЭСМО', `${org} | ${period}`, contractorReportList.length > 0 ? contractorReportList : undefined);
                         }}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700/30 border border-blue-600/40 text-blue-400 text-xs hover:bg-blue-700/50 transition">
                           <Icon name="Printer" size={13} />Печать
