@@ -632,19 +632,34 @@ const ZdravpunktPage = () => {
   };
 
   const saveContractorRecords = async (records: ContractorRecord[]) => {
+    const currentOrgId = localStorage.getItem('organizationId') || '';
+    if (!currentOrgId) {
+      toast.error('Не определена организация. Попробуйте перезайти в систему.');
+      return;
+    }
     setContractorSaving(true);
     try {
+      const payload = { action: 'save_contractor_records', organization_id: currentOrgId, records };
       const res = await fetch(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'save_contractor_records', organization_id: orgId, records })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.success) {
         toast.success('Сохранено');
-        const crRes = await fetch(`${API}?action=contractor_records&organization_id=${orgId}`);
+        // Перезагружаем записи подрядчиков и фильтры (чтобы новые компании появились в выпадашке отчёта)
+        const [crRes, flRes] = await Promise.all([
+          fetch(`${API}?action=contractor_records&organization_id=${currentOrgId}`),
+          fetch(`${API}?action=filters&organization_id=${currentOrgId}`)
+        ]);
         const crData = await crRes.json();
+        const flData = await flRes.json();
         if (crData.success) setContractorRecords(crData.records || []);
+        if (flData.success) {
+          setSubdivisions(flData.subdivisions || []);
+          setCompanies(flData.companies || []);
+        }
       } else {
         toast.error(data.error || 'Ошибка сохранения');
       }

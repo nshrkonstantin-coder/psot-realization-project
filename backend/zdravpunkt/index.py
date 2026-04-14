@@ -423,9 +423,21 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"SELECT DISTINCT subdivision FROM {SCHEMA}.zdravpunkt_esmo WHERE {ACTIVE} AND subdivision IS NOT NULL AND subdivision != '' ORDER BY subdivision")
             subdivisions = [r[0] for r in cur.fetchall()]
             cur.execute(f"SELECT DISTINCT company FROM {SCHEMA}.zdravpunkt_esmo WHERE {ACTIVE} AND company IS NOT NULL AND company != '' ORDER BY company")
-            companies = [r[0] for r in cur.fetchall()]
+            esmo_companies = [r[0] for r in cur.fetchall()]
+            # Добавляем компании из ручного ввода подрядчиков
+            if org_id:
+                cur.execute(
+                    f"SELECT DISTINCT company_name FROM {SCHEMA}.zdravpunkt_contractor_records WHERE organization_id = %s AND company_name IS NOT NULL AND company_name != '' ORDER BY company_name",
+                    (org_id,)
+                )
+                contractor_companies = [r[0] for r in cur.fetchall()]
+            else:
+                contractor_companies = []
+            # Объединяем уникально, сохраняя порядок
+            all_companies = esmo_companies + [c for c in contractor_companies if c not in esmo_companies]
+            all_companies.sort()
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
-                'success': True, 'subdivisions': subdivisions, 'companies': companies
+                'success': True, 'subdivisions': subdivisions, 'companies': all_companies
             }, ensure_ascii=False)}
 
         # ── POST: сохранить строки из Excel ──────────────────────────────────
@@ -632,30 +644,7 @@ def handler(event: dict, context) -> dict:
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True, 'esmo_cleared': esmo_count, 'workers_cleared': workers_count}, ensure_ascii=False)}
 
-        # ── GET: список записей подрядчиков (ручной ввод) ────────────────────
-        if method == 'GET' and action == 'contractor_records':
-            if not org_id:
-                return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'organization_id required'})}
-            cur.execute(
-                f"""SELECT id, record_date, company_name, workers_count, admission, created_at, exam_type
-                    FROM {SCHEMA}.zdravpunkt_contractor_records
-                    WHERE organization_id = %s
-                    ORDER BY record_date DESC, id DESC""",
-                (org_id,)
-            )
-            rows = cur.fetchall()
-            records = [{'id': r[0], 'record_date': r[1].isoformat() if r[1] else None,
-                        'company_name': r[2], 'workers_count': r[3], 'admission': r[4],
-                        'created_at': r[5].isoformat() if r[5] else None,
-                        'exam_type': r[6] or 'pre_shift'} for r in rows]
-            return {'statusCode': 200, 'headers': CORS,
-                    'body': json.dumps({'success': True, 'records': records}, ensure_ascii=False)}
-
-        if method == 'POST':
-            body = json.loads(event.get('body') or '{}')
-            action_post = body.get('action', '')
-
-            # Сохранить / обновить записи подрядчиков
+            # ── Сохранить / обновить записи подрядчиков ──────────────────────
             if action_post == 'save_contractor_records':
                 records_in = body.get('records', [])
                 try:
@@ -669,8 +658,10 @@ def handler(event: dict, context) -> dict:
                     rid = rec.get('id') or None
                     rec_date = rec.get('record_date') or None
                     company = str(rec.get('company_name', '')).strip()
-                    _cnt = rec.get('workers_count', 0)
-                    count = int(_cnt) if str(_cnt).strip().lstrip('-').isdigit() else 0
+                    try:
+                        count = int(rec.get('workers_count', 0) or 0)
+                    except (TypeError, ValueError):
+                        count = 0
                     admission = rec.get('admission', 'admitted')
                     exam_type = rec.get('exam_type', 'pre_shift') or 'pre_shift'
                     if not company or not rec_date:
@@ -699,7 +690,7 @@ def handler(event: dict, context) -> dict:
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True, 'saved': len(saved)}, ensure_ascii=False)}
 
-            # Удалить запись подрядчика
+            # ── Удалить запись подрядчика ─────────────────────────────────────
             if action_post == 'delete_contractor_record':
                 rid = body.get('id') or None
                 try:
@@ -715,6 +706,25 @@ def handler(event: dict, context) -> dict:
                 conn.commit()
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True}, ensure_ascii=False)}
+
+        # ── GET: список записей подрядчиков (ручной ввод) ────────────────────
+        if method == 'GET' and action == 'contractor_records':
+            if not org_id:
+                return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'organization_id required'})}
+            cur.execute(
+                f"""SELECT id, record_date, company_name, workers_count, admission, created_at, exam_type
+                    FROM {SCHEMA}.zdravpunkt_contractor_records
+                    WHERE organization_id = %s
+                    ORDER BY record_date DESC, id DESC""",
+                (org_id,)
+            )
+            rows = cur.fetchall()
+            records = [{'id': r[0], 'record_date': r[1].isoformat() if r[1] else None,
+                        'company_name': r[2], 'workers_count': r[3], 'admission': r[4],
+                        'created_at': r[5].isoformat() if r[5] else None,
+                        'exam_type': r[6] or 'pre_shift'} for r in rows]
+            return {'statusCode': 200, 'headers': CORS,
+                    'body': json.dumps({'success': True, 'records': records}, ensure_ascii=False)}
 
         return {'statusCode': 400, 'headers': CORS,
                 'body': json.dumps({'success': False, 'error': 'Неизвестный запрос'}, ensure_ascii=False)}
