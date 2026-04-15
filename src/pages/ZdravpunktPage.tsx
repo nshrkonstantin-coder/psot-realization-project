@@ -648,29 +648,41 @@ const ZdravpunktPage = () => {
       if (plData.success) setProlongations(plData.prolongations || []);
     }).catch(() => {})
       .finally(() => setContractorLoading(false));
-    // Автоматически запускаем заполнение пролонгаций за сегодня
-    fetch(API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'fill_prolongation_today', organization_id: selectedContractorOrgId })
-    }).then(r => r.json()).then(d => {
-      if (d.success && d.inserted > 0) {
-        // Перезагружаем список чтобы показать новые записи
-        fetch(`${API}?action=contractor_records&organization_id=${selectedContractorOrgId}`)
-          .then(r => r.json()).then(cr => { if (cr.success) setContractorRecords(cr.records || []); });
-      }
-    }).catch(() => {});
   }, [selectedContractorOrgId]);
 
   const loadAll = async () => {
     setLoading(true);
+    // Вычисляем эффективный orgId — из localStorage (запомненный) или из авторизации
+    const effectiveOrgForLoad = localStorage.getItem('zdravpunkt_contractor_org_id') || orgId;
     try {
+      // Сначала запускаем автозаполнение пролонгации за сегодня (если есть orgId)
+      if (effectiveOrgForLoad) {
+        fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'fill_prolongation_today', organization_id: effectiveOrgForLoad })
+        }).then(r => r.json()).then(d => {
+          if (d.success && d.inserted > 0) {
+            // Если появились новые записи — перезагружаем contractor_records и stats
+            Promise.all([
+              fetch(`${API}?action=contractor_records&organization_id=${effectiveOrgForLoad}`).then(r => r.json()),
+              fetch(`${API}?action=stats&organization_id=${effectiveOrgForLoad}`).then(r => r.json()),
+              fetch(`${API}?action=exam_type_stats&organization_id=${effectiveOrgForLoad}`).then(r => r.json()),
+            ]).then(([cr, st, et]) => {
+              if (cr.success) setContractorRecords(cr.records || []);
+              if (st.success) setStats(st);
+              if (et.success) setExamTypeStats(et.stats || {});
+            });
+          }
+        }).catch(() => {});
+      }
+
       const [fRes, sRes, flRes, etRes, crRes] = await Promise.all([
         fetch(`${API}?action=files&organization_id=${orgId}`),
-        fetch(`${API}?action=stats&organization_id=${orgId}`),
-        fetch(`${API}?action=filters&organization_id=${orgId}`),
-        fetch(`${API}?action=exam_type_stats&organization_id=${orgId}`),
-        fetch(`${API}?action=contractor_records&organization_id=${orgId}`)
+        fetch(`${API}?action=stats&organization_id=${effectiveOrgForLoad}`),
+        fetch(`${API}?action=filters&organization_id=${effectiveOrgForLoad}`),
+        fetch(`${API}?action=exam_type_stats&organization_id=${effectiveOrgForLoad}`),
+        fetch(`${API}?action=contractor_records&organization_id=${effectiveOrgForLoad}`)
       ]);
       const fData = await fRes.json();
       const sData = await sRes.json();
