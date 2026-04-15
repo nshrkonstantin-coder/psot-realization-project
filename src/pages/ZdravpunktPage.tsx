@@ -131,7 +131,7 @@ const ZdravpunktPage = () => {
   const msCompRef = useRef<HTMLDivElement>(null);
   const msResRef = useRef<HTMLDivElement>(null);
   const [reportRecords, setReportRecords] = useState<ReportRecord[] | null>(null);
-  const [reportStats, setReportStats] = useState<{ total: number; admitted: number; not_admitted: number; evaded: number; unique_workers: number; unique_workers_esmo: number; contractor_workers: number; unique_not_admitted: number; unique_evaded: number } | null>(null);
+  const [reportStats, setReportStats] = useState<{ total: number; admitted: number; not_admitted: number; evaded: number; unique_workers: number; unique_workers_esmo: number; total_esmo: number; contractor_workers: number; unique_not_admitted: number; unique_evaded: number } | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportPage, setReportPage] = useState(0);
   const PAGE_SIZE = 500;
@@ -1114,7 +1114,7 @@ const ZdravpunktPage = () => {
       if (data.success) {
         setReportRecords(data.records);
         setContractorReportList(data.contractor_records_list || []);
-        setReportStats({ total: data.total, admitted: data.admitted, not_admitted: data.not_admitted, evaded: data.evaded, unique_workers: data.unique_workers ?? 0, unique_workers_esmo: data.unique_workers_esmo ?? 0, contractor_workers: data.contractor_workers ?? 0, unique_not_admitted: data.unique_not_admitted ?? 0, unique_evaded: data.unique_evaded ?? 0 });
+        setReportStats({ total: data.total, admitted: data.admitted, not_admitted: data.not_admitted, evaded: data.evaded, unique_workers: data.unique_workers ?? 0, unique_workers_esmo: data.unique_workers_esmo ?? 0, total_esmo: data.total_esmo ?? 0, contractor_workers: data.contractor_workers ?? 0, unique_not_admitted: data.unique_not_admitted ?? 0, unique_evaded: data.unique_evaded ?? 0 });
       } else {
         toast.error('Ошибка получения данных');
       }
@@ -1778,8 +1778,10 @@ const ZdravpunktPage = () => {
                       </div>
                       <div>
                         <div className="text-slate-400 text-xs">МО прошли — ЭСМО</div>
-                        <div className="text-2xl font-bold text-blue-300 leading-tight">{reportStats.unique_workers_esmo.toLocaleString('ru')}</div>
-                        <div className="text-slate-500 text-xs mt-0.5">уник. ФИО за период</div>
+                        <div className="text-2xl font-bold text-blue-300 leading-tight">{reportStats.total_esmo.toLocaleString('ru')}</div>
+                        <div className="text-slate-500 text-xs mt-0.5">
+                          осмотров · {reportStats.unique_workers_esmo.toLocaleString('ru')} уник. ФИО
+                        </div>
                       </div>
                     </div>
                     {/* Правая часть — ручной ввод */}
@@ -1812,7 +1814,7 @@ const ZdravpunktPage = () => {
                     <div className="flex items-center pl-5 shrink-0">
                       <div className="text-center">
                         <div className="text-slate-500 text-xs mb-1">МО прошли</div>
-                        <div className="text-3xl font-bold text-white">{(reportStats.unique_workers_esmo + reportStats.contractor_workers).toLocaleString('ru')}</div>
+                        <div className="text-3xl font-bold text-white">{(reportStats.total_esmo + reportStats.contractor_workers).toLocaleString('ru')}</div>
                         <div className="text-slate-500 text-xs mt-0.5">всего</div>
                       </div>
                     </div>

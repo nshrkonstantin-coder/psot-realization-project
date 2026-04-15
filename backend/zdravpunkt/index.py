@@ -243,6 +243,7 @@ def handler(event: dict, context) -> dict:
                 'evaded': int(stat[3] or 0) + contr_evaded,
                 'unique_workers': int(stat[4] or 0) + contr_workers_sum,
                 'unique_workers_esmo': int(stat[4] or 0),
+                'total_esmo': total_count,
                 'contractor_workers': contr_workers_sum,
                 'unique_not_admitted': unique_not_admitted,
                 'unique_evaded': unique_evaded,
