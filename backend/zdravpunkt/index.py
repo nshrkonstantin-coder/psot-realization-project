@@ -183,7 +183,7 @@ def handler(event: dict, context) -> dict:
                     'created_at': r[8].isoformat() if r[8] else None
                 })
 
-            # Подрядчики — ручной ввод (за тот же период + фильтр по exam_type)
+            # Подрядчики — ручной ввод (за тот же период + все те же фильтры)
             contr_where = ['organization_id = %s']
             contr_args = [org_id or 0]
             if date_from:
@@ -192,13 +192,23 @@ def handler(event: dict, context) -> dict:
             if date_to:
                 contr_where.append('record_date <= %s::date')
                 contr_args.append(date_to)
+            # Фильтр по компании — применяем к contractor_records.company_name
+            if companies_list:
+                placeholders_co = ','.join(['%s'] * len(companies_list))
+                contr_where.append(f'company_name IN ({placeholders_co})')
+                contr_args.extend(companies_list)
             if exam_types_list:
                 placeholders_ct = ','.join(['%s'] * len(exam_types_list))
                 contr_where.append(f'exam_type IN ({placeholders_ct})')
                 contr_args.extend(exam_types_list)
+            # Фильтр по результату допуска
+            if results_list:
+                placeholders_res = ','.join(['%s'] * len(results_list))
+                contr_where.append(f'admission IN ({placeholders_res})')
+                contr_args.extend(results_list)
             contr_sql = ' AND '.join(contr_where)
             cur.execute(
-                f"""SELECT id, record_date, company_name, workers_count, admission, exam_type
+                f"""SELECT id, record_date, company_name, workers_count, admission, exam_type, shift
                     FROM {SCHEMA}.zdravpunkt_contractor_records
                     WHERE {contr_sql}
                     ORDER BY record_date ASC, id ASC""",
@@ -214,6 +224,7 @@ def handler(event: dict, context) -> dict:
                     'workers_count': cr[3],
                     'admission': cr[4],
                     'exam_type': cr[5] or 'pre_shift',
+                    'shift': cr[6] or 'day',
                 })
             contr_workers_sum = sum(r['workers_count'] for r in contractor_list)
             contr_records_count = len(contractor_list)

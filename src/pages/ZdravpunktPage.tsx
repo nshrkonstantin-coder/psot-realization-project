@@ -1097,7 +1097,9 @@ const ZdravpunktPage = () => {
     setReportLoading(true);
     setReportPage(page);
     try {
+      const effectiveOrgId = localStorage.getItem('zdravpunkt_contractor_org_id') || orgId;
       const p = new URLSearchParams({ action: 'report', limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) });
+      if (effectiveOrgId) p.set('organization_id', effectiveOrgId);
       if (dateFrom) p.set('date_from', dateFrom);
       if (dateTo) p.set('date_to', dateTo);
       if (filterSubdivisions.length > 0) p.set('subdivision', filterSubdivisions.join('||'));
