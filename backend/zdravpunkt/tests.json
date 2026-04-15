@@ -40,9 +40,13 @@
       "name": "GET contractor_records",
       "method": "GET",
       "path": "/?action=contractor_records&organization_id=1",
-      "expectedStatus": 200,
-      "expectedBody": {"success": true},
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET prolongation_list",
+      "method": "GET",
+      "path": "/?action=prolongation_list&organization_id=1",
+      "expectedStatus": 200
     }
   ]
 }

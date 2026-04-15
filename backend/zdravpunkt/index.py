@@ -664,14 +664,15 @@ def handler(event: dict, context) -> dict:
                         count = 0
                     admission = rec.get('admission', 'admitted')
                     exam_type = rec.get('exam_type', 'pre_shift') or 'pre_shift'
+                    shift = rec.get('shift', 'day') or 'day'
                     if not company or not rec_date:
                         continue
                     if rid:
                         cur.execute(
                             f"""UPDATE {SCHEMA}.zdravpunkt_contractor_records
-                                SET record_date=%s, company_name=%s, workers_count=%s, admission=%s, exam_type=%s, updated_at=now()
+                                SET record_date=%s, company_name=%s, workers_count=%s, admission=%s, exam_type=%s, shift=%s, updated_at=now()
                                 WHERE id=%s AND organization_id=%s RETURNING id""",
-                            (rec_date, company, count, admission, exam_type, rid, org_id_b)
+                            (rec_date, company, count, admission, exam_type, shift, rid, org_id_b)
                         )
                         row = cur.fetchone()
                         if row:
@@ -679,9 +680,9 @@ def handler(event: dict, context) -> dict:
                     else:
                         cur.execute(
                             f"""INSERT INTO {SCHEMA}.zdravpunkt_contractor_records
-                                (organization_id, record_date, company_name, workers_count, admission, exam_type)
-                                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
-                            (org_id_b, rec_date, company, count, admission, exam_type)
+                                (organization_id, record_date, company_name, workers_count, admission, exam_type, shift)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                            (org_id_b, rec_date, company, count, admission, exam_type, shift)
                         )
                         row = cur.fetchone()
                         if row:
@@ -689,6 +690,109 @@ def handler(event: dict, context) -> dict:
                 conn.commit()
                 return {'statusCode': 200, 'headers': CORS,
                         'body': json.dumps({'success': True, 'saved': len(saved)}, ensure_ascii=False)}
+
+            # ── Сохранить / обновить настройку пролонгации ───────────────────
+            if action_post == 'save_prolongation':
+                try:
+                    org_id_b = int(body.get('organization_id') or 0) or None
+                except (TypeError, ValueError):
+                    org_id_b = None
+                if not org_id_b:
+                    return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'organization_id required'})}
+                pid = body.get('id') or None
+                company = str(body.get('company_name', '')).strip()
+                try:
+                    wday = int(body.get('workers_count_day', 0) or 0)
+                    wnight = int(body.get('workers_count_night', 0) or 0)
+                except (TypeError, ValueError):
+                    wday, wnight = 0, 0
+                admission = body.get('admission', 'admitted')
+                exam_type = body.get('exam_type', 'pre_shift') or 'pre_shift'
+                is_active = bool(body.get('is_active', True))
+                if not company:
+                    return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'company_name required'})}
+                if pid:
+                    cur.execute(
+                        f"""UPDATE {SCHEMA}.zdravpunkt_contractor_prolongation
+                            SET company_name=%s, workers_count_day=%s, workers_count_night=%s,
+                                admission=%s, exam_type=%s, is_active=%s, updated_at=now()
+                            WHERE id=%s AND organization_id=%s RETURNING id""",
+                        (company, wday, wnight, admission, exam_type, is_active, pid, org_id_b)
+                    )
+                else:
+                    cur.execute(
+                        f"""INSERT INTO {SCHEMA}.zdravpunkt_contractor_prolongation
+                            (organization_id, company_name, workers_count_day, workers_count_night, admission, exam_type, is_active)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                        (org_id_b, company, wday, wnight, admission, exam_type, is_active)
+                    )
+                row = cur.fetchone()
+                conn.commit()
+                new_id = row[0] if row else pid
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True, 'id': new_id}, ensure_ascii=False)}
+
+            # ── Удалить настройку пролонгации ─────────────────────────────────
+            if action_post == 'delete_prolongation':
+                pid = body.get('id') or None
+                try:
+                    org_id_b = int(body.get('organization_id') or 0) or None
+                except (TypeError, ValueError):
+                    org_id_b = None
+                if not pid or not org_id_b:
+                    return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'id and organization_id required'})}
+                cur.execute(
+                    f"DELETE FROM {SCHEMA}.zdravpunkt_contractor_prolongation WHERE id=%s AND organization_id=%s",
+                    (pid, org_id_b)
+                )
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True}, ensure_ascii=False)}
+
+            # ── Заполнить сегодняшние записи по активным пролонгациям ─────────
+            if action_post == 'fill_prolongation_today':
+                try:
+                    org_id_b = int(body.get('organization_id') or 0) or None
+                except (TypeError, ValueError):
+                    org_id_b = None
+                if not org_id_b:
+                    return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'organization_id required'})}
+                today = date.today()
+                cur.execute(
+                    f"""SELECT id, company_name, workers_count_day, workers_count_night, admission, exam_type
+                        FROM {SCHEMA}.zdravpunkt_contractor_prolongation
+                        WHERE organization_id=%s AND is_active=TRUE AND (last_filled_date IS NULL OR last_filled_date < %s)""",
+                    (org_id_b, today)
+                )
+                prolongations = cur.fetchall()
+                inserted = 0
+                for p in prolongations:
+                    pid_p, company, wday, wnight, admission, exam_type = p
+                    # Дневная смена
+                    if wday > 0:
+                        cur.execute(
+                            f"""INSERT INTO {SCHEMA}.zdravpunkt_contractor_records
+                                (organization_id, record_date, company_name, workers_count, admission, exam_type, shift)
+                                VALUES (%s, %s, %s, %s, %s, %s, 'day')""",
+                            (org_id_b, today, company, wday, admission, exam_type)
+                        )
+                        inserted += 1
+                    # Ночная смена
+                    if wnight > 0:
+                        cur.execute(
+                            f"""INSERT INTO {SCHEMA}.zdravpunkt_contractor_records
+                                (organization_id, record_date, company_name, workers_count, admission, exam_type, shift)
+                                VALUES (%s, %s, %s, %s, %s, %s, 'night')""",
+                            (org_id_b, today, company, wnight, admission, exam_type)
+                        )
+                        inserted += 1
+                    cur.execute(
+                        f"UPDATE {SCHEMA}.zdravpunkt_contractor_prolongation SET last_filled_date=%s WHERE id=%s",
+                        (today, pid_p)
+                    )
+                conn.commit()
+                return {'statusCode': 200, 'headers': CORS,
+                        'body': json.dumps({'success': True, 'inserted': inserted}, ensure_ascii=False)}
 
             # ── Удалить запись подрядчика ─────────────────────────────────────
             if action_post == 'delete_contractor_record':
@@ -712,7 +816,7 @@ def handler(event: dict, context) -> dict:
             if not org_id:
                 return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'organization_id required'})}
             cur.execute(
-                f"""SELECT id, record_date, company_name, workers_count, admission, created_at, exam_type
+                f"""SELECT id, record_date, company_name, workers_count, admission, created_at, exam_type, shift
                     FROM {SCHEMA}.zdravpunkt_contractor_records
                     WHERE organization_id = %s
                     ORDER BY record_date DESC, id DESC""",
@@ -722,9 +826,30 @@ def handler(event: dict, context) -> dict:
             records = [{'id': r[0], 'record_date': r[1].isoformat() if r[1] else None,
                         'company_name': r[2], 'workers_count': r[3], 'admission': r[4],
                         'created_at': r[5].isoformat() if r[5] else None,
-                        'exam_type': r[6] or 'pre_shift'} for r in rows]
+                        'exam_type': r[6] or 'pre_shift',
+                        'shift': r[7] or 'day'} for r in rows]
             return {'statusCode': 200, 'headers': CORS,
                     'body': json.dumps({'success': True, 'records': records}, ensure_ascii=False)}
+
+        # ── GET: список настроек пролонгации ─────────────────────────────────
+        if method == 'GET' and action == 'prolongation_list':
+            if not org_id:
+                return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'success': False, 'error': 'organization_id required'})}
+            cur.execute(
+                f"""SELECT id, company_name, workers_count_day, workers_count_night,
+                           admission, exam_type, is_active, last_filled_date
+                    FROM {SCHEMA}.zdravpunkt_contractor_prolongation
+                    WHERE organization_id = %s
+                    ORDER BY id ASC""",
+                (org_id,)
+            )
+            rows = cur.fetchall()
+            items = [{'id': r[0], 'company_name': r[1], 'workers_count_day': r[2],
+                      'workers_count_night': r[3], 'admission': r[4], 'exam_type': r[5],
+                      'is_active': r[6],
+                      'last_filled_date': r[7].isoformat() if r[7] else None} for r in rows]
+            return {'statusCode': 200, 'headers': CORS,
+                    'body': json.dumps({'success': True, 'prolongations': items}, ensure_ascii=False)}
 
         return {'statusCode': 400, 'headers': CORS,
                 'body': json.dumps({'success': False, 'error': 'Неизвестный запрос'}, ensure_ascii=False)}

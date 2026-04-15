@@ -65,7 +65,20 @@ interface ContractorRecord {
   workers_count: number;
   admission: string;
   exam_type: string;
+  shift?: string;
   created_at?: string;
+  _local?: boolean;
+}
+
+interface ProlongationItem {
+  id?: number;
+  company_name: string;
+  workers_count_day: number;
+  workers_count_night: number;
+  admission: string;
+  exam_type: string;
+  is_active: boolean;
+  last_filled_date?: string | null;
   _local?: boolean;
 }
 
@@ -131,7 +144,13 @@ const ZdravpunktPage = () => {
   const [contractorSaving, setContractorSaving] = useState(false);
   // Если пользователь без организации (superadmin) — выбор организации для блока подрядчиков
   const [orgList, setOrgList] = useState<{ id: number; name: string }[]>([]);
-  const [selectedContractorOrgId, setSelectedContractorOrgId] = useState<string>(orgId);
+  const [selectedContractorOrgId, setSelectedContractorOrgId] = useState<string>(
+    localStorage.getItem('zdravpunkt_contractor_org_id') || orgId
+  );
+  // Пролонгация — настройки ежедневного автозаполнения
+  const [prolongations, setProlongations] = useState<ProlongationItem[]>([]);
+  const [prolongationLoading, setProlongationLoading] = useState(false);
+  const [showProlongationPanel, setShowProlongationPanel] = useState(false);
   // Подрядчики в отчёте (секция снизу таблицы)
   const [contractorReportList, setContractorReportList] = useState<ContractorRecord[]>([]);
 
@@ -616,15 +635,31 @@ const ZdravpunktPage = () => {
     }
   }, []);
 
-  // При смене организации в блоке подрядчиков — перезагружаем записи
+  // При смене организации в блоке подрядчиков — запоминаем в localStorage, перезагружаем записи и пролонгации
   useEffect(() => {
     if (!selectedContractorOrgId) return;
+    localStorage.setItem('zdravpunkt_contractor_org_id', selectedContractorOrgId);
     setContractorLoading(true);
-    fetch(`${API}?action=contractor_records&organization_id=${selectedContractorOrgId}`)
-      .then(r => r.json())
-      .then(d => { if (d.success) setContractorRecords(d.records || []); })
-      .catch(() => {})
+    Promise.all([
+      fetch(`${API}?action=contractor_records&organization_id=${selectedContractorOrgId}`).then(r => r.json()),
+      fetch(`${API}?action=prolongation_list&organization_id=${selectedContractorOrgId}`).then(r => r.json()),
+    ]).then(([crData, plData]) => {
+      if (crData.success) setContractorRecords(crData.records || []);
+      if (plData.success) setProlongations(plData.prolongations || []);
+    }).catch(() => {})
       .finally(() => setContractorLoading(false));
+    // Автоматически запускаем заполнение пролонгаций за сегодня
+    fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'fill_prolongation_today', organization_id: selectedContractorOrgId })
+    }).then(r => r.json()).then(d => {
+      if (d.success && d.inserted > 0) {
+        // Перезагружаем список чтобы показать новые записи
+        fetch(`${API}?action=contractor_records&organization_id=${selectedContractorOrgId}`)
+          .then(r => r.json()).then(cr => { if (cr.success) setContractorRecords(cr.records || []); });
+      }
+    }).catch(() => {});
   }, [selectedContractorOrgId]);
 
   const loadAll = async () => {
@@ -1952,30 +1987,56 @@ const ZdravpunktPage = () => {
         {/* ── Вкладка Подрядчики ── */}
         {activeTab === 'contractors' && (
           <div className="space-y-4">
-            <Card className="bg-slate-800/50 border-slate-700 p-6">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-white font-bold flex items-center gap-2">
-                  <Icon name="Building2" size={18} className="text-teal-400" />
-                  Ручной ввод — Подрядчик / компания
-                </h2>
-                <div className="flex gap-2 items-center">
-                  {/* Выбор организации для superadmin без привязанной организации */}
-                  {!orgId && orgList.length > 0 && (
+            {/* Выбор организации для superadmin без привязанной организации */}
+            {!orgId && (
+              <Card className="bg-slate-800/50 border-slate-700 p-4">
+                <div className="flex items-center gap-3">
+                  <Icon name="Building2" size={16} className="text-teal-400 shrink-0" />
+                  <span className="text-slate-300 text-sm font-medium">Организация:</span>
+                  {orgList.length > 0 ? (
                     <select
                       value={selectedContractorOrgId}
                       onChange={e => setSelectedContractorOrgId(e.target.value)}
-                      className="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:outline-none focus:border-teal-500"
+                      className="flex-1 bg-slate-700 border border-slate-600 rounded px-3 py-1.5 text-white text-sm focus:outline-none focus:border-teal-500"
                     >
                       <option value="">— Выберите организацию —</option>
                       {orgList.map(o => (
                         <option key={o.id} value={String(o.id)}>{o.name}</option>
                       ))}
                     </select>
+                  ) : (
+                    <span className="text-slate-500 text-sm">Загрузка списка организаций...</span>
                   )}
+                  {selectedContractorOrgId && orgList.length > 0 && (
+                    <span className="text-teal-400 text-xs">
+                      {orgList.find(o => String(o.id) === selectedContractorOrgId)?.name}
+                    </span>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            <Card className="bg-slate-800/50 border-slate-700 p-6">
+              {/* Заголовок и кнопки */}
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-white font-bold flex items-center gap-2">
+                  <Icon name="Building2" size={18} className="text-teal-400" />
+                  Ручной ввод — Подрядчик / компания
+                </h2>
+                <div className="flex gap-2 items-center">
+                  {/* Кнопка пролонгации */}
+                  <button
+                    onClick={() => setShowProlongationPanel(v => !v)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition ${showProlongationPanel ? 'bg-amber-700/40 border-amber-600/60 text-amber-300' : 'bg-amber-700/20 border-amber-600/30 text-amber-400 hover:bg-amber-700/40'}`}
+                    title="Настройки ежедневного автозаполнения"
+                  >
+                    <Icon name="RefreshCw" size={14} />
+                    Пролонгация {prolongations.filter(p => p.is_active).length > 0 && <span className="bg-amber-500 text-black text-xs rounded-full px-1.5 ml-1">{prolongations.filter(p => p.is_active).length}</span>}
+                  </button>
                   <button
                     onClick={() => {
                       const today = new Date().toISOString().split('T')[0];
-                      setContractorRecords(prev => [...prev, { record_date: today, company_name: '', workers_count: 0, admission: 'admitted', exam_type: 'pre_shift', _local: true }]);
+                      setContractorRecords(prev => [...prev, { record_date: today, company_name: '', workers_count: 0, admission: 'admitted', exam_type: 'pre_shift', shift: 'day', _local: true }]);
                     }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-700/30 border border-teal-600/40 text-teal-400 text-sm hover:bg-teal-700/50 transition"
                   >
@@ -1994,8 +2055,134 @@ const ZdravpunktPage = () => {
                 </div>
               </div>
 
-              <p className="text-slate-500 text-xs mb-4">Записи включаются в численность «Подрядчик / компания» при формировании отчётов. Добавьте строки, заполните данные и нажмите «Сохранить».</p>
+              <p className="text-slate-500 text-xs mb-4">Записи включаются в численность при формировании отчётов. Укажите смену (День/Ночь) для каждой строки.</p>
 
+              {/* ── Панель пролонгации ── */}
+              {showProlongationPanel && (
+                <div className="mb-5 rounded-xl bg-amber-950/30 border border-amber-700/40 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-amber-300 font-semibold text-sm flex items-center gap-2">
+                      <Icon name="RefreshCw" size={14} />
+                      Ежедневное автозаполнение (пролонгация)
+                    </h3>
+                    <button
+                      onClick={() => setProlongations(prev => [...prev, { company_name: '', workers_count_day: 0, workers_count_night: 0, admission: 'admitted', exam_type: 'pre_shift', is_active: true, _local: true }])}
+                      className="flex items-center gap-1 px-2 py-1 rounded bg-amber-700/30 border border-amber-600/40 text-amber-400 text-xs hover:bg-amber-700/50 transition"
+                    >
+                      <Icon name="Plus" size={12} />Добавить компанию
+                    </button>
+                  </div>
+                  <p className="text-amber-600/80 text-xs mb-3">Включённые компании автоматически добавляют записи в таблицу каждый день при открытии страницы. Сумма попадает в общий отчёт и статистику.</p>
+                  {prolongationLoading ? (
+                    <div className="text-amber-500 text-xs text-center py-4"><Icon name="Loader" size={16} className="animate-spin inline mr-1" />Загрузка...</div>
+                  ) : prolongations.length === 0 ? (
+                    <p className="text-amber-700 text-xs text-center py-4">Нет настроек пролонгации. Нажмите «Добавить компанию».</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {prolongations.map((pl, idx) => (
+                        <div key={pl.id ?? `pl-${idx}`} className="flex gap-2 items-center flex-wrap bg-amber-900/20 rounded-lg px-3 py-2">
+                          {/* Вкл/выкл */}
+                          <button
+                            onClick={() => setProlongations(prev => prev.map((p, i) => i === idx ? { ...p, is_active: !p.is_active } : p))}
+                            className={`shrink-0 px-2 py-1 rounded text-xs font-medium border transition ${pl.is_active ? 'bg-green-700/40 border-green-600/60 text-green-300' : 'bg-slate-700/60 border-slate-600/60 text-slate-400'}`}
+                          >
+                            {pl.is_active ? 'Вкл' : 'Выкл'}
+                          </button>
+                          {/* Компания */}
+                          <input
+                            type="text"
+                            value={pl.company_name}
+                            placeholder="Наименование компании"
+                            onChange={e => setProlongations(prev => prev.map((p, i) => i === idx ? { ...p, company_name: e.target.value } : p))}
+                            className="flex-1 min-w-[140px] bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-amber-500 placeholder:text-slate-500"
+                          />
+                          {/* Кол-во день */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-amber-500 text-xs whitespace-nowrap">☀ День:</span>
+                            <input
+                              type="number" min={0}
+                              value={pl.workers_count_day}
+                              onChange={e => setProlongations(prev => prev.map((p, i) => i === idx ? { ...p, workers_count_day: parseInt(e.target.value) || 0 } : p))}
+                              className="w-16 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          {/* Кол-во ночь */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-blue-400 text-xs whitespace-nowrap">☾ Ночь:</span>
+                            <input
+                              type="number" min={0}
+                              value={pl.workers_count_night}
+                              onChange={e => setProlongations(prev => prev.map((p, i) => i === idx ? { ...p, workers_count_night: parseInt(e.target.value) || 0 } : p))}
+                              className="w-16 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          {/* Тип осмотра */}
+                          <select
+                            value={pl.exam_type}
+                            onChange={e => setProlongations(prev => prev.map((p, i) => i === idx ? { ...p, exam_type: e.target.value } : p))}
+                            className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-amber-500"
+                          >
+                            <option value="pre_shift">Предсменный</option>
+                            <option value="post_shift">Послесменный</option>
+                            <option value="pre_trip">Предрейсовый</option>
+                            <option value="post_trip">Послерейсовый</option>
+                          </select>
+                          {/* Допуск */}
+                          <select
+                            value={pl.admission}
+                            onChange={e => setProlongations(prev => prev.map((p, i) => i === idx ? { ...p, admission: e.target.value } : p))}
+                            className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-amber-500"
+                          >
+                            <option value="admitted">Допущен</option>
+                            <option value="not_admitted">Не допущен</option>
+                            <option value="evaded">Уклонился</option>
+                          </select>
+                          {/* Последнее заполнение */}
+                          {pl.last_filled_date && (
+                            <span className="text-slate-500 text-xs whitespace-nowrap">заполн. {new Date(pl.last_filled_date).toLocaleDateString('ru')}</span>
+                          )}
+                          {/* Сохранить */}
+                          <button
+                            onClick={async () => {
+                              const effectiveOrgId = selectedContractorOrgId || orgId;
+                              if (!effectiveOrgId) { toast.error('Выберите организацию'); return; }
+                              if (!pl.company_name.trim()) { toast.error('Укажите наименование компании'); return; }
+                              setProlongationLoading(true);
+                              const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save_prolongation', organization_id: effectiveOrgId, ...pl }) });
+                              const d = await res.json();
+                              if (d.success) {
+                                setProlongations(prev => prev.map((p, i) => i === idx ? { ...p, id: d.id, _local: false } : p));
+                                toast.success('Настройка пролонгации сохранена');
+                              } else { toast.error(d.error || 'Ошибка'); }
+                              setProlongationLoading(false);
+                            }}
+                            className="px-2 py-1 rounded bg-amber-700/40 border border-amber-600/50 text-amber-300 text-xs hover:bg-amber-700/60 transition"
+                          >
+                            <Icon name="Save" size={12} />
+                          </button>
+                          {/* Удалить */}
+                          <button
+                            onClick={async () => {
+                              if (pl.id) {
+                                const effectiveOrgId = selectedContractorOrgId || orgId;
+                                await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete_prolongation', id: pl.id, organization_id: effectiveOrgId }) });
+                              }
+                              setProlongations(prev => prev.filter((_, i) => i !== idx));
+                              toast.success('Удалено');
+                            }}
+                            className="p-1 rounded hover:bg-red-900/40 text-red-400 transition"
+                            title="Удалить"
+                          >
+                            <Icon name="Trash2" size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Таблица ручного ввода ── */}
               {contractorLoading ? (
                 <div className="text-slate-500 text-sm text-center py-8"><Icon name="Loader" size={24} className="animate-spin mx-auto mb-2" />Загрузка...</div>
               ) : (
@@ -2005,16 +2192,17 @@ const ZdravpunktPage = () => {
                       <tr className="border-b border-slate-700">
                         <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-36">Дата</th>
                         <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3">Наименование компании</th>
-                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-40">Тип осмотра</th>
-                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-28">Кол-во работников</th>
-                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-36">Допуск</th>
+                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-2 w-24">Смена</th>
+                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-36">Тип осмотра</th>
+                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-24">Кол-во</th>
+                        <th className="text-left text-slate-400 text-xs font-medium pb-2 pr-3 w-32">Допуск</th>
                         <th className="pb-2 w-10"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-700/50">
                       {contractorRecords.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="text-slate-500 text-sm text-center py-10">
+                          <td colSpan={7} className="text-slate-500 text-sm text-center py-10">
                             <Icon name="Building2" size={32} className="mx-auto mb-2 opacity-30" />
                             Нет записей. Нажмите «Добавить строку» чтобы начать.
                           </td>
@@ -2037,6 +2225,23 @@ const ZdravpunktPage = () => {
                               onChange={e => setContractorRecords(prev => prev.map((r, i) => i === idx ? { ...r, company_name: e.target.value } : r))}
                               className="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:outline-none focus:border-teal-500 placeholder:text-slate-500"
                             />
+                          </td>
+                          {/* Кнопки смены День/Ночь */}
+                          <td className="py-2 pr-2">
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setContractorRecords(prev => prev.map((r, i) => i === idx ? { ...r, shift: 'day' } : r))}
+                                className={`px-2 py-1 rounded text-xs font-medium border transition ${(rec.shift || 'day') === 'day' ? 'bg-amber-500/30 border-amber-500/70 text-amber-300' : 'bg-slate-700 border-slate-600 text-slate-400 hover:border-amber-500/50'}`}
+                                title="Дневная смена"
+                              >☀</button>
+                              <button
+                                type="button"
+                                onClick={() => setContractorRecords(prev => prev.map((r, i) => i === idx ? { ...r, shift: 'night' } : r))}
+                                className={`px-2 py-1 rounded text-xs font-medium border transition ${rec.shift === 'night' ? 'bg-blue-500/30 border-blue-500/70 text-blue-300' : 'bg-slate-700 border-slate-600 text-slate-400 hover:border-blue-500/50'}`}
+                                title="Ночная смена"
+                              >☾</button>
+                            </div>
                           </td>
                           <td className="py-2 pr-3">
                             <select
@@ -2091,7 +2296,11 @@ const ZdravpunktPage = () => {
                     {contractorRecords.length > 0 && (
                       <tfoot>
                         <tr className="border-t border-slate-600">
-                          <td colSpan={3} className="pt-3 text-slate-400 text-xs">Итого строк: {contractorRecords.length}</td>
+                          <td colSpan={4} className="pt-3 text-slate-400 text-xs">
+                            Итого строк: {contractorRecords.length}
+                            {' '}· ☀ День: {contractorRecords.filter(r => (r.shift || 'day') === 'day').reduce((s, r) => s + (r.workers_count || 0), 0).toLocaleString('ru')}
+                            {' '}· ☾ Ночь: {contractorRecords.filter(r => r.shift === 'night').reduce((s, r) => s + (r.workers_count || 0), 0).toLocaleString('ru')}
+                          </td>
                           <td className="pt-3 text-white font-bold text-sm">
                             {contractorRecords.reduce((s, r) => s + (r.workers_count || 0), 0).toLocaleString('ru')}
                           </td>
