@@ -445,7 +445,7 @@ const ZdravpunktPage = () => {
   };
 
   // Быстрый отчёт из окошек статистики
-  type QuickReportType = 'not_admitted' | 'evaded' | 'all_esmo';
+  type QuickReportType = 'not_admitted' | 'evaded' | 'admitted' | 'all_esmo';
   const [quickReport, setQuickReport] = useState<{
     type: QuickReportType;
     title: string;
@@ -1824,7 +1824,7 @@ const ZdravpunktPage = () => {
                 {/* Детализация по допуску — кликабельные карточки с фильтром периода */}
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { label: 'Разрешен', value: reportStats.admitted, color: 'text-green-400', bg: 'bg-green-900/20 border-green-700/30', hover: 'hover:border-green-500/60 hover:bg-green-900/30', clickType: null as null, unique: null as number | null },
+                    { label: 'Разрешен', value: reportStats.admitted, color: 'text-green-400', bg: 'bg-green-900/20 border-green-700/30', hover: 'hover:border-green-500/60 hover:bg-green-900/30', clickType: 'admitted' as const, unique: null as number | null },
                     { label: 'Запрещен', value: reportStats.not_admitted, color: 'text-red-400', bg: 'bg-red-900/20 border-red-700/30', hover: 'hover:border-red-500/60 hover:bg-red-900/30', clickType: 'not_admitted' as const, unique: reportStats.unique_not_admitted },
                     { label: 'Уклонился', value: reportStats.evaded, color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-700/30', hover: 'hover:border-yellow-500/60 hover:bg-yellow-900/30', clickType: 'evaded' as const, unique: reportStats.unique_evaded },
                   ].map((s, i) => (
@@ -2511,9 +2511,9 @@ const ZdravpunktPage = () => {
             {/* Шапка */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
               <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-xl ${quickReport.type === 'not_admitted' ? 'bg-red-900/50' : quickReport.type === 'evaded' ? 'bg-yellow-900/50' : 'bg-purple-900/50'}`}>
-                  <Icon name={quickReport.type === 'not_admitted' ? 'XCircle' : quickReport.type === 'evaded' ? 'AlertCircle' : 'ClipboardList'} size={22}
-                    className={quickReport.type === 'not_admitted' ? 'text-red-400' : quickReport.type === 'evaded' ? 'text-yellow-400' : 'text-purple-400'} />
+                <div className={`p-2.5 rounded-xl ${quickReport.type === 'not_admitted' ? 'bg-red-900/50' : quickReport.type === 'evaded' ? 'bg-yellow-900/50' : quickReport.type === 'admitted' ? 'bg-green-900/50' : 'bg-purple-900/50'}`}>
+                  <Icon name={quickReport.type === 'not_admitted' ? 'XCircle' : quickReport.type === 'evaded' ? 'AlertCircle' : quickReport.type === 'admitted' ? 'CheckCircle' : 'ClipboardList'} size={22}
+                    className={quickReport.type === 'not_admitted' ? 'text-red-400' : quickReport.type === 'evaded' ? 'text-yellow-400' : quickReport.type === 'admitted' ? 'text-green-400' : 'text-purple-400'} />
                 </div>
                 <div>
                   <h2 className="text-white text-lg font-bold">{quickReport.title}</h2>
