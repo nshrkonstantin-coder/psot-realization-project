@@ -242,11 +242,12 @@ def handler(event: dict, context) -> dict:
                 'not_admitted': int(stat[2] or 0) + contr_not_admitted,
                 'evaded': int(stat[3] or 0) + contr_evaded,
                 'unique_workers': int(stat[4] or 0) + contr_workers_sum,
+                'unique_workers_esmo': int(stat[4] or 0),
+                'contractor_workers': contr_workers_sum,
                 'unique_not_admitted': unique_not_admitted,
                 'unique_evaded': unique_evaded,
                 'limit': limit,
                 'offset': offset_val,
-                'contractor_workers': contr_workers_sum,
                 'contractor_records': contr_records_count,
             }, ensure_ascii=False)}
 

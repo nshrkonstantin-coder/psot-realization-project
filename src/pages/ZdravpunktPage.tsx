@@ -131,7 +131,7 @@ const ZdravpunktPage = () => {
   const msCompRef = useRef<HTMLDivElement>(null);
   const msResRef = useRef<HTMLDivElement>(null);
   const [reportRecords, setReportRecords] = useState<ReportRecord[] | null>(null);
-  const [reportStats, setReportStats] = useState<{ total: number; admitted: number; not_admitted: number; evaded: number; unique_workers: number; unique_not_admitted: number; unique_evaded: number } | null>(null);
+  const [reportStats, setReportStats] = useState<{ total: number; admitted: number; not_admitted: number; evaded: number; unique_workers: number; unique_workers_esmo: number; contractor_workers: number; unique_not_admitted: number; unique_evaded: number } | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportPage, setReportPage] = useState(0);
   const PAGE_SIZE = 500;
@@ -1114,7 +1114,7 @@ const ZdravpunktPage = () => {
       if (data.success) {
         setReportRecords(data.records);
         setContractorReportList(data.contractor_records_list || []);
-        setReportStats({ total: data.total, admitted: data.admitted, not_admitted: data.not_admitted, evaded: data.evaded, unique_workers: data.unique_workers ?? 0, unique_not_admitted: data.unique_not_admitted ?? 0, unique_evaded: data.unique_evaded ?? 0 });
+        setReportStats({ total: data.total, admitted: data.admitted, not_admitted: data.not_admitted, evaded: data.evaded, unique_workers: data.unique_workers ?? 0, unique_workers_esmo: data.unique_workers_esmo ?? 0, contractor_workers: data.contractor_workers ?? 0, unique_not_admitted: data.unique_not_admitted ?? 0, unique_evaded: data.unique_evaded ?? 0 });
       } else {
         toast.error('Ошибка получения данных');
       }
@@ -1763,6 +1763,57 @@ const ZdravpunktPage = () => {
                       <div className="text-2xl font-bold text-white mt-0.5">{reportStats.total.toLocaleString('ru')}</div>
                       <div className="text-xs text-slate-600 mt-1">
                         в среднем {reportStats.unique_workers > 0 ? (reportStats.total / reportStats.unique_workers).toFixed(1) : '—'} осмотра на работника
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Карточка МО прошли — между главной и карточками допуска */}
+                <Card className="bg-slate-800/60 border-slate-600/60 p-4">
+                  <div className="flex items-stretch gap-0 divide-x divide-slate-600/60">
+                    {/* Левая часть — ЭСМО */}
+                    <div className="flex-1 flex items-center gap-3 pr-5">
+                      <div className="bg-blue-500/15 border border-blue-500/30 p-2.5 rounded-xl shrink-0">
+                        <Icon name="Stethoscope" size={20} className="text-blue-400" />
+                      </div>
+                      <div>
+                        <div className="text-slate-400 text-xs">МО прошли — ЭСМО</div>
+                        <div className="text-2xl font-bold text-blue-300 leading-tight">{reportStats.unique_workers_esmo.toLocaleString('ru')}</div>
+                        <div className="text-slate-500 text-xs mt-0.5">уник. ФИО за период</div>
+                      </div>
+                    </div>
+                    {/* Правая часть — ручной ввод */}
+                    <div className="flex-1 flex items-center gap-3 pl-5">
+                      <div className="bg-amber-500/15 border border-amber-500/30 p-2.5 rounded-xl shrink-0">
+                        <Icon name="Building2" size={20} className="text-amber-400" />
+                      </div>
+                      <div>
+                        <div className="text-slate-400 text-xs">МО прошли — Подрядчики</div>
+                        <div className="text-2xl font-bold text-amber-300 leading-tight">{reportStats.contractor_workers.toLocaleString('ru')}</div>
+                        <div className="text-slate-500 text-xs mt-0.5">
+                          {/* Разбивка по допуску из contractorReportList */}
+                          {contractorReportList.length > 0 && (() => {
+                            const adm = contractorReportList.filter(r => r.admission === 'admitted').reduce((s, r) => s + (r.workers_count || 0), 0);
+                            const notAdm = contractorReportList.filter(r => r.admission === 'not_admitted').reduce((s, r) => s + (r.workers_count || 0), 0);
+                            const ev = contractorReportList.filter(r => r.admission === 'evaded').reduce((s, r) => s + (r.workers_count || 0), 0);
+                            return (
+                              <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+                                {adm > 0 && <span className="text-green-400">✓ {adm} доп.</span>}
+                                {notAdm > 0 && <span className="text-red-400">✗ {notAdm} запр.</span>}
+                                {ev > 0 && <span className="text-yellow-400">⚠ {ev} укл.</span>}
+                              </span>
+                            );
+                          })()}
+                          {contractorReportList.length === 0 && 'чел. за период'}
+                        </div>
+                      </div>
+                    </div>
+                    {/* Итого */}
+                    <div className="flex items-center pl-5 shrink-0">
+                      <div className="text-center">
+                        <div className="text-slate-500 text-xs mb-1">МО прошли</div>
+                        <div className="text-3xl font-bold text-white">{(reportStats.unique_workers_esmo + reportStats.contractor_workers).toLocaleString('ru')}</div>
+                        <div className="text-slate-500 text-xs mt-0.5">всего</div>
                       </div>
                     </div>
                   </div>
