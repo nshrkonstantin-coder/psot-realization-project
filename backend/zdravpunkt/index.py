@@ -228,15 +228,19 @@ def handler(event: dict, context) -> dict:
                 })
             contr_workers_sum = sum(r['workers_count'] for r in contractor_list)
             contr_records_count = len(contractor_list)
+            # Считаем допуски из contractor_records по workers_count
+            contr_admitted = sum(r['workers_count'] for r in contractor_list if r['admission'] == 'admitted')
+            contr_not_admitted = sum(r['workers_count'] for r in contractor_list if r['admission'] == 'not_admitted')
+            contr_evaded = sum(r['workers_count'] for r in contractor_list if r['admission'] == 'evaded')
 
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
                 'success': True,
                 'records': records,
                 'contractor_records_list': contractor_list,
                 'total': total_count + contr_records_count,
-                'admitted': stat[1],
-                'not_admitted': stat[2],
-                'evaded': stat[3],
+                'admitted': int(stat[1] or 0) + contr_admitted,
+                'not_admitted': int(stat[2] or 0) + contr_not_admitted,
+                'evaded': int(stat[3] or 0) + contr_evaded,
                 'unique_workers': int(stat[4] or 0) + contr_workers_sum,
                 'unique_not_admitted': unique_not_admitted,
                 'unique_evaded': unique_evaded,

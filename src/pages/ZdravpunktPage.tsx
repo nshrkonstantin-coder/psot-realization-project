@@ -1805,7 +1805,7 @@ const ZdravpunktPage = () => {
 
             {reportRecords && (
               <Card className="bg-slate-800/50 border-slate-700 overflow-hidden">
-                {reportRecords.length === 0 ? (
+                {reportRecords.length === 0 && contractorReportList.length === 0 ? (
                   <div className="text-slate-500 text-center py-12">
                     <Icon name="SearchX" size={36} className="mx-auto mb-3 opacity-40" />
                     Нет данных по выбранным фильтрам
@@ -1925,7 +1925,7 @@ const ZdravpunktPage = () => {
                         <table className="w-full text-sm">
                           <thead className="bg-slate-700/30 text-xs">
                             <tr>
-                              {['Дата', 'Наименование компании', 'Тип осмотра', 'Кол-во работников', 'Допуск'].map(h => (
+                              {['Дата', 'Компания', 'Смена', 'Тип осмотра', 'Кол-во работников', 'Допуск'].map(h => (
                                 <th key={h} className="px-4 py-2.5 text-left font-semibold text-teal-300/80 border-b border-slate-600 whitespace-nowrap">{h}</th>
                               ))}
                             </tr>
@@ -1933,12 +1933,15 @@ const ZdravpunktPage = () => {
                           <tbody className="divide-y divide-slate-700/40">
                             {contractorReportList.map((cr, i) => {
                               const adm = admissionLabel[cr.admission] || admissionLabel['admitted'];
+                              const shiftLabel = (cr as ContractorRecord).shift === 'night' ? '☾ Ночь' : '☀ День';
+                              const shiftCls = (cr as ContractorRecord).shift === 'night' ? 'text-blue-300' : 'text-amber-300';
                               return (
                                 <tr key={cr.id ?? i} className="hover:bg-teal-900/10 transition">
                                   <td className="px-4 py-2.5 text-slate-300 whitespace-nowrap">
                                     {cr.record_date ? new Date(cr.record_date + 'T00:00:00').toLocaleDateString('ru') : '—'}
                                   </td>
-                                  <td className="px-4 py-2.5 text-white font-medium">{cr.company_name}</td>
+                                  <td className="px-4 py-2.5 text-white font-medium">{cr.company_name || '—'}</td>
+                                  <td className={`px-4 py-2.5 font-medium text-xs ${shiftCls}`}>{shiftLabel}</td>
                                   <td className="px-4 py-2.5 text-slate-300">{examTypeLabel[cr.exam_type] || cr.exam_type}</td>
                                   <td className="px-4 py-2.5 text-white font-bold">{cr.workers_count.toLocaleString('ru')}</td>
                                   <td className="px-4 py-2.5">
@@ -1952,7 +1955,11 @@ const ZdravpunktPage = () => {
                           </tbody>
                           <tfoot>
                             <tr className="border-t border-slate-600">
-                              <td colSpan={3} className="px-4 pt-2.5 pb-3 text-slate-400 text-xs">Итого подрядчиков: {contractorReportList.length}</td>
+                              <td colSpan={4} className="px-4 pt-2.5 pb-3 text-slate-400 text-xs">
+                                Итого строк: {contractorReportList.length}
+                                {' · '}☀ День: {contractorReportList.filter(r => (r as ContractorRecord).shift !== 'night').reduce((s, r) => s + (r.workers_count || 0), 0).toLocaleString('ru')}
+                                {' · '}☾ Ночь: {contractorReportList.filter(r => (r as ContractorRecord).shift === 'night').reduce((s, r) => s + (r.workers_count || 0), 0).toLocaleString('ru')}
+                              </td>
                               <td className="px-4 pt-2.5 pb-3 text-white font-bold">
                                 {contractorReportList.reduce((s, r) => s + (r.workers_count || 0), 0).toLocaleString('ru')}
                               </td>
