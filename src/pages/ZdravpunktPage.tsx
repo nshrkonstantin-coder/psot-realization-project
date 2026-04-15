@@ -129,6 +129,9 @@ const ZdravpunktPage = () => {
   const [contractorRecords, setContractorRecords] = useState<ContractorRecord[]>([]);
   const [contractorLoading, setContractorLoading] = useState(false);
   const [contractorSaving, setContractorSaving] = useState(false);
+  // Если пользователь без организации (superadmin) — выбор организации для блока подрядчиков
+  const [orgList, setOrgList] = useState<{ id: number; name: string }[]>([]);
+  const [selectedContractorOrgId, setSelectedContractorOrgId] = useState<string>(orgId);
   // Подрядчики в отчёте (секция снизу таблицы)
   const [contractorReportList, setContractorReportList] = useState<ContractorRecord[]>([]);
 
@@ -602,7 +605,27 @@ const ZdravpunktPage = () => {
   useEffect(() => {
     if (!isAdmin) { navigate('/dashboard'); return; }
     loadAll();
+    // Если superadmin без организации — подгружаем список организаций для выбора в блоке подрядчиков
+    if (!orgId) {
+      fetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?action=list', {
+        headers: { 'X-User-Id': localStorage.getItem('userId') || '' }
+      })
+        .then(r => r.json())
+        .then(d => { if (d.success) setOrgList((d.organizations || []).map((o: { id: number; name: string }) => ({ id: o.id, name: o.name }))); })
+        .catch(() => {});
+    }
   }, []);
+
+  // При смене организации в блоке подрядчиков — перезагружаем записи
+  useEffect(() => {
+    if (!selectedContractorOrgId) return;
+    setContractorLoading(true);
+    fetch(`${API}?action=contractor_records&organization_id=${selectedContractorOrgId}`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setContractorRecords(d.records || []); })
+      .catch(() => {})
+      .finally(() => setContractorLoading(false));
+  }, [selectedContractorOrgId]);
 
   const loadAll = async () => {
     setLoading(true);
@@ -632,14 +655,14 @@ const ZdravpunktPage = () => {
   };
 
   const saveContractorRecords = async (records: ContractorRecord[]) => {
-    const currentOrgId = localStorage.getItem('organizationId') || '';
-    if (!currentOrgId) {
-      toast.error('Не определена организация. Попробуйте перезайти в систему.');
+    const effectiveOrgId = selectedContractorOrgId || orgId;
+    if (!effectiveOrgId) {
+      toast.error('Выберите организацию перед сохранением.');
       return;
     }
     setContractorSaving(true);
     try {
-      const payload = { action: 'save_contractor_records', organization_id: currentOrgId, records };
+      const payload = { action: 'save_contractor_records', organization_id: effectiveOrgId, records };
       const res = await fetch(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -650,8 +673,8 @@ const ZdravpunktPage = () => {
         toast.success('Сохранено');
         // Перезагружаем записи подрядчиков и фильтры (чтобы новые компании появились в выпадашке отчёта)
         const [crRes, flRes] = await Promise.all([
-          fetch(`${API}?action=contractor_records&organization_id=${currentOrgId}`),
-          fetch(`${API}?action=filters&organization_id=${currentOrgId}`)
+          fetch(`${API}?action=contractor_records&organization_id=${effectiveOrgId}`),
+          fetch(`${API}?action=filters&organization_id=${effectiveOrgId}`)
         ]);
         const crData = await crRes.json();
         const flData = await flRes.json();
@@ -668,12 +691,12 @@ const ZdravpunktPage = () => {
   };
 
   const deleteContractorRecord = async (id: number) => {
-    const currentOrgId = localStorage.getItem('organizationId') || '';
+    const effectiveOrgId = selectedContractorOrgId || orgId;
     try {
       const res = await fetch(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete_contractor_record', id, organization_id: currentOrgId })
+        body: JSON.stringify({ action: 'delete_contractor_record', id, organization_id: effectiveOrgId })
       });
       const data = await res.json();
       if (data.success) {
@@ -1935,7 +1958,20 @@ const ZdravpunktPage = () => {
                   <Icon name="Building2" size={18} className="text-teal-400" />
                   Ручной ввод — Подрядчик / компания
                 </h2>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                  {/* Выбор организации для superadmin без привязанной организации */}
+                  {!orgId && orgList.length > 0 && (
+                    <select
+                      value={selectedContractorOrgId}
+                      onChange={e => setSelectedContractorOrgId(e.target.value)}
+                      className="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:outline-none focus:border-teal-500"
+                    >
+                      <option value="">— Выберите организацию —</option>
+                      {orgList.map(o => (
+                        <option key={o.id} value={String(o.id)}>{o.name}</option>
+                      ))}
+                    </select>
+                  )}
                   <button
                     onClick={() => {
                       const today = new Date().toISOString().split('T')[0];
