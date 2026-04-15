@@ -2095,9 +2095,21 @@ const ZdravpunktPage = () => {
                     <div className="space-y-2">
                       {prolongations.map((pl, idx) => (
                         <div key={pl.id ?? `pl-${idx}`} className="flex gap-2 items-center flex-wrap bg-amber-900/20 rounded-lg px-3 py-2">
-                          {/* Вкл/выкл */}
+                          {/* Вкл/выкл — сохраняется сразу */}
                           <button
-                            onClick={() => setProlongations(prev => prev.map((p, i) => i === idx ? { ...p, is_active: !p.is_active } : p))}
+                            onClick={async () => {
+                              const newActive = !pl.is_active;
+                              setProlongations(prev => prev.map((p, i) => i === idx ? { ...p, is_active: newActive } : p));
+                              if (pl.id) {
+                                const effectiveOrgId = selectedContractorOrgId || orgId;
+                                await fetch(API, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ action: 'save_prolongation', organization_id: effectiveOrgId, id: pl.id, company_name: pl.company_name, workers_count_day: pl.workers_count_day, workers_count_night: pl.workers_count_night, admission: pl.admission, exam_type: pl.exam_type, is_active: newActive })
+                                });
+                                toast.success(newActive ? 'Пролонгация включена' : 'Пролонгация отключена — данные за прошлые дни сохранены');
+                              }
+                            }}
                             className={`shrink-0 px-2 py-1 rounded text-xs font-medium border transition ${pl.is_active ? 'bg-green-700/40 border-green-600/60 text-green-300' : 'bg-slate-700/60 border-slate-600/60 text-slate-400'}`}
                           >
                             {pl.is_active ? 'Вкл' : 'Выкл'}
