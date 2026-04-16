@@ -110,20 +110,24 @@ const SortableRow = ({
         )}
       </td>
       <td className="p-3" onClick={() => onOpen(w.id)} style={{ cursor: 'pointer' }}>
-        <span className="text-xs text-blue-400 font-mono bg-blue-500/10 px-1.5 py-0.5 rounded">{w.worker_number}</span>
+        <span className="text-xs text-blue-400 font-mono bg-blue-500/10 px-1.5 py-0.5 rounded">
+          {activeSheet === 'КР + СОУТ' ? idx + 1 : w.worker_number}
+        </span>
       </td>
-      <td className="p-2" onClick={e => e.stopPropagation()}>
-        {qrImages[w.qr_token] ? (
-          <div className="flex items-center gap-1">
-            <img src={qrImages[w.qr_token]} alt="QR" style={{ width: 36, height: 36, imageRendering: 'pixelated' }} className="rounded border border-slate-600" />
-            <button onClick={() => onPrintQr(w)} className="p-1 rounded hover:bg-slate-700 text-slate-500 hover:text-white transition" title="Печать визитки">
-              <Icon name="Printer" size={12} />
-            </button>
-          </div>
-        ) : (
-          <div style={{ width: 36, height: 36 }} className="bg-slate-700 rounded animate-pulse" />
-        )}
-      </td>
+      {activeSheet !== 'КР + СОУТ' && (
+        <td className="p-2" onClick={e => e.stopPropagation()}>
+          {qrImages[w.qr_token] ? (
+            <div className="flex items-center gap-1">
+              <img src={qrImages[w.qr_token]} alt="QR" style={{ width: 36, height: 36, imageRendering: 'pixelated' }} className="rounded border border-slate-600" />
+              <button onClick={() => onPrintQr(w)} className="p-1 rounded hover:bg-slate-700 text-slate-500 hover:text-white transition" title="Печать визитки">
+                <Icon name="Printer" size={12} />
+              </button>
+            </div>
+          ) : (
+            <div style={{ width: 36, height: 36 }} className="bg-slate-700 rounded animate-pulse" />
+          )}
+        </td>
+      )}
       {activeSheet === '__all__' ? (
         <>
           <td className="p-3 font-medium text-white cursor-pointer" onClick={() => onOpen(w.id)}>{w.fio}</td>
@@ -1057,8 +1061,8 @@ const WorkersRegistryPage = () => {
                 <thead>
                   <tr className="bg-slate-800 border-b border-slate-700">
                     {isOtipb && activeSheet !== '__all__' && <th className="w-8 p-2"></th>}
-                    <th className="text-left p-3 text-slate-400 font-medium whitespace-nowrap">№ID</th>
-                    <th className="text-left p-3 text-slate-400 font-medium">QR</th>
+                    <th className="text-left p-3 text-slate-400 font-medium whitespace-nowrap">{activeSheet === 'КР + СОУТ' ? '№' : '№ID'}</th>
+                    {activeSheet !== 'КР + СОУТ' && <th className="text-left p-3 text-slate-400 font-medium">QR</th>}
                     {(activeSheet === '__all__' ? ['ФИО', 'Раздел', 'Подразделение', 'Должность'] :
                       sheetColumns.length > 0
                         ? sheetColumns.map(c => c.label)
