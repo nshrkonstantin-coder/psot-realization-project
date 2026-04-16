@@ -66,6 +66,36 @@ interface Column {
   is_core: boolean;
 }
 
+// ── Редактируемая ячейка ─────────────────────────────────────────────────
+interface EditableCellProps {
+  colKey: string;
+  defaultVal: string;
+  isFio?: boolean;
+  canEdit: boolean;
+  edits: Record<string, string>;
+  workerId: number;
+  onCellEdit: (workerId: number, key: string, value: string) => void;
+}
+
+const EditableCell = ({ colKey, defaultVal, isFio, canEdit, edits, workerId, onCellEdit }: EditableCellProps) => {
+  const currentVal = edits[colKey] !== undefined ? edits[colKey] : defaultVal;
+  const isDirty = edits[colKey] !== undefined && edits[colKey] !== defaultVal;
+  if (!canEdit) {
+    return isFio
+      ? <span className="text-white font-medium">{currentVal || '—'}</span>
+      : <span>{currentVal || '—'}</span>;
+  }
+  return (
+    <input
+      className={`w-full bg-transparent border-0 outline-none text-sm px-0 py-0 ${isFio ? 'text-white font-medium' : 'text-slate-300'} ${isDirty ? 'border-b border-yellow-500/60' : ''} focus:border-b focus:border-blue-400/60 min-w-0`}
+      value={currentVal === '—' ? '' : currentVal}
+      placeholder={defaultVal === '—' ? '—' : ''}
+      onChange={e => onCellEdit(workerId, colKey, e.target.value)}
+      onClick={e => e.stopPropagation()}
+    />
+  );
+};
+
 // ── Сортируемая строка таблицы ───────────────────────────────────────────
 interface SortableRowProps {
   worker: Worker;
@@ -92,25 +122,6 @@ const SortableRow = ({
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const edits = pendingEdits[w.id] || {};
   const canEdit = isOtipb && activeSheet !== '__all__';
-
-  const EditableCell = ({ colKey, defaultVal, isFio }: { colKey: string; defaultVal: string; isFio?: boolean }) => {
-    const currentVal = edits[colKey] !== undefined ? edits[colKey] : defaultVal;
-    const isDirty = edits[colKey] !== undefined && edits[colKey] !== defaultVal;
-    if (!canEdit) {
-      return isFio
-        ? <span className="text-white font-medium">{currentVal || '—'}</span>
-        : <span>{currentVal || '—'}</span>;
-    }
-    return (
-      <input
-        className={`w-full bg-transparent border-0 outline-none text-sm px-0 py-0 ${isFio ? 'text-white font-medium' : 'text-slate-300'} ${isDirty ? 'border-b border-yellow-500/60' : ''} focus:border-b focus:border-blue-400/60 min-w-0`}
-        value={currentVal === '—' ? '' : currentVal}
-        placeholder={defaultVal === '—' ? '—' : ''}
-        onChange={e => onCellEdit(w.id, colKey, e.target.value)}
-        onClick={e => e.stopPropagation()}
-      />
-    );
-  };
 
   return (
     <tr
@@ -164,15 +175,15 @@ const SortableRow = ({
           const rawVal = isFio ? w.fio : (w.extra_data?.[col.key] || '—');
           return (
             <td key={col.key} className="p-3 max-w-[180px]" title={rawVal}>
-              <EditableCell colKey={col.key} defaultVal={rawVal} isFio={isFio} />
+              <EditableCell colKey={col.key} defaultVal={rawVal} isFio={isFio} canEdit={canEdit} edits={edits} workerId={w.id} onCellEdit={onCellEdit} />
             </td>
           );
         })
       ) : (
         <>
-          <td className="p-3"><EditableCell colKey="ФИО" defaultVal={w.fio} isFio /></td>
-          <td className="p-3"><EditableCell colKey="Подразделение" defaultVal={w.subdivision || '—'} /></td>
-          <td className="p-3"><EditableCell colKey="Должность" defaultVal={w.position || '—'} /></td>
+          <td className="p-3"><EditableCell colKey="ФИО" defaultVal={w.fio} isFio canEdit={canEdit} edits={edits} workerId={w.id} onCellEdit={onCellEdit} /></td>
+          <td className="p-3"><EditableCell colKey="Подразделение" defaultVal={w.subdivision || '—'} canEdit={canEdit} edits={edits} workerId={w.id} onCellEdit={onCellEdit} /></td>
+          <td className="p-3"><EditableCell colKey="Должность" defaultVal={w.position || '—'} canEdit={canEdit} edits={edits} workerId={w.id} onCellEdit={onCellEdit} /></td>
         </>
       )}
       {/* Действия */}

@@ -207,7 +207,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 body_raw = base64.b64decode(body_raw).decode('utf-8')
             body = json.loads(body_raw)
             action_post = body.get('action', action)
-            o_id = body.get('organization_id', org_id)
+            _o_raw = body.get('organization_id', org_id)
+            o_id = int(_o_raw) if _o_raw and str(_o_raw).strip().isdigit() else org_id
 
             # ── analyze_excel: сохранить структуру всех листов (этап 1) ──────
             if action_post == 'analyze_excel':
