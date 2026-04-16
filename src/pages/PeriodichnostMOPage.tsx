@@ -46,7 +46,7 @@ const PeriodichnostMOPage = () => {
   const tbodyRef                = useRef<HTMLTableSectionElement>(null);
 
   useEffect(() => { rowsRef.current = rows; }, [rows]);
-  useEffect(() => { fetchPageLocks(); loadData(); }, []);
+  useEffect(() => { fetchPageLocks().then(() => loadData()); }, []);
 
   const loadData = async () => {
     setLoading(true);

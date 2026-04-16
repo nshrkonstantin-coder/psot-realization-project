@@ -12,6 +12,8 @@ const PageLockBadge = ({ pageKey }: PageLockBadgeProps) => {
   const canManage             = canManageLocks();
 
   useEffect(() => {
+    // При смене вкладки сразу обновляем состояние из кэша
+    setLocked(isPageLocked(pageKey));
     const sync = () => setLocked(isPageLocked(pageKey));
     window.addEventListener('page-lock-changed', sync);
     window.addEventListener('page-locks-updated', sync);

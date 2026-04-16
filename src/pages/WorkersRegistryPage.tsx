@@ -236,8 +236,8 @@ const WorkersRegistryPage = () => {
   useEffect(() => {
     if (!userId) { navigate('/'); return; }
     if (!isOtipb) { navigate('/dashboard'); return; }
-    fetchPageLocks();
-    loadData();
+    // Сначала загружаем блокировки, потом данные — чтобы badge сразу показал правильный статус
+    fetchPageLocks().then(() => loadData());
   }, []);
 
   // Проверка QR из URL
