@@ -615,10 +615,6 @@ const WorkersRegistryPage = () => {
     const formCols = columns.filter(c => c.sheet_name === addFormSheet).sort((a, b) => a.order - b.order);
     const hasFio = formCols.some(c => c.key === 'ФИО');
     if (hasFio && !newWorker.fio.trim()) { toast.error('Введите ФИО'); return; }
-    // Если ФИО нет в колонках — считаем первое непустое extra_data обязательным
-    if (!hasFio && Object.values(newWorker.extra_data).every(v => !v.trim())) {
-      toast.error('Заполните хотя бы одно поле'); return;
-    }
     setAddingWorker(true);
     const targetSheet = addFormSheet || activeSheet || 'Работники';
     try {

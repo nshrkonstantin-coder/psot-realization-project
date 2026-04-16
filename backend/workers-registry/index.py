@@ -351,10 +351,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 user_id = body.get('user_id', '')
                 extra = body.get('extra_data', {})
 
-                if not fio:
-                    return {'statusCode': 400, 'headers': CORS,
-                            'body': json.dumps({'success': False, 'error': 'ФИО обязательно'})}
-
                 worker_number = next_worker_number(cur, SCHEMA)
                 qr_token = str(uuid.uuid4()).replace('-', '')[:32]
 
