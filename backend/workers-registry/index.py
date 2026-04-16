@@ -358,6 +358,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 worker_number = next_worker_number(cur, SCHEMA)
                 qr_token = str(uuid.uuid4()).replace('-', '')[:32]
 
+                # Автоматически назначаем № п/п как max+1 для этого листа
+                cur.execute(
+                    f"""SELECT COALESCE(MAX(CAST(extra_data->>'№ п/п' AS INTEGER)), 0) + 1
+                        FROM {SCHEMA}.wr_employees
+                        WHERE sheet_name = %s AND (archived = false OR archived IS NULL)""",
+                    (sheet_name,)
+                )
+                next_num = cur.fetchone()[0]
+                extra['№ п/п'] = str(next_num)
+
                 cur.execute(
                     f"""INSERT INTO {SCHEMA}.wr_employees
                         (organization_id, worker_number, qr_token, fio, subdivision, position_name,
