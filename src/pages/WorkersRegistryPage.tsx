@@ -9,6 +9,8 @@ import PageLockBadge from '@/components/ui/PageLockBadge';
 import { isPageLocked } from '@/hooks/usePageLock';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
 
 const WORKERS_API = 'https://functions.poehali.dev/85a795aa-16f4-4214-8690-191bbd6e73d2';
@@ -35,10 +37,10 @@ interface Worker {
   subdivision: string;
   position: string;
   sheet_name: string;
+  extra_data: Record<string, string>;
 }
 
 interface WorkerFull extends Worker {
-  extra_data: Record<string, string>;
   created_at: string;
 }
 
@@ -201,6 +203,63 @@ const WorkersRegistryPage = () => {
       }
     } catch { toast.error('Ошибка сохранения'); }
     finally { setSavingWorker(false); }
+  };
+
+  // ── Экспорт карточки работника в Excel ────────────────────────────────────
+  const exportWorkerExcel = (worker: WorkerFull) => {
+    const workerCols = columns.filter(c => c.sheet_name === worker.sheet_name).sort((a, b) => a.order - b.order);
+    const fields = workerCols.length > 0
+      ? workerCols.map(c => ({ label: c.label, value: c.key === 'ФИО' ? worker.fio : (worker.extra_data?.[c.key] || '') }))
+      : [
+          { label: 'ФИО', value: worker.fio },
+          { label: 'Подразделение', value: worker.subdivision },
+          { label: 'Должность', value: worker.position },
+          ...Object.entries(worker.extra_data || {}).filter(([k]) => !['ФИО', 'Подразделение', 'Должность', 'fio_lower'].includes(k)).map(([k, v]) => ({ label: k, value: v })),
+        ];
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Карточка работника'],
+      [`Раздел: ${worker.sheet_name}`, `ID: ${worker.worker_number}`],
+      [],
+      ['Поле', 'Значение'],
+      ...fields.map(f => [f.label, f.value]),
+    ]);
+    ws['!cols'] = [{ wch: 30 }, { wch: 60 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Карточка');
+    XLSX.writeFile(wb, `Работник_${worker.fio.replace(/\s+/g, '_')}.xlsx`);
+  };
+
+  // ── Печать карточки работника в PDF ───────────────────────────────────────
+  const printWorkerPDF = (worker: WorkerFull) => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('Карточка работника', 14, 18);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Раздел: ${worker.sheet_name}   |   ID: ${worker.worker_number}`, 14, 26);
+
+    const workerCols = columns.filter(c => c.sheet_name === worker.sheet_name).sort((a, b) => a.order - b.order);
+    const fields = workerCols.length > 0
+      ? workerCols.map(c => [c.label, c.key === 'ФИО' ? worker.fio : (worker.extra_data?.[c.key] || '—')])
+      : [
+          ['ФИО', worker.fio],
+          ['Подразделение', worker.subdivision || '—'],
+          ['Должность', worker.position || '—'],
+          ...Object.entries(worker.extra_data || {}).filter(([k]) => !['ФИО', 'Подразделение', 'Должность', 'fio_lower'].includes(k)).map(([k, v]) => [k, v || '—']),
+        ];
+
+    autoTable(doc, {
+      startY: 32,
+      head: [['Поле', 'Значение']],
+      body: fields,
+      theme: 'grid',
+      headStyles: { fillColor: [30, 80, 120], textColor: 255, fontSize: 10, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 9, textColor: 30 },
+      columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' }, 1: { cellWidth: 120 } },
+      margin: { left: 14, right: 14 },
+    });
+    doc.save(`Работник_${worker.fio.replace(/\s+/g, '_')}.pdf`);
   };
 
   // ── Excel: чтение всех листов ─────────────────────────────────────────────
@@ -764,11 +823,15 @@ const WorkersRegistryPage = () => {
                         <td className="p-3 text-slate-300">{w.position || '—'}</td>
                       </>
                     ) : sheetColumns.length > 0 ? (
-                      sheetColumns.map((col, ci) => (
-                        <td key={ci} className="p-3 text-slate-300 max-w-48 truncate" title={String((w as Record<string, unknown>)[col.key] || w.fio || '')}>
-                          {ci === 0 ? <span className="text-white font-medium">{w.fio}</span> : ((w as Record<string, unknown>)[col.key] as string) || '—'}
-                        </td>
-                      ))
+                      sheetColumns.map((col) => {
+                        const isFio = col.key === 'ФИО';
+                        const val = isFio ? w.fio : (w.extra_data?.[col.key] || '—');
+                        return (
+                          <td key={col.key} className="p-3 text-slate-300 max-w-[180px] truncate" title={val}>
+                            {isFio ? <span className="text-white font-medium">{val}</span> : <span>{val}</span>}
+                          </td>
+                        );
+                      })
                     ) : (
                       <>
                         <td className="p-3 font-medium text-white">{w.fio}</td>
@@ -818,10 +881,24 @@ const WorkersRegistryPage = () => {
                       onClick={() => printQrCard(selectedWorker as unknown as Worker)}
                       className="text-xs text-blue-400 hover:text-blue-300 mt-1 flex items-center gap-1 mx-auto"
                     >
-                      <Icon name="Printer" size={11} />Печать
+                      <Icon name="Printer" size={11} />QR
                     </button>
                   </div>
                 )}
+                <button
+                  onClick={() => exportWorkerExcel(selectedWorker)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-700/30 border border-green-600/40 text-green-400 text-sm hover:bg-green-700/50 transition"
+                  title="Скачать Excel"
+                >
+                  <Icon name="FileSpreadsheet" size={15} />Excel
+                </button>
+                <button
+                  onClick={() => printWorkerPDF(selectedWorker)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-700/30 border border-red-600/40 text-red-400 text-sm hover:bg-red-700/50 transition"
+                  title="Скачать PDF"
+                >
+                  <Icon name="FileText" size={15} />PDF
+                </button>
                 <button onClick={() => { setSelectedWorker(null); setEditMode(false); }} className="p-2 rounded-lg hover:bg-slate-700 text-slate-400 ml-1">
                   <Icon name="X" size={20} />
                 </button>
@@ -854,12 +931,29 @@ const WorkersRegistryPage = () => {
               ) : (
                 <div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <InfoRow label="ФИО" value={selectedWorker.fio} />
-                    <InfoRow label="Подразделение" value={selectedWorker.subdivision} />
-                    <InfoRow label="Должность" value={selectedWorker.position} />
-                    {Object.entries(selectedWorker.extra_data || {})
-                      .filter(([k]) => !['fio', 'subdivision', 'position', 'fio_lower'].includes(k))
-                      .map(([k, v]) => <InfoRow key={k} label={k} value={String(v)} />)}
+                    {(() => {
+                      const workerCols = columns.filter(c => c.sheet_name === selectedWorker.sheet_name).sort((a, b) => a.order - b.order);
+                      if (workerCols.length > 0) {
+                        return workerCols.map(col => {
+                          const val = col.key === 'ФИО' ? selectedWorker.fio
+                            : col.key === 'Подразделение' ? (selectedWorker.subdivision || selectedWorker.extra_data?.['Подразделение'] || '')
+                            : col.key === 'Должность' ? (selectedWorker.position || selectedWorker.extra_data?.['Должность'] || '')
+                            : (selectedWorker.extra_data?.[col.key] || '');
+                          return <InfoRow key={col.key} label={col.label} value={val} />;
+                        });
+                      }
+                      const skipKeys = new Set(['ФИО', 'Подразделение', 'Должность', 'fio_lower']);
+                      return (
+                        <>
+                          <InfoRow label="ФИО" value={selectedWorker.fio} />
+                          <InfoRow label="Подразделение" value={selectedWorker.subdivision} />
+                          <InfoRow label="Должность" value={selectedWorker.position} />
+                          {Object.entries(selectedWorker.extra_data || {})
+                            .filter(([k]) => !skipKeys.has(k))
+                            .map(([k, v]) => <InfoRow key={k} label={k} value={String(v)} />)}
+                        </>
+                      );
+                    })()}
                   </div>
                   {isOtipb && (
                     <Button onClick={() => setEditMode(true)} className="mt-4 bg-blue-600 hover:bg-blue-700">
