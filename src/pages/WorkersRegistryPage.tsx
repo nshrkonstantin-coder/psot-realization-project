@@ -75,25 +75,48 @@ interface SortableRowProps {
   sheetColumns: Column[];
   qrImages: Record<string, string>;
   confirmDeleteId: number | null;
+  pendingEdits: Record<number, Record<string, string>>;
   onOpen: (id: number) => void;
   onPrintQr: (w: Worker) => void;
   onDeleteClick: (id: number) => void;
   onDeleteConfirm: (id: number) => void;
   onDeleteCancel: () => void;
+  onCellEdit: (workerId: number, key: string, value: string) => void;
 }
 
 const SortableRow = ({
   worker: w, idx, isOtipb, activeSheet, sheetColumns, qrImages,
-  confirmDeleteId, onOpen, onPrintQr, onDeleteClick, onDeleteConfirm, onDeleteCancel,
+  confirmDeleteId, pendingEdits, onOpen, onPrintQr, onDeleteClick, onDeleteConfirm, onDeleteCancel, onCellEdit,
 }: SortableRowProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: w.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const edits = pendingEdits[w.id] || {};
+  const canEdit = isOtipb && activeSheet !== '__all__';
+
+  const EditableCell = ({ colKey, defaultVal, isFio }: { colKey: string; defaultVal: string; isFio?: boolean }) => {
+    const currentVal = edits[colKey] !== undefined ? edits[colKey] : defaultVal;
+    const isDirty = edits[colKey] !== undefined && edits[colKey] !== defaultVal;
+    if (!canEdit) {
+      return isFio
+        ? <span className="text-white font-medium">{currentVal || '—'}</span>
+        : <span>{currentVal || '—'}</span>;
+    }
+    return (
+      <input
+        className={`w-full bg-transparent border-0 outline-none text-sm px-0 py-0 ${isFio ? 'text-white font-medium' : 'text-slate-300'} ${isDirty ? 'border-b border-yellow-500/60' : ''} focus:border-b focus:border-blue-400/60 min-w-0`}
+        value={currentVal === '—' ? '' : currentVal}
+        placeholder={defaultVal === '—' ? '—' : ''}
+        onChange={e => onCellEdit(w.id, colKey, e.target.value)}
+        onClick={e => e.stopPropagation()}
+      />
+    );
+  };
 
   return (
     <tr
       ref={setNodeRef}
       style={style}
-      className={`border-b border-slate-700/50 transition group ${idx % 2 === 0 ? 'bg-slate-900' : 'bg-slate-900/60'} ${isDragging ? 'shadow-lg shadow-blue-900/30 z-10' : 'hover:bg-slate-800/80'}`}
+      className={`border-b border-slate-700/50 transition group ${idx % 2 === 0 ? 'bg-slate-900' : 'bg-slate-900/60'} ${isDragging ? 'shadow-lg shadow-blue-900/30 z-10' : 'hover:bg-slate-800/80'} ${Object.keys(edits).length > 0 ? 'ring-1 ring-inset ring-yellow-500/20' : ''}`}
     >
       {/* Drag handle */}
       <td className="p-2 w-8">
@@ -109,7 +132,7 @@ const SortableRow = ({
           </button>
         )}
       </td>
-      <td className="p-3" onClick={() => onOpen(w.id)} style={{ cursor: 'pointer' }}>
+      <td className="p-3" onClick={canEdit ? undefined : () => onOpen(w.id)} style={{ cursor: canEdit ? 'default' : 'pointer' }}>
         <span className="text-xs text-blue-400 font-mono bg-blue-500/10 px-1.5 py-0.5 rounded">
           {activeSheet === 'КР + СОУТ' || activeSheet === 'ЕПТ РТН' ? idx + 1 : w.worker_number}
         </span>
@@ -138,18 +161,18 @@ const SortableRow = ({
       ) : sheetColumns.length > 0 ? (
         sheetColumns.map((col) => {
           const isFio = col.key === 'ФИО';
-          const val = isFio ? w.fio : (w.extra_data?.[col.key] || '—');
+          const rawVal = isFio ? w.fio : (w.extra_data?.[col.key] || '—');
           return (
-            <td key={col.key} className="p-3 text-slate-300 max-w-[180px] truncate cursor-pointer" title={val} onClick={() => onOpen(w.id)}>
-              {isFio ? <span className="text-white font-medium">{val}</span> : <span>{val}</span>}
+            <td key={col.key} className="p-3 max-w-[180px]" title={rawVal}>
+              <EditableCell colKey={col.key} defaultVal={rawVal} isFio={isFio} />
             </td>
           );
         })
       ) : (
         <>
-          <td className="p-3 font-medium text-white cursor-pointer" onClick={() => onOpen(w.id)}>{w.fio}</td>
-          <td className="p-3 text-slate-300 cursor-pointer" onClick={() => onOpen(w.id)}>{w.subdivision || '—'}</td>
-          <td className="p-3 text-slate-300 cursor-pointer" onClick={() => onOpen(w.id)}>{w.position || '—'}</td>
+          <td className="p-3"><EditableCell colKey="ФИО" defaultVal={w.fio} isFio /></td>
+          <td className="p-3"><EditableCell colKey="Подразделение" defaultVal={w.subdivision || '—'} /></td>
+          <td className="p-3"><EditableCell colKey="Должность" defaultVal={w.position || '—'} /></td>
         </>
       )}
       {/* Действия */}
@@ -232,6 +255,51 @@ const WorkersRegistryPage = () => {
   // Удаление / перетаскивание
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  // Inline-редактирование строк
+  const [pendingEdits, setPendingEdits] = useState<Record<number, Record<string, string>>>({});
+  const [savingEdits, setSavingEdits] = useState(false);
+
+  const handleCellEdit = useCallback((workerId: number, key: string, value: string) => {
+    setPendingEdits(prev => ({
+      ...prev,
+      [workerId]: { ...(prev[workerId] || {}), [key]: value }
+    }));
+  }, []);
+
+  const saveAllPendingEdits = async () => {
+    const dirtyIds = Object.keys(pendingEdits).map(Number);
+    if (dirtyIds.length === 0) return;
+    setSavingEdits(true);
+    try {
+      await Promise.all(dirtyIds.map(async (id) => {
+        const worker = allWorkers.find(w => w.id === id);
+        if (!worker) return;
+        const edits = pendingEdits[id];
+        const fio = edits['ФИО'] !== undefined ? edits['ФИО'] : worker.fio;
+        const subdivision = edits['Подразделение'] !== undefined ? edits['Подразделение'] : worker.subdivision;
+        const position_name = edits['Должность'] !== undefined ? edits['Должность'] : worker.position;
+        const extra_data: Record<string, string> = { ...(worker.extra_data || {}) };
+        Object.entries(edits).forEach(([k, v]) => {
+          if (!['ФИО', 'Подразделение', 'Должность'].includes(k)) extra_data[k] = v;
+        });
+        await fetch(WORKERS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update_worker', id, fio, subdivision, position_name, extra_data })
+        });
+      }));
+      setPendingEdits({});
+      toast.success(`Сохранено изменений: ${dirtyIds.length}`);
+      loadData();
+    } catch {
+      toast.error('Ошибка сохранения');
+    } finally {
+      setSavingEdits(false);
+    }
+  };
+
+  const pendingCount = Object.keys(pendingEdits).filter(id => Object.keys(pendingEdits[Number(id)]).length > 0).length;
 
   useEffect(() => {
     if (!userId) { navigate('/'); return; }
@@ -901,14 +969,9 @@ const WorkersRegistryPage = () => {
               <Icon name="Printer" size={15} className="mr-1" /> Печать PDF
             </Button>
             {isOtipb && (
-              <>
-                <Button size="sm" onClick={() => { setAddFormSheet(activeSheet && activeSheet !== '__all__' ? activeSheet : (sheets[0] ?? '')); setShowAddForm(true); }} className="bg-blue-600 hover:bg-blue-700">
-                  <Icon name="UserPlus" size={15} className="mr-1" /> Добавить
-                </Button>
-                <Button size="sm" onClick={() => fileInputRef.current?.click()} className="bg-green-600 hover:bg-green-700">
-                  <Icon name="Upload" size={15} className="mr-1" /> Загрузить Excel
-                </Button>
-              </>
+              <Button size="sm" onClick={() => fileInputRef.current?.click()} className="bg-green-600 hover:bg-green-700">
+                <Icon name="Upload" size={15} className="mr-1" /> Загрузить Excel
+              </Button>
             )}
           </div>
         </div>
@@ -972,7 +1035,7 @@ const WorkersRegistryPage = () => {
                   key={sheet}
                   onClick={() => {
                     if (isSpecial) { navigate('/periodichnost-mo'); return; }
-                    setActiveSheet(sheet); setSearch('');
+                    setActiveSheet(sheet); setSearch(''); setPendingEdits({});
                   }}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 transition-all font-medium text-sm ${
                     isSpecial
@@ -995,7 +1058,7 @@ const WorkersRegistryPage = () => {
             })}
             {/* Кнопка "Все" */}
             <button
-              onClick={() => { setActiveSheet('__all__'); setSearch(''); }}
+              onClick={() => { setActiveSheet('__all__'); setSearch(''); setPendingEdits({}); }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 transition-all font-medium text-sm ${
                 activeSheet === '__all__'
                   ? 'bg-gradient-to-r from-slate-500 to-slate-600 border-transparent text-white shadow-lg scale-105'
@@ -1009,31 +1072,57 @@ const WorkersRegistryPage = () => {
           </div>
         )}
 
-        {/* Заголовок активной вкладки + поиск */}
+        {/* Заголовок активной вкладки + поиск + кнопки управления */}
         {activeSheet && activeSheet !== '__all__' && (
-          <div className={`flex items-center justify-between mb-4 flex-wrap gap-3`}>
-            <div className={`flex items-center gap-2 ${color.text}`}>
-              <div className={`bg-gradient-to-br ${color.bg} p-2 rounded-lg`}>
-                <Icon name={color.icon as Parameters<typeof Icon>[0]['name']} size={18} className="text-white" />
+          <div className="flex flex-col gap-3 mb-4">
+            <div className={`flex items-center justify-between flex-wrap gap-3`}>
+              <div className={`flex items-center gap-2 ${color.text}`}>
+                <div className={`bg-gradient-to-br ${color.bg} p-2 rounded-lg`}>
+                  <Icon name={color.icon as Parameters<typeof Icon>[0]['name']} size={18} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">{activeSheet}</h2>
+                  <p className="text-xs text-slate-400">{filtered.length} записей</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">{activeSheet}</h2>
-                <p className="text-xs text-slate-400">{filtered.length} записей</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="relative">
+                  <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Поиск..."
+                    className="pl-8 bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 w-56 h-9 text-sm"
+                  />
+                </div>
+                <Button size="sm" variant="outline" onClick={printAllQr} className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                  <Icon name="Printer" size={14} className="mr-1" /> Печать QR
+                </Button>
+                {isOtipb && (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => { setAddFormSheet(activeSheet); setNewWorker({ fio: '', subdivision: '', position_name: '', extra_data: {} }); setShowAddForm(true); }}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Icon name="Plus" size={15} className="mr-1" /> Добавить строку
+                    </Button>
+                    {pendingCount > 0 && (
+                      <Button
+                        size="sm"
+                        onClick={saveAllPendingEdits}
+                        disabled={savingEdits}
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        {savingEdits
+                          ? <><Icon name="Loader2" size={14} className="mr-1 animate-spin" /> Сохранение...</>
+                          : <><Icon name="Save" size={14} className="mr-1" /> Сохранить изменения ({pendingCount})</>
+                        }
+                      </Button>
+                    )}
+                  </>
+                )}
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Поиск..."
-                  className="pl-8 bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 w-56 h-9 text-sm"
-                />
-              </div>
-              <Button size="sm" variant="outline" onClick={printAllQr} className="border-slate-600 text-slate-300 hover:bg-slate-700">
-                <Icon name="Printer" size={14} className="mr-1" /> Печать QR
-              </Button>
             </div>
           </div>
         )}
@@ -1091,11 +1180,13 @@ const WorkersRegistryPage = () => {
                         sheetColumns={sheetColumns}
                         qrImages={qrImages}
                         confirmDeleteId={confirmDeleteId}
+                        pendingEdits={pendingEdits}
                         onOpen={openWorker}
                         onPrintQr={printQrCard}
                         onDeleteClick={id => setConfirmDeleteId(id)}
                         onDeleteConfirm={deleteWorker}
                         onDeleteCancel={() => setConfirmDeleteId(null)}
+                        onCellEdit={handleCellEdit}
                       />
                     ))}
                   </tbody>
