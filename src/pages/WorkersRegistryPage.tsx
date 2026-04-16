@@ -402,7 +402,7 @@ const WorkersRegistryPage = () => {
     finally { setAddingWorker(false); }
   };
 
-  // ── Выгрузка в Excel ──────────────────────────────────────────────────────
+  // ── Выгрузка в Excel (все поля из extra_data) ────────────────────────────
   const exportExcel = () => {
     const wb = XLSX.utils.book_new();
     const grouped: Record<string, Worker[]> = {};
@@ -412,15 +412,73 @@ const WorkersRegistryPage = () => {
       grouped[s].push(w);
     }
     for (const [sheet, workers] of Object.entries(grouped)) {
-      const sheetCols = columns.filter(c => c.sheet_name === sheet);
+      const sheetCols = columns.filter(c => c.sheet_name === sheet).sort((a, b) => a.order - b.order);
       const data = workers.map(w => {
-        const row: Record<string, string> = { '№ID': w.worker_number, 'ФИО': w.fio, 'Подразделение': w.subdivision, 'Должность': w.position };
+        if (sheetCols.length > 0) {
+          const row: Record<string, string> = {};
+          sheetCols.forEach(c => {
+            row[c.label] = c.key === 'ФИО' ? w.fio
+              : c.key === 'Подразделение' ? (w.subdivision || w.extra_data?.[c.key] || '')
+              : c.key === 'Должность' ? (w.position || w.extra_data?.[c.key] || '')
+              : (w.extra_data?.[c.key] || '');
+          });
+          return row;
+        }
+        const row: Record<string, string> = { 'ФИО': w.fio, 'Подразделение': w.subdivision || '', 'Должность': w.position || '' };
+        Object.entries(w.extra_data || {}).forEach(([k, v]) => {
+          if (!['ФИО', 'Подразделение', 'Должность', 'fio_lower'].includes(k)) row[k] = v;
+        });
         return row;
       });
       const ws = XLSX.utils.json_to_sheet(data);
       XLSX.utils.book_append_sheet(wb, ws, sheet.substring(0, 31));
     }
     XLSX.writeFile(wb, 'реестр_работников.xlsx');
+  };
+
+  // ── Печать реестра в PDF ──────────────────────────────────────────────────
+  const printRegistryPDF = () => {
+    const sheetName = activeSheet || (sheets[0] ?? '');
+    const workers = allWorkers.filter(w => w.sheet_name === sheetName);
+    const sheetCols = columns.filter(c => c.sheet_name === sheetName).sort((a, b) => a.order - b.order);
+
+    const headers = sheetCols.length > 0
+      ? sheetCols.map(c => c.label)
+      : ['ФИО', 'Подразделение', 'Должность'];
+
+    const rows = workers.map(w => {
+      if (sheetCols.length > 0) {
+        return sheetCols.map(c =>
+          c.key === 'ФИО' ? w.fio
+          : c.key === 'Подразделение' ? (w.subdivision || w.extra_data?.[c.key] || '—')
+          : c.key === 'Должность' ? (w.position || w.extra_data?.[c.key] || '—')
+          : (w.extra_data?.[c.key] || '—')
+        );
+      }
+      return [w.fio, w.subdivision || '—', w.position || '—'];
+    });
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text(`Реестр работников — ${sheetName}`, 14, 14);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru')}  |  Всего записей: ${workers.length}`, 14, 21);
+
+    autoTable(doc, {
+      startY: 26,
+      head: [headers],
+      body: rows,
+      theme: 'grid',
+      headStyles: { fillColor: [30, 80, 120], textColor: 255, fontSize: 8, fontStyle: 'bold', halign: 'center' },
+      bodyStyles: { fontSize: 7, textColor: 30, cellPadding: 2 },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 10, right: 10 },
+      tableWidth: 'auto',
+    });
+
+    doc.save(`реестр_${sheetName.replace(/\s+/g, '_')}_${new Date().toLocaleDateString('ru').replace(/\./g, '-')}.pdf`);
   };
 
   // ── HTML карточки для печати ──────────────────────────────────────────────
@@ -607,8 +665,11 @@ const WorkersRegistryPage = () => {
             <Button variant="outline" size="sm" onClick={startQrScanner} className="border-slate-600 text-slate-300 hover:bg-slate-700">
               <Icon name="QrCode" size={15} className="mr-1" /> Сканировать QR
             </Button>
-            <Button variant="outline" size="sm" onClick={exportExcel} className="border-slate-600 text-slate-300 hover:bg-slate-700">
-              <Icon name="Download" size={15} className="mr-1" /> Выгрузить Excel
+            <Button variant="outline" size="sm" onClick={exportExcel} className="border-green-700/50 text-green-400 hover:bg-green-900/30">
+              <Icon name="FileSpreadsheet" size={15} className="mr-1" /> Скачать Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={printRegistryPDF} className="border-red-700/50 text-red-400 hover:bg-red-900/30">
+              <Icon name="FileText" size={15} className="mr-1" /> Скачать PDF
             </Button>
             {isOtipb && (
               <>
