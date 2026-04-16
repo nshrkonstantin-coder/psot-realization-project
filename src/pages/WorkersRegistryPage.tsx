@@ -612,7 +612,13 @@ const WorkersRegistryPage = () => {
 
   // ── Ручное добавление ─────────────────────────────────────────────────────
   const addWorkerManual = async () => {
-    if (!newWorker.fio.trim()) { toast.error('Введите ФИО'); return; }
+    const formCols = columns.filter(c => c.sheet_name === addFormSheet).sort((a, b) => a.order - b.order);
+    const hasFio = formCols.some(c => c.key === 'ФИО');
+    if (hasFio && !newWorker.fio.trim()) { toast.error('Введите ФИО'); return; }
+    // Если ФИО нет в колонках — считаем первое непустое extra_data обязательным
+    if (!hasFio && Object.values(newWorker.extra_data).every(v => !v.trim())) {
+      toast.error('Заполните хотя бы одно поле'); return;
+    }
     setAddingWorker(true);
     const targetSheet = addFormSheet || activeSheet || 'Работники';
     try {
@@ -1316,104 +1322,123 @@ const WorkersRegistryPage = () => {
 
       {/* Модал: добавить вручную */}
       {showAddForm && (() => {
-        const formCols = columns.filter(c => c.sheet_name === addFormSheet).sort((a, b) => a.order - b.order);
-        const extraCols = formCols.filter(c => !['ФИО', 'Подразделение', 'Должность', '№ п/п', 'fio_lower'].includes(c.key));
+        // Колонки только этой вкладки, в нужном порядке, без служебных
+        const formCols = columns
+          .filter(c => c.sheet_name === addFormSheet && !['№ п/п', 'fio_lower'].includes(c.key))
+          .sort((a, b) => a.order - b.order);
+
+        const hasFio = formCols.some(c => c.key === 'ФИО');
+        const hasSubdivision = formCols.some(c => c.key === 'Подразделение');
+        const hasDolzhnost = formCols.some(c => c.key === 'Должность');
+        const extraCols = formCols.filter(c => !['ФИО', 'Подразделение', 'Должность'].includes(c.key));
+
+        const sheetColor = SHEET_COLORS[addFormSheet] || { bg: 'from-blue-600 to-blue-700', icon: 'Plus' };
+
+        const getFieldValue = (key: string) => {
+          if (key === 'ФИО') return newWorker.fio;
+          if (key === 'Подразделение') return newWorker.subdivision;
+          if (key === 'Должность') return newWorker.position_name;
+          return newWorker.extra_data[key] || '';
+        };
+
+        const setFieldValue = (key: string, value: string) => {
+          if (key === 'ФИО') setNewWorker(p => ({ ...p, fio: value }));
+          else if (key === 'Подразделение') setNewWorker(p => ({ ...p, subdivision: value }));
+          else if (key === 'Должность') setNewWorker(p => ({ ...p, position_name: value }));
+          else setNewWorker(p => ({ ...p, extra_data: { ...p.extra_data, [key]: value } }));
+        };
+
         return (
           <div className="fixed inset-0 bg-black/75 z-50 flex items-start justify-center p-4 overflow-y-auto">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full my-6"
-              style={{ maxWidth: '210mm', minHeight: '297mm' }}>
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg my-8">
               {/* Шапка */}
-              <div className="flex items-center justify-between px-8 py-5 border-b border-slate-700 bg-gradient-to-r from-blue-900/30 to-slate-900 rounded-t-2xl">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 bg-gradient-to-r from-slate-800 to-slate-900 rounded-t-2xl">
                 <div className="flex items-center gap-3">
-                  <div className="bg-blue-600 rounded-xl p-2.5"><Icon name="UserPlus" size={22} className="text-white" /></div>
+                  <div className={`bg-gradient-to-br ${sheetColor.bg} rounded-xl p-2`}>
+                    <Icon name={sheetColor.icon as Parameters<typeof Icon>[0]['name']} size={18} className="text-white" />
+                  </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">Добавить работника</h3>
-                    <p className="text-blue-400 text-xs">Новая запись в реестр</p>
+                    <h3 className="text-base font-bold text-white">Новая строка — {addFormSheet}</h3>
+                    <p className="text-slate-400 text-xs">{formCols.length} {formCols.length === 1 ? 'поле' : formCols.length < 5 ? 'поля' : 'полей'}</p>
                   </div>
                 </div>
-                <button onClick={() => setShowAddForm(false)} className="p-2 rounded-lg hover:bg-slate-700 text-slate-400 transition"><Icon name="X" size={20} /></button>
+                <button onClick={() => setShowAddForm(false)} className="p-2 rounded-lg hover:bg-slate-700 text-slate-400 transition">
+                  <Icon name="X" size={18} />
+                </button>
               </div>
 
-              <div className="px-8 py-6 space-y-6">
-                {/* Выбор раздела */}
-                <div>
-                  <Label className="text-slate-400 text-sm font-semibold mb-2 block">Раздел (лист реестра)</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {sheets.filter(s => !['Периодичность МО', 'образование', 'ЕПТ РТН'].includes(s) || true).map(s => (
-                      <button key={s} onClick={() => { setAddFormSheet(s); setNewWorker(p => ({ ...p, extra_data: {} })); }}
-                        className={`text-sm px-3 py-1.5 rounded-lg border transition font-medium ${addFormSheet === s ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/30' : 'bg-slate-800 border-slate-600 text-slate-300 hover:border-slate-500'}`}>
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Основные поля */}
-                <div>
-                  <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Основные данные</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
+              <div className="px-6 py-5">
+                <div className="grid grid-cols-1 gap-4">
+                  {/* ФИО — если есть в колонках */}
+                  {hasFio && (
+                    <div>
                       <Label className="text-slate-400 text-sm mb-1.5 block">ФИО <span className="text-red-400">*</span></Label>
                       <Input
                         value={newWorker.fio}
                         onChange={e => setNewWorker(p => ({ ...p, fio: e.target.value }))}
                         className="bg-slate-800 border-slate-600 text-white h-10"
                         placeholder="Иванов Иван Иванович"
+                        autoFocus
                       />
                     </div>
-                    <div>
-                      <Label className="text-slate-400 text-sm mb-1.5 block">Подразделение</Label>
-                      <Input
-                        value={newWorker.subdivision}
-                        onChange={e => setNewWorker(p => ({ ...p, subdivision: e.target.value }))}
-                        className="bg-slate-800 border-slate-600 text-white h-10"
-                        placeholder="Название подразделения"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-400 text-sm mb-1.5 block">Должность</Label>
-                      <Input
-                        value={newWorker.position_name}
-                        onChange={e => setNewWorker(p => ({ ...p, position_name: e.target.value }))}
-                        className="bg-slate-800 border-slate-600 text-white h-10"
-                        placeholder="Название должности"
-                      />
-                    </div>
-                  </div>
-                </div>
+                  )}
 
-                {/* Дополнительные поля из колонок листа */}
-                {extraCols.length > 0 && (
-                  <div>
-                    <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Дополнительные поля — {addFormSheet}</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Подразделение + Должность — если есть в колонках */}
+                  {(hasSubdivision || hasDolzhnost) && (
+                    <div className={`grid gap-4 ${hasSubdivision && hasDolzhnost ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      {hasSubdivision && (
+                        <div>
+                          <Label className="text-slate-400 text-sm mb-1.5 block">Подразделение</Label>
+                          <Input
+                            value={newWorker.subdivision}
+                            onChange={e => setNewWorker(p => ({ ...p, subdivision: e.target.value }))}
+                            className="bg-slate-800 border-slate-600 text-white h-10"
+                            placeholder="Подразделение"
+                          />
+                        </div>
+                      )}
+                      {hasDolzhnost && (
+                        <div>
+                          <Label className="text-slate-400 text-sm mb-1.5 block">Должность</Label>
+                          <Input
+                            value={newWorker.position_name}
+                            onChange={e => setNewWorker(p => ({ ...p, position_name: e.target.value }))}
+                            className="bg-slate-800 border-slate-600 text-white h-10"
+                            placeholder="Должность"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Дополнительные поля — только те что реально в колонках */}
+                  {extraCols.length > 0 && (
+                    <div className={`grid gap-4 ${extraCols.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                       {extraCols.map(col => (
-                        <div key={col.key}>
+                        <div key={col.key} className={extraCols.length === 1 ? '' : ''}>
                           <Label className="text-slate-400 text-sm mb-1.5 block">{col.label}</Label>
                           <Input
-                            value={newWorker.extra_data[col.key] || ''}
-                            onChange={e => setNewWorker(p => ({ ...p, extra_data: { ...p.extra_data, [col.key]: e.target.value } }))}
+                            value={getFieldValue(col.key)}
+                            onChange={e => setFieldValue(col.key, e.target.value)}
                             className="bg-slate-800 border-slate-600 text-white h-10"
+                            autoFocus={!hasFio && extraCols[0]?.key === col.key}
                           />
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {/* Инфо-блок */}
-                <div className="bg-blue-900/20 border border-blue-800/40 rounded-xl px-5 py-3 flex items-center gap-3">
-                  <Icon name="Info" size={16} className="text-blue-400 shrink-0" />
-                  <p className="text-blue-300 text-sm">Номер п/п и QR-код будут присвоены автоматически</p>
+                  )}
                 </div>
               </div>
 
               {/* Футер */}
-              <div className="flex gap-3 px-8 py-5 border-t border-slate-700 bg-slate-900/50 rounded-b-2xl">
-                <Button onClick={addWorkerManual} disabled={addingWorker} className="bg-blue-600 hover:bg-blue-700 h-10 px-8 text-sm font-semibold">
-                  {addingWorker ? <><Icon name="Loader" size={15} className="animate-spin mr-2" />Сохранение...</> : <><Icon name="UserPlus" size={15} className="mr-2" />Добавить работника</>}
+              <div className="flex gap-3 px-6 py-4 border-t border-slate-700 rounded-b-2xl">
+                <Button onClick={addWorkerManual} disabled={addingWorker} className="bg-blue-600 hover:bg-blue-700 h-9 px-6 text-sm font-semibold flex-1">
+                  {addingWorker
+                    ? <><Icon name="Loader2" size={14} className="animate-spin mr-2" />Сохранение...</>
+                    : <><Icon name="Plus" size={14} className="mr-2" />Добавить строку</>
+                  }
                 </Button>
-                <Button variant="outline" onClick={() => setShowAddForm(false)} className="border-slate-600 text-slate-300 h-10 px-6">Отмена</Button>
+                <Button variant="outline" onClick={() => setShowAddForm(false)} className="border-slate-600 text-slate-300 h-9 px-5">Отмена</Button>
               </div>
             </div>
           </div>
