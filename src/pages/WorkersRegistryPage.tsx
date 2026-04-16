@@ -632,12 +632,17 @@ const WorkersRegistryPage = () => {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(`Добавлен, №${data.worker_number}`);
+        toast.success(`Строка добавлена`);
         setNewWorker({ fio: '', subdivision: '', position_name: '', extra_data: {} });
         setShowAddForm(false);
         loadData();
+      } else {
+        toast.error(data.error || 'Ошибка при добавлении строки');
       }
-    } catch { toast.error('Ошибка добавления'); }
+    } catch (e) {
+      console.error('addWorkerManual error:', e);
+      toast.error('Ошибка сети при добавлении');
+    }
     finally { setAddingWorker(false); }
   };
 
