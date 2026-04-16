@@ -356,7 +356,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
                 # Автоматически назначаем № п/п как max+1 для этого листа
                 cur.execute(
-                    f"""SELECT COALESCE(MAX(CAST(extra_data->>'№ п/п' AS INTEGER)), 0) + 1
+                    f"""SELECT COALESCE(MAX(
+                            CASE WHEN extra_data->>'№ п/п' ~ '^[0-9]+$'
+                                 THEN (extra_data->>'№ п/п')::INTEGER
+                                 ELSE 0 END
+                        ), 0) + 1
                         FROM {SCHEMA}.wr_employees
                         WHERE sheet_name = %s AND (archived = false OR archived IS NULL)""",
                     (sheet_name,)
