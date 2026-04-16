@@ -111,10 +111,10 @@ const SortableRow = ({
       </td>
       <td className="p-3" onClick={() => onOpen(w.id)} style={{ cursor: 'pointer' }}>
         <span className="text-xs text-blue-400 font-mono bg-blue-500/10 px-1.5 py-0.5 rounded">
-          {activeSheet === 'КР + СОУТ' ? idx + 1 : w.worker_number}
+          {activeSheet === 'КР + СОУТ' || activeSheet === 'ЕПТ РТН' ? idx + 1 : w.worker_number}
         </span>
       </td>
-      {activeSheet !== 'КР + СОУТ' && (
+      {activeSheet !== 'КР + СОУТ' && activeSheet !== 'ЕПТ РТН' && (
         <td className="p-2" onClick={e => e.stopPropagation()}>
           {qrImages[w.qr_token] ? (
             <div className="flex items-center gap-1">
@@ -1062,8 +1062,8 @@ const WorkersRegistryPage = () => {
                 <thead>
                   <tr className="bg-slate-800 border-b border-slate-700">
                     {isOtipb && activeSheet !== '__all__' && <th className="w-8 p-2"></th>}
-                    <th className="text-left p-3 text-slate-400 font-medium whitespace-nowrap">{activeSheet === 'КР + СОУТ' ? '№' : '№ID'}</th>
-                    {activeSheet !== 'КР + СОУТ' && <th className="text-left p-3 text-slate-400 font-medium">QR</th>}
+                    <th className="text-left p-3 text-slate-400 font-medium whitespace-nowrap">{activeSheet === 'КР + СОУТ' || activeSheet === 'ЕПТ РТН' ? '№' : '№ID'}</th>
+                    {activeSheet !== 'КР + СОУТ' && activeSheet !== 'ЕПТ РТН' && <th className="text-left p-3 text-slate-400 font-medium">QR</th>}
                     {(activeSheet === '__all__' ? ['ФИО', 'Раздел', 'Подразделение', 'Должность'] :
                       sheetColumns.length > 0
                         ? sheetColumns.map(c => c.label)
