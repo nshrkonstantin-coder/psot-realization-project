@@ -9,8 +9,6 @@ import PageLockBadge from '@/components/ui/PageLockBadge';
 import { isPageLocked } from '@/hooks/usePageLock';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
 
 const WORKERS_API = 'https://functions.poehali.dev/85a795aa-16f4-4214-8690-191bbd6e73d2';
@@ -230,36 +228,66 @@ const WorkersRegistryPage = () => {
   };
 
   // ── Печать карточки работника в PDF ───────────────────────────────────────
-  const printWorkerPDF = (worker: WorkerFull) => {
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text('Карточка работника', 14, 18);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Раздел: ${worker.sheet_name}   |   ID: ${worker.worker_number}`, 14, 26);
-
+  const printWorkerPDF = async (worker: WorkerFull) => {
+    const qr = worker.qr_token ? await generateQr(worker.qr_token, 300) : '';
     const workerCols = columns.filter(c => c.sheet_name === worker.sheet_name).sort((a, b) => a.order - b.order);
     const fields = workerCols.length > 0
-      ? workerCols.map(c => [c.label, c.key === 'ФИО' ? worker.fio : (worker.extra_data?.[c.key] || '—')])
+      ? workerCols.map(c => ({
+          label: c.label,
+          value: c.key === 'ФИО' ? worker.fio
+            : c.key === 'Подразделение' ? (worker.subdivision || worker.extra_data?.[c.key] || '—')
+            : c.key === 'Должность' ? (worker.position || worker.extra_data?.[c.key] || '—')
+            : (worker.extra_data?.[c.key] || '—')
+        }))
       : [
-          ['ФИО', worker.fio],
-          ['Подразделение', worker.subdivision || '—'],
-          ['Должность', worker.position || '—'],
-          ...Object.entries(worker.extra_data || {}).filter(([k]) => !['ФИО', 'Подразделение', 'Должность', 'fio_lower'].includes(k)).map(([k, v]) => [k, v || '—']),
+          { label: 'ФИО', value: worker.fio },
+          { label: 'Подразделение', value: worker.subdivision || '—' },
+          { label: 'Должность', value: worker.position || '—' },
+          ...Object.entries(worker.extra_data || {})
+            .filter(([k]) => !['ФИО', 'Подразделение', 'Должность', 'fio_lower'].includes(k))
+            .map(([k, v]) => ({ label: k, value: v || '—' })),
         ];
 
-    autoTable(doc, {
-      startY: 32,
-      head: [['Поле', 'Значение']],
-      body: fields,
-      theme: 'grid',
-      headStyles: { fillColor: [30, 80, 120], textColor: 255, fontSize: 10, fontStyle: 'bold' },
-      bodyStyles: { fontSize: 9, textColor: 30 },
-      columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' }, 1: { cellWidth: 120 } },
-      margin: { left: 14, right: 14 },
-    });
-    doc.save(`Работник_${worker.fio.replace(/\s+/g, '_')}.pdf`);
+    const rows = fields.map(f => `
+      <tr>
+        <td class="label">${f.label}</td>
+        <td class="value">${f.value}</td>
+      </tr>`).join('');
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Карточка — ${worker.fio}</title>
+      <style>
+        @page { size: A4 portrait; margin: 15mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #fff; color: #111; }
+        .header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px solid #1e5078; padding-bottom: 10px; margin-bottom: 14px; }
+        .header-left h1 { font-size: 15pt; font-weight: bold; color: #1e5078; margin-bottom: 4px; }
+        .header-left p { font-size: 9pt; color: #555; }
+        .qr-block { text-align: center; }
+        .qr-block img { width: 52mm; height: 52mm; display: block; border: 1px solid #ddd; border-radius: 4px; }
+        .qr-block span { font-size: 8pt; color: #888; font-family: monospace; display: block; margin-top: 3px; }
+        table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+        tr:nth-child(even) { background: #f5f7fa; }
+        td { padding: 5px 8px; border: 1px solid #ddd; vertical-align: top; }
+        td.label { width: 38%; font-weight: bold; color: #333; background: #eef2f7; }
+        td.value { color: #111; }
+        .footer { margin-top: 14px; font-size: 8pt; color: #aaa; text-align: right; border-top: 1px solid #eee; padding-top: 6px; }
+      </style></head>
+      <body>
+        <div class="header">
+          <div class="header-left">
+            <h1>Карточка работника</h1>
+            <p>Раздел: <b>${worker.sheet_name}</b> &nbsp;|&nbsp; ID: <b>${worker.worker_number}</b></p>
+          </div>
+          ${qr ? `<div class="qr-block"><img src="${qr}" alt="QR"/><span>${worker.worker_number}</span></div>` : ''}
+        </div>
+        <table>${rows}</table>
+        <div class="footer">Дата печати: ${new Date().toLocaleDateString('ru')}</div>
+      </body>
+      <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),800)}</script>
+    </html>`);
+    win.document.close();
   };
 
   // ── Excel: чтение всех листов ─────────────────────────────────────────────
@@ -436,7 +464,7 @@ const WorkersRegistryPage = () => {
     XLSX.writeFile(wb, 'реестр_работников.xlsx');
   };
 
-  // ── Печать реестра в PDF ──────────────────────────────────────────────────
+  // ── Печать реестра через браузер ─────────────────────────────────────────
   const printRegistryPDF = () => {
     const sheetName = activeSheet || (sheets[0] ?? '');
     const workers = allWorkers.filter(w => w.sheet_name === sheetName);
@@ -446,7 +474,7 @@ const WorkersRegistryPage = () => {
       ? sheetCols.map(c => c.label)
       : ['ФИО', 'Подразделение', 'Должность'];
 
-    const rows = workers.map(w => {
+    const dataRows = workers.map(w => {
       if (sheetCols.length > 0) {
         return sheetCols.map(c =>
           c.key === 'ФИО' ? w.fio
@@ -458,27 +486,35 @@ const WorkersRegistryPage = () => {
       return [w.fio, w.subdivision || '—', w.position || '—'];
     });
 
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.text(`Реестр работников — ${sheetName}`, 14, 14);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru')}  |  Всего записей: ${workers.length}`, 14, 21);
+    const thCells = headers.map(h => `<th>${h}</th>`).join('');
+    const trRows = dataRows.map((r, i) =>
+      `<tr class="${i % 2 === 0 ? '' : 'alt'}">${r.map(v => `<td>${v}</td>`).join('')}</tr>`
+    ).join('');
 
-    autoTable(doc, {
-      startY: 26,
-      head: [headers],
-      body: rows,
-      theme: 'grid',
-      headStyles: { fillColor: [30, 80, 120], textColor: 255, fontSize: 8, fontStyle: 'bold', halign: 'center' },
-      bodyStyles: { fontSize: 7, textColor: 30, cellPadding: 2 },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      margin: { left: 10, right: 10 },
-      tableWidth: 'auto',
-    });
-
-    doc.save(`реестр_${sheetName.replace(/\s+/g, '_')}_${new Date().toLocaleDateString('ru').replace(/\./g, '-')}.pdf`);
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Реестр — ${sheetName}</title>
+      <style>
+        @page { size: A4 landscape; margin: 10mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 8pt; color: #111; background: #fff; }
+        h1 { font-size: 12pt; color: #1e5078; margin-bottom: 3px; }
+        .meta { font-size: 8pt; color: #555; margin-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #1e5078; color: #fff; padding: 5px 6px; text-align: left; font-size: 8pt; border: 1px solid #1a4568; }
+        td { padding: 4px 6px; border: 1px solid #ddd; vertical-align: top; font-size: 7.5pt; }
+        tr.alt td { background: #f5f7fa; }
+        .footer { margin-top: 8px; font-size: 7pt; color: #aaa; text-align: right; }
+      </style></head>
+      <body>
+        <h1>Реестр работников — ${sheetName}</h1>
+        <div class="meta">Дата печати: ${new Date().toLocaleDateString('ru')} &nbsp;|&nbsp; Всего записей: ${workers.length}</div>
+        <table><thead><tr>${thCells}</tr></thead><tbody>${trRows}</tbody></table>
+        <div class="footer">Реестр работников · ${sheetName}</div>
+      </body>
+      <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),800)}</script>
+    </html>`);
+    win.document.close();
   };
 
   // ── HTML карточки для печати ──────────────────────────────────────────────
@@ -668,8 +704,8 @@ const WorkersRegistryPage = () => {
             <Button variant="outline" size="sm" onClick={exportExcel} className="border-green-700/50 text-green-400 hover:bg-green-900/30">
               <Icon name="FileSpreadsheet" size={15} className="mr-1" /> Скачать Excel
             </Button>
-            <Button variant="outline" size="sm" onClick={printRegistryPDF} className="border-red-700/50 text-red-400 hover:bg-red-900/30">
-              <Icon name="FileText" size={15} className="mr-1" /> Скачать PDF
+            <Button variant="outline" size="sm" onClick={printRegistryPDF} className="border-blue-700/50 text-blue-400 hover:bg-blue-900/30">
+              <Icon name="Printer" size={15} className="mr-1" /> Печать PDF
             </Button>
             {isOtipb && (
               <>
@@ -955,10 +991,10 @@ const WorkersRegistryPage = () => {
                 </button>
                 <button
                   onClick={() => printWorkerPDF(selectedWorker)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-700/30 border border-red-600/40 text-red-400 text-sm hover:bg-red-700/50 transition"
-                  title="Скачать PDF"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-700/30 border border-blue-600/40 text-blue-400 text-sm hover:bg-blue-700/50 transition"
+                  title="Распечатать карточку"
                 >
-                  <Icon name="FileText" size={15} />PDF
+                  <Icon name="Printer" size={15} />Печать
                 </button>
                 <button onClick={() => { setSelectedWorker(null); setEditMode(false); }} className="p-2 rounded-lg hover:bg-slate-700 text-slate-400 ml-1">
                   <Icon name="X" size={20} />
