@@ -89,7 +89,8 @@ const WorkersRegistryPage = () => {
 
   // Ручное добавление
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newWorker, setNewWorker] = useState({ fio: '', subdivision: '', position_name: '' });
+  const [newWorker, setNewWorker] = useState<{ fio: string; subdivision: string; position_name: string; extra_data: Record<string, string> }>({ fio: '', subdivision: '', position_name: '', extra_data: {} });
+  const [addFormSheet, setAddFormSheet] = useState<string>('');
   const [addingWorker, setAddingWorker] = useState(false);
 
   // QR сканер
@@ -409,20 +410,24 @@ const WorkersRegistryPage = () => {
   const addWorkerManual = async () => {
     if (!newWorker.fio.trim()) { toast.error('Введите ФИО'); return; }
     setAddingWorker(true);
+    const targetSheet = addFormSheet || activeSheet || 'Работники';
     try {
       const res = await fetch(WORKERS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'add_worker', organization_id: orgId, user_id: userId,
-          sheet_name: activeSheet || 'Работники',
-          ...newWorker
+          sheet_name: targetSheet,
+          fio: newWorker.fio,
+          subdivision: newWorker.subdivision,
+          position_name: newWorker.position_name,
+          extra_data: newWorker.extra_data,
         })
       });
       const data = await res.json();
       if (data.success) {
         toast.success(`Добавлен, №${data.worker_number}`);
-        setNewWorker({ fio: '', subdivision: '', position_name: '' });
+        setNewWorker({ fio: '', subdivision: '', position_name: '', extra_data: {} });
         setShowAddForm(false);
         loadData();
       }
@@ -709,7 +714,7 @@ const WorkersRegistryPage = () => {
             </Button>
             {isOtipb && (
               <>
-                <Button size="sm" onClick={() => setShowAddForm(true)} className="bg-blue-600 hover:bg-blue-700">
+                <Button size="sm" onClick={() => { setAddFormSheet(activeSheet && activeSheet !== '__all__' ? activeSheet : (sheets[0] ?? '')); setShowAddForm(true); }} className="bg-blue-600 hover:bg-blue-700">
                   <Icon name="UserPlus" size={15} className="mr-1" /> Добавить
                 </Button>
                 <Button size="sm" onClick={() => fileInputRef.current?.click()} className="bg-green-600 hover:bg-green-700">
@@ -1065,47 +1070,110 @@ const WorkersRegistryPage = () => {
       )}
 
       {/* Модал: добавить вручную */}
-      {showAddForm && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <Card className="bg-slate-800 border-slate-700 p-5 w-full max-w-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-white">Добавить работника</h3>
-              <button onClick={() => setShowAddForm(false)} className="text-slate-400 hover:text-white"><Icon name="X" size={18} /></button>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <Label className="text-slate-400 text-xs">Раздел (лист)</Label>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {sheets.map(s => (
-                    <button key={s} onClick={() => setNewWorker(p => ({ ...p }))}
-                      className={`text-xs px-2 py-1 rounded border transition ${activeSheet === s ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-700 border-slate-600 text-slate-300'}`}>
-                      {s}
-                    </button>
-                  ))}
+      {showAddForm && (() => {
+        const formCols = columns.filter(c => c.sheet_name === addFormSheet).sort((a, b) => a.order - b.order);
+        const extraCols = formCols.filter(c => !['ФИО', 'Подразделение', 'Должность', '№ п/п', 'fio_lower'].includes(c.key));
+        return (
+          <div className="fixed inset-0 bg-black/75 z-50 flex items-start justify-center p-4 overflow-y-auto">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full my-6"
+              style={{ maxWidth: '210mm', minHeight: '297mm' }}>
+              {/* Шапка */}
+              <div className="flex items-center justify-between px-8 py-5 border-b border-slate-700 bg-gradient-to-r from-blue-900/30 to-slate-900 rounded-t-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-600 rounded-xl p-2.5"><Icon name="UserPlus" size={22} className="text-white" /></div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Добавить работника</h3>
+                    <p className="text-blue-400 text-xs">Новая запись в реестр</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowAddForm(false)} className="p-2 rounded-lg hover:bg-slate-700 text-slate-400 transition"><Icon name="X" size={20} /></button>
+              </div>
+
+              <div className="px-8 py-6 space-y-6">
+                {/* Выбор раздела */}
+                <div>
+                  <Label className="text-slate-400 text-sm font-semibold mb-2 block">Раздел (лист реестра)</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {sheets.filter(s => !['Периодичность МО', 'образование', 'ЕПТ РТН'].includes(s) || true).map(s => (
+                      <button key={s} onClick={() => { setAddFormSheet(s); setNewWorker(p => ({ ...p, extra_data: {} })); }}
+                        className={`text-sm px-3 py-1.5 rounded-lg border transition font-medium ${addFormSheet === s ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/30' : 'bg-slate-800 border-slate-600 text-slate-300 hover:border-slate-500'}`}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Основные поля */}
+                <div>
+                  <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Основные данные</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <Label className="text-slate-400 text-sm mb-1.5 block">ФИО <span className="text-red-400">*</span></Label>
+                      <Input
+                        value={newWorker.fio}
+                        onChange={e => setNewWorker(p => ({ ...p, fio: e.target.value }))}
+                        className="bg-slate-800 border-slate-600 text-white h-10"
+                        placeholder="Иванов Иван Иванович"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-400 text-sm mb-1.5 block">Подразделение</Label>
+                      <Input
+                        value={newWorker.subdivision}
+                        onChange={e => setNewWorker(p => ({ ...p, subdivision: e.target.value }))}
+                        className="bg-slate-800 border-slate-600 text-white h-10"
+                        placeholder="Название подразделения"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-400 text-sm mb-1.5 block">Должность</Label>
+                      <Input
+                        value={newWorker.position_name}
+                        onChange={e => setNewWorker(p => ({ ...p, position_name: e.target.value }))}
+                        className="bg-slate-800 border-slate-600 text-white h-10"
+                        placeholder="Название должности"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Дополнительные поля из колонок листа */}
+                {extraCols.length > 0 && (
+                  <div>
+                    <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Дополнительные поля — {addFormSheet}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {extraCols.map(col => (
+                        <div key={col.key}>
+                          <Label className="text-slate-400 text-sm mb-1.5 block">{col.label}</Label>
+                          <Input
+                            value={newWorker.extra_data[col.key] || ''}
+                            onChange={e => setNewWorker(p => ({ ...p, extra_data: { ...p.extra_data, [col.key]: e.target.value } }))}
+                            className="bg-slate-800 border-slate-600 text-white h-10"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Инфо-блок */}
+                <div className="bg-blue-900/20 border border-blue-800/40 rounded-xl px-5 py-3 flex items-center gap-3">
+                  <Icon name="Info" size={16} className="text-blue-400 shrink-0" />
+                  <p className="text-blue-300 text-sm">Номер п/п и QR-код будут присвоены автоматически</p>
                 </div>
               </div>
-              <div>
-                <Label className="text-slate-400 text-xs">ФИО *</Label>
-                <Input value={newWorker.fio} onChange={e => setNewWorker(p => ({ ...p, fio: e.target.value }))} className="bg-slate-900 border-slate-600 text-white mt-1 h-8 text-sm" placeholder="Иванов Иван Иванович" />
-              </div>
-              <div>
-                <Label className="text-slate-400 text-xs">Подразделение</Label>
-                <Input value={newWorker.subdivision} onChange={e => setNewWorker(p => ({ ...p, subdivision: e.target.value }))} className="bg-slate-900 border-slate-600 text-white mt-1 h-8 text-sm" />
-              </div>
-              <div>
-                <Label className="text-slate-400 text-xs">Должность</Label>
-                <Input value={newWorker.position_name} onChange={e => setNewWorker(p => ({ ...p, position_name: e.target.value }))} className="bg-slate-900 border-slate-600 text-white mt-1 h-8 text-sm" />
+
+              {/* Футер */}
+              <div className="flex gap-3 px-8 py-5 border-t border-slate-700 bg-slate-900/50 rounded-b-2xl">
+                <Button onClick={addWorkerManual} disabled={addingWorker} className="bg-blue-600 hover:bg-blue-700 h-10 px-8 text-sm font-semibold">
+                  {addingWorker ? <><Icon name="Loader" size={15} className="animate-spin mr-2" />Сохранение...</> : <><Icon name="UserPlus" size={15} className="mr-2" />Добавить работника</>}
+                </Button>
+                <Button variant="outline" onClick={() => setShowAddForm(false)} className="border-slate-600 text-slate-300 h-10 px-6">Отмена</Button>
               </div>
             </div>
-            <div className="flex gap-2 mt-4">
-              <Button onClick={addWorkerManual} disabled={addingWorker} className="bg-blue-600 hover:bg-blue-700 flex-1 h-9">
-                {addingWorker && <Icon name="Loader" size={14} className="animate-spin mr-1" />} Сохранить
-              </Button>
-              <Button variant="outline" onClick={() => setShowAddForm(false)} className="border-slate-600 text-slate-300 h-9">Отмена</Button>
-            </div>
-          </Card>
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/* QR сканер */}
       {showQrScanner && (
