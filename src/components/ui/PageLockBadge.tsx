@@ -21,25 +21,29 @@ const PageLockBadge = ({ pageKey }: PageLockBadgeProps) => {
     };
   }, [pageKey]);
 
-  const handleToggle = async () => {
-    if (!canManage) return;
-    setSaving(true);
-    await togglePageLock(pageKey);
-    setLocked(isPageLocked(pageKey));
-    setSaving(false);
-    setTooltip(false);
+  const handleClick = async () => {
+    if (canManage) {
+      setSaving(true);
+      await togglePageLock(pageKey);
+      setLocked(isPageLocked(pageKey));
+      setSaving(false);
+    } else {
+      setTooltip(v => !v);
+    }
   };
 
   return (
     <div className="relative inline-flex items-center">
       <button
-        onClick={() => setTooltip(v => !v)}
-        title={locked ? 'Защита включена — импорт Excel не изменит эту страницу' : 'Защита выключена'}
+        onClick={handleClick}
+        disabled={saving}
+        title={locked ? 'Защита включена — нажмите чтобы снять' : 'Защита выключена — нажмите чтобы включить'}
         className={[
           'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all select-none shadow-sm',
           locked
             ? 'bg-red-600 border border-red-500 text-white hover:bg-red-500'
             : 'bg-green-600 border border-green-500 text-white hover:bg-green-500',
+          saving ? 'opacity-60 cursor-not-allowed' : '',
         ].join(' ')}
       >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -56,10 +60,10 @@ const PageLockBadge = ({ pageKey }: PageLockBadgeProps) => {
             </>
           )}
         </svg>
-        {locked ? 'Защищено' : 'Открыто'}
+        {saving ? '...' : locked ? 'Защищено' : 'Открыто'}
       </button>
 
-      {tooltip && (
+      {!canManage && tooltip && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setTooltip(false)} />
           <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl p-4">
@@ -71,25 +75,9 @@ const PageLockBadge = ({ pageKey }: PageLockBadgeProps) => {
                 ? 'Импорт Excel не затронет данные этой страницы. Изменения только вручную.'
                 : 'При загрузке Excel данные этой страницы могут быть перезаписаны.'}
             </p>
-            {canManage ? (
-              <button
-                onClick={handleToggle}
-                disabled={saving}
-                className={[
-                  'w-full py-2 rounded-lg text-xs font-bold transition',
-                  locked
-                    ? 'bg-green-600 hover:bg-green-500 text-white'
-                    : 'bg-red-600 hover:bg-red-500 text-white',
-                  saving ? 'opacity-60 cursor-not-allowed' : '',
-                ].join(' ')}
-              >
-                {saving ? '...' : locked ? '🔓 Снять защиту' : '🔒 Включить защиту'}
-              </button>
-            ) : (
-              <p className="text-slate-500 text-xs text-center italic">
-                Только администратор или начальник отдела ОТиПБ могут изменить защиту
-              </p>
-            )}
+            <p className="text-slate-500 text-xs text-center italic">
+              Только администратор или начальник отдела ОТиПБ могут изменить защиту
+            </p>
           </div>
         </>
       )}
