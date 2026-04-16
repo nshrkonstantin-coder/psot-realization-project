@@ -10,6 +10,21 @@ import { isPageLocked } from '@/hooks/usePageLock';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import QRCode from 'qrcode';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const WORKERS_API = 'https://functions.poehali.dev/85a795aa-16f4-4214-8690-191bbd6e73d2';
 
@@ -36,6 +51,7 @@ interface Worker {
   position: string;
   sheet_name: string;
   extra_data: Record<string, string>;
+  sort_order: number;
 }
 
 interface WorkerFull extends Worker {
@@ -49,6 +65,117 @@ interface Column {
   sheet_name: string;
   is_core: boolean;
 }
+
+// ── Сортируемая строка таблицы ───────────────────────────────────────────
+interface SortableRowProps {
+  worker: Worker;
+  idx: number;
+  isOtipb: boolean;
+  activeSheet: string;
+  sheetColumns: Column[];
+  qrImages: Record<string, string>;
+  confirmDeleteId: number | null;
+  onOpen: (id: number) => void;
+  onPrintQr: (w: Worker) => void;
+  onDeleteClick: (id: number) => void;
+  onDeleteConfirm: (id: number) => void;
+  onDeleteCancel: () => void;
+}
+
+const SortableRow = ({
+  worker: w, idx, isOtipb, activeSheet, sheetColumns, qrImages,
+  confirmDeleteId, onOpen, onPrintQr, onDeleteClick, onDeleteConfirm, onDeleteCancel,
+}: SortableRowProps) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: w.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className={`border-b border-slate-700/50 transition group ${idx % 2 === 0 ? 'bg-slate-900' : 'bg-slate-900/60'} ${isDragging ? 'shadow-lg shadow-blue-900/30 z-10' : 'hover:bg-slate-800/80'}`}
+    >
+      {/* Drag handle */}
+      <td className="p-2 w-8">
+        {isOtipb && activeSheet !== '__all__' && (
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing p-1 rounded text-slate-600 hover:text-slate-400 transition opacity-0 group-hover:opacity-100"
+            title="Перетащить строку"
+            onClick={e => e.stopPropagation()}
+          >
+            <Icon name="GripVertical" size={14} />
+          </button>
+        )}
+      </td>
+      <td className="p-3" onClick={() => onOpen(w.id)} style={{ cursor: 'pointer' }}>
+        <span className="text-xs text-blue-400 font-mono bg-blue-500/10 px-1.5 py-0.5 rounded">{w.worker_number}</span>
+      </td>
+      <td className="p-2" onClick={e => e.stopPropagation()}>
+        {qrImages[w.qr_token] ? (
+          <div className="flex items-center gap-1">
+            <img src={qrImages[w.qr_token]} alt="QR" style={{ width: 36, height: 36, imageRendering: 'pixelated' }} className="rounded border border-slate-600" />
+            <button onClick={() => onPrintQr(w)} className="p-1 rounded hover:bg-slate-700 text-slate-500 hover:text-white transition" title="Печать визитки">
+              <Icon name="Printer" size={12} />
+            </button>
+          </div>
+        ) : (
+          <div style={{ width: 36, height: 36 }} className="bg-slate-700 rounded animate-pulse" />
+        )}
+      </td>
+      {activeSheet === '__all__' ? (
+        <>
+          <td className="p-3 font-medium text-white cursor-pointer" onClick={() => onOpen(w.id)}>{w.fio}</td>
+          <td className="p-3 cursor-pointer" onClick={() => onOpen(w.id)}><span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">{w.sheet_name}</span></td>
+          <td className="p-3 text-slate-300 cursor-pointer" onClick={() => onOpen(w.id)}>{w.subdivision || '—'}</td>
+          <td className="p-3 text-slate-300 cursor-pointer" onClick={() => onOpen(w.id)}>{w.position || '—'}</td>
+        </>
+      ) : sheetColumns.length > 0 ? (
+        sheetColumns.map((col) => {
+          const isFio = col.key === 'ФИО';
+          const val = isFio ? w.fio : (w.extra_data?.[col.key] || '—');
+          return (
+            <td key={col.key} className="p-3 text-slate-300 max-w-[180px] truncate cursor-pointer" title={val} onClick={() => onOpen(w.id)}>
+              {isFio ? <span className="text-white font-medium">{val}</span> : <span>{val}</span>}
+            </td>
+          );
+        })
+      ) : (
+        <>
+          <td className="p-3 font-medium text-white cursor-pointer" onClick={() => onOpen(w.id)}>{w.fio}</td>
+          <td className="p-3 text-slate-300 cursor-pointer" onClick={() => onOpen(w.id)}>{w.subdivision || '—'}</td>
+          <td className="p-3 text-slate-300 cursor-pointer" onClick={() => onOpen(w.id)}>{w.position || '—'}</td>
+        </>
+      )}
+      {/* Действия */}
+      <td className="p-2 text-right" onClick={e => e.stopPropagation()}>
+        {isOtipb && activeSheet !== '__all__' ? (
+          confirmDeleteId === w.id ? (
+            <div className="flex items-center gap-1 justify-end">
+              <span className="text-xs text-red-400 mr-1">Удалить?</span>
+              <button onClick={() => onDeleteConfirm(w.id)} className="p-1 rounded bg-red-600/20 hover:bg-red-600/40 text-red-400 transition" title="Да, удалить">
+                <Icon name="Check" size={13} />
+              </button>
+              <button onClick={onDeleteCancel} className="p-1 rounded hover:bg-slate-700 text-slate-400 transition" title="Отмена">
+                <Icon name="X" size={13} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition">
+              <button onClick={() => onDeleteClick(w.id)} className="p-1 rounded hover:bg-red-900/40 text-slate-500 hover:text-red-400 transition" title="Удалить">
+                <Icon name="Trash2" size={13} />
+              </button>
+              <Icon name="ChevronRight" size={15} className="text-slate-500 cursor-pointer" onClick={() => onOpen(w.id)} />
+            </div>
+          )
+        ) : (
+          <Icon name="ChevronRight" size={15} className="text-slate-500 cursor-pointer" onClick={() => onOpen(w.id)} />
+        )}
+      </td>
+    </tr>
+  );
+};
 
 const WorkersRegistryPage = () => {
   const navigate = useNavigate();
@@ -97,6 +224,10 @@ const WorkersRegistryPage = () => {
   const [showQrScanner, setShowQrScanner] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scanIntervalRef = useRef<number | null>(null);
+
+  // Удаление / перетаскивание
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   useEffect(() => {
     if (!userId) { navigate('/'); return; }
@@ -671,8 +802,60 @@ const WorkersRegistryPage = () => {
     setShowQrScanner(false);
   };
 
+  // ── Удаление работника ───────────────────────────────────────────────────
+  const deleteWorker = async (id: number) => {
+    try {
+      const res = await fetch(WORKERS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_row', id, organization_id: orgId, user_id: userId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Работник удалён');
+        setAllWorkers(prev => prev.filter(w => w.id !== id));
+        setConfirmDeleteId(null);
+      }
+    } catch { toast.error('Ошибка удаления'); }
+  };
+
+  // ── Перетаскивание строк ─────────────────────────────────────────────────
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const sheet = activeSheet;
+    const sheetWorkers = allWorkers
+      .filter(w => w.sheet_name === sheet)
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    const oldIdx = sheetWorkers.findIndex(w => w.id === active.id);
+    const newIdx = sheetWorkers.findIndex(w => w.id === over.id);
+    if (oldIdx === -1 || newIdx === -1) return;
+    const reordered = arrayMove(sheetWorkers, oldIdx, newIdx);
+    // Оптимистично обновляем UI
+    const updatedMap = new Map(reordered.map((w, i) => [w.id, i]));
+    setAllWorkers(prev => prev.map(w =>
+      updatedMap.has(w.id) ? { ...w, sort_order: updatedMap.get(w.id)! } : w
+    ));
+    // Сохраняем на бэкенд
+    try {
+      await fetch(WORKERS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reorder',
+          organization_id: orgId,
+          user_id: userId,
+          sheet_name: sheet,
+          order: reordered.map((w, i) => ({ id: w.id, sort_order: i })),
+        }),
+      });
+    } catch { toast.error('Ошибка сохранения порядка'); }
+  };
+
   // ── Данные текущей вкладки ────────────────────────────────────────────────
-  const currentWorkers = allWorkers.filter(w => w.sheet_name === activeSheet);
+  const currentWorkers = allWorkers
+    .filter(w => w.sheet_name === activeSheet)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const filtered = currentWorkers.filter(w =>
     !search ||
     (w.fio || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -868,93 +1051,59 @@ const WorkersRegistryPage = () => {
           </Card>
         ) : (
           /* Таблица */
-          <div className="overflow-x-auto rounded-xl border border-slate-700 shadow-lg">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-800 border-b border-slate-700">
-                  <th className="text-left p-3 text-slate-400 font-medium whitespace-nowrap">№ID</th>
-                  <th className="text-left p-3 text-slate-400 font-medium">QR</th>
-                  {(activeSheet === '__all__' ? ['ФИО', 'Раздел', 'Подразделение', 'Должность'] : 
-                    sheetColumns.length > 0 
-                      ? sheetColumns.map(c => c.label)
-                      : ['ФИО', 'Подразделение', 'Должность']
-                  ).map((h, i) => (
-                    <th key={i} className="text-left p-3 text-slate-400 font-medium">{h}</th>
-                  ))}
-                  <th className="p-3 w-8"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {(activeSheet === '__all__' ? allWorkers.filter(w =>
-                  !search || (w.fio || '').toLowerCase().includes(search.toLowerCase())
-                ) : filtered).map((w, idx) => (
-                  <tr
-                    key={w.id}
-                    onClick={() => openWorker(w.id)}
-                    className={`border-b border-slate-700/50 hover:bg-slate-800/80 cursor-pointer transition ${idx % 2 === 0 ? 'bg-slate-900' : 'bg-slate-900/60'}`}
-                  >
-                    <td className="p-3">
-                      <span className="text-xs text-blue-400 font-mono bg-blue-500/10 px-1.5 py-0.5 rounded">{w.worker_number}</span>
-                    </td>
-                    <td className="p-2" onClick={e => e.stopPropagation()}>
-                      {qrImages[w.qr_token] ? (
-                        <div className="flex items-center gap-1">
-                          <img
-                            src={qrImages[w.qr_token]}
-                            alt="QR"
-                            style={{ width: 36, height: 36, imageRendering: 'pixelated' }}
-                            className="rounded border border-slate-600"
-                          />
-                          <button
-                            onClick={() => printQrCard(w)}
-                            className="p-1 rounded hover:bg-slate-700 text-slate-500 hover:text-white transition"
-                            title="Печать визитки"
-                          >
-                            <Icon name="Printer" size={12} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div style={{ width: 36, height: 36 }} className="bg-slate-700 rounded animate-pulse" />
-                      )}
-                    </td>
-                    {activeSheet === '__all__' ? (
-                      <>
-                        <td className="p-3 font-medium text-white">{w.fio}</td>
-                        <td className="p-3"><span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">{w.sheet_name}</span></td>
-                        <td className="p-3 text-slate-300">{w.subdivision || '—'}</td>
-                        <td className="p-3 text-slate-300">{w.position || '—'}</td>
-                      </>
-                    ) : sheetColumns.length > 0 ? (
-                      sheetColumns.map((col) => {
-                        const isFio = col.key === 'ФИО';
-                        const val = isFio ? w.fio : (w.extra_data?.[col.key] || '—');
-                        return (
-                          <td key={col.key} className="p-3 text-slate-300 max-w-[180px] truncate" title={val}>
-                            {isFio ? <span className="text-white font-medium">{val}</span> : <span>{val}</span>}
-                          </td>
-                        );
-                      })
-                    ) : (
-                      <>
-                        <td className="p-3 font-medium text-white">{w.fio}</td>
-                        <td className="p-3 text-slate-300">{w.subdivision || '—'}</td>
-                        <td className="p-3 text-slate-300">{w.position || '—'}</td>
-                      </>
-                    )}
-                    <td className="p-3 text-right">
-                      <Icon name="ChevronRight" size={15} className="text-slate-500" />
-                    </td>
+          <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <div className="overflow-x-auto rounded-xl border border-slate-700 shadow-lg">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-800 border-b border-slate-700">
+                    {isOtipb && activeSheet !== '__all__' && <th className="w-8 p-2"></th>}
+                    <th className="text-left p-3 text-slate-400 font-medium whitespace-nowrap">№ID</th>
+                    <th className="text-left p-3 text-slate-400 font-medium">QR</th>
+                    {(activeSheet === '__all__' ? ['ФИО', 'Раздел', 'Подразделение', 'Должность'] :
+                      sheetColumns.length > 0
+                        ? sheetColumns.map(c => c.label)
+                        : ['ФИО', 'Подразделение', 'Должность']
+                    ).map((h, i) => (
+                      <th key={i} className="text-left p-3 text-slate-400 font-medium">{h}</th>
+                    ))}
+                    <th className="p-3 w-28"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {filtered.length === 0 && (
-              <div className="py-10 text-center text-slate-500">
-                <Icon name="Search" size={28} className="mx-auto mb-2" />
-                Ничего не найдено
-              </div>
-            )}
-          </div>
+                </thead>
+                <SortableContext
+                  items={(activeSheet === '__all__' ? allWorkers.filter(w => !search || w.fio?.toLowerCase().includes(search.toLowerCase())) : filtered).map(w => w.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <tbody>
+                    {(activeSheet === '__all__' ? allWorkers.filter(w =>
+                      !search || (w.fio || '').toLowerCase().includes(search.toLowerCase())
+                    ) : filtered).map((w, idx) => (
+                      <SortableRow
+                        key={w.id}
+                        worker={w}
+                        idx={idx}
+                        isOtipb={isOtipb}
+                        activeSheet={activeSheet}
+                        sheetColumns={sheetColumns}
+                        qrImages={qrImages}
+                        confirmDeleteId={confirmDeleteId}
+                        onOpen={openWorker}
+                        onPrintQr={printQrCard}
+                        onDeleteClick={id => setConfirmDeleteId(id)}
+                        onDeleteConfirm={deleteWorker}
+                        onDeleteCancel={() => setConfirmDeleteId(null)}
+                      />
+                    ))}
+                  </tbody>
+                </SortableContext>
+              </table>
+              {filtered.length === 0 && activeSheet !== '__all__' && (
+                <div className="py-10 text-center text-slate-500">
+                  <Icon name="Search" size={28} className="mx-auto mb-2" />
+                  Ничего не найдено
+                </div>
+              )}
+            </div>
+          </DndContext>
         )}
       </div>
 
