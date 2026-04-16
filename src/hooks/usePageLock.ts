@@ -57,11 +57,30 @@ export async function togglePageLock(pageKey: string): Promise<void> {
   window.dispatchEvent(new CustomEvent('page-lock-changed', { detail: { pageKey } }));
 
   // Сохраняем в БД
-  await fetch(API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'set_page_lock', page_key: pageKey, is_locked: newVal, user_id: userId })
-  });
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set_page_lock', page_key: pageKey, is_locked: newVal, user_id: userId })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      // Откатываем если бэкенд вернул ошибку
+      memCache = { ...memCache, [pageKey]: !newVal };
+      saveCache(memCache);
+      window.dispatchEvent(new CustomEvent('page-lock-changed', { detail: { pageKey } }));
+      return;
+    }
+  } catch {
+    // Откатываем при сетевой ошибке
+    memCache = { ...memCache, [pageKey]: !newVal };
+    saveCache(memCache);
+    window.dispatchEvent(new CustomEvent('page-lock-changed', { detail: { pageKey } }));
+    return;
+  }
+
+  // Синхронизируем с БД после успешного сохранения
+  await fetchPageLocks();
 }
 
 // Для проверки при импорте (синхронная, из кэша)

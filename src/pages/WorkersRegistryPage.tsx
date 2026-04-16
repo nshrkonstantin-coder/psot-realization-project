@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import PageLockBadge from '@/components/ui/PageLockBadge';
-import { isPageLocked } from '@/hooks/usePageLock';
+import { isPageLocked, fetchPageLocks } from '@/hooks/usePageLock';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import QRCode from 'qrcode';
@@ -236,6 +236,7 @@ const WorkersRegistryPage = () => {
   useEffect(() => {
     if (!userId) { navigate('/'); return; }
     if (!isOtipb) { navigate('/dashboard'); return; }
+    fetchPageLocks();
     loadData();
   }, []);
 

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import PageLockBadge from '@/components/ui/PageLockBadge';
+import { fetchPageLocks } from '@/hooks/usePageLock';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -45,7 +46,7 @@ const PeriodichnostMOPage = () => {
   const tbodyRef                = useRef<HTMLTableSectionElement>(null);
 
   useEffect(() => { rowsRef.current = rows; }, [rows]);
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { fetchPageLocks(); loadData(); }, []);
 
   const loadData = async () => {
     setLoading(true);
