@@ -458,7 +458,9 @@ const ZdravpunktPage = () => {
     setQuickTab('list');
     setQuickReport({ type, title, records: [], loading: true });
     try {
+      const effectiveOrgId = localStorage.getItem('zdravpunkt_contractor_org_id') || orgId;
       const p = new URLSearchParams({ action: 'report', limit: '5000', offset: '0' });
+      if (effectiveOrgId) p.set('organization_id', effectiveOrgId);
       if (type !== 'all_esmo') p.set('exam_result', type);
       if (extraParams) Object.entries(extraParams).forEach(([k, v]) => v && p.set(k, v));
       const res = await fetch(`${API}?${p.toString()}`);
@@ -480,8 +482,8 @@ const ZdravpunktPage = () => {
     openQuickReport(type, `${title}${periodLabel}`, {
       date_from: dateFrom,
       date_to: dateTo,
-      subdivision: filterSubdivision,
-      company: filterCompany,
+      subdivision: filterSubdivisions.join('||'),
+      company: filterCompanies.join('||'),
       fio: filterFio,
     });
   };
