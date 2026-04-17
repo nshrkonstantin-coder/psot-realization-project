@@ -1145,6 +1145,118 @@ const WorkersRegistryPage = () => {
           </div>
         )}
 
+        {/* Виджеты просрочек для Усть-Нера */}
+        {activeSheet === 'Усть-Нера' && !loading && (() => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const parseDate = (val: string): Date | null => {
+            if (!val) return null;
+            // Формат dd.MM.yyyy
+            const ddmm = val.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+            if (ddmm) return new Date(+ddmm[3], +ddmm[2] - 1, +ddmm[1]);
+            // JS Date string (напр. "Tue Oct 21 2025 ...")
+            const d = new Date(val);
+            return isNaN(d.getTime()) ? null : d;
+          };
+
+          const ustNeraWorkers = allWorkers.filter(w => w.sheet_name === 'Усть-Нера');
+
+          const expiredMed = ustNeraWorkers.filter(w => {
+            const d = parseDate(w.extra_data?.['Медкомиссия'] || '');
+            return d !== null && d < today;
+          });
+
+          // Психосвидетельствование просрочено: дата след.комиссии ("Выявленные нарушения") < сегодня И psych-код заполнен
+          // "Выявленные нарушения" = дата мед + срок (формула из Excel)
+          const expiredPsych = ustNeraWorkers.filter(w => {
+            const psychVal = w.extra_data?.['Психосвидетельствование'] || '';
+            if (!psychVal) return false;
+            const d = parseDate(w.extra_data?.['Выявленные нарушения'] || '');
+            // Игнорируем "нулевую" дату 1901 года (пустое значение формулы)
+            if (!d || d.getFullYear() < 1970) return false;
+            return d < today;
+          });
+
+          if (expiredMed.length === 0 && expiredPsych.length === 0) return null;
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+              {/* Просроченные медкомиссии */}
+              {expiredMed.length > 0 && (
+                <div className="bg-red-900/30 border border-red-700/60 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="bg-red-600 p-1.5 rounded-lg">
+                      <Icon name="AlertCircle" size={16} className="text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-red-300 font-semibold text-sm">Просроченные медкомиссии</h3>
+                      <p className="text-red-400/70 text-xs">{expiredMed.length} работников</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {expiredMed.map(w => (
+                      <div
+                        key={w.id}
+                        className="flex items-center justify-between bg-red-950/50 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-red-900/50 transition"
+                        onClick={() => openWorker(w.id)}
+                      >
+                        <span className="text-red-200 text-xs font-medium truncate">{w.fio}</span>
+                        <span className="text-red-400 text-xs ml-2 shrink-0">
+                          {w.extra_data?.['Медкомиссия']
+                            ? (() => {
+                                const ddmm = (w.extra_data['Медкомиссия']).match(/^(\d{2}\.\d{2}\.\d{4})$/);
+                                if (ddmm) return ddmm[1];
+                                const d = new Date(w.extra_data['Медкомиссия']);
+                                return isNaN(d.getTime()) ? '' : d.toLocaleDateString('ru');
+                              })()
+                            : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Просроченное психосвидетельствование */}
+              {expiredPsych.length > 0 && (
+                <div className="bg-orange-900/30 border border-orange-700/60 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="bg-orange-600 p-1.5 rounded-lg">
+                      <Icon name="Brain" size={16} className="text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-orange-300 font-semibold text-sm">Просроченное психосвидетельствование</h3>
+                      <p className="text-orange-400/70 text-xs">{expiredPsych.length} работников</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {expiredPsych.map(w => (
+                      <div
+                        key={w.id}
+                        className="flex items-center justify-between bg-orange-950/50 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-orange-900/50 transition"
+                        onClick={() => openWorker(w.id)}
+                      >
+                        <span className="text-orange-200 text-xs font-medium truncate">{w.fio}</span>
+                        <span className="text-orange-400 text-xs ml-2 shrink-0">
+                          {w.extra_data?.['Выявленные нарушения']
+                            ? (() => {
+                                const ddmm = (w.extra_data['Выявленные нарушения']).match(/^(\d{2}\.\d{2}\.\d{4})$/);
+                                if (ddmm) return ddmm[1];
+                                const d = new Date(w.extra_data['Выявленные нарушения']);
+                                return isNaN(d.getTime()) ? '' : d.toLocaleDateString('ru');
+                              })()
+                            : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Если нет данных */}
         {loading ? (
           <div className="flex justify-center py-16 text-slate-400">
