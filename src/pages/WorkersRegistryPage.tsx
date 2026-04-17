@@ -536,11 +536,24 @@ const WorkersRegistryPage = () => {
         const headers = headerRow.filter(Boolean);
         if (headers.length === 0) continue;
 
+        // Хелпер: конвертируем значение ячейки в строку с правильной обработкой дат
+        const cellToString = (val: unknown): string => {
+          if (val === null || val === undefined) return '';
+          if (val instanceof Date) {
+            if (isNaN(val.getTime())) return '';
+            const d = String(val.getDate()).padStart(2, '0');
+            const m = String(val.getMonth() + 1).padStart(2, '0');
+            const y = val.getFullYear();
+            return `${d}.${m}.${y}`;
+          }
+          return String(val);
+        };
+
         const rows: Record<string, string>[] = [];
         for (let i = headerRowIdx + 1; i < json.length; i++) {
           const row: Record<string, string> = {};
           headers.forEach((h, idx) => {
-            row[h] = String((json[i] as string[])[idx] ?? '');
+            row[h] = cellToString((json[i] as unknown[])[idx]);
           });
           if (Object.values(row).some(v => String(v).trim())) rows.push(row);
         }
