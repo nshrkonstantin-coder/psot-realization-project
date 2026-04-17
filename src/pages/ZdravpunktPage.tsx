@@ -1830,8 +1830,8 @@ const ZdravpunktPage = () => {
                   ].map((s, i) => (
                     <Card
                       key={i}
-                      onClick={() => s.clickType && s.value > 0 && openQuickReportWithPeriod(s.clickType, s.label)}
-                      className={`${s.bg} border p-4 text-center transition-all ${s.clickType && s.value > 0 ? `cursor-pointer ${s.hover} hover:scale-[1.02] group` : ''}`}
+                      onClick={() => openQuickReportWithPeriod(s.clickType, s.label)}
+                      className={`${s.bg} border p-4 text-center transition-all cursor-pointer ${s.hover} hover:scale-[1.02] group`}
                     >
                       <div className={`text-3xl font-bold ${s.color}`}>{s.value.toLocaleString('ru')}</div>
                       <div className="text-slate-400 text-sm mt-1">{s.label}</div>
@@ -1845,11 +1845,9 @@ const ZdravpunktPage = () => {
                           {s.unique} уник. {s.unique === 1 ? 'чел.' : 'чел.'} из {reportStats.unique_workers}
                         </div>
                       )}
-                      {s.clickType && s.value > 0 && (
-                        <div className="text-slate-500 text-xs mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          ↗ Открыть список за период
-                        </div>
-                      )}
+                      <div className="text-slate-500 text-xs mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        ↗ Открыть список за период
+                      </div>
                     </Card>
                   ))}
                 </div>
@@ -2567,8 +2565,11 @@ const ZdravpunktPage = () => {
                 </div>
               ) : quickReport.records.length === 0 ? (
                 <div className="text-center py-16 text-slate-500">
-                  <Icon name="CheckCircle" size={40} className="mx-auto mb-3 opacity-30" />
-                  <p className="text-lg">Записей нет</p>
+                  <Icon name={quickReport.type === 'evaded' ? 'UserCheck' : 'CheckCircle'} size={40} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-lg">
+                    {quickReport.type === 'evaded' ? 'Уклонившихся нет' : quickReport.type === 'not_admitted' ? 'Запрещённых нет' : 'Записей нет'}
+                  </p>
+                  <p className="text-sm mt-1 opacity-60">за выбранный период</p>
                 </div>
               ) : quickTab === 'list' ? (
                 <div className="overflow-x-auto rounded-xl border border-slate-700 max-h-[60vh] overflow-y-auto">
