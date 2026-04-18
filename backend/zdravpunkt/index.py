@@ -457,6 +457,31 @@ def handler(event: dict, context) -> dict:
                 'success': True, 'subdivisions': subdivisions, 'companies': all_companies
             }, ensure_ascii=False)}
 
+        if method == 'GET' and action == 'workers_sub_stats':
+            q_org = f"AND organization_id = {int(org_id)}" if org_id else ""
+            cur.execute(f"""
+                SELECT subdivision, shift_type, COUNT(*) as cnt
+                FROM {SCHEMA}.zdravpunkt_workers
+                WHERE 1=1 {q_org}
+                  AND subdivision IS NOT NULL AND subdivision != ''
+                GROUP BY subdivision, shift_type
+                ORDER BY subdivision, shift_type
+            """)
+            rows = cur.fetchall()
+            subs: dict = {}
+            for sub, shift, cnt in rows:
+                if sub not in subs:
+                    subs[sub] = {'subdivision': sub, 'vakhta': 0, 'mezhvakhta': 0, 'other': 0, 'total': 0}
+                if shift == 'Вахта':
+                    subs[sub]['vakhta'] += cnt
+                elif shift == 'Межвахта':
+                    subs[sub]['mezhvakhta'] += cnt
+                else:
+                    subs[sub]['other'] += cnt
+                subs[sub]['total'] += cnt
+            result = sorted(subs.values(), key=lambda x: x['subdivision'])
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'stats': result}, ensure_ascii=False)}
+
         # ── POST: сохранить строки из Excel ──────────────────────────────────
         if method == 'POST':
             body_raw = event.get('body', '{}') or '{}'

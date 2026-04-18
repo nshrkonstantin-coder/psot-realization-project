@@ -124,6 +124,8 @@ const ZdravpunktPage = () => {
   const [activeTab, setActiveTab] = useState<'upload' | 'report' | 'contractors'>('upload');
   const [workerPreview, setWorkerPreview] = useState<{ rows: WorkerPreviewRow[]; fileName: string; fileRef: File | null; columnMap: { field: string; col: string; found: boolean }[] } | null>(null);
   const [workerPreviewUploading, setWorkerPreviewUploading] = useState(false);
+  const [workerSubStats, setWorkerSubStats] = useState<{ subdivision: string; vakhta: number; mezhvakhta: number; other: number; total: number }[] | null>(null);
+  const [workerSubStatsLoading, setWorkerSubStatsLoading] = useState(false);
 
   // Фильтры отчёта
   const [dateFrom, setDateFrom] = useState('');
@@ -690,18 +692,20 @@ const ZdravpunktPage = () => {
         }).catch(() => {});
       }
 
-      const [fRes, sRes, flRes, etRes, crRes] = await Promise.all([
+      const [fRes, sRes, flRes, etRes, crRes, wsRes] = await Promise.all([
         fetch(`${API}?action=files&organization_id=${orgId}`),
         fetch(`${API}?action=stats&organization_id=${effectiveOrgForLoad}`),
         fetch(`${API}?action=filters&organization_id=${effectiveOrgForLoad}`),
         fetch(`${API}?action=exam_type_stats&organization_id=${effectiveOrgForLoad}`),
-        fetch(`${API}?action=contractor_records&organization_id=${effectiveOrgForLoad}`)
+        fetch(`${API}?action=contractor_records&organization_id=${effectiveOrgForLoad}`),
+        fetch(`${API}?action=workers_sub_stats&organization_id=${effectiveOrgForLoad}`)
       ]);
       const fData = await fRes.json();
       const sData = await sRes.json();
       const flData = await flRes.json();
       const etData = await etRes.json();
       const crData = await crRes.json();
+      const wsData = await wsRes.json();
       if (fData.success) setFiles(fData.files);
       if (sData.success) setStats(sData);
       if (etData.success) setExamTypeStats(etData.stats || {});
@@ -710,6 +714,7 @@ const ZdravpunktPage = () => {
         setCompanies(flData.companies || []);
       }
       if (crData.success) setContractorRecords(crData.records || []);
+      if (wsData.success) setWorkerSubStats(wsData.stats || []);
     } catch { toast.error('Ошибка загрузки данных'); }
     finally { setLoading(false); }
   };
@@ -1135,6 +1140,11 @@ const ZdravpunktPage = () => {
         body: JSON.stringify({ action: 'import_workers', file_id: fileId, workers: workerPreview.rows, organization_id: orgId })
       });
 
+      // Обновляем статистику по подразделениям
+      const effectiveOrgForStats = localStorage.getItem('zdravpunkt_contractor_org_id') || orgId;
+      fetch(`${API}?action=workers_sub_stats&organization_id=${effectiveOrgForStats}`)
+        .then(r => r.json()).then(d => { if (d.success) setWorkerSubStats(d.stats || []); }).catch(() => {});
+
       toast.success(workerPreview.rows.length > 0
         ? `Список работников загружен — ${workerPreview.rows.length} чел.`
         : `Шаблон формы "${file.name}" зафиксирован`);
@@ -1317,7 +1327,7 @@ const ZdravpunktPage = () => {
     return `${(b / 1024).toFixed(0)} КБ`;
   };
 
-  const workerFiles = files.filter(f => f.file_type === 'workers_list');
+  const workerFiles = files.filter(f => f.file_type === 'workers' || f.file_type === 'workers_list');
   const esmoFiles = files.filter(f => f.file_type === 'esmo');
 
   return (
@@ -1627,7 +1637,7 @@ const ZdravpunktPage = () => {
                   )}
                 </Button>
 
-                <div className="space-y-2 max-h-64 overflow-y-auto">
+                <div className="space-y-2 max-h-48 overflow-y-auto mb-4">
                   {loading ? (
                     <div className="text-slate-500 text-sm text-center py-4">Загрузка...</div>
                   ) : workerFiles.length === 0 ? (
@@ -1653,6 +1663,43 @@ const ZdravpunktPage = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Статистика по подразделениям */}
+                {workerSubStats && workerSubStats.length > 0 && (
+                  <div className="border border-slate-700/60 rounded-xl overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/40 border-b border-slate-700/40">
+                      <Icon name="Building2" size={14} className="text-teal-400" />
+                      <span className="text-teal-300 text-xs font-semibold">Состав по подразделениям</span>
+                      <span className="ml-auto text-slate-500 text-xs">{workerSubStats.reduce((s, r) => s + r.total, 0)} чел. всего</span>
+                    </div>
+                    <div className="divide-y divide-slate-700/40 max-h-56 overflow-y-auto">
+                      {workerSubStats.map(s => (
+                        <div key={s.subdivision} className="px-3 py-2.5">
+                          <div className="text-white text-xs font-medium mb-1.5 truncate">{s.subdivision}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 bg-blue-900/40 border border-blue-700/30 rounded-lg px-2.5 py-1">
+                              <span className="text-slate-400 text-xs">Вахта</span>
+                              <span className="text-blue-300 font-bold text-sm">{s.vakhta}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-purple-900/40 border border-purple-700/30 rounded-lg px-2.5 py-1">
+                              <span className="text-slate-400 text-xs">Межвахта</span>
+                              <span className="text-purple-300 font-bold text-sm">{s.mezhvakhta}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-slate-700/50 border border-slate-600/30 rounded-lg px-2.5 py-1 ml-auto">
+                              <span className="text-slate-400 text-xs">Всего</span>
+                              <span className="text-white font-bold text-sm">{s.total}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {workerSubStats && workerSubStats.length === 0 && workerFiles.length > 0 && (
+                  <div className="text-slate-500 text-xs text-center py-3 border border-slate-700/40 rounded-xl">
+                    Нет данных о подразделениях
+                  </div>
+                )}
               </div>
             </Card>
 
