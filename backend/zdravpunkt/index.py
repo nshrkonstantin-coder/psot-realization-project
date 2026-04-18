@@ -457,6 +457,28 @@ def handler(event: dict, context) -> dict:
                 'success': True, 'subdivisions': subdivisions, 'companies': all_companies
             }, ensure_ascii=False)}
 
+        if method == 'GET' and action == 'workers_list':
+            q_org = f"AND organization_id = {int(org_id)}" if org_id else ""
+            subdivision = params.get('subdivision', '')
+            if subdivision:
+                cur.execute(f"""
+                    SELECT id, fio, worker_number, subdivision, position, company, shift_type, created_at
+                    FROM {SCHEMA}.zdravpunkt_workers
+                    WHERE 1=1 {q_org} AND subdivision = %s
+                    ORDER BY fio
+                """, (subdivision,))
+            else:
+                cur.execute(f"""
+                    SELECT id, fio, worker_number, subdivision, position, company, shift_type, created_at
+                    FROM {SCHEMA}.zdravpunkt_workers
+                    WHERE 1=1 {q_org}
+                    ORDER BY subdivision, fio
+                """)
+            rows = cur.fetchall()
+            workers = [{'id': r[0], 'fio': r[1], 'worker_number': r[2] or '', 'subdivision': r[3] or '',
+                        'position': r[4] or '', 'company': r[5] or '', 'shift_type': r[6], 'created_at': str(r[7])} for r in rows]
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'workers': workers}, ensure_ascii=False)}
+
         if method == 'GET' and action == 'workers_sub_stats':
             q_org = f"AND organization_id = {int(org_id)}" if org_id else ""
             cur.execute(f"""

@@ -1513,6 +1513,13 @@ const ZdravpunktPage = () => {
             >
               Подрядчики
             </button>
+            <button
+              onClick={() => navigate('/zdravpunkt/workers')}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600/20 border border-blue-600/40 text-blue-400 hover:bg-blue-600/30 hover:text-blue-300 transition"
+            >
+              <Icon name="Users" size={15} />
+              Список работников
+            </button>
             {isAdmin && (
               <button
                 onClick={() => setShowClearConfirm(true)}
@@ -1664,41 +1671,15 @@ const ZdravpunktPage = () => {
                   ))}
                 </div>
 
-                {/* Статистика по подразделениям */}
-                {workerSubStats && workerSubStats.length > 0 && (
-                  <div className="border border-slate-700/60 rounded-xl overflow-hidden">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/40 border-b border-slate-700/40">
-                      <Icon name="Building2" size={14} className="text-teal-400" />
-                      <span className="text-teal-300 text-xs font-semibold">Состав по подразделениям</span>
-                      <span className="ml-auto text-slate-500 text-xs">{workerSubStats.reduce((s, r) => s + r.total, 0)} чел. всего</span>
-                    </div>
-                    <div className="divide-y divide-slate-700/40 max-h-56 overflow-y-auto">
-                      {workerSubStats.map(s => (
-                        <div key={s.subdivision} className="px-3 py-2.5">
-                          <div className="text-white text-xs font-medium mb-1.5 truncate">{s.subdivision}</div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1.5 bg-blue-900/40 border border-blue-700/30 rounded-lg px-2.5 py-1">
-                              <span className="text-slate-400 text-xs">Вахта</span>
-                              <span className="text-blue-300 font-bold text-sm">{s.vakhta}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 bg-purple-900/40 border border-purple-700/30 rounded-lg px-2.5 py-1">
-                              <span className="text-slate-400 text-xs">Межвахта</span>
-                              <span className="text-purple-300 font-bold text-sm">{s.mezhvakhta}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 bg-slate-700/50 border border-slate-600/30 rounded-lg px-2.5 py-1 ml-auto">
-                              <span className="text-slate-400 text-xs">Всего</span>
-                              <span className="text-white font-bold text-sm">{s.total}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {workerSubStats && workerSubStats.length === 0 && workerFiles.length > 0 && (
-                  <div className="text-slate-500 text-xs text-center py-3 border border-slate-700/40 rounded-xl">
-                    Нет данных о подразделениях
-                  </div>
+                {/* Ссылка на страницу общего списка */}
+                {workerFiles.length > 0 && (
+                  <button
+                    onClick={() => navigate('/zdravpunkt/workers')}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-blue-700/40 bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 hover:text-blue-300 transition text-sm font-medium"
+                  >
+                    <Icon name="Users" size={15} />
+                    Открыть общий список работников
+                  </button>
                 )}
               </div>
             </Card>
