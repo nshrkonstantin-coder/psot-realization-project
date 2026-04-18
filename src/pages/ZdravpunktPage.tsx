@@ -912,8 +912,9 @@ const ZdravpunktPage = () => {
           { field: 'Компания',       col: compKeyW,  found: !!compKeyW },
         ];
 
-        // Определяем какие поля отсутствуют (кроме Подразделения и Вахта — они всегда есть)
+        // Определяем какие поля отсутствуют
         const missingFields: string[] = [];
+        if (!shiftKeyW) missingFields.push('Вахта/Межвахта');
         if (!posKeyW) missingFields.push('Должность');
         if (!compKeyW) missingFields.push('Компания');
 
@@ -1139,11 +1140,13 @@ const ZdravpunktPage = () => {
       const file = workerPreview.fileRef!;
 
       // Применяем значения недостающих полей ко всем строкам
+      const globalShift = missingFieldValues['Вахта/Межвахта'] as '-' | 'Вахта' | 'Межвахта' | undefined;
       const finalRows = workerPreview.rows.map(row => ({
         ...row,
         position: row.position || missingFieldValues['Должность'] || '',
         company: row.company || missingFieldValues['Компания'] || '',
         subdivision: row.subdivision || missingFieldValues['Подразделение'] || workerPreview.fileSubdivision || '',
+        shift_type: (row.shift_type === '-' && globalShift && globalShift !== '-') ? globalShift : row.shift_type,
       }));
 
       const saveRes = await fetch(API, {
@@ -1429,13 +1432,41 @@ const ZdravpunktPage = () => {
                     {workerPreview.missingFields.map(field => (
                       <div key={field} className="flex flex-col gap-1">
                         <label className="text-xs text-amber-400">{field}</label>
-                        <input
-                          type="text"
-                          placeholder={`Введи ${field.toLowerCase()}...`}
-                          value={missingFieldValues[field] || ''}
-                          onChange={e => setMissingFieldValues(prev => ({ ...prev, [field]: e.target.value }))}
-                          className="bg-slate-800 border border-amber-700/50 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 min-w-[200px]"
-                        />
+                        {field === 'Вахта/Межвахта' ? (
+                          <select
+                            value={missingFieldValues[field] || ''}
+                            onChange={e => {
+                              const val = e.target.value as '-' | 'Вахта' | 'Межвахта';
+                              setMissingFieldValues(prev => ({ ...prev, [field]: val }));
+                              // Применяем ко всем строкам у которых shift_type = '-'
+                              if (val !== '-' && workerPreview) {
+                                const updated = workerPreview.rows.map(r =>
+                                  r.shift_type === '-' ? { ...r, shift_type: val } : r
+                                );
+                                const shiftOrder: Record<string, number> = { 'Вахта': 0, 'Межвахта': 1, '-': 2 };
+                                updated.sort((a, b) => {
+                                  const sc = (a.subdivision || '').localeCompare(b.subdivision || '', 'ru');
+                                  if (sc !== 0) return sc;
+                                  return (shiftOrder[a.shift_type] ?? 2) - (shiftOrder[b.shift_type] ?? 2);
+                                });
+                                setWorkerPreview({ ...workerPreview, rows: updated });
+                              }
+                            }}
+                            className="bg-slate-800 border border-amber-700/50 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-amber-500 min-w-[180px]"
+                          >
+                            <option value="">— не выбрано —</option>
+                            <option value="Вахта">Вахта</option>
+                            <option value="Межвахта">Межвахта</option>
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            placeholder={`Введи ${field.toLowerCase()}...`}
+                            value={missingFieldValues[field] || ''}
+                            onChange={e => setMissingFieldValues(prev => ({ ...prev, [field]: e.target.value }))}
+                            className="bg-slate-800 border border-amber-700/50 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 min-w-[200px]"
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
