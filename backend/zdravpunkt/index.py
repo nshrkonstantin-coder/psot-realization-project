@@ -505,7 +505,7 @@ def handler(event: dict, context) -> dict:
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'stats': result}, ensure_ascii=False)}
 
         if method == 'GET' and action == 'esmo_sub_stats':
-            """Статистика ЭСМО по подразделениям с фильтрами по датам и ФИО"""
+            """Статистика ЭСМО по подразделениям. ЭСМО считается только по вахтовикам (shift_type = 'Вахта')."""
             q_org = f"AND w.organization_id = {int(org_id)}" if org_id else ""
             date_from = params.get('date_from', '')
             date_to = params.get('date_to', '')
@@ -516,31 +516,28 @@ def handler(event: dict, context) -> dict:
             if date_to:
                 e_date_cond += f" AND e.exam_date <= '{date_to}'"
             fio_cond = f" AND TRIM(LOWER(w.fio)) LIKE TRIM(LOWER('%%{fio_filter.replace(chr(39), chr(39)*2)}%%'))" if fio_filter else ""
+            # Общая статистика: всего/вахта/межвахта по подразделениям
             cur.execute(f"""
-                SELECT
-                    w.subdivision,
-                    w.shift_type,
-                    COUNT(DISTINCT w.id) as total_workers
+                SELECT w.subdivision, w.shift_type, COUNT(DISTINCT w.id) as cnt
                 FROM {SCHEMA}.zdravpunkt_workers w
                 WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
                 {q_org} {fio_cond}
                 GROUP BY w.subdivision, w.shift_type
                 ORDER BY w.subdivision
             """)
-            rows = cur.fetchall()
             subs = {}
-            for sub, shift, total in rows:
+            for sub, shift, cnt in cur.fetchall():
                 if sub not in subs:
                     subs[sub] = {'subdivision': sub, 'vakhta': 0, 'mezhvakhta': 0, 'other': 0, 'total': 0, 'esmo_passed': 0, 'esmo_not_passed': 0}
-                cnt_total = total or 0
+                c = cnt or 0
                 if shift == 'Вахта':
-                    subs[sub]['vakhta'] += cnt_total
+                    subs[sub]['vakhta'] += c
                 elif shift == 'Межвахта':
-                    subs[sub]['mezhvakhta'] += cnt_total
+                    subs[sub]['mezhvakhta'] += c
                 else:
-                    subs[sub]['other'] += cnt_total
-                subs[sub]['total'] += cnt_total
-            # Пересчитываем esmo_passed с учётом фильтра дат
+                    subs[sub]['other'] += c
+                subs[sub]['total'] += c
+            # esmo_passed — только среди вахтовиков (shift_type = 'Вахта')
             cur.execute(f"""
                 SELECT w.subdivision, COUNT(DISTINCT w.id) as passed
                 FROM {SCHEMA}.zdravpunkt_workers w
@@ -549,13 +546,19 @@ def handler(event: dict, context) -> dict:
                     AND e.exam_result NOT IN ('cleared', 'archived_test')
                     {e_date_cond}
                 WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
+                  AND w.shift_type = 'Вахта'
                 {q_org} {fio_cond}
                 GROUP BY w.subdivision
             """)
             for sub, passed in cur.fetchall():
                 if sub in subs:
                     subs[sub]['esmo_passed'] = passed or 0
-                    subs[sub]['esmo_not_passed'] = max(0, subs[sub]['total'] - (passed or 0))
+                    # esmo_not_passed = вахтовики которые не прошли ЭСМО
+                    subs[sub]['esmo_not_passed'] = max(0, subs[sub]['vakhta'] - (passed or 0))
+            # Для тех где нет прошедших — esmo_not_passed = все вахтовики
+            for sub in subs:
+                if subs[sub]['esmo_passed'] == 0:
+                    subs[sub]['esmo_not_passed'] = subs[sub]['vakhta']
             result = sorted(subs.values(), key=lambda x: x['subdivision'])
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'stats': result}, ensure_ascii=False)}
 
