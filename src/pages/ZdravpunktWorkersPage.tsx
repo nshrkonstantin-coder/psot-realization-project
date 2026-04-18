@@ -163,10 +163,10 @@ const ZdravpunktWorkersPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+    <div className="h-screen bg-slate-950 text-white flex flex-col overflow-hidden">
       {/* Шапка */}
       <div className="bg-gradient-to-r from-teal-900/50 to-slate-900/80 border-b border-teal-700/30 px-6 py-3 flex-shrink-0">
-        <div className="max-w-screen-2xl mx-auto">
+        <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <button onClick={() => navigate('/zdravpunkt')}
@@ -229,9 +229,29 @@ const ZdravpunktWorkersPage = () => {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      {/* Итого — полоса под шапкой */}
+      {!loading && stats.length > 0 && (
+        <div className="flex items-center gap-3 px-5 py-2 border-b border-slate-800/60 bg-slate-900/40 flex-shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-1.5">
+            <Icon name="Users" size={13} className="text-teal-400" />
+            <span className="text-slate-400 text-xs">Всего:</span>
+            <span className="text-white font-bold text-sm">{totalAll}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-blue-900/30 border border-blue-700/40 rounded-lg px-3 py-1.5">
+            <span className="text-slate-400 text-xs">Вахта:</span>
+            <span className="text-blue-300 font-bold text-sm">{totalVakhta}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 rounded-lg px-3 py-1.5">
+            <span className="text-slate-400 text-xs">Межвахта:</span>
+            <span className="text-purple-300 font-bold text-sm">{totalMezhvakhta}</span>
+          </div>
+          <span className="text-slate-600 text-xs ml-auto">{stats.length} подразд.</span>
+        </div>
+      )}
+
+      <div className="flex flex-1 min-h-0">
         {/* Основная область — карточки */}
-        <div className={`overflow-y-auto p-5 transition-all duration-300 ${drill ? 'flex-1' : 'w-full'}`}>
+        <div className={`overflow-y-auto p-4 transition-all duration-300 ${drill ? 'flex-1' : 'w-full'}`}>
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Icon name="Loader" size={32} className="animate-spin text-teal-400" />
@@ -242,36 +262,16 @@ const ZdravpunktWorkersPage = () => {
               <p className="text-slate-400">Нет данных о работниках.<br />Загрузите список в разделе «Загрузки».</p>
             </div>
           ) : (
-            <div className="max-w-screen-2xl mx-auto">
-              {/* Итого */}
-              <div className="flex items-center gap-3 mb-5 flex-wrap">
-                <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-2">
-                  <Icon name="Users" size={14} className="text-teal-400" />
-                  <span className="text-slate-400 text-xs">Всего:</span>
-                  <span className="text-white font-bold">{totalAll}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-blue-900/30 border border-blue-700/40 rounded-xl px-4 py-2">
-                  <span className="text-slate-400 text-xs">Вахта:</span>
-                  <span className="text-blue-300 font-bold">{totalVakhta}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 rounded-xl px-4 py-2">
-                  <span className="text-slate-400 text-xs">Межвахта:</span>
-                  <span className="text-purple-300 font-bold">{totalMezhvakhta}</span>
-                </div>
-                <div className="ml-auto text-xs text-slate-500">{stats.length} подразделений</div>
-              </div>
-
-              {/* Сетка 5 в ряд */}
-              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
-                {stats.map(s => (
-                  <SubCard
-                    key={s.subdivision}
-                    stat={s}
-                    activeDrillType={drill?.subdivision === s.subdivision ? drill.type : null}
-                    onDrill={(type) => openDrill(s.subdivision, type)}
-                  />
-                ))}
-              </div>
+            /* Карточки — фиксированная ширина 260px, до 5 в ряд, авто-перенос */
+            <div className="flex flex-wrap gap-3 content-start">
+              {stats.map(s => (
+                <SubCard
+                  key={s.subdivision}
+                  stat={s}
+                  activeDrillType={drill?.subdivision === s.subdivision ? drill.type : null}
+                  onDrill={(type) => openDrill(s.subdivision, type)}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -382,7 +382,7 @@ const SubCard = ({ stat, activeDrillType, onDrill }: SubCardProps) => {
   const esmoPercent = stat.vakhta > 0 ? Math.round((stat.esmo_passed / stat.vakhta) * 100) : 0;
 
   return (
-    <div className={`rounded-2xl border overflow-hidden transition-all duration-200 ${
+    <div style={{ width: '260px', flexShrink: 0 }} className={`rounded-2xl border overflow-hidden transition-all duration-200 ${
       isActive ? 'border-teal-500/60 shadow-lg shadow-teal-900/20' : 'border-slate-700/60 hover:border-slate-600'
     } bg-slate-800/50`}>
 
