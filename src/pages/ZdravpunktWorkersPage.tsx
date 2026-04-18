@@ -194,7 +194,7 @@ const ZdravpunktWorkersPage = () => {
   return (
     <div className="h-screen bg-slate-950 text-white flex flex-col overflow-hidden">
       {/* Шапка */}
-      <div className="bg-gradient-to-r from-teal-900/50 to-slate-900/80 border-b border-teal-700/30 px-6 py-3 flex-shrink-0">
+      <div className="bg-gradient-to-r from-teal-900/50 to-slate-900/80 border-b border-teal-700/30 pl-20 pr-6 py-3 flex-shrink-0">
         <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
