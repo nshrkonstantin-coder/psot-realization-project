@@ -504,6 +504,96 @@ def handler(event: dict, context) -> dict:
             result = sorted(subs.values(), key=lambda x: x['subdivision'])
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'stats': result}, ensure_ascii=False)}
 
+        if method == 'GET' and action == 'esmo_sub_stats':
+            """Статистика ЭСМО по подразделениям: сколько прошли/не прошли из списка работников"""
+            q_org = f"AND w.organization_id = {int(org_id)}" if org_id else ""
+            cur.execute(f"""
+                SELECT
+                    w.subdivision,
+                    w.shift_type,
+                    COUNT(DISTINCT w.id) as total_workers,
+                    COUNT(DISTINCT CASE WHEN e.fio IS NOT NULL THEN w.id END) as esmo_passed
+                FROM {SCHEMA}.zdravpunkt_workers w
+                LEFT JOIN {SCHEMA}.zdravpunkt_esmo e
+                    ON TRIM(LOWER(w.fio)) = TRIM(LOWER(e.fio))
+                    AND e.exam_result NOT IN ('cleared', 'archived_test')
+                WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
+                {q_org}
+                GROUP BY w.subdivision, w.shift_type
+                ORDER BY w.subdivision
+            """)
+            rows = cur.fetchall()
+            subs = {}
+            for sub, shift, total, passed in rows:
+                if sub not in subs:
+                    subs[sub] = {'subdivision': sub, 'vakhta': 0, 'mezhvakhta': 0, 'other': 0, 'total': 0, 'esmo_passed': 0, 'esmo_not_passed': 0}
+                cnt_total = total or 0
+                cnt_passed = passed or 0
+                if shift == 'Вахта':
+                    subs[sub]['vakhta'] += cnt_total
+                elif shift == 'Межвахта':
+                    subs[sub]['mezhvakhta'] += cnt_total
+                else:
+                    subs[sub]['other'] += cnt_total
+                subs[sub]['total'] += cnt_total
+                subs[sub]['esmo_passed'] = max(subs[sub].get('esmo_passed', 0), cnt_passed)
+            for sub in subs:
+                total = subs[sub]['total']
+                passed = subs[sub]['esmo_passed']
+                subs[sub]['esmo_not_passed'] = max(0, total - passed)
+            # Пересчитываем esmo_passed агрегацией по подразделению отдельно
+            cur.execute(f"""
+                SELECT w.subdivision, COUNT(DISTINCT w.id) as passed
+                FROM {SCHEMA}.zdravpunkt_workers w
+                INNER JOIN {SCHEMA}.zdravpunkt_esmo e
+                    ON TRIM(LOWER(w.fio)) = TRIM(LOWER(e.fio))
+                    AND e.exam_result NOT IN ('cleared', 'archived_test')
+                WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
+                {q_org}
+                GROUP BY w.subdivision
+            """)
+            for sub, passed in cur.fetchall():
+                if sub in subs:
+                    subs[sub]['esmo_passed'] = passed or 0
+                    subs[sub]['esmo_not_passed'] = max(0, subs[sub]['total'] - (passed or 0))
+            result = sorted(subs.values(), key=lambda x: x['subdivision'])
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'stats': result}, ensure_ascii=False)}
+
+        if method == 'GET' and action == 'esmo_workers_detail':
+            """Список работников подразделения с флагом прохождения ЭСМО"""
+            q_org = f"AND w.organization_id = {int(org_id)}" if org_id else ""
+            subdivision = params.get('subdivision', '')
+            esmo_filter = params.get('esmo_filter', 'all')  # all | passed | not_passed
+            shift_filter = params.get('shift_filter', '')
+            sub_cond = f"AND w.subdivision = '{subdivision.replace(chr(39), chr(39)*2)}'" if subdivision else ""
+            shift_cond = f"AND w.shift_type = '{shift_filter.replace(chr(39), chr(39)*2)}'" if shift_filter else ""
+            cur.execute(f"""
+                SELECT
+                    w.id, w.fio, w.worker_number, w.subdivision, w.position, w.company, w.shift_type,
+                    CASE WHEN COUNT(e.fio) > 0 THEN true ELSE false END as esmo_passed,
+                    MAX(e.exam_date::text) as last_exam_date,
+                    MAX(e.exam_result) as last_result
+                FROM {SCHEMA}.zdravpunkt_workers w
+                LEFT JOIN {SCHEMA}.zdravpunkt_esmo e
+                    ON TRIM(LOWER(w.fio)) = TRIM(LOWER(e.fio))
+                    AND e.exam_result NOT IN ('cleared', 'archived_test')
+                WHERE 1=1 {q_org} {sub_cond} {shift_cond}
+                GROUP BY w.id, w.fio, w.worker_number, w.subdivision, w.position, w.company, w.shift_type
+                ORDER BY w.fio
+            """)
+            rows = cur.fetchall()
+            workers = []
+            for r in rows:
+                passed = bool(r[7])
+                if esmo_filter == 'passed' and not passed:
+                    continue
+                if esmo_filter == 'not_passed' and passed:
+                    continue
+                workers.append({'id': r[0], 'fio': r[1], 'worker_number': r[2] or '', 'subdivision': r[3] or '',
+                                'position': r[4] or '', 'company': r[5] or '', 'shift_type': r[6] or '',
+                                'esmo_passed': passed, 'last_exam_date': r[8] or '', 'last_result': r[9] or ''})
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'workers': workers}, ensure_ascii=False)}
+
         # ── POST: сохранить строки из Excel ──────────────────────────────────
         if method == 'POST':
             body_raw = event.get('body', '{}') or '{}'
