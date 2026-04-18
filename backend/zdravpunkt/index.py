@@ -494,13 +494,14 @@ def handler(event: dict, context) -> dict:
                         (file_id, org_id,
                          w.get('worker_number', ''), w.get('fio', ''),
                          w.get('subdivision', ''), w.get('position', ''),
-                         w.get('company', ''), '{}')
+                         w.get('company', ''), '{}',
+                         w.get('shift_type') if w.get('shift_type') not in (None, '-', '') else None)
                         for w in workers
                     ]
                     psycopg2.extras.execute_values(
                         cur,
                         f"""INSERT INTO {SCHEMA}.zdravpunkt_workers
-                            (file_id, organization_id, worker_number, fio, subdivision, position, company, extra_data)
+                            (file_id, organization_id, worker_number, fio, subdivision, position, company, extra_data, shift_type)
                             VALUES %s""",
                         data, page_size=500
                     )

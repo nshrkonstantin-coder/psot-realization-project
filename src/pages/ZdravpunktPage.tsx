@@ -58,6 +58,15 @@ interface ExamTypeStats {
   post_trip?: ExamTypeStat;
 }
 
+interface WorkerPreviewRow {
+  fio: string;
+  worker_number: string;
+  subdivision: string;
+  position: string;
+  company: string;
+  shift_type: '-' | 'Вахта' | 'Межвахта';
+}
+
 interface ContractorRecord {
   id?: number;
   record_date: string;
@@ -113,6 +122,8 @@ const ZdravpunktPage = () => {
   const [uploadProgress, setUploadProgress] = useState(0); // 0-100
   const [uploadSheetStats, setUploadSheetStats] = useState<{ label: string; count: number }[] | null>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'report' | 'contractors'>('upload');
+  const [workerPreview, setWorkerPreview] = useState<{ rows: WorkerPreviewRow[]; fileName: string; fileRef: File | null } | null>(null);
+  const [workerPreviewUploading, setWorkerPreviewUploading] = useState(false);
 
   // Фильтры отчёта
   const [dateFrom, setDateFrom] = useState('');
@@ -830,6 +841,36 @@ const ZdravpunktPage = () => {
         keys.find(k => variants.some(v => k.toLowerCase().includes(v.toLowerCase()))) ||
         '';
 
+      // Для workers — сначала показываем предпросмотр с выбором Вахта/Межвахта
+      if (fileType === 'workers') {
+        const fioKeyW = findKey('фио', 'имя', 'наименование', 'работник', 'name');
+        const numKeyW = findKey('табел', 'номер', 'id', 'code', 'код');
+        const divKeyW = findKey('подразделение', 'отдел', 'subdivision', 'участок');
+        const posKeyW = findKey('должность', 'position');
+        const compKeyW = findKey('компания', 'организация', 'company', 'предприятие');
+        const shiftKeyW = findKey('вахта', 'межвахта', 'shift', 'тип вахты', 'вид вахты', 'режим');
+
+        const detectShift = (val: string): '-' | 'Вахта' | 'Межвахта' => {
+          const v = val.trim().toLowerCase();
+          if (v.includes('межвахта') || v.includes('межвахт')) return 'Межвахта';
+          if (v.includes('вахта') || v.includes('вахт')) return 'Вахта';
+          return '-';
+        };
+
+        const rows: WorkerPreviewRow[] = raw.map(r => ({
+          fio: String(r[fioKeyW] || ''),
+          worker_number: String(r[numKeyW] || ''),
+          subdivision: String(r[divKeyW] || ''),
+          position: String(r[posKeyW] || ''),
+          company: String(r[compKeyW] || ''),
+          shift_type: shiftKeyW ? detectShift(String(r[shiftKeyW] || '')) : '-',
+        })).filter(w => w.fio.trim());
+
+        setUploading(null);
+        setWorkerPreview({ rows, fileName: file.name, fileRef: file });
+        return;
+      }
+
       // Сохраняем запись о файле в БД (rows_count уточним после парсинга для esmo)
       const saveRes = await fetch(API, {
         method: 'POST',
@@ -849,29 +890,8 @@ const ZdravpunktPage = () => {
       if (!saveData.success) throw new Error(saveData.error);
       const fileId = saveData.file_id;
 
-      // Парсим все строки и отправляем ОДНИМ запросом
-      if (fileType === 'workers') {
-        const fioKey = findKey('фио', 'имя', 'наименование', 'работник', 'name');
-        const numKey = findKey('табел', 'номер', 'id', 'code', 'код');
-        const divKey = findKey('подразделение', 'отдел', 'subdivision', 'участок');
-        const posKey = findKey('должность', 'position');
-        const compKey = findKey('компания', 'организация', 'company', 'предприятие');
-
-        const workers = raw.map(r => ({
-          fio: String(r[fioKey] || ''),
-          worker_number: String(r[numKey] || ''),
-          subdivision: String(r[divKey] || ''),
-          position: String(r[posKey] || ''),
-          company: String(r[compKey] || ''),
-        })).filter(w => w.fio.trim());
-
-        await fetch(API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'import_workers', file_id: fileId, workers, organization_id: orgId })
-        });
-
-      } else {
+      // Парсим ЭСМО и отправляем ОДНИМ запросом
+      {
         // Маппинг имён вкладок → exam_type
         const SHEET_TYPE_MAP: Record<string, string> = {
           'предсменный': 'pre_shift',
@@ -1055,6 +1075,45 @@ const ZdravpunktPage = () => {
     }
   };
 
+  const confirmWorkersUpload = async () => {
+    if (!workerPreview) return;
+    setWorkerPreviewUploading(true);
+    try {
+      const file = workerPreview.fileRef!;
+      const saveRes = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_file',
+          file_type: 'workers',
+          file_name: file.name,
+          file_url: '',
+          file_size: file.size,
+          rows_count: workerPreview.rows.length,
+          uploaded_by: userId,
+          organization_id: orgId
+        })
+      });
+      const saveData = await saveRes.json();
+      if (!saveData.success) throw new Error(saveData.error);
+      const fileId = saveData.file_id;
+
+      await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'import_workers', file_id: fileId, workers: workerPreview.rows, organization_id: orgId })
+      });
+
+      toast.success(`Список работников загружен — ${workerPreview.rows.length} чел.`);
+      setWorkerPreview(null);
+      loadAll();
+    } catch (err: unknown) {
+      toast.error(`Ошибка: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setWorkerPreviewUploading(false);
+    }
+  };
+
   // ── Удаление конкретного файла вместе с его данными ─────────────────────
   const [deleteConfirm, setDeleteConfirm] = useState<{fileId: number; fileName: string; rows: number} | null>(null);
 
@@ -1230,6 +1289,78 @@ const ZdravpunktPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
+
+      {/* Предпросмотр списка работников */}
+      {workerPreview && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex flex-col">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 bg-slate-900 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-2 rounded-lg">
+                <Icon name="Users" size={18} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-white font-bold">Предпросмотр списка работников</h2>
+                <p className="text-slate-400 text-xs">{workerPreview.fileName} · {workerPreview.rows.length} чел. — проверьте и скорректируйте столбец «Вахта/Межвахта»</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setWorkerPreview(null)}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition">
+                Отмена
+              </button>
+              <button onClick={confirmWorkersUpload} disabled={workerPreviewUploading}
+                className="px-5 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition disabled:opacity-50 flex items-center gap-2">
+                {workerPreviewUploading
+                  ? <><Icon name="Loader" size={15} className="animate-spin" />Загружаю...</>
+                  : <><Icon name="Upload" size={15} />Загрузить {workerPreview.rows.length} чел.</>}
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-slate-800 z-10">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700 w-8">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">ФИО</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Таб. №</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Подразделение</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Должность</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Компания</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700 min-w-[140px]">Вахта/Межвахта</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {workerPreview.rows.map((row, i) => (
+                  <tr key={i} className="hover:bg-slate-800/40">
+                    <td className="px-4 py-2 text-slate-500 text-xs">{i + 1}</td>
+                    <td className="px-4 py-2 text-white font-medium whitespace-nowrap">{row.fio}</td>
+                    <td className="px-4 py-2 text-slate-400 text-xs">{row.worker_number || '—'}</td>
+                    <td className="px-4 py-2 text-slate-300 text-xs">{row.subdivision || '—'}</td>
+                    <td className="px-4 py-2 text-slate-300 text-xs">{row.position || '—'}</td>
+                    <td className="px-4 py-2 text-slate-300 text-xs">{row.company || '—'}</td>
+                    <td className="px-4 py-2">
+                      <select
+                        value={row.shift_type}
+                        onChange={e => {
+                          const updated = [...workerPreview.rows];
+                          updated[i] = { ...updated[i], shift_type: e.target.value as '-' | 'Вахта' | 'Межвахта' };
+                          setWorkerPreview({ ...workerPreview, rows: updated });
+                        }}
+                        className="bg-slate-700 border border-slate-600 text-white text-xs rounded px-2 py-1.5 w-full focus:outline-none focus:border-teal-500"
+                      >
+                        <option value="-">—</option>
+                        <option value="Вахта">Вахта</option>
+                        <option value="Межвахта">Межвахта</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Шапка */}
       <div className="bg-gradient-to-r from-teal-900/60 to-slate-900 border-b border-teal-700/40 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
