@@ -49,14 +49,29 @@ const ZdravpunktWorkersPage = () => {
   const [drillLoading, setDrillLoading] = useState(false);
   const [search, setSearch] = useState('');
 
+  // Фильтры
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [fioFilter, setFioFilter] = useState('');
+  const [fioInput, setFioInput] = useState('');
+
   const totalAll = stats.reduce((s, r) => s + r.total, 0);
   const totalVakhta = stats.reduce((s, r) => s + r.vakhta, 0);
   const totalMezhvakhta = stats.reduce((s, r) => s + r.mezhvakhta, 0);
 
-  const loadStats = useCallback(async () => {
+  const buildStatsUrl = useCallback((df: string, dt: string, fio: string) => {
+    let url = `${API}?action=esmo_sub_stats&organization_id=${effectiveOrgId}`;
+    if (df) url += `&date_from=${df}`;
+    if (dt) url += `&date_to=${dt}`;
+    if (fio) url += `&fio=${encodeURIComponent(fio)}`;
+    return url;
+  }, [effectiveOrgId]);
+
+  const loadStats = useCallback(async (df = dateFrom, dt = dateTo, fio = fioFilter) => {
     setLoading(true);
+    setDrill(null);
     try {
-      const res = await fetch(`${API}?action=esmo_sub_stats&organization_id=${effectiveOrgId}`);
+      const res = await fetch(buildStatsUrl(df, dt, fio));
       const data = await res.json();
       if (data.success) setStats(data.stats || []);
     } catch {
@@ -64,9 +79,24 @@ const ZdravpunktWorkersPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [effectiveOrgId]);
+  }, [buildStatsUrl, dateFrom, dateTo, fioFilter]);
 
-  useEffect(() => { loadStats(); }, [loadStats]);
+  useEffect(() => { loadStats('', '', ''); }, [effectiveOrgId]);
+
+  const applyFilters = () => {
+    setFioFilter(fioInput);
+    loadStats(dateFrom, dateTo, fioInput);
+  };
+
+  const resetFilters = () => {
+    setDateFrom('');
+    setDateTo('');
+    setFioFilter('');
+    setFioInput('');
+    loadStats('', '', '');
+  };
+
+  const hasFilters = !!(dateFrom || dateTo || fioFilter);
 
   const openDrill = async (subdivision: string, type: DrillType) => {
     const labels: Record<DrillType, string> = {
@@ -86,6 +116,9 @@ const ZdravpunktWorkersPage = () => {
       else if (type === 'mezhvakhta') url += `&shift_filter=${encodeURIComponent('Межвахта')}`;
       else if (type === 'esmo_passed') url += `&esmo_filter=passed`;
       else if (type === 'esmo_not_passed') url += `&esmo_filter=not_passed`;
+      if (dateFrom) url += `&date_from=${dateFrom}`;
+      if (dateTo) url += `&date_to=${dateTo}`;
+      if (fioFilter) url += `&fio=${encodeURIComponent(fioFilter)}`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.success) setDrillWorkers(data.workers || []);
@@ -145,31 +178,84 @@ const ZdravpunktWorkersPage = () => {
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
       {/* Шапка */}
       <div className="bg-gradient-to-r from-teal-900/50 to-slate-900/80 border-b border-teal-700/30 px-6 py-3 flex-shrink-0">
-        <div className="max-w-screen-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/zdravpunkt')}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition">
-              <Icon name="ArrowLeft" size={18} />
-            </button>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-              <Icon name="Users" size={19} className="text-white" />
+        <div className="max-w-screen-2xl mx-auto">
+          {/* Строка 1: заголовок + счётчик */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <button onClick={() => navigate('/zdravpunkt')}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition">
+                <Icon name="ArrowLeft" size={18} />
+              </button>
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
+                <Icon name="Users" size={19} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-white leading-tight">Общий список работников</h1>
+                <p className="text-teal-400 text-xs">Рабочий стол Здравпункта</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-white leading-tight">Общий список работников</h1>
-              <p className="text-teal-400 text-xs">Рабочий стол Здравпункта</p>
+            <div className="flex items-center gap-3">
+              {!loading && (
+                <div className="text-xs text-slate-400 flex items-center gap-1.5">
+                  <span className="text-white font-bold text-base">{totalAll}</span> чел. в
+                  <span className="text-white font-semibold">{stats.length}</span> подразд.
+                  {hasFilters && <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-600/30 border border-amber-600/50 text-amber-400 text-xs">фильтр</span>}
+                </div>
+              )}
+              <button onClick={() => loadStats(dateFrom, dateTo, fioFilter)}
+                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition">
+                <Icon name="RefreshCw" size={15} />
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {!loading && (
-              <div className="text-xs text-slate-400 flex items-center gap-1.5">
-                <span className="text-white font-bold text-base">{totalAll}</span> чел. в
-                <span className="text-white font-semibold">{stats.length}</span> подразд.
-              </div>
-            )}
-            <button onClick={loadStats}
-              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition">
-              <Icon name="RefreshCw" size={15} />
+
+          {/* Строка 2: фильтры */}
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-slate-400">Период ЭСМО с</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                className="bg-slate-800/70 border border-slate-700/60 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-teal-500 w-38"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-slate-400">по</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                className="bg-slate-800/70 border border-slate-700/60 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-teal-500 w-38"
+              />
+            </div>
+            <div className="flex flex-col gap-1 flex-1 min-w-[200px] max-w-[320px]">
+              <label className="text-xs text-slate-400">Поиск по ФИО</label>
+              <input
+                type="text"
+                placeholder="Введите ФИО..."
+                value={fioInput}
+                onChange={e => setFioInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                className="bg-slate-800/70 border border-slate-700/60 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-teal-500"
+              />
+            </div>
+            <button
+              onClick={applyFilters}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium transition"
+            >
+              <Icon name="Search" size={14} />
+              Применить
             </button>
+            {hasFilters && (
+              <button
+                onClick={resetFilters}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-400 hover:text-white text-sm transition"
+              >
+                <Icon name="X" size={14} />
+                Сбросить
+              </button>
+            )}
           </div>
         </div>
       </div>

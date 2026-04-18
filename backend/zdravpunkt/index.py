@@ -505,30 +505,34 @@ def handler(event: dict, context) -> dict:
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'stats': result}, ensure_ascii=False)}
 
         if method == 'GET' and action == 'esmo_sub_stats':
-            """Статистика ЭСМО по подразделениям: сколько прошли/не прошли из списка работников"""
+            """Статистика ЭСМО по подразделениям с фильтрами по датам и ФИО"""
             q_org = f"AND w.organization_id = {int(org_id)}" if org_id else ""
+            date_from = params.get('date_from', '')
+            date_to = params.get('date_to', '')
+            fio_filter = params.get('fio', '').strip()
+            e_date_cond = ''
+            if date_from:
+                e_date_cond += f" AND e.exam_date >= '{date_from}'"
+            if date_to:
+                e_date_cond += f" AND e.exam_date <= '{date_to}'"
+            fio_cond = f" AND TRIM(LOWER(w.fio)) LIKE TRIM(LOWER('%%{fio_filter.replace(chr(39), chr(39)*2)}%%'))" if fio_filter else ""
             cur.execute(f"""
                 SELECT
                     w.subdivision,
                     w.shift_type,
-                    COUNT(DISTINCT w.id) as total_workers,
-                    COUNT(DISTINCT CASE WHEN e.fio IS NOT NULL THEN w.id END) as esmo_passed
+                    COUNT(DISTINCT w.id) as total_workers
                 FROM {SCHEMA}.zdravpunkt_workers w
-                LEFT JOIN {SCHEMA}.zdravpunkt_esmo e
-                    ON TRIM(LOWER(w.fio)) = TRIM(LOWER(e.fio))
-                    AND e.exam_result NOT IN ('cleared', 'archived_test')
                 WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
-                {q_org}
+                {q_org} {fio_cond}
                 GROUP BY w.subdivision, w.shift_type
                 ORDER BY w.subdivision
             """)
             rows = cur.fetchall()
             subs = {}
-            for sub, shift, total, passed in rows:
+            for sub, shift, total in rows:
                 if sub not in subs:
                     subs[sub] = {'subdivision': sub, 'vakhta': 0, 'mezhvakhta': 0, 'other': 0, 'total': 0, 'esmo_passed': 0, 'esmo_not_passed': 0}
                 cnt_total = total or 0
-                cnt_passed = passed or 0
                 if shift == 'Вахта':
                     subs[sub]['vakhta'] += cnt_total
                 elif shift == 'Межвахта':
@@ -536,20 +540,16 @@ def handler(event: dict, context) -> dict:
                 else:
                     subs[sub]['other'] += cnt_total
                 subs[sub]['total'] += cnt_total
-                subs[sub]['esmo_passed'] = max(subs[sub].get('esmo_passed', 0), cnt_passed)
-            for sub in subs:
-                total = subs[sub]['total']
-                passed = subs[sub]['esmo_passed']
-                subs[sub]['esmo_not_passed'] = max(0, total - passed)
-            # Пересчитываем esmo_passed агрегацией по подразделению отдельно
+            # Пересчитываем esmo_passed с учётом фильтра дат
             cur.execute(f"""
                 SELECT w.subdivision, COUNT(DISTINCT w.id) as passed
                 FROM {SCHEMA}.zdravpunkt_workers w
                 INNER JOIN {SCHEMA}.zdravpunkt_esmo e
                     ON TRIM(LOWER(w.fio)) = TRIM(LOWER(e.fio))
                     AND e.exam_result NOT IN ('cleared', 'archived_test')
+                    {e_date_cond}
                 WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
-                {q_org}
+                {q_org} {fio_cond}
                 GROUP BY w.subdivision
             """)
             for sub, passed in cur.fetchall():
@@ -560,13 +560,22 @@ def handler(event: dict, context) -> dict:
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'stats': result}, ensure_ascii=False)}
 
         if method == 'GET' and action == 'esmo_workers_detail':
-            """Список работников подразделения с флагом прохождения ЭСМО"""
+            """Список работников подразделения с флагом прохождения ЭСМО, фильтры дат и ФИО"""
             q_org = f"AND w.organization_id = {int(org_id)}" if org_id else ""
             subdivision = params.get('subdivision', '')
-            esmo_filter = params.get('esmo_filter', 'all')  # all | passed | not_passed
+            esmo_filter = params.get('esmo_filter', 'all')
             shift_filter = params.get('shift_filter', '')
+            date_from = params.get('date_from', '')
+            date_to = params.get('date_to', '')
+            fio_filter = params.get('fio', '').strip()
             sub_cond = f"AND w.subdivision = '{subdivision.replace(chr(39), chr(39)*2)}'" if subdivision else ""
             shift_cond = f"AND w.shift_type = '{shift_filter.replace(chr(39), chr(39)*2)}'" if shift_filter else ""
+            fio_cond = f" AND TRIM(LOWER(w.fio)) LIKE TRIM(LOWER('%%{fio_filter.replace(chr(39), chr(39)*2)}%%'))" if fio_filter else ""
+            e_date_cond = ''
+            if date_from:
+                e_date_cond += f" AND e.exam_date >= '{date_from}'"
+            if date_to:
+                e_date_cond += f" AND e.exam_date <= '{date_to}'"
             cur.execute(f"""
                 SELECT
                     w.id, w.fio, w.worker_number, w.subdivision, w.position, w.company, w.shift_type,
@@ -577,7 +586,8 @@ def handler(event: dict, context) -> dict:
                 LEFT JOIN {SCHEMA}.zdravpunkt_esmo e
                     ON TRIM(LOWER(w.fio)) = TRIM(LOWER(e.fio))
                     AND e.exam_result NOT IN ('cleared', 'archived_test')
-                WHERE 1=1 {q_org} {sub_cond} {shift_cond}
+                    {e_date_cond}
+                WHERE 1=1 {q_org} {sub_cond} {shift_cond} {fio_cond}
                 GROUP BY w.id, w.fio, w.worker_number, w.subdivision, w.position, w.company, w.shift_type
                 ORDER BY w.fio
             """)
@@ -624,27 +634,51 @@ def handler(event: dict, context) -> dict:
 
             # Сохранить список работников — execute_values (быстрый bulk insert)
             if action_post == 'import_workers':
+                """Умный upsert: если ФИО есть — обновляет shift_type и file_id; нет — добавляет новую запись"""
                 file_id = body.get('file_id')
                 workers = body.get('workers', [])
-                if workers:
-                    data = [
-                        (file_id, org_id,
-                         w.get('worker_number', ''), w.get('fio', ''),
-                         w.get('subdivision', ''), w.get('position', ''),
-                         w.get('company', ''), '{}',
-                         w.get('shift_type') if w.get('shift_type') not in (None, '-', '') else None)
-                        for w in workers
-                    ]
-                    psycopg2.extras.execute_values(
-                        cur,
-                        f"""INSERT INTO {SCHEMA}.zdravpunkt_workers
-                            (file_id, organization_id, worker_number, fio, subdivision, position, company, extra_data, shift_type)
-                            VALUES %s""",
-                        data, page_size=500
-                    )
+                added = 0
+                updated = 0
+                if workers and org_id:
+                    for w in workers:
+                        fio = (w.get('fio', '') or '').strip()
+                        if not fio:
+                            continue
+                        shift_raw = w.get('shift_type')
+                        shift = shift_raw if shift_raw not in (None, '-', '') else None
+                        worker_number = w.get('worker_number', '') or ''
+                        subdivision = w.get('subdivision', '') or ''
+                        position = w.get('position', '') or ''
+                        company = w.get('company', '') or ''
+                        # Ищем существующую запись по ФИО + organization_id
+                        cur.execute(
+                            f"SELECT id, shift_type FROM {SCHEMA}.zdravpunkt_workers WHERE TRIM(LOWER(fio)) = TRIM(LOWER(%s)) AND organization_id = %s LIMIT 1",
+                            (fio, org_id)
+                        )
+                        existing = cur.fetchone()
+                        if existing:
+                            existing_id, existing_shift = existing
+                            # Обновляем: shift_type если изменился, file_id, остальные поля
+                            new_shift = shift if shift is not None else existing_shift
+                            cur.execute(
+                                f"""UPDATE {SCHEMA}.zdravpunkt_workers
+                                    SET file_id = %s, subdivision = %s, position = %s, company = %s,
+                                        worker_number = %s, shift_type = %s
+                                    WHERE id = %s""",
+                                (file_id, subdivision, position, company, worker_number, new_shift, existing_id)
+                            )
+                            updated += 1
+                        else:
+                            cur.execute(
+                                f"""INSERT INTO {SCHEMA}.zdravpunkt_workers
+                                    (file_id, organization_id, worker_number, fio, subdivision, position, company, extra_data, shift_type)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, '{{}}', %s)""",
+                                (file_id, org_id, worker_number, fio, subdivision, position, company, shift)
+                            )
+                            added += 1
                     conn.commit()
                 return {'statusCode': 200, 'headers': CORS,
-                        'body': json.dumps({'success': True, 'imported': len(workers)}, ensure_ascii=False)}
+                        'body': json.dumps({'success': True, 'imported': len(workers), 'added': added, 'updated': updated}, ensure_ascii=False)}
 
             # Сохранить результаты ЭСМО — с дедупликацией по ФИО + дата/время
             if action_post == 'import_esmo':

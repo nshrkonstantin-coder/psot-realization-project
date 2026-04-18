@@ -1134,20 +1134,25 @@ const ZdravpunktPage = () => {
       if (!saveData.success) throw new Error(saveData.error);
       const fileId = saveData.file_id;
 
-      await fetch(API, {
+      const importRes = await fetch(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'import_workers', file_id: fileId, workers: workerPreview.rows, organization_id: orgId })
       });
+      const importData = await importRes.json();
 
       // Обновляем статистику по подразделениям
       const effectiveOrgForStats = localStorage.getItem('zdravpunkt_contractor_org_id') || orgId;
       fetch(`${API}?action=workers_sub_stats&organization_id=${effectiveOrgForStats}`)
         .then(r => r.json()).then(d => { if (d.success) setWorkerSubStats(d.stats || []); }).catch(() => {});
 
-      toast.success(workerPreview.rows.length > 0
-        ? `Список работников загружен — ${workerPreview.rows.length} чел.`
-        : `Шаблон формы "${file.name}" зафиксирован`);
+      if (workerPreview.rows.length > 0) {
+        const added = importData?.added ?? 0;
+        const updated = importData?.updated ?? 0;
+        toast.success(`Список работников обновлён — добавлено: ${added}, обновлено: ${updated}`);
+      } else {
+        toast.success(`Шаблон формы "${file.name}" зафиксирован`);
+      }
       setWorkerPreview(null);
       loadAll();
     } catch (err: unknown) {
