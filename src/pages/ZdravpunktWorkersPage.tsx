@@ -29,6 +29,7 @@ interface Worker {
   esmo_passed?: boolean;
   last_exam_date?: string;
   last_result?: string;
+  violations_count?: number;
 }
 
 type DrillType = 'total' | 'vakhta' | 'mezhvakhta' | 'esmo_passed' | 'esmo_not_passed' | 'not_admitted' | 'evaded';
@@ -320,6 +321,8 @@ const ZdravpunktWorkersPage = () => {
                   <p className={`text-xs font-semibold mt-0.5 ${
                     drill.type === 'esmo_passed' ? 'text-green-400' :
                     drill.type === 'esmo_not_passed' ? 'text-red-400' :
+                    drill.type === 'not_admitted' ? 'text-orange-400' :
+                    drill.type === 'evaded' ? 'text-amber-400' :
                     drill.type === 'vakhta' ? 'text-blue-400' :
                     drill.type === 'mezhvakhta' ? 'text-purple-400' : 'text-teal-400'
                   }`}>{drill.title}</p>
@@ -386,7 +389,23 @@ const ZdravpunktWorkersPage = () => {
                           <span className="truncate block">{w.position || '—'}</span>
                         </td>
                         <td className="px-3 py-2">
-                          {w.esmo_passed ? (
+                          {w.last_result === 'not_admitted' ? (
+                            <div>
+                              <span className="inline-flex items-center gap-0.5 text-orange-400 font-medium">
+                                <Icon name="XOctagon" size={12} /> Не допущен
+                              </span>
+                              {w.last_exam_date && <div className="text-slate-500 text-xs mt-0.5">{fmtDate(w.last_exam_date)}</div>}
+                              {(w.violations_count ?? 0) > 1 && <div className="text-orange-500/70 text-xs">{w.violations_count} раз(а)</div>}
+                            </div>
+                          ) : w.last_result === 'evaded' ? (
+                            <div>
+                              <span className="inline-flex items-center gap-0.5 text-amber-400 font-medium">
+                                <Icon name="UserX" size={12} /> Уклонился
+                              </span>
+                              {w.last_exam_date && <div className="text-slate-500 text-xs mt-0.5">{fmtDate(w.last_exam_date)}</div>}
+                              {(w.violations_count ?? 0) > 1 && <div className="text-amber-500/70 text-xs">{w.violations_count} раз(а)</div>}
+                            </div>
+                          ) : w.esmo_passed ? (
                             <div>
                               <span className="inline-flex items-center gap-0.5 text-green-400 font-medium">
                                 <Icon name="CheckCircle" size={12} /> Прошёл

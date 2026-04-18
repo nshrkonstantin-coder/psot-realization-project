@@ -640,26 +640,34 @@ def handler(event: dict, context) -> dict:
                 ORDER BY w.fio
             """)
             rows = cur.fetchall()
-            # Для not_admitted/evaded — берём напрямую из ЭСМО, не из workers
+            # Для not_admitted/evaded — берём напрямую из ЭСМО, группируем по ФИО
             if esmo_filter in ('not_admitted', 'evaded'):
                 e_date_cond2 = e_date_cond if e_date_cond else " AND e.exam_date >= CURRENT_DATE - INTERVAL '30 days'"
                 sub_esmo_cond = ''
                 if subdivision:
                     sub_safe = subdivision.replace("'", "''")
                     sub_esmo_cond = f"AND (e.subdivision = '{sub_safe}' OR e.subdivision LIKE '{sub_safe}%%' OR '{sub_safe}' LIKE e.subdivision || '%%')"
+                result_val = 'not_admitted' if esmo_filter == 'not_admitted' else 'evaded'
                 cur.execute(f"""
-                    SELECT DISTINCT ON (TRIM(LOWER(e.fio)))
-                        0 as id, e.fio, '' as worker_number, e.subdivision, e.position, e.company, '' as shift_type,
-                        false as esmo_passed, e.exam_date::text as last_exam_date, e.exam_result as last_result
+                    SELECT
+                        TRIM(e.fio) as fio,
+                        MAX(e.subdivision) as subdivision,
+                        MAX(e.position) as position,
+                        MAX(e.company) as company,
+                        COUNT(*) as violations_count,
+                        MAX(e.exam_date)::text as last_exam_date,
+                        '{result_val}' as last_result
                     FROM {SCHEMA}.zdravpunkt_esmo e
-                    WHERE e.exam_result = '{"not_admitted" if esmo_filter == "not_admitted" else "evaded"}'
+                    WHERE e.exam_result = '{result_val}'
                       {e_date_cond2} {sub_esmo_cond}
-                    ORDER BY TRIM(LOWER(e.fio)), e.exam_date DESC
+                    GROUP BY TRIM(e.fio)
+                    ORDER BY COUNT(*) DESC, MAX(e.exam_date) DESC
                 """)
                 esmo_rows = cur.fetchall()
-                workers = [{'id': r[0], 'fio': r[1], 'worker_number': r[2] or '', 'subdivision': r[3] or '',
-                            'position': r[4] or '', 'company': r[5] or '', 'shift_type': r[6] or '',
-                            'esmo_passed': False, 'last_exam_date': r[8] or '', 'last_result': r[9] or ''}
+                workers = [{'id': 0, 'fio': r[0], 'worker_number': '', 'subdivision': r[1] or '',
+                            'position': r[2] or '', 'company': r[3] or '', 'shift_type': '',
+                            'esmo_passed': False, 'violations_count': r[4],
+                            'last_exam_date': r[5] or '', 'last_result': r[6]}
                            for r in esmo_rows]
             else:
                 workers = []
