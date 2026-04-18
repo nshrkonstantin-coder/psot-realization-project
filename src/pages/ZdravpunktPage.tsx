@@ -60,7 +60,6 @@ interface ExamTypeStats {
 
 interface WorkerPreviewRow {
   fio: string;
-  worker_number: string;
   subdivision: string;
   position: string;
   company: string;
@@ -122,7 +121,8 @@ const ZdravpunktPage = () => {
   const [uploadProgress, setUploadProgress] = useState(0); // 0-100
   const [uploadSheetStats, setUploadSheetStats] = useState<{ label: string; count: number }[] | null>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'report' | 'contractors'>('upload');
-  const [workerPreview, setWorkerPreview] = useState<{ rows: WorkerPreviewRow[]; fileName: string; fileRef: File | null; columnMap: { field: string; col: string; found: boolean }[] } | null>(null);
+  const [workerPreview, setWorkerPreview] = useState<{ rows: WorkerPreviewRow[]; fileName: string; fileRef: File | null; columnMap: { field: string; col: string; found: boolean }[]; missingFields: string[]; fileSubdivision: string } | null>(null);
+  const [missingFieldValues, setMissingFieldValues] = useState<Record<string, string>>({});
   const [workerPreviewUploading, setWorkerPreviewUploading] = useState(false);
   const [workerSubStats, setWorkerSubStats] = useState<{ subdivision: string; vakhta: number; mezhvakhta: number; other: number; total: number }[] | null>(null);
   const [workerSubStatsLoading, setWorkerSubStatsLoading] = useState(false);
@@ -864,20 +864,37 @@ const ZdravpunktPage = () => {
           return '-';
         };
 
+        // Функция фильтрации ФИО: убираем строки с цифрами, заголовки, пустые
+        const isFio = (s: string) => {
+          const t = s.trim();
+          if (!t || t.length < 3) return false;
+          // Заголовочные слова
+          const skip = ['фио', 'ф.и.о', 'наименование', 'работник', 'имя', 'name', '№', 'итого', 'всего', 'подразделение', 'должность'];
+          if (skip.some(w => t.toLowerCase() === w)) return false;
+          // Строки, состоящие только из цифр/символов
+          if (/^[\d\s\-.,№#]+$/.test(t)) return false;
+          return true;
+        };
+
         const fioKeyW = findKeyW('Ф.И.О. работника', 'ф.и.о. работника', 'ф.и.о', 'ф.и.о.', 'фио', 'имя', 'наименование', 'работник', 'name');
-        const numKeyW = findKeyW('№ п/п', '№', 'табел', 'таб', 'номер', 'id', 'code', 'код');
         const divKeyW = findKeyW('Подразделение', 'подразделение', 'отдел', 'subdivision', 'участок', 'цех', 'бригада');
         const posKeyW = findKeyW('Должность', 'должность', 'position', 'профессия');
         const compKeyW = findKeyW('компания', 'организация', 'company', 'предприятие', 'работодатель');
 
-        const rawRows: WorkerPreviewRow[] = raw.map(r => ({
-          fio: String(r[fioKeyW] || ''),
-          worker_number: String(r[numKeyW] || ''),
-          subdivision: String(r[divKeyW] || ''),
-          position: String(r[posKeyW] || ''),
-          company: String(r[compKeyW] || ''),
-          shift_type: shiftKeyW ? detectShift(String(r[shiftKeyW] || '')) : '-',
-        })).filter(w => w.fio.trim());
+        // Подразделение из имени файла (без расширения) — если в файле не найдена колонка
+        const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, '').trim();
+
+        const rawRows: WorkerPreviewRow[] = raw.map(r => {
+          const fioRaw = String(r[fioKeyW] || '').trim();
+          const divRaw = String(r[divKeyW] || '').trim();
+          return {
+            fio: fioRaw,
+            subdivision: divRaw || (!divKeyW ? fileNameWithoutExt : ''),
+            position: String(r[posKeyW] || '').trim(),
+            company: String(r[compKeyW] || '').trim(),
+            shift_type: shiftKeyW ? detectShift(String(r[shiftKeyW] || '')) : '-',
+          };
+        }).filter(w => isFio(w.fio));
 
         // Сортировка: по подразделению А→Я, внутри — Вахта, Межвахта, прочие
         const shiftOrder: Record<string, number> = { 'Вахта': 0, 'Межвахта': 1, '-': 2 };
@@ -888,16 +905,20 @@ const ZdravpunktPage = () => {
         });
 
         const columnMap = [
-          { field: 'ФИО',           col: fioKeyW,   found: !!fioKeyW },
-          { field: 'Должность',     col: posKeyW,   found: !!posKeyW },
-          { field: 'Подразделение', col: divKeyW,   found: !!divKeyW },
-          { field: 'Вахта/Межвахта',col: shiftKeyW, found: !!shiftKeyW },
-          { field: 'Таб. №',        col: numKeyW,   found: !!numKeyW },
-          { field: 'Компания',      col: compKeyW,  found: !!compKeyW },
+          { field: 'ФИО',            col: fioKeyW,   found: !!fioKeyW },
+          { field: 'Подразделение',  col: divKeyW || `из имени файла: «${fileNameWithoutExt}»`, found: true },
+          { field: 'Должность',      col: posKeyW,   found: !!posKeyW },
+          { field: 'Вахта/Межвахта', col: shiftKeyW, found: !!shiftKeyW },
+          { field: 'Компания',       col: compKeyW,  found: !!compKeyW },
         ];
 
+        // Определяем какие поля отсутствуют (кроме Подразделения и Вахта — они всегда есть)
+        const missingFields: string[] = [];
+        if (!posKeyW) missingFields.push('Должность');
+        if (!compKeyW) missingFields.push('Компания');
+
         setUploading(null);
-        setWorkerPreview({ rows, fileName: file.name, fileRef: file, columnMap });
+        setWorkerPreview({ rows, fileName: file.name, fileRef: file, columnMap, missingFields, fileSubdivision: !divKeyW ? fileNameWithoutExt : '' });
         return;
       }
 
@@ -1116,6 +1137,15 @@ const ZdravpunktPage = () => {
     setWorkerPreviewUploading(true);
     try {
       const file = workerPreview.fileRef!;
+
+      // Применяем значения недостающих полей ко всем строкам
+      const finalRows = workerPreview.rows.map(row => ({
+        ...row,
+        position: row.position || missingFieldValues['Должность'] || '',
+        company: row.company || missingFieldValues['Компания'] || '',
+        subdivision: row.subdivision || missingFieldValues['Подразделение'] || workerPreview.fileSubdivision || '',
+      }));
+
       const saveRes = await fetch(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1125,7 +1155,7 @@ const ZdravpunktPage = () => {
           file_name: file.name,
           file_url: '',
           file_size: file.size,
-          rows_count: workerPreview.rows.length,
+          rows_count: finalRows.length,
           uploaded_by: userId,
           organization_id: orgId
         })
@@ -1137,7 +1167,7 @@ const ZdravpunktPage = () => {
       const importRes = await fetch(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'import_workers', file_id: fileId, workers: workerPreview.rows, organization_id: orgId })
+        body: JSON.stringify({ action: 'import_workers', file_id: fileId, workers: finalRows, organization_id: orgId })
       });
       const importData = await importRes.json();
 
@@ -1154,6 +1184,7 @@ const ZdravpunktPage = () => {
         toast.success(`Шаблон формы "${file.name}" зафиксирован`);
       }
       setWorkerPreview(null);
+      setMissingFieldValues({});
       loadAll();
     } catch (err: unknown) {
       toast.error(`Ошибка: ${err instanceof Error ? err.message : String(err)}`);
@@ -1365,7 +1396,7 @@ const ZdravpunktPage = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setWorkerPreview(null)}
+                  <button onClick={() => { setWorkerPreview(null); setMissingFieldValues({}); }}
                     className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition">
                     Отмена
                   </button>
@@ -1380,13 +1411,45 @@ const ZdravpunktPage = () => {
               {/* Распознанные колонки */}
               <div className="flex flex-wrap gap-2">
                 {workerPreview.columnMap.map(c => (
-                  <div key={c.field} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border ${c.found ? 'bg-teal-900/40 border-teal-700/50 text-teal-300' : 'bg-slate-800/60 border-slate-700/50 text-slate-500'}`}>
-                    <Icon name={c.found ? 'Check' : 'X'} size={11} />
+                  <div key={c.field} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border ${c.found ? 'bg-teal-900/40 border-teal-700/50 text-teal-300' : 'bg-red-900/30 border-red-700/40 text-red-400'}`}>
+                    <Icon name={c.found ? 'Check' : 'AlertCircle'} size={11} />
                     <span className="font-medium">{c.field}</span>
                     {c.found && <span className="text-teal-500/70">← «{c.col}»</span>}
                   </div>
                 ))}
               </div>
+
+              {/* Запрос недостающих данных */}
+              {workerPreview.missingFields.length > 0 && (
+                <div className="bg-amber-900/20 border border-amber-700/40 rounded-xl px-4 py-3">
+                  <p className="text-amber-300 text-xs font-semibold mb-2 flex items-center gap-1.5">
+                    <Icon name="AlertTriangle" size={13} /> Не найдены колонки — укажи значения для всего списка:
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    {workerPreview.missingFields.map(field => (
+                      <div key={field} className="flex flex-col gap-1">
+                        <label className="text-xs text-amber-400">{field}</label>
+                        <input
+                          type="text"
+                          placeholder={`Введи ${field.toLowerCase()}...`}
+                          value={missingFieldValues[field] || ''}
+                          onChange={e => setMissingFieldValues(prev => ({ ...prev, [field]: e.target.value }))}
+                          className="bg-slate-800 border border-amber-700/50 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 min-w-[200px]"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-slate-500 text-xs mt-2">Оставь пустым, если хочешь загрузить без этих данных</p>
+                </div>
+              )}
+
+              {/* Информация о подразделении из имени файла */}
+              {workerPreview.fileSubdivision && (
+                <div className="flex items-center gap-2 bg-blue-900/20 border border-blue-700/40 rounded-lg px-3 py-2 text-xs text-blue-300">
+                  <Icon name="Info" size={13} />
+                  Подразделение не найдено в колонках — взято из имени файла: <span className="font-semibold text-blue-200">«{workerPreview.fileSubdivision}»</span>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-auto">
@@ -1402,7 +1465,7 @@ const ZdravpunktPage = () => {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700 w-8">#</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">ФИО</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Таб. №</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Подразделение</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Должность</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Компания</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700 min-w-[150px]">Вахта/Межвахта</th>
@@ -1420,9 +1483,9 @@ const ZdravpunktPage = () => {
                             <tr key={idx} className="hover:bg-slate-800/40 divide-y divide-slate-800/60">
                               <td className="px-4 py-2 text-slate-500 text-xs border-b border-slate-800/60">{idx + 1}</td>
                               <td className="px-4 py-2 text-white font-medium whitespace-nowrap border-b border-slate-800/60">{row.fio}</td>
-                              <td className="px-4 py-2 text-slate-400 text-xs border-b border-slate-800/60">{row.worker_number || '—'}</td>
-                              <td className="px-4 py-2 text-slate-300 text-xs border-b border-slate-800/60">{row.position || '—'}</td>
-                              <td className="px-4 py-2 text-slate-300 text-xs border-b border-slate-800/60">{row.company || '—'}</td>
+                              <td className="px-4 py-2 text-slate-300 text-xs border-b border-slate-800/60">{row.subdivision || missingFieldValues['Подразделение'] || workerPreview.fileSubdivision || '—'}</td>
+                              <td className="px-4 py-2 text-slate-300 text-xs border-b border-slate-800/60">{row.position || missingFieldValues['Должность'] || '—'}</td>
+                              <td className="px-4 py-2 text-slate-300 text-xs border-b border-slate-800/60">{row.company || missingFieldValues['Компания'] || '—'}</td>
                               <td className="px-4 py-2 border-b border-slate-800/60">
                                 <select
                                   value={row.shift_type}
