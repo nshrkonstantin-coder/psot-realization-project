@@ -563,13 +563,13 @@ def handler(event: dict, context) -> dict:
                 else:
                     subs[sub]['other'] += c
                 subs[sub]['total'] += c
-            # esmo_passed — только среди вахтовиков (shift_type = 'Вахта')
+            # esmo_passed — только вахтовики с результатом 'admitted'
             cur.execute(f"""
                 SELECT w.subdivision, COUNT(DISTINCT w.id) as passed
                 FROM {SCHEMA}.zdravpunkt_workers w
                 INNER JOIN {SCHEMA}.zdravpunkt_esmo e
                     ON TRIM(LOWER(w.fio)) = TRIM(LOWER(e.fio))
-                    AND e.exam_result NOT IN ('cleared', 'archived_test')
+                    AND e.exam_result = 'admitted'
                     {e_date_cond}
                 WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
                   AND w.shift_type = 'Вахта'
@@ -580,10 +580,34 @@ def handler(event: dict, context) -> dict:
             for sub, passed in cur.fetchall():
                 if sub in subs:
                     subs[sub]['esmo_passed'] = passed or 0
-                    subs[sub]['esmo_not_passed'] = max(0, subs[sub]['vakhta'] - (passed or 0))
+            # esmo_not_passed — вахтовики без admitted И без evaded/not_admitted
+            cur.execute(f"""
+                SELECT w.subdivision, COUNT(DISTINCT w.id) as cnt
+                FROM {SCHEMA}.zdravpunkt_workers w
+                WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
+                  AND w.shift_type = 'Вахта'
+                  AND w.is_duplicate = false
+                  {q_org} {fio_cond}
+                  AND NOT EXISTS (
+                      SELECT 1 FROM {SCHEMA}.zdravpunkt_esmo e
+                      WHERE TRIM(LOWER(e.fio)) = TRIM(LOWER(w.fio))
+                        AND e.exam_result = 'admitted'
+                        {e_date_cond}
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM {SCHEMA}.zdravpunkt_esmo e
+                      WHERE TRIM(LOWER(e.fio)) = TRIM(LOWER(w.fio))
+                        AND e.exam_result IN ('evaded', 'not_admitted')
+                        {e_date_cond}
+                  )
+                GROUP BY w.subdivision
+            """)
+            for sub, cnt in cur.fetchall():
+                if sub in subs:
+                    subs[sub]['esmo_not_passed'] = cnt or 0
             for sub in subs:
-                if subs[sub]['esmo_passed'] == 0:
-                    subs[sub]['esmo_not_passed'] = subs[sub]['vakhta']
+                if 'esmo_not_passed' not in subs[sub] or subs[sub].get('esmo_not_passed') is None:
+                    subs[sub]['esmo_not_passed'] = 0
             # not_admitted и evaded — уникальные люди из ЭСМО за период
             e_date_cond_esmo = e_date_cond if e_date_cond else " AND e.exam_date >= CURRENT_DATE - INTERVAL '30 days'"
             cur.execute(f"""
@@ -633,7 +657,7 @@ def handler(event: dict, context) -> dict:
                 FROM {SCHEMA}.zdravpunkt_workers w
                 LEFT JOIN {SCHEMA}.zdravpunkt_esmo e
                     ON TRIM(LOWER(w.fio)) = TRIM(LOWER(e.fio))
-                    AND e.exam_result NOT IN ('cleared', 'archived_test')
+                    AND e.exam_result = 'admitted'
                     {e_date_cond}
                 WHERE 1=1 AND w.is_duplicate = false {q_org} {sub_cond} {shift_cond} {fio_cond}
                 GROUP BY w.id, w.fio, w.worker_number, w.subdivision, w.position, w.company, w.shift_type
@@ -670,13 +694,32 @@ def handler(event: dict, context) -> dict:
                             'last_exam_date': r[5] or '', 'last_result': r[6]}
                            for r in esmo_rows]
             else:
+                # Для not_passed — получаем список ФИО у которых есть evaded/not_admitted (их исключаем)
+                violators_set = set()
+                if esmo_filter == 'not_passed':
+                    e_date_cond2 = e_date_cond if e_date_cond else " AND e.exam_date >= CURRENT_DATE - INTERVAL '30 days'"
+                    sub_esmo_v = ''
+                    if subdivision:
+                        sub_safe_v = subdivision.replace("'", "''")
+                        sub_esmo_v = f"AND (e.subdivision = '{sub_safe_v}' OR e.subdivision LIKE '{sub_safe_v}%%' OR '{sub_safe_v}' LIKE e.subdivision || '%%')"
+                    cur.execute(f"""
+                        SELECT DISTINCT TRIM(LOWER(e.fio))
+                        FROM {SCHEMA}.zdravpunkt_esmo e
+                        WHERE e.exam_result IN ('evaded', 'not_admitted')
+                          {e_date_cond2} {sub_esmo_v}
+                    """)
+                    violators_set = {r[0] for r in cur.fetchall()}
                 workers = []
                 for r in rows:
                     passed = bool(r[7])
                     if esmo_filter == 'passed' and not passed:
                         continue
-                    if esmo_filter == 'not_passed' and passed:
-                        continue
+                    if esmo_filter == 'not_passed':
+                        if passed:
+                            continue
+                        # Исключаем уклонистов и не допущенных — они в своих отдельных окошках
+                        if (r[1] or '').strip().lower() in violators_set:
+                            continue
                     workers.append({'id': r[0], 'fio': r[1], 'worker_number': r[2] or '', 'subdivision': r[3] or '',
                                     'position': r[4] or '', 'company': r[5] or '', 'shift_type': r[6] or '',
                                     'esmo_passed': passed, 'last_exam_date': r[8] or '', 'last_result': r[9] or ''})
