@@ -73,7 +73,11 @@ const ZdravpunktWorkersPage = () => {
     try {
       const res = await fetch(buildUrl(df, dt, fio));
       const data = await res.json();
-      if (data.success) setStats(data.stats || []);
+      if (data.success) {
+        setStats(data.stats || []);
+      } else {
+        toast.error('Ошибка получения данных');
+      }
     } catch {
       toast.error('Ошибка загрузки данных');
     } finally {
@@ -81,6 +85,7 @@ const ZdravpunktWorkersPage = () => {
     }
   }, [buildUrl]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadStats(); }, [effectiveOrgId]);
 
   const applyFilters = () => {

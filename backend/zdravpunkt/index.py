@@ -506,7 +506,7 @@ def handler(event: dict, context) -> dict:
 
         if method == 'GET' and action == 'esmo_sub_stats':
             """Статистика ЭСМО по подразделениям. ЭСМО считается только по вахтовикам (shift_type = 'Вахта')."""
-            q_org = f"AND w.organization_id = {int(org_id)}" if org_id else ""
+            q_org = f"AND (w.organization_id = {int(org_id)} OR w.organization_id IS NULL)" if org_id else ""
             date_from = params.get('date_from', '')
             date_to = params.get('date_to', '')
             fio_filter = params.get('fio', '').strip()
@@ -564,7 +564,7 @@ def handler(event: dict, context) -> dict:
 
         if method == 'GET' and action == 'esmo_workers_detail':
             """Список работников подразделения с флагом прохождения ЭСМО, фильтры дат и ФИО"""
-            q_org = f"AND w.organization_id = {int(org_id)}" if org_id else ""
+            q_org = f"AND (w.organization_id = {int(org_id)} OR w.organization_id IS NULL)" if org_id else ""
             subdivision = params.get('subdivision', '')
             esmo_filter = params.get('esmo_filter', 'all')
             shift_filter = params.get('shift_filter', '')
