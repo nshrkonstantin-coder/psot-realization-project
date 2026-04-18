@@ -131,13 +131,33 @@ const ZdravpunktWorkersPage = () => {
     (w.position || '').toLowerCase().includes(search.toLowerCase())
   );
 
+  // Форматирование даты для отображения
+  const fmtDate = (d: string) => {
+    if (!d) return '';
+    const [y, m, day] = d.split('-');
+    return `${day}.${m}.${y}`;
+  };
+
+  // Строка периода из фильтра
+  const periodLabel = dateFrom || dateTo
+    ? `${dateFrom ? fmtDate(dateFrom) : '...'} — ${dateTo ? fmtDate(dateTo) : '...'}`
+    : '';
+
+  // Что показывать в колонке "Дата ЭСМО"
+  const esmoDateCell = (w: Worker) => {
+    if (w.esmo_passed && w.last_exam_date) return fmtDate(w.last_exam_date);
+    if (!w.esmo_passed && periodLabel) return `Не проходил за период: ${periodLabel}`;
+    return '—';
+  };
+
   const exportXLSX = () => {
     if (!drill || filtered.length === 0) return;
     const rows = filtered.map((w, i) => ({
       '№': i + 1, 'ФИО': w.fio, 'Таб. №': w.worker_number || '',
       'Подразделение': w.subdivision || '', 'Должность': w.position || '',
       'Компания': w.company || '', 'Тип вахты': w.shift_type || '',
-      'ЭСМО': w.esmo_passed ? 'Прошёл' : 'Не проходил', 'Дата ЭСМО': w.last_exam_date || '',
+      'ЭСМО': w.esmo_passed ? 'Прошёл' : 'Не проходил',
+      'Дата ЭСМО': esmoDateCell(w),
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -147,15 +167,19 @@ const ZdravpunktWorkersPage = () => {
 
   const printList = () => {
     if (!drill) return;
+    const periodInfo = periodLabel ? `Период ЭСМО: ${periodLabel}` : 'Период ЭСМО: не указан';
     const html = `<html><head><title>${drill.subdivision} — ${drill.title}</title>
     <style>body{font-family:Arial,sans-serif;font-size:11px;padding:16px}h2{font-size:13px;margin-bottom:2px}
-    p{margin:0 0 10px;color:#555}table{width:100%;border-collapse:collapse}
+    p{margin:0 0 6px;color:#555}table{width:100%;border-collapse:collapse}
     th,td{border:1px solid #ccc;padding:3px 7px;text-align:left}th{background:#f0f0f0;font-weight:bold}
-    tr:nth-child(even){background:#fafafa}</style></head>
-    <body><h2>${drill.subdivision} — ${drill.title}</h2><p>Всего: ${filtered.length} чел.</p>
-    <table><thead><tr><th>#</th><th>ФИО</th><th>Таб. №</th><th>Должность</th><th>Вахта</th><th>ЭСМО</th><th>Дата ЭСМО</th></tr></thead>
+    tr:nth-child(even){background:#fafafa}.no-esmo{color:#c00}</style></head>
+    <body>
+    <h2>${drill.subdivision} — ${drill.title}</h2>
+    <p>${periodInfo}</p>
+    <p>Всего: ${filtered.length} чел.</p>
+    <table><thead><tr><th>#</th><th>ФИО</th><th>Таб. №</th><th>Должность</th><th>Вахта</th><th>ЭСМО</th><th>Дата ЭСМО / Период</th></tr></thead>
     <tbody>${filtered.map((w, i) =>
-      `<tr><td>${i+1}</td><td>${w.fio}</td><td>${w.worker_number||'—'}</td><td>${w.position||'—'}</td><td>${w.shift_type||'—'}</td><td>${w.esmo_passed?'Прошёл':'Не проходил'}</td><td>${w.last_exam_date||'—'}</td></tr>`
+      `<tr><td>${i+1}</td><td>${w.fio}</td><td>${w.worker_number||'—'}</td><td>${w.position||'—'}</td><td>${w.shift_type||'—'}</td><td>${w.esmo_passed?'Прошёл':'<span class="no-esmo">Не проходил</span>'}</td><td>${esmoDateCell(w)}</td></tr>`
     ).join('')}</tbody></table></body></html>`;
     const win = window.open('', '_blank');
     if (win) { win.document.write(html); win.document.close(); win.print(); }
@@ -294,6 +318,14 @@ const ZdravpunktWorkersPage = () => {
                     drill.type === 'vakhta' ? 'text-blue-400' :
                     drill.type === 'mezhvakhta' ? 'text-purple-400' : 'text-teal-400'
                   }`}>{drill.title}</p>
+                  {periodLabel && (
+                    <p className="text-amber-400 text-xs mt-0.5 flex items-center gap-1">
+                      <Icon name="Calendar" size={11} /> Период: {periodLabel}
+                    </p>
+                  )}
+                  {!periodLabel && (
+                    <p className="text-slate-600 text-xs mt-0.5">Период ЭСМО не задан</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                   <button onClick={exportXLSX} title="Сохранить в Excel"
@@ -354,12 +386,19 @@ const ZdravpunktWorkersPage = () => {
                               <span className="inline-flex items-center gap-0.5 text-green-400 font-medium">
                                 <Icon name="CheckCircle" size={12} /> Прошёл
                               </span>
-                              {w.last_exam_date && <div className="text-slate-500 text-xs mt-0.5">{w.last_exam_date}</div>}
+                              {w.last_exam_date && (
+                                <div className="text-slate-500 text-xs mt-0.5">{fmtDate(w.last_exam_date)}</div>
+                              )}
                             </div>
                           ) : (
-                            <span className="inline-flex items-center gap-0.5 text-red-400">
-                              <Icon name="XCircle" size={12} /> Нет
-                            </span>
+                            <div>
+                              <span className="inline-flex items-center gap-0.5 text-red-400 font-medium">
+                                <Icon name="XCircle" size={12} /> Не проходил
+                              </span>
+                              {periodLabel && (
+                                <div className="text-slate-500 text-xs mt-0.5">{periodLabel}</div>
+                              )}
+                            </div>
                           )}
                         </td>
                       </tr>
