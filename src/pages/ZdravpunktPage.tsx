@@ -122,7 +122,7 @@ const ZdravpunktPage = () => {
   const [uploadProgress, setUploadProgress] = useState(0); // 0-100
   const [uploadSheetStats, setUploadSheetStats] = useState<{ label: string; count: number }[] | null>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'report' | 'contractors'>('upload');
-  const [workerPreview, setWorkerPreview] = useState<{ rows: WorkerPreviewRow[]; fileName: string; fileRef: File | null } | null>(null);
+  const [workerPreview, setWorkerPreview] = useState<{ rows: WorkerPreviewRow[]; fileName: string; fileRef: File | null; columnMap: { field: string; col: string; found: boolean }[] } | null>(null);
   const [workerPreviewUploading, setWorkerPreviewUploading] = useState(false);
 
   // Фильтры отчёта
@@ -882,8 +882,17 @@ const ZdravpunktPage = () => {
           return (shiftOrder[a.shift_type] ?? 2) - (shiftOrder[b.shift_type] ?? 2);
         });
 
+        const columnMap = [
+          { field: 'ФИО',           col: fioKeyW,   found: !!fioKeyW },
+          { field: 'Должность',     col: posKeyW,   found: !!posKeyW },
+          { field: 'Подразделение', col: divKeyW,   found: !!divKeyW },
+          { field: 'Вахта/Межвахта',col: shiftKeyW, found: !!shiftKeyW },
+          { field: 'Таб. №',        col: numKeyW,   found: !!numKeyW },
+          { field: 'Компания',      col: compKeyW,  found: !!compKeyW },
+        ];
+
         setUploading(null);
-        setWorkerPreview({ rows, fileName: file.name, fileRef: file });
+        setWorkerPreview({ rows, fileName: file.name, fileRef: file, columnMap });
         return;
       }
 
@@ -1327,29 +1336,41 @@ const ZdravpunktPage = () => {
 
         return (
           <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 bg-slate-900 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-2 rounded-lg">
-                  <Icon name="Users" size={18} className="text-white" />
+            <div className="flex flex-col gap-3 px-6 py-4 border-b border-slate-700 bg-slate-900 shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-2 rounded-lg">
+                    <Icon name="Users" size={18} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-white font-bold">Предпросмотр списка работников</h2>
+                    <p className="text-slate-400 text-xs">
+                      {workerPreview.fileName} · {workerPreview.rows.length > 0 ? `${workerPreview.rows.length} чел.` : 'пустой шаблон'} · {grouped.length} подразделений — скорректируйте «Вахта/Межвахта»
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-white font-bold">Предпросмотр списка работников</h2>
-                  <p className="text-slate-400 text-xs">
-                    {workerPreview.fileName} · {workerPreview.rows.length > 0 ? `${workerPreview.rows.length} чел.` : 'пустой шаблон'} · {grouped.length} подразделений — скорректируйте «Вахта/Межвахта»
-                  </p>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setWorkerPreview(null)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition">
+                    Отмена
+                  </button>
+                  <button onClick={confirmWorkersUpload} disabled={workerPreviewUploading}
+                    className="px-5 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition disabled:opacity-50 flex items-center gap-2">
+                    {workerPreviewUploading
+                      ? <><Icon name="Loader" size={15} className="animate-spin" />Загружаю...</>
+                      : <><Icon name="Upload" size={15} />{workerPreview.rows.length > 0 ? `Загрузить ${workerPreview.rows.length} чел.` : 'Зафиксировать шаблон'}</>}
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setWorkerPreview(null)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition">
-                  Отмена
-                </button>
-                <button onClick={confirmWorkersUpload} disabled={workerPreviewUploading}
-                  className="px-5 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition disabled:opacity-50 flex items-center gap-2">
-                  {workerPreviewUploading
-                    ? <><Icon name="Loader" size={15} className="animate-spin" />Загружаю...</>
-                    : <><Icon name="Upload" size={15} />{workerPreview.rows.length > 0 ? `Загрузить ${workerPreview.rows.length} чел.` : 'Зафиксировать шаблон'}</>}
-                </button>
+              {/* Распознанные колонки */}
+              <div className="flex flex-wrap gap-2">
+                {workerPreview.columnMap.map(c => (
+                  <div key={c.field} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border ${c.found ? 'bg-teal-900/40 border-teal-700/50 text-teal-300' : 'bg-slate-800/60 border-slate-700/50 text-slate-500'}`}>
+                    <Icon name={c.found ? 'Check' : 'X'} size={11} />
+                    <span className="font-medium">{c.field}</span>
+                    {c.found && <span className="text-teal-500/70">← «{c.col}»</span>}
+                  </div>
+                ))}
               </div>
             </div>
 
