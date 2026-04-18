@@ -40,6 +40,29 @@ interface DrillState {
   title: string;
 }
 
+interface HistoryRecord {
+  fio: string;
+  subdivision: string;
+  company: string;
+  position: string;
+  exam_date: string | null;
+  exam_result: string;
+  reject_reason: string | null;
+  exam_datetime: string | null;
+  group_mo: string | null;
+  exam_detail: string | null;
+}
+
+interface HistoryModal {
+  fio: string;
+  records: HistoryRecord[];
+  total: number;
+  admitted: number;
+  not_admitted: number;
+  evaded: number;
+  loading: boolean;
+}
+
 const ZdravpunktWorkersPage = () => {
   const navigate = useNavigate();
   const orgId = localStorage.getItem('organizationId') || '';
@@ -51,6 +74,7 @@ const ZdravpunktWorkersPage = () => {
   const [drillWorkers, setDrillWorkers] = useState<Worker[]>([]);
   const [drillLoading, setDrillLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [historyModal, setHistoryModal] = useState<HistoryModal | null>(null);
 
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -136,6 +160,28 @@ const ZdravpunktWorkersPage = () => {
     !search || w.fio.toLowerCase().includes(search.toLowerCase()) ||
     (w.position || '').toLowerCase().includes(search.toLowerCase())
   );
+
+  const openHistory = async (fio: string) => {
+    setHistoryModal({ fio, records: [], total: 0, admitted: 0, not_admitted: 0, evaded: 0, loading: true });
+    try {
+      let url = `${API}?action=worker_history&fio=${encodeURIComponent(fio)}&organization_id=${effectiveOrgId}`;
+      if (dateFrom) url += `&date_from=${dateFrom}`;
+      if (dateTo) url += `&date_to=${dateTo}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        setHistoryModal({ fio, records: data.records || [], total: data.total || 0,
+          admitted: data.admitted || 0, not_admitted: data.not_admitted || 0,
+          evaded: data.evaded || 0, loading: false });
+      } else {
+        setHistoryModal(null);
+        toast.error('Ошибка загрузки истории');
+      }
+    } catch {
+      setHistoryModal(null);
+      toast.error('Ошибка загрузки истории');
+    }
+  };
 
   // Форматирование даты для отображения
   const fmtDate = (d: string) => {
@@ -375,7 +421,10 @@ const ZdravpunktWorkersPage = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-800/40">
                     {filtered.map((w, i) => (
-                      <tr key={w.id} className="hover:bg-slate-800/40 transition">
+                      <tr key={`${w.fio}-${i}`}
+                        className={`transition ${(drill?.type === 'not_admitted' || drill?.type === 'evaded') ? 'hover:bg-slate-700/50 cursor-pointer' : 'hover:bg-slate-800/40'}`}
+                        onClick={() => { if (drill?.type === 'not_admitted' || drill?.type === 'evaded') openHistory(w.fio); }}
+                      >
                         <td className="px-3 py-2 text-slate-600">{i + 1}</td>
                         <td className="px-3 py-2">
                           <div className="text-white font-medium">{w.fio}</div>
@@ -430,10 +479,96 @@ const ZdravpunktWorkersPage = () => {
                   </tbody>
                 </table>
               )}
+              {(drill?.type === 'not_admitted' || drill?.type === 'evaded') && filtered.length > 0 && (
+                <div className="px-4 py-2 text-xs text-slate-600 border-t border-slate-800/40 flex items-center gap-1">
+                  <Icon name="MousePointerClick" size={11} /> Нажми на строку — вся история
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
+
+      {/* Модалка истории */}
+      {historyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setHistoryModal(null)}>
+          <div className="bg-slate-900 border border-slate-700/60 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* Шапка */}
+            <div className="px-5 py-4 border-b border-slate-700/50 flex-shrink-0">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-white font-bold text-sm leading-tight">{historyModal.fio}</p>
+                  <p className="text-slate-400 text-xs mt-0.5">История осмотров ЭСМО</p>
+                </div>
+                <button onClick={() => setHistoryModal(null)} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700/50 transition ml-4">
+                  <Icon name="X" size={16} />
+                </button>
+              </div>
+              {!historyModal.loading && (
+                <div className="flex gap-3 mt-3 flex-wrap">
+                  <span className="px-2.5 py-1 rounded-lg bg-slate-800 text-xs text-slate-300 border border-slate-700/50">Всего: <strong>{historyModal.total}</strong></span>
+                  <span className="px-2.5 py-1 rounded-lg bg-green-900/40 text-xs text-green-400 border border-green-700/40">Допущен: <strong>{historyModal.admitted}</strong></span>
+                  <span className="px-2.5 py-1 rounded-lg bg-orange-900/40 text-xs text-orange-400 border border-orange-700/40">Не допущен: <strong>{historyModal.not_admitted}</strong></span>
+                  <span className="px-2.5 py-1 rounded-lg bg-amber-900/40 text-xs text-amber-400 border border-amber-700/40">Уклонился: <strong>{historyModal.evaded}</strong></span>
+                </div>
+              )}
+            </div>
+            {/* Тело */}
+            <div className="flex-1 overflow-y-auto">
+              {historyModal.loading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Icon name="Loader" size={24} className="animate-spin text-teal-400" />
+                </div>
+              ) : historyModal.records.length === 0 ? (
+                <div className="text-center py-12 text-slate-500 text-sm">История не найдена</div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-slate-900 z-10">
+                    <tr>
+                      <th className="px-4 py-2.5 text-left text-slate-400 font-semibold border-b border-slate-700/50 w-7">#</th>
+                      <th className="px-4 py-2.5 text-left text-slate-400 font-semibold border-b border-slate-700/50">Дата / Время</th>
+                      <th className="px-4 py-2.5 text-left text-slate-400 font-semibold border-b border-slate-700/50">Результат</th>
+                      <th className="px-4 py-2.5 text-left text-slate-400 font-semibold border-b border-slate-700/50">Причина / Детали</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/40">
+                    {historyModal.records.map((r, i) => (
+                      <tr key={i} className="hover:bg-slate-800/30 transition">
+                        <td className="px-4 py-2.5 text-slate-600">{i + 1}</td>
+                        <td className="px-4 py-2.5 text-slate-300 whitespace-nowrap">
+                          {r.exam_datetime
+                            ? r.exam_datetime.replace('T', ' ').slice(0, 16)
+                            : r.exam_date
+                              ? fmtDate(r.exam_date)
+                              : '—'}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          {r.exam_result === 'admitted' && (
+                            <span className="inline-flex items-center gap-1 text-green-400 font-medium"><Icon name="CheckCircle" size={12} /> Допущен</span>
+                          )}
+                          {r.exam_result === 'not_admitted' && (
+                            <span className="inline-flex items-center gap-1 text-orange-400 font-medium"><Icon name="XOctagon" size={12} /> Не допущен</span>
+                          )}
+                          {r.exam_result === 'evaded' && (
+                            <span className="inline-flex items-center gap-1 text-amber-400 font-medium"><Icon name="UserX" size={12} /> Уклонился</span>
+                          )}
+                          {!['admitted','not_admitted','evaded'].includes(r.exam_result) && (
+                            <span className="text-slate-500">{r.exam_result}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-400 max-w-[180px]">
+                          <span className="block truncate">{r.reject_reason || r.exam_detail || '—'}</span>
+                          {r.group_mo && <span className="text-slate-600 text-xs">{r.group_mo}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
