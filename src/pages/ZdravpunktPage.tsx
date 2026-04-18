@@ -826,29 +826,31 @@ const ZdravpunktPage = () => {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const raw: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
-      if (raw.length === 0) {
-        toast.error('Файл пустой или не содержит данных');
-        setUploading(null);
-        return;
-      }
-
-      // Определяем маппинг колонок по первому ряду
-      const keys = Object.keys(raw[0]);
-
-      // Сначала ищем точное совпадение, потом частичное без учёта регистра
-      const findKey = (...variants: string[]) =>
-        keys.find(k => variants.includes(k)) ||
-        keys.find(k => variants.some(v => k.toLowerCase().includes(v.toLowerCase()))) ||
-        '';
+      // Определяем ключи заголовков (из первой строки данных или из заголовков листа)
+      const getSheetKeys = (): string[] => {
+        if (raw.length > 0) return Object.keys(raw[0]);
+        // Для пустого файла — читаем строку заголовков напрямую
+        const rows1: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        return rows1.length > 0 ? (rows1[0] as string[]).map(String) : [];
+      };
 
       // Для workers — сначала показываем предпросмотр с выбором Вахта/Межвахта
       if (fileType === 'workers') {
-        const fioKeyW = findKey('фио', 'имя', 'наименование', 'работник', 'name');
-        const numKeyW = findKey('табел', 'номер', 'id', 'code', 'код');
-        const divKeyW = findKey('подразделение', 'отдел', 'subdivision', 'участок');
-        const posKeyW = findKey('должность', 'position');
-        const compKeyW = findKey('компания', 'организация', 'company', 'предприятие');
-        const shiftKeyW = findKey('вахта', 'межвахта', 'shift', 'тип вахты', 'вид вахты', 'режим');
+        const keys = getSheetKeys();
+
+        if (keys.length === 0) {
+          toast.error('Файл пустой или не содержит данных');
+          setUploading(null);
+          return;
+        }
+
+        // Сначала ищем точное совпадение, потом частичное без учёта регистра
+        const findKeyW = (...variants: string[]) =>
+          keys.find(k => variants.includes(k)) ||
+          keys.find(k => variants.some(v => k.toLowerCase().includes(v.toLowerCase()))) ||
+          '';
+
+        const shiftKeyW = findKeyW('вахта', 'межвахта', 'shift', 'тип вахты', 'вид вахты', 'режим');
 
         const detectShift = (val: string): '-' | 'Вахта' | 'Межвахта' => {
           const v = val.trim().toLowerCase();
@@ -857,7 +859,13 @@ const ZdravpunktPage = () => {
           return '-';
         };
 
-        const rows: WorkerPreviewRow[] = raw.map(r => ({
+        const fioKeyW = findKeyW('фио', 'имя', 'наименование', 'работник', 'name', 'ф.и.о', 'ф.и.о.');
+        const numKeyW = findKeyW('табел', 'номер', 'таб', 'id', 'code', 'код');
+        const divKeyW = findKeyW('подразделение', 'отдел', 'subdivision', 'участок', 'цех', 'бригада');
+        const posKeyW = findKeyW('должность', 'position', 'профессия');
+        const compKeyW = findKeyW('компания', 'организация', 'company', 'предприятие', 'работодатель');
+
+        const rawRows: WorkerPreviewRow[] = raw.map(r => ({
           fio: String(r[fioKeyW] || ''),
           worker_number: String(r[numKeyW] || ''),
           subdivision: String(r[divKeyW] || ''),
@@ -866,8 +874,22 @@ const ZdravpunktPage = () => {
           shift_type: shiftKeyW ? detectShift(String(r[shiftKeyW] || '')) : '-',
         })).filter(w => w.fio.trim());
 
+        // Сортировка: по подразделению А→Я, внутри — Вахта, Межвахта, прочие
+        const shiftOrder: Record<string, number> = { 'Вахта': 0, 'Межвахта': 1, '-': 2 };
+        const rows = [...rawRows].sort((a, b) => {
+          const subCmp = (a.subdivision || '').localeCompare(b.subdivision || '', 'ru');
+          if (subCmp !== 0) return subCmp;
+          return (shiftOrder[a.shift_type] ?? 2) - (shiftOrder[b.shift_type] ?? 2);
+        });
+
         setUploading(null);
         setWorkerPreview({ rows, fileName: file.name, fileRef: file });
+        return;
+      }
+
+      if (raw.length === 0) {
+        toast.error('Файл пустой или не содержит данных');
+        setUploading(null);
         return;
       }
 
@@ -1104,7 +1126,9 @@ const ZdravpunktPage = () => {
         body: JSON.stringify({ action: 'import_workers', file_id: fileId, workers: workerPreview.rows, organization_id: orgId })
       });
 
-      toast.success(`Список работников загружен — ${workerPreview.rows.length} чел.`);
+      toast.success(workerPreview.rows.length > 0
+        ? `Список работников загружен — ${workerPreview.rows.length} чел.`
+        : `Шаблон формы "${file.name}" зафиксирован`);
       setWorkerPreview(null);
       loadAll();
     } catch (err: unknown) {
@@ -1291,75 +1315,137 @@ const ZdravpunktPage = () => {
     <div className="min-h-screen bg-slate-950 text-white">
 
       {/* Предпросмотр списка работников */}
-      {workerPreview && (
-        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex flex-col">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 bg-slate-900 shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-2 rounded-lg">
-                <Icon name="Users" size={18} className="text-white" />
+      {workerPreview && (() => {
+        // Группируем по подразделению
+        const grouped: { subdivision: string; rows: { row: WorkerPreviewRow; idx: number }[] }[] = [];
+        workerPreview.rows.forEach((row, idx) => {
+          const sub = row.subdivision || '—';
+          let g = grouped.find(g => g.subdivision === sub);
+          if (!g) { g = { subdivision: sub, rows: [] }; grouped.push(g); }
+          g.rows.push({ row, idx });
+        });
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 bg-slate-900 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-2 rounded-lg">
+                  <Icon name="Users" size={18} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold">Предпросмотр списка работников</h2>
+                  <p className="text-slate-400 text-xs">
+                    {workerPreview.fileName} · {workerPreview.rows.length > 0 ? `${workerPreview.rows.length} чел.` : 'пустой шаблон'} · {grouped.length} подразделений — скорректируйте «Вахта/Межвахта»
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-white font-bold">Предпросмотр списка работников</h2>
-                <p className="text-slate-400 text-xs">{workerPreview.fileName} · {workerPreview.rows.length} чел. — проверьте и скорректируйте столбец «Вахта/Межвахта»</p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setWorkerPreview(null)}
+                  className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition">
+                  Отмена
+                </button>
+                <button onClick={confirmWorkersUpload} disabled={workerPreviewUploading}
+                  className="px-5 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition disabled:opacity-50 flex items-center gap-2">
+                  {workerPreviewUploading
+                    ? <><Icon name="Loader" size={15} className="animate-spin" />Загружаю...</>
+                    : <><Icon name="Upload" size={15} />{workerPreview.rows.length > 0 ? `Загрузить ${workerPreview.rows.length} чел.` : 'Зафиксировать шаблон'}</>}
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setWorkerPreview(null)}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition">
-                Отмена
-              </button>
-              <button onClick={confirmWorkersUpload} disabled={workerPreviewUploading}
-                className="px-5 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition disabled:opacity-50 flex items-center gap-2">
-                {workerPreviewUploading
-                  ? <><Icon name="Loader" size={15} className="animate-spin" />Загружаю...</>
-                  : <><Icon name="Upload" size={15} />Загрузить {workerPreview.rows.length} чел.</>}
-              </button>
+
+            <div className="flex-1 overflow-auto">
+              {workerPreview.rows.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-20">
+                  <Icon name="FileCheck" size={48} className="text-teal-500 mb-4 opacity-70" />
+                  <p className="text-white font-semibold text-lg mb-1">Шаблон формы распознан</p>
+                  <p className="text-slate-400 text-sm">Файл пустой — нажмите «Зафиксировать шаблон» чтобы сохранить,<br/>или «Отмена» чтобы загрузить заполненный список</p>
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-slate-800 z-10">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700 w-8">#</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">ФИО</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Таб. №</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Должность</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Компания</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700 min-w-[150px]">Вахта/Межвахта</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {grouped.map(group => {
+                      const vakhta = group.rows.filter(r => r.row.shift_type === 'Вахта').length;
+                      const mezhvakhta = group.rows.filter(r => r.row.shift_type === 'Межвахта').length;
+                      const total = group.rows.length;
+                      return (
+                        <>
+                          {/* Строки группы */}
+                          {group.rows.map(({ row, idx }) => (
+                            <tr key={idx} className="hover:bg-slate-800/40 divide-y divide-slate-800/60">
+                              <td className="px-4 py-2 text-slate-500 text-xs border-b border-slate-800/60">{idx + 1}</td>
+                              <td className="px-4 py-2 text-white font-medium whitespace-nowrap border-b border-slate-800/60">{row.fio}</td>
+                              <td className="px-4 py-2 text-slate-400 text-xs border-b border-slate-800/60">{row.worker_number || '—'}</td>
+                              <td className="px-4 py-2 text-slate-300 text-xs border-b border-slate-800/60">{row.position || '—'}</td>
+                              <td className="px-4 py-2 text-slate-300 text-xs border-b border-slate-800/60">{row.company || '—'}</td>
+                              <td className="px-4 py-2 border-b border-slate-800/60">
+                                <select
+                                  value={row.shift_type}
+                                  onChange={e => {
+                                    const updated = [...workerPreview.rows];
+                                    updated[idx] = { ...updated[idx], shift_type: e.target.value as '-' | 'Вахта' | 'Межвахта' };
+                                    // пересортировать
+                                    const shiftOrder: Record<string, number> = { 'Вахта': 0, 'Межвахта': 1, '-': 2 };
+                                    updated.sort((a, b) => {
+                                      const sc = (a.subdivision || '').localeCompare(b.subdivision || '', 'ru');
+                                      if (sc !== 0) return sc;
+                                      return (shiftOrder[a.shift_type] ?? 2) - (shiftOrder[b.shift_type] ?? 2);
+                                    });
+                                    setWorkerPreview({ ...workerPreview, rows: updated });
+                                  }}
+                                  className="bg-slate-700 border border-slate-600 text-white text-xs rounded px-2 py-1.5 w-full focus:outline-none focus:border-teal-500"
+                                >
+                                  <option value="-">—</option>
+                                  <option value="Вахта">Вахта</option>
+                                  <option value="Межвахта">Межвахта</option>
+                                </select>
+                              </td>
+                            </tr>
+                          ))}
+                          {/* Блок итогов подразделения */}
+                          <tr>
+                            <td colSpan={6} className="px-0 py-0">
+                              <div className="flex items-center gap-0 bg-slate-800/70 border-t-2 border-b-2 border-teal-700/40 px-4 py-2.5">
+                                <div className="flex items-center gap-2 mr-6">
+                                  <Icon name="Building2" size={14} className="text-teal-400 shrink-0" />
+                                  <span className="text-teal-300 font-semibold text-xs">{group.subdivision}</span>
+                                </div>
+                                <div className="flex items-center gap-4 ml-auto">
+                                  <div className="flex items-center gap-1.5 bg-blue-900/40 border border-blue-700/40 rounded-lg px-3 py-1.5">
+                                    <span className="text-slate-400 text-xs">Вахта:</span>
+                                    <span className="text-blue-300 font-bold text-sm">{vakhta}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 bg-purple-900/40 border border-purple-700/40 rounded-lg px-3 py-1.5">
+                                    <span className="text-slate-400 text-xs">Межвахта:</span>
+                                    <span className="text-purple-300 font-bold text-sm">{mezhvakhta}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 bg-slate-700/60 border border-slate-600/40 rounded-lg px-3 py-1.5">
+                                    <span className="text-slate-400 text-xs">Всего:</span>
+                                    <span className="text-white font-bold text-sm">{total}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
-          <div className="flex-1 overflow-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-slate-800 z-10">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700 w-8">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">ФИО</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Таб. №</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Подразделение</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Должность</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700">Компания</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-amber-300 border-b border-slate-700 min-w-[140px]">Вахта/Межвахта</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {workerPreview.rows.map((row, i) => (
-                  <tr key={i} className="hover:bg-slate-800/40">
-                    <td className="px-4 py-2 text-slate-500 text-xs">{i + 1}</td>
-                    <td className="px-4 py-2 text-white font-medium whitespace-nowrap">{row.fio}</td>
-                    <td className="px-4 py-2 text-slate-400 text-xs">{row.worker_number || '—'}</td>
-                    <td className="px-4 py-2 text-slate-300 text-xs">{row.subdivision || '—'}</td>
-                    <td className="px-4 py-2 text-slate-300 text-xs">{row.position || '—'}</td>
-                    <td className="px-4 py-2 text-slate-300 text-xs">{row.company || '—'}</td>
-                    <td className="px-4 py-2">
-                      <select
-                        value={row.shift_type}
-                        onChange={e => {
-                          const updated = [...workerPreview.rows];
-                          updated[i] = { ...updated[i], shift_type: e.target.value as '-' | 'Вахта' | 'Межвахта' };
-                          setWorkerPreview({ ...workerPreview, rows: updated });
-                        }}
-                        className="bg-slate-700 border border-slate-600 text-white text-xs rounded px-2 py-1.5 w-full focus:outline-none focus:border-teal-500"
-                      >
-                        <option value="-">—</option>
-                        <option value="Вахта">Вахта</option>
-                        <option value="Межвахта">Межвахта</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Шапка */}
       <div className="bg-gradient-to-r from-teal-900/60 to-slate-900 border-b border-teal-700/40 px-6 py-4">
