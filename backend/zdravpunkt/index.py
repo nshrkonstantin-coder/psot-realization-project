@@ -464,14 +464,14 @@ def handler(event: dict, context) -> dict:
                 cur.execute(f"""
                     SELECT id, fio, worker_number, subdivision, position, company, shift_type, created_at
                     FROM {SCHEMA}.zdravpunkt_workers
-                    WHERE 1=1 {q_org} AND subdivision = %s
+                    WHERE 1=1 {q_org} AND is_duplicate = false AND subdivision = %s
                     ORDER BY fio
                 """, (subdivision,))
             else:
                 cur.execute(f"""
                     SELECT id, fio, worker_number, subdivision, position, company, shift_type, created_at
                     FROM {SCHEMA}.zdravpunkt_workers
-                    WHERE 1=1 {q_org}
+                    WHERE 1=1 {q_org} AND is_duplicate = false
                     ORDER BY subdivision, fio
                 """)
             rows = cur.fetchall()
@@ -486,6 +486,7 @@ def handler(event: dict, context) -> dict:
                 FROM {SCHEMA}.zdravpunkt_workers
                 WHERE 1=1 {q_org}
                   AND subdivision IS NOT NULL AND subdivision != ''
+                  AND is_duplicate = false
                 GROUP BY subdivision, shift_type
                 ORDER BY subdivision, shift_type
             """)
@@ -521,6 +522,7 @@ def handler(event: dict, context) -> dict:
                 SELECT w.subdivision, w.shift_type, COUNT(DISTINCT w.id) as cnt
                 FROM {SCHEMA}.zdravpunkt_workers w
                 WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
+                  AND w.is_duplicate = false
                 {q_org} {fio_cond}
                 GROUP BY w.subdivision, w.shift_type
                 ORDER BY w.subdivision
@@ -547,6 +549,7 @@ def handler(event: dict, context) -> dict:
                     {e_date_cond}
                 WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
                   AND w.shift_type = 'Вахта'
+                  AND w.is_duplicate = false
                 {q_org} {fio_cond}
                 GROUP BY w.subdivision
             """)
@@ -590,7 +593,7 @@ def handler(event: dict, context) -> dict:
                     ON TRIM(LOWER(w.fio)) = TRIM(LOWER(e.fio))
                     AND e.exam_result NOT IN ('cleared', 'archived_test')
                     {e_date_cond}
-                WHERE 1=1 {q_org} {sub_cond} {shift_cond} {fio_cond}
+                WHERE 1=1 AND w.is_duplicate = false {q_org} {sub_cond} {shift_cond} {fio_cond}
                 GROUP BY w.id, w.fio, w.worker_number, w.subdivision, w.position, w.company, w.shift_type
                 ORDER BY w.fio
             """)
@@ -642,7 +645,7 @@ def handler(event: dict, context) -> dict:
                 workers = body.get('workers', [])
                 added = 0
                 updated = 0
-                if workers and org_id:
+                if workers:
                     for w in workers:
                         fio = (w.get('fio', '') or '').strip()
                         if not fio:
@@ -653,22 +656,35 @@ def handler(event: dict, context) -> dict:
                         subdivision = w.get('subdivision', '') or ''
                         position = w.get('position', '') or ''
                         company = w.get('company', '') or ''
-                        # Ищем существующую запись по ФИО + organization_id
-                        cur.execute(
-                            f"SELECT id, shift_type FROM {SCHEMA}.zdravpunkt_workers WHERE TRIM(LOWER(fio)) = TRIM(LOWER(%s)) AND organization_id = %s LIMIT 1",
-                            (fio, org_id)
-                        )
+                        # Ищем по ФИО: учитываем org_id или NULL (старые записи без org_id)
+                        if org_id:
+                            cur.execute(
+                                f"SELECT id, shift_type FROM {SCHEMA}.zdravpunkt_workers WHERE TRIM(LOWER(fio)) = TRIM(LOWER(%s)) AND (organization_id = %s OR organization_id IS NULL) ORDER BY id LIMIT 1",
+                                (fio, org_id)
+                            )
+                        else:
+                            cur.execute(
+                                f"SELECT id, shift_type FROM {SCHEMA}.zdravpunkt_workers WHERE TRIM(LOWER(fio)) = TRIM(LOWER(%s)) ORDER BY id LIMIT 1",
+                                (fio,)
+                            )
                         existing = cur.fetchone()
                         if existing:
                             existing_id, existing_shift = existing
-                            # Обновляем: shift_type если изменился, file_id, остальные поля
                             new_shift = shift if shift is not None else existing_shift
+                            # Обновляем запись, также проставляем organization_id если был NULL
                             cur.execute(
                                 f"""UPDATE {SCHEMA}.zdravpunkt_workers
                                     SET file_id = %s, subdivision = %s, position = %s, company = %s,
-                                        worker_number = %s, shift_type = %s
+                                        worker_number = %s, shift_type = %s,
+                                        organization_id = COALESCE(organization_id, %s),
+                                        is_duplicate = false
                                     WHERE id = %s""",
-                                (file_id, subdivision, position, company, worker_number, new_shift, existing_id)
+                                (file_id, subdivision, position, company, worker_number, new_shift, org_id, existing_id)
+                            )
+                            # Помечаем все остальные записи с тем же ФИО как дубли
+                            cur.execute(
+                                f"UPDATE {SCHEMA}.zdravpunkt_workers SET is_duplicate = true WHERE TRIM(LOWER(fio)) = TRIM(LOWER(%s)) AND id != %s",
+                                (fio, existing_id)
                             )
                             updated += 1
                         else:
