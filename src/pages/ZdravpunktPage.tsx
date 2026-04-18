@@ -850,7 +850,7 @@ const ZdravpunktPage = () => {
           keys.find(k => variants.some(v => k.toLowerCase().includes(v.toLowerCase()))) ||
           '';
 
-        const shiftKeyW = findKeyW('вахта', 'межвахта', 'shift', 'тип вахты', 'вид вахты', 'режим');
+        const shiftKeyW = findKeyW('Вахта/Межвахта', 'вахта/межвахта', 'вахта', 'межвахта', 'shift', 'тип вахты', 'вид вахты', 'режим');
 
         const detectShift = (val: string): '-' | 'Вахта' | 'Межвахта' => {
           const v = val.trim().toLowerCase();
@@ -859,10 +859,10 @@ const ZdravpunktPage = () => {
           return '-';
         };
 
-        const fioKeyW = findKeyW('фио', 'имя', 'наименование', 'работник', 'name', 'ф.и.о', 'ф.и.о.');
-        const numKeyW = findKeyW('табел', 'номер', 'таб', 'id', 'code', 'код');
-        const divKeyW = findKeyW('подразделение', 'отдел', 'subdivision', 'участок', 'цех', 'бригада');
-        const posKeyW = findKeyW('должность', 'position', 'профессия');
+        const fioKeyW = findKeyW('Ф.И.О. работника', 'ф.и.о. работника', 'ф.и.о', 'ф.и.о.', 'фио', 'имя', 'наименование', 'работник', 'name');
+        const numKeyW = findKeyW('№ п/п', '№', 'табел', 'таб', 'номер', 'id', 'code', 'код');
+        const divKeyW = findKeyW('Подразделение', 'подразделение', 'отдел', 'subdivision', 'участок', 'цех', 'бригада');
+        const posKeyW = findKeyW('Должность', 'должность', 'position', 'профессия');
         const compKeyW = findKeyW('компания', 'организация', 'company', 'предприятие', 'работодатель');
 
         const rawRows: WorkerPreviewRow[] = raw.map(r => ({
