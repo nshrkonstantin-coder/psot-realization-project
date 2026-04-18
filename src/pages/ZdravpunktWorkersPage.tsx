@@ -14,6 +14,8 @@ interface SubStat {
   total: number;
   esmo_passed: number;
   esmo_not_passed: number;
+  not_admitted: number;
+  evaded: number;
 }
 
 interface Worker {
@@ -29,7 +31,7 @@ interface Worker {
   last_result?: string;
 }
 
-type DrillType = 'total' | 'vakhta' | 'mezhvakhta' | 'esmo_passed' | 'esmo_not_passed';
+type DrillType = 'total' | 'vakhta' | 'mezhvakhta' | 'esmo_passed' | 'esmo_not_passed' | 'not_admitted' | 'evaded';
 
 interface DrillState {
   subdivision: string;
@@ -101,7 +103,8 @@ const ZdravpunktWorkersPage = () => {
   const openDrill = async (subdivision: string, type: DrillType) => {
     const labels: Record<DrillType, string> = {
       total: 'Все работники', vakhta: 'Вахта', mezhvakhta: 'Межвахта',
-      esmo_passed: 'Прошли ЭСМО', esmo_not_passed: 'ЭСМО не проходили',
+      esmo_passed: 'Прошли ЭСМО', esmo_not_passed: 'Не проходили ЭСМО',
+      not_admitted: 'Не допущены', evaded: 'Уклонились',
     };
     setDrill({ subdivision, type, title: labels[type] });
     setSearch('');
@@ -113,6 +116,8 @@ const ZdravpunktWorkersPage = () => {
       else if (type === 'mezhvakhta') url += `&shift_filter=${encodeURIComponent('Межвахта')}`;
       else if (type === 'esmo_passed') url += `&esmo_filter=passed&shift_filter=${encodeURIComponent('Вахта')}`;
       else if (type === 'esmo_not_passed') url += `&esmo_filter=not_passed&shift_filter=${encodeURIComponent('Вахта')}`;
+      else if (type === 'not_admitted') url += `&esmo_filter=not_admitted`;
+      else if (type === 'evaded') url += `&esmo_filter=evaded`;
       if (dateFrom) url += `&date_from=${dateFrom}`;
       if (dateTo) url += `&date_to=${dateTo}`;
       if (fioFilter) url += `&fio=${encodeURIComponent(fioFilter)}`;
@@ -446,9 +451,10 @@ const SubCard = ({ stat, activeDrillType, onDrill }: SubCardProps) => {
           active={activeDrillType === 'mezhvakhta'} onClick={() => onDrill('mezhvakhta')} />
       </div>
 
-      {/* Нижний блок: ЭСМО — два больших тайла */}
-      <div className="p-2 space-y-2">
-        <div className="grid grid-cols-2 gap-2">
+      {/* Нижний блок: ЭСМО */}
+      <div className="p-2 space-y-1.5">
+        {/* Прошло / Не проходили */}
+        <div className="grid grid-cols-2 gap-1.5">
           <BigTile
             label="Прошло ЭСМО"
             value={stat.esmo_passed}
@@ -457,7 +463,7 @@ const SubCard = ({ stat, activeDrillType, onDrill }: SubCardProps) => {
             onClick={() => onDrill('esmo_passed')}
           />
           <BigTile
-            label="ЭСМО не проходили"
+            label="Не проходили"
             value={stat.esmo_not_passed}
             color="red"
             active={activeDrillType === 'esmo_not_passed'}
@@ -465,9 +471,27 @@ const SubCard = ({ stat, activeDrillType, onDrill }: SubCardProps) => {
           />
         </div>
 
+        {/* Не допущен / Уклонился */}
+        <div className="grid grid-cols-2 gap-1.5">
+          <BigTile
+            label="Не допущен"
+            value={stat.not_admitted ?? 0}
+            color="orange"
+            active={activeDrillType === 'not_admitted'}
+            onClick={() => onDrill('not_admitted')}
+          />
+          <BigTile
+            label="Уклонился"
+            value={stat.evaded ?? 0}
+            color="amber"
+            active={activeDrillType === 'evaded'}
+            onClick={() => onDrill('evaded')}
+          />
+        </div>
+
         {/* Прогресс охвата */}
         {stat.vakhta > 0 && (
-          <div>
+          <div className="pt-0.5">
             <div className="flex justify-between text-xs mb-1">
               <span className="text-slate-500">Охват вахты</span>
               <span className={esmoPercent === 100 ? 'text-green-400' : esmoPercent >= 50 ? 'text-yellow-400' : 'text-red-400'}>
@@ -510,8 +534,10 @@ const MiniTile = ({ label, value, color, active, onClick }: MiniTileProps) => {
 
 /* ─── Большой тайл ЭСМО ─── */
 const BIG_COLORS: Record<string, { bg: string; act: string; border: string; val: string }> = {
-  green: { bg: 'bg-green-900/30 hover:bg-green-900/50', act: 'bg-green-800/60', border: 'border-green-700/50', val: 'text-green-400' },
-  red:   { bg: 'bg-red-900/30 hover:bg-red-900/50',     act: 'bg-red-800/60',   border: 'border-red-700/50',   val: 'text-red-400' },
+  green:  { bg: 'bg-green-900/30 hover:bg-green-900/50',   act: 'bg-green-800/60',  border: 'border-green-700/50',  val: 'text-green-400' },
+  red:    { bg: 'bg-red-900/30 hover:bg-red-900/50',       act: 'bg-red-800/60',    border: 'border-red-700/50',    val: 'text-red-400' },
+  orange: { bg: 'bg-orange-900/30 hover:bg-orange-900/50', act: 'bg-orange-800/60', border: 'border-orange-700/50', val: 'text-orange-400' },
+  amber:  { bg: 'bg-amber-900/30 hover:bg-amber-900/50',   act: 'bg-amber-800/60',  border: 'border-amber-700/50',  val: 'text-amber-400' },
 };
 
 interface BigTileProps {

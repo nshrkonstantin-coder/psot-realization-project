@@ -530,6 +530,7 @@ def handler(event: dict, context) -> dict:
         if method == 'GET' and action == 'esmo_sub_stats':
             """Статистика ЭСМО по подразделениям. ЭСМО считается только по вахтовикам (shift_type = 'Вахта')."""
             q_org = f"AND (w.organization_id = {int(org_id)} OR w.organization_id IS NULL)" if org_id else ""
+            q_org_e = f"AND organization_id = {int(org_id)}" if org_id else ""
             date_from = params.get('date_from', '')
             date_to = params.get('date_to', '')
             fio_filter = params.get('fio', '').strip()
@@ -552,7 +553,8 @@ def handler(event: dict, context) -> dict:
             subs = {}
             for sub, shift, cnt in cur.fetchall():
                 if sub not in subs:
-                    subs[sub] = {'subdivision': sub, 'vakhta': 0, 'mezhvakhta': 0, 'other': 0, 'total': 0, 'esmo_passed': 0, 'esmo_not_passed': 0}
+                    subs[sub] = {'subdivision': sub, 'vakhta': 0, 'mezhvakhta': 0, 'other': 0, 'total': 0,
+                                 'esmo_passed': 0, 'esmo_not_passed': 0, 'not_admitted': 0, 'evaded': 0}
                 c = cnt or 0
                 if shift == 'Вахта':
                     subs[sub]['vakhta'] += c
@@ -578,12 +580,30 @@ def handler(event: dict, context) -> dict:
             for sub, passed in cur.fetchall():
                 if sub in subs:
                     subs[sub]['esmo_passed'] = passed or 0
-                    # esmo_not_passed = вахтовики которые не прошли ЭСМО
                     subs[sub]['esmo_not_passed'] = max(0, subs[sub]['vakhta'] - (passed or 0))
-            # Для тех где нет прошедших — esmo_not_passed = все вахтовики
             for sub in subs:
                 if subs[sub]['esmo_passed'] == 0:
                     subs[sub]['esmo_not_passed'] = subs[sub]['vakhta']
+            # not_admitted и evaded — уникальные люди из ЭСМО за период
+            e_date_cond_esmo = e_date_cond if e_date_cond else " AND e.exam_date >= CURRENT_DATE - INTERVAL '30 days'"
+            cur.execute(f"""
+                SELECT e.subdivision, e.exam_result, COUNT(DISTINCT TRIM(LOWER(e.fio))) as cnt
+                FROM {SCHEMA}.zdravpunkt_esmo e
+                WHERE e.exam_result IN ('not_admitted', 'evaded')
+                  {e_date_cond_esmo}
+                  {q_org_e}
+                  AND e.subdivision IS NOT NULL AND e.subdivision != ''
+                GROUP BY e.subdivision, e.exam_result
+            """)
+            for esub, result_type, cnt in cur.fetchall():
+                matched = esub if esub in subs else next(
+                    (s for s in subs if esub.startswith(s) or s.startswith(esub)), None
+                )
+                if matched:
+                    if result_type == 'not_admitted':
+                        subs[matched]['not_admitted'] += cnt
+                    elif result_type == 'evaded':
+                        subs[matched]['evaded'] += cnt
             result = sorted(subs.values(), key=lambda x: x['subdivision'])
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'stats': result}, ensure_ascii=False)}
 
@@ -620,16 +640,38 @@ def handler(event: dict, context) -> dict:
                 ORDER BY w.fio
             """)
             rows = cur.fetchall()
-            workers = []
-            for r in rows:
-                passed = bool(r[7])
-                if esmo_filter == 'passed' and not passed:
-                    continue
-                if esmo_filter == 'not_passed' and passed:
-                    continue
-                workers.append({'id': r[0], 'fio': r[1], 'worker_number': r[2] or '', 'subdivision': r[3] or '',
-                                'position': r[4] or '', 'company': r[5] or '', 'shift_type': r[6] or '',
-                                'esmo_passed': passed, 'last_exam_date': r[8] or '', 'last_result': r[9] or ''})
+            # Для not_admitted/evaded — берём напрямую из ЭСМО, не из workers
+            if esmo_filter in ('not_admitted', 'evaded'):
+                e_date_cond2 = e_date_cond if e_date_cond else " AND e.exam_date >= CURRENT_DATE - INTERVAL '30 days'"
+                sub_esmo_cond = ''
+                if subdivision:
+                    sub_safe = subdivision.replace("'", "''")
+                    sub_esmo_cond = f"AND (e.subdivision = '{sub_safe}' OR e.subdivision LIKE '{sub_safe}%%' OR '{sub_safe}' LIKE e.subdivision || '%%')"
+                cur.execute(f"""
+                    SELECT DISTINCT ON (TRIM(LOWER(e.fio)))
+                        0 as id, e.fio, '' as worker_number, e.subdivision, e.position, e.company, '' as shift_type,
+                        false as esmo_passed, e.exam_date::text as last_exam_date, e.exam_result as last_result
+                    FROM {SCHEMA}.zdravpunkt_esmo e
+                    WHERE e.exam_result = '{"not_admitted" if esmo_filter == "not_admitted" else "evaded"}'
+                      {e_date_cond2} {sub_esmo_cond}
+                    ORDER BY TRIM(LOWER(e.fio)), e.exam_date DESC
+                """)
+                esmo_rows = cur.fetchall()
+                workers = [{'id': r[0], 'fio': r[1], 'worker_number': r[2] or '', 'subdivision': r[3] or '',
+                            'position': r[4] or '', 'company': r[5] or '', 'shift_type': r[6] or '',
+                            'esmo_passed': False, 'last_exam_date': r[8] or '', 'last_result': r[9] or ''}
+                           for r in esmo_rows]
+            else:
+                workers = []
+                for r in rows:
+                    passed = bool(r[7])
+                    if esmo_filter == 'passed' and not passed:
+                        continue
+                    if esmo_filter == 'not_passed' and passed:
+                        continue
+                    workers.append({'id': r[0], 'fio': r[1], 'worker_number': r[2] or '', 'subdivision': r[3] or '',
+                                    'position': r[4] or '', 'company': r[5] or '', 'shift_type': r[6] or '',
+                                    'esmo_passed': passed, 'last_exam_date': r[8] or '', 'last_result': r[9] or ''})
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'workers': workers}, ensure_ascii=False)}
 
         # ── POST: сохранить строки из Excel ──────────────────────────────────
