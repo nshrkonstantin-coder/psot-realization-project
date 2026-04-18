@@ -124,7 +124,7 @@ const ZdravpunktPage = () => {
   const [workerPreview, setWorkerPreview] = useState<{ rows: WorkerPreviewRow[]; fileName: string; fileRef: File | null; columnMap: { field: string; col: string; found: boolean }[]; missingFields: string[]; fileSubdivision: string } | null>(null);
   const [missingFieldValues, setMissingFieldValues] = useState<Record<string, string>>({});
   const [workerPreviewUploading, setWorkerPreviewUploading] = useState(false);
-  const [workerSubStats, setWorkerSubStats] = useState<{ subdivision: string; vakhta: number; mezhvakhta: number; other: number; total: number }[] | null>(null);
+  const [workerSubStats, setWorkerSubStats] = useState<{ subdivision: string; vakhta: number; mezhvakhta: number; other: number; total: number; not_admitted: number; evaded: number }[] | null>(null);
   const [workerSubStatsLoading, setWorkerSubStatsLoading] = useState(false);
 
   // Фильтры отчёта
@@ -1715,6 +1715,7 @@ const ZdravpunktPage = () => {
 
         {/* ── Вкладка Загрузки ── */}
         {activeTab === 'upload' && (
+          <div className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
             {/* Загрузка общего списка работников */}
             <Card className="bg-slate-800/50 border-slate-700">
@@ -1910,6 +1911,57 @@ const ZdravpunktPage = () => {
                 </div>
               </div>
             </Card>
+          </div>
+
+          {/* ── Карточки подразделений ── */}
+          {workerSubStats && workerSubStats.length > 0 && (
+            <div className="mt-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Icon name="Building2" size={16} className="text-teal-400" />
+                <h3 className="text-white font-semibold text-sm">Статистика по подразделениям</h3>
+                <span className="text-slate-500 text-xs ml-1">· за последние 30 дней по ЭСМО</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {workerSubStats.map(s => {
+                  const hasIssues = s.not_admitted > 0 || s.evaded > 0;
+                  return (
+                    <div key={s.subdivision} className={`rounded-xl border p-4 bg-slate-800/50 transition-all ${hasIssues ? 'border-red-700/40' : 'border-slate-700/60'}`}>
+                      {/* Заголовок */}
+                      <div className="flex items-start gap-2 mb-3">
+                        <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${hasIssues ? 'bg-red-900/40' : 'bg-teal-900/40'}`}>
+                          <Icon name="Building2" size={13} className={hasIssues ? 'text-red-400' : 'text-teal-400'} />
+                        </div>
+                        <span className="text-white font-medium text-xs leading-snug">{s.subdivision}</span>
+                      </div>
+                      {/* Окошки статистики */}
+                      <div className="grid grid-cols-5 gap-1.5">
+                        <div className="flex flex-col items-center bg-blue-900/30 border border-blue-700/30 rounded-lg px-1 py-2">
+                          <span className="text-blue-300 font-bold text-base leading-none">{s.vakhta}</span>
+                          <span className="text-blue-400/70 text-[10px] mt-1 text-center leading-tight">Вахта</span>
+                        </div>
+                        <div className="flex flex-col items-center bg-purple-900/30 border border-purple-700/30 rounded-lg px-1 py-2">
+                          <span className="text-purple-300 font-bold text-base leading-none">{s.mezhvakhta}</span>
+                          <span className="text-purple-400/70 text-[10px] mt-1 text-center leading-tight">Меж­вахта</span>
+                        </div>
+                        <div className={`flex flex-col items-center rounded-lg px-1 py-2 border ${s.not_admitted > 0 ? 'bg-red-900/40 border-red-600/50' : 'bg-slate-700/40 border-slate-600/30'}`}>
+                          <span className={`font-bold text-base leading-none ${s.not_admitted > 0 ? 'text-red-300' : 'text-slate-400'}`}>{s.not_admitted}</span>
+                          <span className={`text-[10px] mt-1 text-center leading-tight ${s.not_admitted > 0 ? 'text-red-400/80' : 'text-slate-500'}`}>Не до­пущ.</span>
+                        </div>
+                        <div className={`flex flex-col items-center rounded-lg px-1 py-2 border ${s.evaded > 0 ? 'bg-amber-900/40 border-amber-600/50' : 'bg-slate-700/40 border-slate-600/30'}`}>
+                          <span className={`font-bold text-base leading-none ${s.evaded > 0 ? 'text-amber-300' : 'text-slate-400'}`}>{s.evaded}</span>
+                          <span className={`text-[10px] mt-1 text-center leading-tight ${s.evaded > 0 ? 'text-amber-400/80' : 'text-slate-500'}`}>Уклон.</span>
+                        </div>
+                        <div className="flex flex-col items-center bg-slate-700/40 border border-slate-600/30 rounded-lg px-1 py-2">
+                          <span className="text-white font-bold text-base leading-none">{s.total}</span>
+                          <span className="text-slate-400/70 text-[10px] mt-1 text-center leading-tight">Всего</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           </div>
         )}
 

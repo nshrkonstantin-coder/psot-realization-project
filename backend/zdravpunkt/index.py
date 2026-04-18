@@ -480,7 +480,10 @@ def handler(event: dict, context) -> dict:
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'workers': workers}, ensure_ascii=False)}
 
         if method == 'GET' and action == 'workers_sub_stats':
+            """Статистика по подразделениям: состав (Вахта/Межвахта) + результаты ЭСМО (не допущено/уклонился)."""
             q_org = f"AND organization_id = {int(org_id)}" if org_id else ""
+            q_org_e = f"AND organization_id = {int(org_id)}" if org_id else ""
+            # 1. Состав по подразделениям из списка работников
             cur.execute(f"""
                 SELECT subdivision, shift_type, COUNT(*) as cnt
                 FROM {SCHEMA}.zdravpunkt_workers
@@ -490,11 +493,10 @@ def handler(event: dict, context) -> dict:
                 GROUP BY subdivision, shift_type
                 ORDER BY subdivision, shift_type
             """)
-            rows = cur.fetchall()
             subs: dict = {}
-            for sub, shift, cnt in rows:
+            for sub, shift, cnt in cur.fetchall():
                 if sub not in subs:
-                    subs[sub] = {'subdivision': sub, 'vakhta': 0, 'mezhvakhta': 0, 'other': 0, 'total': 0}
+                    subs[sub] = {'subdivision': sub, 'vakhta': 0, 'mezhvakhta': 0, 'other': 0, 'total': 0, 'not_admitted': 0, 'evaded': 0}
                 if shift == 'Вахта':
                     subs[sub]['vakhta'] += cnt
                 elif shift == 'Межвахта':
@@ -502,6 +504,26 @@ def handler(event: dict, context) -> dict:
                 else:
                     subs[sub]['other'] += cnt
                 subs[sub]['total'] += cnt
+            # 2. Результаты ЭСМО: not_admitted и evaded по подразделениям (уникальные люди за последние 30 дней)
+            cur.execute(f"""
+                SELECT e.subdivision, e.exam_result, COUNT(DISTINCT TRIM(LOWER(e.fio))) as cnt
+                FROM {SCHEMA}.zdravpunkt_esmo e
+                WHERE e.exam_result IN ('not_admitted', 'evaded')
+                  AND e.exam_date >= CURRENT_DATE - INTERVAL '30 days'
+                  {q_org_e}
+                  AND e.subdivision IS NOT NULL AND e.subdivision != ''
+                GROUP BY e.subdivision, e.exam_result
+            """)
+            for sub, result_type, cnt in cur.fetchall():
+                # Ищем точное совпадение или частичное (subdivision из ЭСМО может быть длиннее)
+                matched = sub if sub in subs else next(
+                    (s for s in subs if sub.startswith(s) or s.startswith(sub)), None
+                )
+                if matched:
+                    if result_type == 'not_admitted':
+                        subs[matched]['not_admitted'] += cnt
+                    elif result_type == 'evaded':
+                        subs[matched]['evaded'] += cnt
             result = sorted(subs.values(), key=lambda x: x['subdivision'])
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'success': True, 'stats': result}, ensure_ascii=False)}
 
