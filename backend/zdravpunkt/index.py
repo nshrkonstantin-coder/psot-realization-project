@@ -1,5 +1,5 @@
 import json
-import os
+import os  # security: all SQL is now parameterized
 import base64
 import psycopg2
 import psycopg2.extras
@@ -458,22 +458,24 @@ def handler(event: dict, context) -> dict:
             }, ensure_ascii=False)}
 
         if method == 'GET' and action == 'workers_list':
-            q_org = f"AND organization_id = {int(org_id)}" if org_id else ""
             subdivision = params.get('subdivision', '')
+            w_where = ["is_duplicate = false"]
+            w_args = []
+            if org_id:
+                w_where.append("organization_id = %s")
+                w_args.append(org_id)
             if subdivision:
-                cur.execute(f"""
-                    SELECT id, fio, worker_number, subdivision, position, company, shift_type, created_at
+                w_where.append("subdivision = %s")
+                w_args.append(subdivision)
+            w_where_sql = " AND ".join(w_where)
+            order_sql = "ORDER BY fio" if subdivision else "ORDER BY subdivision, fio"
+            cur.execute(
+                f"""SELECT id, fio, worker_number, subdivision, position, company, shift_type, created_at
                     FROM {SCHEMA}.zdravpunkt_workers
-                    WHERE 1=1 {q_org} AND is_duplicate = false AND subdivision = %s
-                    ORDER BY fio
-                """, (subdivision,))
-            else:
-                cur.execute(f"""
-                    SELECT id, fio, worker_number, subdivision, position, company, shift_type, created_at
-                    FROM {SCHEMA}.zdravpunkt_workers
-                    WHERE 1=1 {q_org} AND is_duplicate = false
-                    ORDER BY subdivision, fio
-                """)
+                    WHERE {w_where_sql}
+                    {order_sql}""",
+                w_args
+            )
             rows = cur.fetchall()
             workers = [{'id': r[0], 'fio': r[1], 'worker_number': r[2] or '', 'subdivision': r[3] or '',
                         'position': r[4] or '', 'company': r[5] or '', 'shift_type': r[6], 'created_at': str(r[7])} for r in rows]
@@ -481,18 +483,21 @@ def handler(event: dict, context) -> dict:
 
         if method == 'GET' and action == 'workers_sub_stats':
             """Статистика по подразделениям: состав (Вахта/Межвахта) + результаты ЭСМО (не допущено/уклонился)."""
-            q_org = f"AND organization_id = {int(org_id)}" if org_id else ""
-            q_org_e = f"AND organization_id = {int(org_id)}" if org_id else ""
             # 1. Состав по подразделениям из списка работников
-            cur.execute(f"""
-                SELECT subdivision, shift_type, COUNT(*) as cnt
-                FROM {SCHEMA}.zdravpunkt_workers
-                WHERE 1=1 {q_org}
-                  AND subdivision IS NOT NULL AND subdivision != ''
-                  AND is_duplicate = false
-                GROUP BY subdivision, shift_type
-                ORDER BY subdivision, shift_type
-            """)
+            ws_where = ["subdivision IS NOT NULL", "subdivision != ''", "is_duplicate = false"]
+            ws_args = []
+            if org_id:
+                ws_where.append("organization_id = %s")
+                ws_args.append(org_id)
+            ws_where_sql = " AND ".join(ws_where)
+            cur.execute(
+                f"""SELECT subdivision, shift_type, COUNT(*) as cnt
+                    FROM {SCHEMA}.zdravpunkt_workers
+                    WHERE {ws_where_sql}
+                    GROUP BY subdivision, shift_type
+                    ORDER BY subdivision, shift_type""",
+                ws_args
+            )
             subs: dict = {}
             for sub, shift, cnt in cur.fetchall():
                 if sub not in subs:
@@ -505,15 +510,24 @@ def handler(event: dict, context) -> dict:
                     subs[sub]['other'] += cnt
                 subs[sub]['total'] += cnt
             # 2. Результаты ЭСМО: not_admitted и evaded по подразделениям (уникальные люди за последние 30 дней)
-            cur.execute(f"""
-                SELECT e.subdivision, e.exam_result, COUNT(DISTINCT TRIM(LOWER(e.fio))) as cnt
-                FROM {SCHEMA}.zdravpunkt_esmo e
-                WHERE e.exam_result IN ('not_admitted', 'evaded')
-                  AND e.exam_date >= CURRENT_DATE - INTERVAL '30 days'
-                  {q_org_e}
-                  AND e.subdivision IS NOT NULL AND e.subdivision != ''
-                GROUP BY e.subdivision, e.exam_result
-            """)
+            esmo_where = [
+                "e.exam_result IN ('not_admitted', 'evaded')",
+                "e.exam_date >= CURRENT_DATE - INTERVAL '30 days'",
+                "e.subdivision IS NOT NULL",
+                "e.subdivision != ''",
+            ]
+            esmo_args = []
+            if org_id:
+                esmo_where.append("organization_id = %s")
+                esmo_args.append(org_id)
+            esmo_where_sql = " AND ".join(esmo_where)
+            cur.execute(
+                f"""SELECT e.subdivision, e.exam_result, COUNT(DISTINCT TRIM(LOWER(e.fio))) as cnt
+                    FROM {SCHEMA}.zdravpunkt_esmo e
+                    WHERE {esmo_where_sql}
+                    GROUP BY e.subdivision, e.exam_result""",
+                esmo_args
+            )
             for sub, result_type, cnt in cur.fetchall():
                 # Ищем точное совпадение или частичное (subdivision из ЭСМО может быть длиннее)
                 matched = sub if sub in subs else next(
@@ -529,27 +543,54 @@ def handler(event: dict, context) -> dict:
 
         if method == 'GET' and action == 'esmo_sub_stats':
             """Статистика ЭСМО по подразделениям. ЭСМО считается только по вахтовикам (shift_type = 'Вахта')."""
-            q_org = f"AND (w.organization_id = {int(org_id)} OR w.organization_id IS NULL)" if org_id else ""
-            q_org_e = f"AND organization_id = {int(org_id)}" if org_id else ""
             date_from = params.get('date_from', '')
             date_to = params.get('date_to', '')
             fio_filter = params.get('fio', '').strip()
-            e_date_cond = ''
+
+            # Build worker base conditions
+            w_base = ["w.subdivision IS NOT NULL", "w.subdivision != ''", "w.is_duplicate = false"]
+            w_base_args = []
+            if org_id:
+                w_base.append("(w.organization_id = %s OR w.organization_id IS NULL)")
+                w_base_args.append(org_id)
+            if fio_filter:
+                w_base.append("TRIM(LOWER(w.fio)) LIKE TRIM(LOWER(%s))")
+                w_base_args.append(f'%{fio_filter}%')
+
+            # Build esmo date conditions as separate list for JOIN ON clauses
+            e_date_parts = []
+            e_date_args = []
             if date_from:
-                e_date_cond += f" AND e.exam_date >= '{date_from}'"
+                e_date_parts.append("e.exam_date >= %s::date")
+                e_date_args.append(date_from)
             if date_to:
-                e_date_cond += f" AND e.exam_date <= '{date_to}'"
-            fio_cond = f" AND TRIM(LOWER(w.fio)) LIKE TRIM(LOWER('%%{fio_filter.replace(chr(39), chr(39)*2)}%%'))" if fio_filter else ""
+                e_date_parts.append("e.exam_date <= %s::date")
+                e_date_args.append(date_to)
+
+            # Build esmo date conditions for standalone WHERE clauses (not_admitted/evaded queries)
+            esmo_date_parts = []
+            esmo_date_args = []
+            if date_from:
+                esmo_date_parts.append("e.exam_date >= %s::date")
+                esmo_date_args.append(date_from)
+            if date_to:
+                esmo_date_parts.append("e.exam_date <= %s::date")
+                esmo_date_args.append(date_to)
+            # Fallback: last 30 days when no dates given (for the not_admitted/evaded queries)
+            esmo_date_cond_fallback = esmo_date_parts if esmo_date_parts else ["e.exam_date >= CURRENT_DATE - INTERVAL '30 days'"]
+            esmo_date_args_fallback = esmo_date_args if esmo_date_args else []
+
+            w_base_sql = " AND ".join(w_base)
+
             # Общая статистика: всего/вахта/межвахта по подразделениям
-            cur.execute(f"""
-                SELECT w.subdivision, w.shift_type, COUNT(DISTINCT w.id) as cnt
-                FROM {SCHEMA}.zdravpunkt_workers w
-                WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
-                  AND w.is_duplicate = false
-                {q_org} {fio_cond}
-                GROUP BY w.subdivision, w.shift_type
-                ORDER BY w.subdivision
-            """)
+            cur.execute(
+                f"""SELECT w.subdivision, w.shift_type, COUNT(DISTINCT w.id) as cnt
+                    FROM {SCHEMA}.zdravpunkt_workers w
+                    WHERE {w_base_sql}
+                    GROUP BY w.subdivision, w.shift_type
+                    ORDER BY w.subdivision""",
+                w_base_args
+            )
             subs = {}
             for sub, shift, cnt in cur.fetchall():
                 if sub not in subs:
@@ -563,62 +604,73 @@ def handler(event: dict, context) -> dict:
                 else:
                     subs[sub]['other'] += c
                 subs[sub]['total'] += c
+
             # esmo_passed — только вахтовики с результатом 'admitted'
-            cur.execute(f"""
-                SELECT w.subdivision, COUNT(DISTINCT w.id) as passed
-                FROM {SCHEMA}.zdravpunkt_workers w
-                INNER JOIN {SCHEMA}.zdravpunkt_esmo e
-                    ON TRIM(LOWER(w.fio)) = TRIM(LOWER(e.fio))
-                    AND e.exam_result = 'admitted'
-                    {e_date_cond}
-                WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
-                  AND w.shift_type = 'Вахта'
-                  AND w.is_duplicate = false
-                {q_org} {fio_cond}
-                GROUP BY w.subdivision
-            """)
+            vakhta_base = w_base + ["w.shift_type = 'Вахта'"]
+            vakhta_base_sql = " AND ".join(vakhta_base)
+            e_join_parts = ["e.exam_result = 'admitted'"] + e_date_parts
+            e_join_sql = " AND ".join(e_join_parts)
+            cur.execute(
+                f"""SELECT w.subdivision, COUNT(DISTINCT w.id) as passed
+                    FROM {SCHEMA}.zdravpunkt_workers w
+                    INNER JOIN {SCHEMA}.zdravpunkt_esmo e
+                        ON TRIM(LOWER(w.fio)) = TRIM(LOWER(e.fio))
+                        AND {e_join_sql}
+                    WHERE {vakhta_base_sql}
+                    GROUP BY w.subdivision""",
+                e_date_args + w_base_args
+            )
             for sub, passed in cur.fetchall():
                 if sub in subs:
                     subs[sub]['esmo_passed'] = passed or 0
+
             # esmo_not_passed — вахтовики без admitted И без evaded/not_admitted
-            cur.execute(f"""
-                SELECT w.subdivision, COUNT(DISTINCT w.id) as cnt
-                FROM {SCHEMA}.zdravpunkt_workers w
-                WHERE w.subdivision IS NOT NULL AND w.subdivision != ''
-                  AND w.shift_type = 'Вахта'
-                  AND w.is_duplicate = false
-                  {q_org} {fio_cond}
-                  AND NOT EXISTS (
-                      SELECT 1 FROM {SCHEMA}.zdravpunkt_esmo e
-                      WHERE TRIM(LOWER(e.fio)) = TRIM(LOWER(w.fio))
-                        AND e.exam_result = 'admitted'
-                        {e_date_cond}
-                  )
-                  AND NOT EXISTS (
-                      SELECT 1 FROM {SCHEMA}.zdravpunkt_esmo e
-                      WHERE TRIM(LOWER(e.fio)) = TRIM(LOWER(w.fio))
-                        AND e.exam_result IN ('evaded', 'not_admitted')
-                        {e_date_cond}
-                  )
-                GROUP BY w.subdivision
-            """)
+            e_join_admitted_parts = ["e.exam_result = 'admitted'"] + e_date_parts
+            e_join_admitted_sql = " AND ".join(e_join_admitted_parts)
+            e_join_evaded_parts = ["e.exam_result IN ('evaded', 'not_admitted')"] + e_date_parts
+            e_join_evaded_sql = " AND ".join(e_join_evaded_parts)
+            cur.execute(
+                f"""SELECT w.subdivision, COUNT(DISTINCT w.id) as cnt
+                    FROM {SCHEMA}.zdravpunkt_workers w
+                    WHERE {vakhta_base_sql}
+                      AND NOT EXISTS (
+                          SELECT 1 FROM {SCHEMA}.zdravpunkt_esmo e
+                          WHERE TRIM(LOWER(e.fio)) = TRIM(LOWER(w.fio))
+                            AND {e_join_admitted_sql}
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM {SCHEMA}.zdravpunkt_esmo e
+                          WHERE TRIM(LOWER(e.fio)) = TRIM(LOWER(w.fio))
+                            AND {e_join_evaded_sql}
+                      )
+                    GROUP BY w.subdivision""",
+                w_base_args + e_date_args + e_date_args
+            )
             for sub, cnt in cur.fetchall():
                 if sub in subs:
                     subs[sub]['esmo_not_passed'] = cnt or 0
             for sub in subs:
                 if 'esmo_not_passed' not in subs[sub] or subs[sub].get('esmo_not_passed') is None:
                     subs[sub]['esmo_not_passed'] = 0
+
             # not_admitted и evaded — уникальные люди из ЭСМО за период
-            e_date_cond_esmo = e_date_cond if e_date_cond else " AND e.exam_date >= CURRENT_DATE - INTERVAL '30 days'"
-            cur.execute(f"""
-                SELECT e.subdivision, e.exam_result, COUNT(DISTINCT TRIM(LOWER(e.fio))) as cnt
-                FROM {SCHEMA}.zdravpunkt_esmo e
-                WHERE e.exam_result IN ('not_admitted', 'evaded')
-                  {e_date_cond_esmo}
-                  {q_org_e}
-                  AND e.subdivision IS NOT NULL AND e.subdivision != ''
-                GROUP BY e.subdivision, e.exam_result
-            """)
+            esmo_na_where = [
+                "e.exam_result IN ('not_admitted', 'evaded')",
+                "e.subdivision IS NOT NULL",
+                "e.subdivision != ''",
+            ] + esmo_date_cond_fallback
+            esmo_na_args = esmo_date_args_fallback[:]
+            if org_id:
+                esmo_na_where.append("organization_id = %s")
+                esmo_na_args.append(org_id)
+            esmo_na_sql = " AND ".join(esmo_na_where)
+            cur.execute(
+                f"""SELECT e.subdivision, e.exam_result, COUNT(DISTINCT TRIM(LOWER(e.fio))) as cnt
+                    FROM {SCHEMA}.zdravpunkt_esmo e
+                    WHERE {esmo_na_sql}
+                    GROUP BY e.subdivision, e.exam_result""",
+                esmo_na_args
+            )
             for esub, result_type, cnt in cur.fetchall():
                 matched = esub if esub in subs else next(
                     (s for s in subs if esub.startswith(s) or s.startswith(esub)), None
@@ -633,23 +685,43 @@ def handler(event: dict, context) -> dict:
 
         if method == 'GET' and action == 'esmo_workers_detail':
             """Список работников подразделения с флагом прохождения ЭСМО, фильтры дат и ФИО"""
-            q_org = f"AND (w.organization_id = {int(org_id)} OR w.organization_id IS NULL)" if org_id else ""
             subdivision = params.get('subdivision', '')
             esmo_filter = params.get('esmo_filter', 'all')
             shift_filter = params.get('shift_filter', '')
             date_from = params.get('date_from', '')
             date_to = params.get('date_to', '')
             fio_filter = params.get('fio', '').strip()
-            sub_cond = f"AND w.subdivision = '{subdivision.replace(chr(39), chr(39)*2)}'" if subdivision else ""
-            shift_cond = f"AND w.shift_type = '{shift_filter.replace(chr(39), chr(39)*2)}'" if shift_filter else ""
-            fio_cond = f" AND TRIM(LOWER(w.fio)) LIKE TRIM(LOWER('%%{fio_filter.replace(chr(39), chr(39)*2)}%%'))" if fio_filter else ""
-            e_date_cond = ''
+
+            # Build worker WHERE conditions
+            wd_where = ["w.is_duplicate = false"]
+            wd_args = []
+            if org_id:
+                wd_where.append("(w.organization_id = %s OR w.organization_id IS NULL)")
+                wd_args.append(org_id)
+            if subdivision:
+                wd_where.append("w.subdivision = %s")
+                wd_args.append(subdivision)
+            if shift_filter:
+                wd_where.append("w.shift_type = %s")
+                wd_args.append(shift_filter)
+            if fio_filter:
+                wd_where.append("TRIM(LOWER(w.fio)) LIKE TRIM(LOWER(%s))")
+                wd_args.append(f'%{fio_filter}%')
+            wd_where_sql = " AND ".join(wd_where)
+
+            # Build esmo JOIN ON date conditions
+            e_join_parts = ["e.exam_result = 'admitted'"]
+            e_join_args = []
             if date_from:
-                e_date_cond += f" AND e.exam_date >= '{date_from}'"
+                e_join_parts.append("e.exam_date >= %s::date")
+                e_join_args.append(date_from)
             if date_to:
-                e_date_cond += f" AND e.exam_date <= '{date_to}'"
-            cur.execute(f"""
-                SELECT
+                e_join_parts.append("e.exam_date <= %s::date")
+                e_join_args.append(date_to)
+            e_join_sql = " AND ".join(e_join_parts)
+
+            cur.execute(
+                f"""SELECT
                     w.id, w.fio, w.worker_number, w.subdivision, w.position, w.company, w.shift_type,
                     CASE WHEN COUNT(e.fio) > 0 THEN true ELSE false END as esmo_passed,
                     MAX(e.exam_date::text) as last_exam_date,
@@ -657,36 +729,57 @@ def handler(event: dict, context) -> dict:
                 FROM {SCHEMA}.zdravpunkt_workers w
                 LEFT JOIN {SCHEMA}.zdravpunkt_esmo e
                     ON TRIM(LOWER(w.fio)) = TRIM(LOWER(e.fio))
-                    AND e.exam_result = 'admitted'
-                    {e_date_cond}
-                WHERE 1=1 AND w.is_duplicate = false {q_org} {sub_cond} {shift_cond} {fio_cond}
+                    AND {e_join_sql}
+                WHERE {wd_where_sql}
                 GROUP BY w.id, w.fio, w.worker_number, w.subdivision, w.position, w.company, w.shift_type
-                ORDER BY w.fio
-            """)
+                ORDER BY w.fio""",
+                e_join_args + wd_args
+            )
             rows = cur.fetchall()
+
             # Для not_admitted/evaded — берём напрямую из ЭСМО, группируем по ФИО
             if esmo_filter in ('not_admitted', 'evaded'):
-                e_date_cond2 = e_date_cond if e_date_cond else " AND e.exam_date >= CURRENT_DATE - INTERVAL '30 days'"
-                sub_esmo_cond = ''
-                if subdivision:
-                    sub_safe = subdivision.replace("'", "''")
-                    sub_esmo_cond = f"AND (e.subdivision = '{sub_safe}' OR e.subdivision LIKE '{sub_safe}%%' OR '{sub_safe}' LIKE e.subdivision || '%%')"
+                # Build esmo date conditions (with 30-day fallback)
+                e2_parts = []
+                e2_args = []
+                if date_from:
+                    e2_parts.append("e.exam_date >= %s::date")
+                    e2_args.append(date_from)
+                if date_to:
+                    e2_parts.append("e.exam_date <= %s::date")
+                    e2_args.append(date_to)
+                if not e2_parts:
+                    e2_parts.append("e.exam_date >= CURRENT_DATE - INTERVAL '30 days'")
+
                 result_val = 'not_admitted' if esmo_filter == 'not_admitted' else 'evaded'
-                cur.execute(f"""
-                    SELECT
+
+                # Build subdivision condition for esmo
+                esmo_sub_where = []
+                esmo_sub_args = []
+                if subdivision:
+                    esmo_sub_where.append(
+                        "(e.subdivision = %s OR e.subdivision LIKE %s OR %s LIKE e.subdivision || '%%')"
+                    )
+                    esmo_sub_args.extend([subdivision, subdivision + '%', subdivision])
+
+                esmo_detail_where = ["e.exam_result = %s"] + e2_parts + esmo_sub_where
+                esmo_detail_args = [result_val] + e2_args + esmo_sub_args
+
+                cur.execute(
+                    f"""SELECT
                         TRIM(e.fio) as fio,
                         MAX(e.subdivision) as subdivision,
                         MAX(e.position) as position,
                         MAX(e.company) as company,
                         COUNT(*) as violations_count,
                         MAX(e.exam_date)::text as last_exam_date,
-                        '{result_val}' as last_result
+                        %s as last_result
                     FROM {SCHEMA}.zdravpunkt_esmo e
-                    WHERE e.exam_result = '{result_val}'
-                      {e_date_cond2} {sub_esmo_cond}
+                    WHERE {" AND ".join(esmo_detail_where)}
                     GROUP BY TRIM(e.fio)
-                    ORDER BY COUNT(*) DESC, MAX(e.exam_date) DESC
-                """)
+                    ORDER BY COUNT(*) DESC, MAX(e.exam_date) DESC""",
+                    [result_val] + esmo_detail_args
+                )
                 esmo_rows = cur.fetchall()
                 workers = [{'id': 0, 'fio': r[0], 'worker_number': '', 'subdivision': r[1] or '',
                             'position': r[2] or '', 'company': r[3] or '', 'shift_type': '',
@@ -697,17 +790,38 @@ def handler(event: dict, context) -> dict:
                 # Для not_passed — получаем список ФИО у которых есть evaded/not_admitted (их исключаем)
                 violators_set = set()
                 if esmo_filter == 'not_passed':
-                    e_date_cond2 = e_date_cond if e_date_cond else " AND e.exam_date >= CURRENT_DATE - INTERVAL '30 days'"
-                    sub_esmo_v = ''
+                    # Build date conditions (with 30-day fallback)
+                    v_parts = []
+                    v_args = []
+                    if date_from:
+                        v_parts.append("e.exam_date >= %s::date")
+                        v_args.append(date_from)
+                    if date_to:
+                        v_parts.append("e.exam_date <= %s::date")
+                        v_args.append(date_to)
+                    if not v_parts:
+                        v_parts.append("e.exam_date >= CURRENT_DATE - INTERVAL '30 days'")
+
+                    # Build subdivision condition
+                    v_sub_where = []
+                    v_sub_args = []
                     if subdivision:
-                        sub_safe_v = subdivision.replace("'", "''")
-                        sub_esmo_v = f"AND (e.subdivision = '{sub_safe_v}' OR e.subdivision LIKE '{sub_safe_v}%%' OR '{sub_safe_v}' LIKE e.subdivision || '%%')"
-                    cur.execute(f"""
-                        SELECT DISTINCT TRIM(LOWER(e.fio))
-                        FROM {SCHEMA}.zdravpunkt_esmo e
-                        WHERE e.exam_result IN ('evaded', 'not_admitted')
-                          {e_date_cond2} {sub_esmo_v}
-                    """)
+                        v_sub_where.append(
+                            "(e.subdivision = %s OR e.subdivision LIKE %s OR %s LIKE e.subdivision || '%%')"
+                        )
+                        v_sub_args.extend([subdivision, subdivision + '%', subdivision])
+
+                    violators_where = [
+                        "e.exam_result IN ('evaded', 'not_admitted')"
+                    ] + v_parts + v_sub_where
+                    violators_args = v_args + v_sub_args
+
+                    cur.execute(
+                        f"""SELECT DISTINCT TRIM(LOWER(e.fio))
+                            FROM {SCHEMA}.zdravpunkt_esmo e
+                            WHERE {" AND ".join(violators_where)}""",
+                        violators_args
+                    )
                     violators_set = {r[0] for r in cur.fetchall()}
                 workers = []
                 for r in rows:

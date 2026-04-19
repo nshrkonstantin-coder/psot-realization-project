@@ -5,8 +5,8 @@
       "method": "GET",
       "path": "/?organization_id=1",
       "expectedStatus": 200,
-      "expectedBody": [],
-      "bodyMatcher": "type"
+      "expectedBody": [{"id": 3, "email": "test@test.com"}],
+      "bodyMatcher": "partial"
     },
     {
       "name": "Missing organization_id",

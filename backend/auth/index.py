@@ -1,6 +1,6 @@
 import json
 import os
-import hashlib
+import bcrypt  # security: bcrypt for password hashing
 from typing import Dict, Any
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -46,8 +46,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             conn = psycopg2.connect(os.environ['DATABASE_URL'])
             cur = conn.cursor()
             
-            code_escaped = code.replace("'", "''")
-            cur.execute(f"SELECT id, name FROM t_p80499285_psot_realization_pro.organizations WHERE registration_code = '{code_escaped}'")
+            cur.execute("SELECT id, name FROM t_p80499285_psot_realization_pro.organizations WHERE registration_code = %s", (code,))
             org_result = cur.fetchone()
             
             cur.close()
@@ -132,20 +131,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             'body': json.dumps({'success': False, 'error': 'Каждое слово в ФИО должно начинаться с заглавной буквы'})
                         }
                 
-                password_hash = hashlib.sha256(password.encode()).hexdigest()
+                password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
                 
                 conn = psycopg2.connect(os.environ['DATABASE_URL'])
                 cur = conn.cursor()
                 
-                email_escaped = email.replace("'", "''")
-                code_escaped = code.replace("'", "''") if code else ''
-                fio_escaped = fio.replace("'", "''")
-                password_hash_escaped = password_hash.replace("'", "''")
-                
                 organization_id = None
                 if code:
-                    print(f"[REGISTER DEBUG] Checking registration code: {code_escaped}")
-                    cur.execute(f"SELECT id, name FROM t_p80499285_psot_realization_pro.organizations WHERE registration_code = '{code_escaped}'")
+                    print(f"[REGISTER DEBUG] Checking registration code: {code}")
+                    cur.execute("SELECT id, name FROM t_p80499285_psot_realization_pro.organizations WHERE registration_code = %s", (code,))
                     org_result = cur.fetchone()
                     print(f"[REGISTER DEBUG] Organization query result: {org_result}")
                     if org_result:
@@ -153,7 +147,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         company = org_result[1]
                         print(f"[REGISTER DEBUG] Found organization: ID={organization_id}, Name={company}")
                     else:
-                        print(f"[REGISTER DEBUG] No organization found for code: {code_escaped}")
+                        print(f"[REGISTER DEBUG] No organization found for code: {code}")
                         cur.close()
                         conn.close()
                         return {
@@ -166,7 +160,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             'body': json.dumps({'success': False, 'error': f'Неверный код приглашения: {code}'})
                         }
                 
-                cur.execute(f"SELECT id FROM t_p80499285_psot_realization_pro.users WHERE email = '{email_escaped}'")
+                cur.execute("SELECT id FROM t_p80499285_psot_realization_pro.users WHERE email = %s", (email,))
                 existing = cur.fetchone()
                 
                 if existing:
@@ -183,17 +177,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'body': json.dumps({'success': False, 'error': 'Этот email уже зарегистрирован'})
                     }
                 
-                company_escaped = company.replace("'", "''") if company else ''
-                subdivision_escaped = subdivision.replace("'", "''") if subdivision else ''
-                position_escaped = position.replace("'", "''") if position else ''
-                
-                org_id_sql = str(organization_id) if organization_id else 'NULL'
-                company_sql = f"'{company_escaped}'" if company_escaped else "''"
-                subdivision_sql = f"'{subdivision_escaped}'" if subdivision_escaped else "''"
-                position_sql = f"'{position_escaped}'" if position_escaped else "''"
-                
                 cur.execute(
-                    f"INSERT INTO t_p80499285_psot_realization_pro.users (email, password_hash, fio, company, subdivision, position, organization_id, role) VALUES ('{email_escaped}', '{password_hash_escaped}', '{fio_escaped}', {company_sql}, {subdivision_sql}, {position_sql}, {org_id_sql}, 'user') RETURNING id"
+                    "INSERT INTO t_p80499285_psot_realization_pro.users (email, password_hash, fio, company, subdivision, position, organization_id, role) VALUES (%s, %s, %s, %s, %s, %s, %s, 'user') RETURNING id",
+                    (email, password_hash, fio, company or '', subdivision or '', position or '', organization_id)
                 )
                 user_id = cur.fetchone()[0]
                 
@@ -201,14 +187,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 name_initial = fio_parts[1][0].upper()
                 patronymic_initial = fio_parts[2][0].upper()
                 display_name = f"ID№{str(user_id).zfill(5)}-{surname_initial}.{name_initial}.{patronymic_initial}."
-                display_name_escaped = display_name.replace("'", "''")
                 
                 cur.execute(
-                    f"UPDATE t_p80499285_psot_realization_pro.users SET display_name = '{display_name_escaped}' WHERE id = {user_id}"
+                    "UPDATE t_p80499285_psot_realization_pro.users SET display_name = %s WHERE id = %s",
+                    (display_name, user_id)
                 )
                 
                 cur.execute(
-                    f"INSERT INTO t_p80499285_psot_realization_pro.user_stats (user_id) VALUES ({user_id})"
+                    "INSERT INTO t_p80499285_psot_realization_pro.user_stats (user_id) VALUES (%s)",
+                    (user_id,)
                 )
                 
                 conn.commit()
@@ -272,8 +259,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
             # 1. Проверка блокировки IP
             if ip:
-                ip_esc = ip.replace("'", "''")
-                cur.execute(f"SELECT blocked_until FROM {SCHEMA}.ip_blocks WHERE ip_address = '{ip_esc}' AND blocked_until > NOW()")
+                cur.execute("SELECT blocked_until FROM " + SCHEMA + ".ip_blocks WHERE ip_address = %s AND blocked_until > NOW()", (ip,))
                 ip_block = cur.fetchone()
                 if ip_block:
                     cur.close(); conn.close()
@@ -282,12 +268,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 'message': f'Слишком много попыток входа. Ваш IP заблокирован до {ip_block[0].strftime("%H:%M")}'})}
 
             # 2. Проверка попыток входа по email (последние 15 минут)
-            email_esc = email.replace("'", "''")
-            cur.execute(f"""
-                SELECT COUNT(*) FROM {SCHEMA}.login_attempts
-                WHERE email = '{email_esc}' AND success = false
-                AND created_at > NOW() - INTERVAL '{BLOCK_MINUTES} minutes'
-            """)
+            cur.execute(
+                "SELECT COUNT(*) FROM " + SCHEMA + ".login_attempts WHERE email = %s AND success = false AND created_at > NOW() - INTERVAL '" + str(BLOCK_MINUTES) + " minutes'",
+                (email,)
+            )
             fail_count = cur.fetchone()[0]
 
             if fail_count >= MAX_ATTEMPTS:
@@ -298,19 +282,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
             # 3. Проверка блокировки IP по количеству попыток с разных аккаунтов
             if ip:
-                cur.execute(f"""
-                    SELECT COUNT(*) FROM {SCHEMA}.login_attempts
-                    WHERE ip_address = '{ip_esc}' AND success = false
-                    AND created_at > NOW() - INTERVAL '10 minutes'
-                """)
+                cur.execute(
+                    "SELECT COUNT(*) FROM " + SCHEMA + ".login_attempts WHERE ip_address = %s AND success = false AND created_at > NOW() - INTERVAL '10 minutes'",
+                    (ip,)
+                )
                 ip_fail_count = cur.fetchone()[0]
                 if ip_fail_count >= IP_BLOCK_THRESHOLD:
                     block_until = now + timedelta(hours=1)
-                    cur.execute(f"""
-                        INSERT INTO {SCHEMA}.ip_blocks (ip_address, blocked_until, reason)
-                        VALUES ('{ip_esc}', '{block_until}', 'Автоблокировка: {ip_fail_count} неверных попыток')
-                        ON CONFLICT (ip_address) DO UPDATE SET blocked_until = '{block_until}'
-                    """)
+                    cur.execute(
+                        "INSERT INTO " + SCHEMA + ".ip_blocks (ip_address, blocked_until, reason) VALUES (%s, %s, %s) ON CONFLICT (ip_address) DO UPDATE SET blocked_until = %s",
+                        (ip, block_until, f'Автоблокировка: {ip_fail_count} неверных попыток', block_until)
+                    )
                     conn.commit()
                     cur.close(); conn.close()
                     return {'statusCode': 429, 'headers': CORS, 'isBase64Encoded': False,
@@ -318,31 +300,29 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 'message': 'Подозрительная активность. IP заблокирован на 1 час.'})}
 
             # 4. Основная аутентификация
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
-            ph_esc = password_hash.replace("'", "''")
-            cur.execute(f"""
-                SELECT u.id, u.fio, u.subdivision, u.position, u.role, u.organization_id,
-                       u.is_blocked, u.blocked_until, o.is_blocked, o.blocked_until, o.registration_code,
-                       COALESCE(u.company, o.name, '') as company, u.email
-                FROM {SCHEMA}.users u
-                LEFT JOIN {SCHEMA}.organizations o ON u.organization_id = o.id
-                WHERE LOWER(u.email) = LOWER('{email_esc}') AND u.password_hash = '{ph_esc}'
-            """)
-            result = cur.fetchone()
+            cur.execute(
+                "SELECT u.id, u.fio, u.subdivision, u.position, u.role, u.organization_id, u.is_blocked, u.blocked_until, o.is_blocked, o.blocked_until, o.registration_code, COALESCE(u.company, o.name, '') as company, u.email, u.password_hash FROM " + SCHEMA + ".users u LEFT JOIN " + SCHEMA + ".organizations o ON u.organization_id = o.id WHERE LOWER(u.email) = LOWER(%s)",
+                (email,)
+            )
+            auth_row = cur.fetchone()
+            # Verify password with bcrypt in Python
+            if auth_row and bcrypt.checkpw(password.encode(), auth_row[13].encode()):
+                result = auth_row
+            else:
+                result = None
 
-            ip_val = f"'{ip_esc}'" if ip else 'NULL'
-            ua_esc = user_agent.replace("'", "''")
+            ip_or_none = ip if ip else None
 
             if not result:
                 # Фиксируем неудачную попытку
-                cur.execute(f"""
-                    INSERT INTO {SCHEMA}.login_attempts (email, ip_address, success)
-                    VALUES ('{email_esc}', {ip_val}, false)
-                """)
-                cur.execute(f"""
-                    INSERT INTO {SCHEMA}.login_log (email, ip_address, user_agent, success, fail_reason)
-                    VALUES ('{email_esc}', {ip_val}, '{ua_esc}', false, 'invalid_credentials')
-                """)
+                cur.execute(
+                    "INSERT INTO " + SCHEMA + ".login_attempts (email, ip_address, success) VALUES (%s, %s, false)",
+                    (email, ip_or_none)
+                )
+                cur.execute(
+                    "INSERT INTO " + SCHEMA + ".login_log (email, ip_address, user_agent, success, fail_reason) VALUES (%s, %s, %s, false, 'invalid_credentials')",
+                    (email, ip_or_none, user_agent)
+                )
                 conn.commit()
                 remaining = MAX_ATTEMPTS - fail_count - 1
                 cur.close(); conn.close()
@@ -359,10 +339,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
             # 5. Проверка блокировки пользователя
             if user_blocked and (not user_blocked_until or now < user_blocked_until):
-                cur.execute(f"""
-                    INSERT INTO {SCHEMA}.login_log (user_id, email, ip_address, user_agent, success, fail_reason)
-                    VALUES ({user_id}, '{email_esc}', {ip_val}, '{ua_esc}', false, 'user_blocked')
-                """)
+                cur.execute(
+                    "INSERT INTO " + SCHEMA + ".login_log (user_id, email, ip_address, user_agent, success, fail_reason) VALUES (%s, %s, %s, %s, false, 'user_blocked')",
+                    (user_id, email, ip_or_none, user_agent)
+                )
                 conn.commit()
                 cur.close(); conn.close()
                 return {'statusCode': 403, 'headers': CORS, 'isBase64Encoded': False,
@@ -371,10 +351,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
             # 6. Проверка блокировки организации
             if org_blocked and result[5] and (not org_blocked_until or now < org_blocked_until):
-                cur.execute(f"""
-                    INSERT INTO {SCHEMA}.login_log (user_id, email, ip_address, user_agent, success, fail_reason)
-                    VALUES ({user_id}, '{email_esc}', {ip_val}, '{ua_esc}', false, 'org_blocked')
-                """)
+                cur.execute(
+                    "INSERT INTO " + SCHEMA + ".login_log (user_id, email, ip_address, user_agent, success, fail_reason) VALUES (%s, %s, %s, %s, false, 'org_blocked')",
+                    (user_id, email, ip_or_none, user_agent)
+                )
                 conn.commit()
                 cur.close(); conn.close()
                 return {'statusCode': 403, 'headers': CORS, 'isBase64Encoded': False,
@@ -382,35 +362,43 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             'message': 'Ваше предприятие заблокировано. Обратитесь к главному администратору.'})}
 
             # 7. Фиксируем успешный вход
-            cur.execute(f"""
-                INSERT INTO {SCHEMA}.login_attempts (email, ip_address, success)
-                VALUES ('{email_esc}', {ip_val}, true)
-            """)
-            cur.execute(f"""
-                INSERT INTO {SCHEMA}.login_log (user_id, email, ip_address, user_agent, success)
-                VALUES ({user_id}, '{email_esc}', {ip_val}, '{ua_esc}', true)
-            """)
+            cur.execute(
+                "INSERT INTO " + SCHEMA + ".login_attempts (email, ip_address, success) VALUES (%s, %s, true)",
+                (email, ip_or_none)
+            )
+            cur.execute(
+                "INSERT INTO " + SCHEMA + ".login_log (user_id, email, ip_address, user_agent, success) VALUES (%s, %s, %s, %s, true)",
+                (user_id, email, ip_or_none, user_agent)
+            )
 
             # 8. Проверка нового устройства и отправка уведомления
             is_new_device = False
             if device_fp:
-                fp_esc = device_fp.replace("'", "''")
-                cur.execute(f"""
-                    SELECT id FROM {SCHEMA}.known_devices
-                    WHERE user_id = {user_id} AND device_fingerprint = '{fp_esc}'
-                """)
+                cur.execute(
+                    "SELECT id FROM " + SCHEMA + ".known_devices WHERE user_id = %s AND device_fingerprint = %s",
+                    (user_id, device_fp)
+                )
                 known = cur.fetchone()
                 if not known:
                     is_new_device = True
-                    cur.execute(f"""
-                        INSERT INTO {SCHEMA}.known_devices (user_id, device_fingerprint, user_agent)
-                        VALUES ({user_id}, '{fp_esc}', '{ua_esc}')
-                    """)
+                    cur.execute(
+                        "INSERT INTO " + SCHEMA + ".known_devices (user_id, device_fingerprint, user_agent) VALUES (%s, %s, %s)",
+                        (user_id, device_fp, user_agent)
+                    )
                 else:
-                    cur.execute(f"""
-                        UPDATE {SCHEMA}.known_devices SET last_seen = NOW()
-                        WHERE user_id = {user_id} AND device_fingerprint = '{fp_esc}'
-                    """)
+                    cur.execute(
+                        "UPDATE " + SCHEMA + ".known_devices SET last_seen = NOW() WHERE user_id = %s AND device_fingerprint = %s",
+                        (user_id, device_fp)
+                    )
+
+            # 8б. Создаём сессионный токен (8 часов)
+            import secrets as _secrets
+            session_token = _secrets.token_hex(48)
+            session_expires = now + timedelta(hours=SESSION_HOURS)
+            cur.execute(
+                "INSERT INTO " + SCHEMA + ".sessions (token, user_id, expires_at, ip_address, user_agent) VALUES (%s, %s, %s, %s, %s)",
+                (session_token, user_id, session_expires, ip or None, user_agent[:500] if user_agent else None)
+            )
 
             conn.commit()
             cur.close(); conn.close()
@@ -461,10 +449,54 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'organizationId': result[5],
                     'registrationCode': result[10] if result[10] else None,
                     'company': result[11] if result[11] else None,
-                    'isNewDevice': is_new_device
+                    'isNewDevice': is_new_device,
+                    'sessionToken': session_token
                 })
             }
     
+        elif action == 'logout':
+            import psycopg2
+            SCHEMA = 't_p80499285_psot_realization_pro'
+            CORS = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+            token = body_data.get('sessionToken', '')
+            if token:
+                conn = psycopg2.connect(os.environ['DATABASE_URL'])
+                cur = conn.cursor()
+                cur.execute("UPDATE " + SCHEMA + ".sessions SET expires_at = NOW() WHERE token = %s", (token,))
+                conn.commit()
+                cur.close(); conn.close()
+            return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': True})}
+
+        elif action == 'verify_session':
+            import psycopg2
+            SCHEMA = 't_p80499285_psot_realization_pro'
+            CORS = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+            token = body_data.get('sessionToken', '') or \
+                    (event.get('headers') or {}).get('X-Authorization', '').replace('Bearer ', '')
+            if not token:
+                return {'statusCode': 401, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'No token'})}
+            conn = psycopg2.connect(os.environ['DATABASE_URL'])
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT s.user_id, u.role, u.organization_id, u.fio FROM " + SCHEMA + ".sessions s "
+                "JOIN " + SCHEMA + ".users u ON s.user_id = u.id "
+                "WHERE s.token = %s AND s.expires_at > NOW()",
+                (token,)
+            )
+            row = cur.fetchone()
+            if not row:
+                cur.close(); conn.close()
+                return {'statusCode': 401, 'headers': CORS, 'isBase64Encoded': False,
+                        'body': json.dumps({'success': False, 'error': 'Invalid or expired session'})}
+            cur.execute("UPDATE " + SCHEMA + ".sessions SET last_seen = NOW() WHERE token = %s", (token,))
+            conn.commit()
+            cur.close(); conn.close()
+            return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': True, 'userId': row[0], 'role': row[1],
+                                        'organizationId': row[2], 'fio': row[3]})}
+
     return {
         'statusCode': 405,
         'headers': {'Access-Control-Allow-Origin': '*'},

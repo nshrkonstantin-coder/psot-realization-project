@@ -1,5 +1,7 @@
 import json
 import os
+import re
+import bcrypt  # security: bcrypt for password hashing
 from typing import Dict, Any
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -148,24 +150,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'success': False, 'error': 'User ID required'})
                 }
             
+            # Валидация формата дат (YYYY-MM-DD)
+            DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+            if start_date and not DATE_RE.match(start_date):
+                cur.close(); conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'Invalid startDate format, expected YYYY-MM-DD'})
+                }
+            if end_date and not DATE_RE.match(end_date):
+                cur.close(); conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'Invalid endDate format, expected YYYY-MM-DD'})
+                }
+
             # Формируем условия для фильтрации по периоду
-            date_filter_pab = ""
-            date_filter_obs = ""
-            date_filter_presc = ""
-            date_filter_pc = ""
-            
-            if start_date and end_date:
-                date_filter_pab = f" AND pr.audit_date BETWEEN '{start_date}' AND '{end_date}'"
-                date_filter_obs = f" AND obs.created_at::date BETWEEN '{start_date}' AND '{end_date}'"
-                date_filter_presc = f" AND created_at::date BETWEEN '{start_date}' AND '{end_date}'"
-                date_filter_pc = f" AND v.created_at::date BETWEEN '{start_date}' AND '{end_date}'"
-            
+            use_date_filter = bool(start_date and end_date)
+
             # Получаем базовые данные пользователя
-            cur.execute(f"""
-                SELECT id, display_name, fio, email, company, subdivision, position, organization_id
-                FROM t_p80499285_psot_realization_pro.users
-                WHERE id = {user_id}
-            """)
+            cur.execute(
+                "SELECT id, display_name, fio, email, company, subdivision, position, organization_id FROM t_p80499285_psot_realization_pro.users WHERE id = %s",
+                (user_id,)
+            )
             
             row = cur.fetchone()
             
@@ -187,12 +198,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Подсчитываем всех зарегистрированных пользователей из организации
             registered_count = 0
             if organization_id:
-                cur.execute(f"""
-                    SELECT COUNT(*) 
-                    FROM t_p80499285_psot_realization_pro.users 
-                    WHERE organization_id = {organization_id} 
-                    AND role NOT IN ('admin', 'superadmin', 'miniadmin')
-                """)
+                cur.execute(
+                    "SELECT COUNT(*) FROM t_p80499285_psot_realization_pro.users WHERE organization_id = %s AND role NOT IN ('admin', 'superadmin', 'miniadmin')",
+                    (organization_id,)
+                )
                 count_row = cur.fetchone()
                 registered_count = count_row[0] if count_row else 0
             
@@ -201,61 +210,68 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             offline_count = registered_count
             
             # Статистика ПАБ аудитов (проведенные пользователем через inspector_fio)
-            cur.execute(f"""
-                SELECT 
-                    COUNT(DISTINCT pr.id) as total,
-                    COUNT(DISTINCT CASE WHEN pr.status = 'completed' THEN pr.id END) as completed,
-                    COUNT(DISTINCT CASE WHEN pr.status IN ('in_work', 'new') THEN pr.id END) as in_progress,
-                    COUNT(DISTINCT CASE WHEN pr.status = 'overdue' THEN pr.id END) as overdue
-                FROM t_p80499285_psot_realization_pro.pab_records pr
-                JOIN t_p80499285_psot_realization_pro.users u ON LOWER(pr.inspector_fio) = LOWER(u.fio)
-                WHERE u.id = {user_id}{date_filter_pab}
-            """)
+            if use_date_filter:
+                cur.execute(
+                    "SELECT COUNT(DISTINCT pr.id) as total, COUNT(DISTINCT CASE WHEN pr.status = 'completed' THEN pr.id END) as completed, COUNT(DISTINCT CASE WHEN pr.status IN ('in_work', 'new') THEN pr.id END) as in_progress, COUNT(DISTINCT CASE WHEN pr.status = 'overdue' THEN pr.id END) as overdue FROM t_p80499285_psot_realization_pro.pab_records pr JOIN t_p80499285_psot_realization_pro.users u ON LOWER(pr.inspector_fio) = LOWER(u.fio) WHERE u.id = %s AND pr.audit_date BETWEEN %s AND %s",
+                    (user_id, start_date, end_date)
+                )
+            else:
+                cur.execute(
+                    "SELECT COUNT(DISTINCT pr.id) as total, COUNT(DISTINCT CASE WHEN pr.status = 'completed' THEN pr.id END) as completed, COUNT(DISTINCT CASE WHEN pr.status IN ('in_work', 'new') THEN pr.id END) as in_progress, COUNT(DISTINCT CASE WHEN pr.status = 'overdue' THEN pr.id END) as overdue FROM t_p80499285_psot_realization_pro.pab_records pr JOIN t_p80499285_psot_realization_pro.users u ON LOWER(pr.inspector_fio) = LOWER(u.fio) WHERE u.id = %s",
+                    (user_id,)
+                )
             pab_stats = cur.fetchone()
             
             # Статистика наблюдений (выписанных на пользователя как ответственного через responsible_person)
-            cur.execute(f"""
-                SELECT 
-                    COUNT(obs.id) as total,
-                    COUNT(CASE WHEN obs.status = 'completed' THEN 1 END) as completed,
-                    COUNT(CASE WHEN obs.status IN ('in_work', 'new') THEN 1 END) as in_progress,
-                    COUNT(CASE WHEN obs.status = 'overdue' OR (obs.deadline < CURRENT_DATE AND obs.status != 'completed') THEN 1 END) as overdue
-                FROM t_p80499285_psot_realization_pro.pab_observations obs
-                JOIN t_p80499285_psot_realization_pro.users u ON LOWER(obs.responsible_person) = LOWER(u.fio)
-                WHERE u.id = {user_id}{date_filter_obs}
-            """)
+            if use_date_filter:
+                cur.execute(
+                    "SELECT COUNT(obs.id) as total, COUNT(CASE WHEN obs.status = 'completed' THEN 1 END) as completed, COUNT(CASE WHEN obs.status IN ('in_work', 'new') THEN 1 END) as in_progress, COUNT(CASE WHEN obs.status = 'overdue' OR (obs.deadline < CURRENT_DATE AND obs.status != 'completed') THEN 1 END) as overdue FROM t_p80499285_psot_realization_pro.pab_observations obs JOIN t_p80499285_psot_realization_pro.users u ON LOWER(obs.responsible_person) = LOWER(u.fio) WHERE u.id = %s AND obs.created_at::date BETWEEN %s AND %s",
+                    (user_id, start_date, end_date)
+                )
+            else:
+                cur.execute(
+                    "SELECT COUNT(obs.id) as total, COUNT(CASE WHEN obs.status = 'completed' THEN 1 END) as completed, COUNT(CASE WHEN obs.status IN ('in_work', 'new') THEN 1 END) as in_progress, COUNT(CASE WHEN obs.status = 'overdue' OR (obs.deadline < CURRENT_DATE AND obs.status != 'completed') THEN 1 END) as overdue FROM t_p80499285_psot_realization_pro.pab_observations obs JOIN t_p80499285_psot_realization_pro.users u ON LOWER(obs.responsible_person) = LOWER(u.fio) WHERE u.id = %s",
+                    (user_id,)
+                )
             obs_stats = cur.fetchone()
             
             # Статистика предписаний ПК (выписанных на пользователя из Списка Производственного Контроля)
-            cur.execute(f"""
-                SELECT 
-                    COUNT(*) as total,
-                    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
-                    COUNT(CASE WHEN status = 'in_work' AND deadline >= CURRENT_DATE THEN 1 END) as in_progress,
-                    COUNT(CASE WHEN deadline < CURRENT_DATE AND status != 'completed' THEN 1 END) as overdue
-                FROM t_p80499285_psot_realization_pro.production_prescription_violations
-                WHERE assigned_user_id = {user_id}{date_filter_presc}
-            """)
+            if use_date_filter:
+                cur.execute(
+                    "SELECT COUNT(*) as total, COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed, COUNT(CASE WHEN status = 'in_work' AND deadline >= CURRENT_DATE THEN 1 END) as in_progress, COUNT(CASE WHEN deadline < CURRENT_DATE AND status != 'completed' THEN 1 END) as overdue FROM t_p80499285_psot_realization_pro.production_prescription_violations WHERE assigned_user_id = %s AND created_at::date BETWEEN %s AND %s",
+                    (user_id, start_date, end_date)
+                )
+            else:
+                cur.execute(
+                    "SELECT COUNT(*) as total, COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed, COUNT(CASE WHEN status = 'in_work' AND deadline >= CURRENT_DATE THEN 1 END) as in_progress, COUNT(CASE WHEN deadline < CURRENT_DATE AND status != 'completed' THEN 1 END) as overdue FROM t_p80499285_psot_realization_pro.production_prescription_violations WHERE assigned_user_id = %s",
+                    (user_id,)
+                )
             presc_stats = cur.fetchone()
             
             # Статистика нарушений ПК (выписанных на пользователя как ответственного)
-            cur.execute(f"""
-                SELECT 
-                    COUNT(*) as total,
-                    COUNT(CASE WHEN v.status = 'completed' THEN 1 END) as completed,
-                    COUNT(CASE WHEN v.status IN ('in_progress', 'new') THEN 1 END) as in_progress,
-                    COUNT(CASE WHEN v.deadline < CURRENT_DATE AND v.status != 'completed' THEN 1 END) as overdue
-                FROM t_p80499285_psot_realization_pro.production_control_violations v
-                WHERE v.responsible_user_id = {user_id}{date_filter_pc}
-            """)
+            if use_date_filter:
+                cur.execute(
+                    "SELECT COUNT(*) as total, COUNT(CASE WHEN v.status = 'completed' THEN 1 END) as completed, COUNT(CASE WHEN v.status IN ('in_progress', 'new') THEN 1 END) as in_progress, COUNT(CASE WHEN v.deadline < CURRENT_DATE AND v.status != 'completed' THEN 1 END) as overdue FROM t_p80499285_psot_realization_pro.production_control_violations v WHERE v.responsible_user_id = %s AND v.created_at::date BETWEEN %s AND %s",
+                    (user_id, start_date, end_date)
+                )
+            else:
+                cur.execute(
+                    "SELECT COUNT(*) as total, COUNT(CASE WHEN v.status = 'completed' THEN 1 END) as completed, COUNT(CASE WHEN v.status IN ('in_progress', 'new') THEN 1 END) as in_progress, COUNT(CASE WHEN v.deadline < CURRENT_DATE AND v.status != 'completed' THEN 1 END) as overdue FROM t_p80499285_psot_realization_pro.production_control_violations v WHERE v.responsible_user_id = %s",
+                    (user_id,)
+                )
             pc_violations_stats = cur.fetchone()
             
             # Количество проведенных аудитов (ПАБ которые пользователь создал)
-            cur.execute(f"""
-                SELECT COUNT(*)
-                FROM t_p80499285_psot_realization_pro.pab_records
-                WHERE user_id = {user_id}{date_filter_pab}
-            """)
+            if use_date_filter:
+                cur.execute(
+                    "SELECT COUNT(*) FROM t_p80499285_psot_realization_pro.pab_records WHERE user_id = %s AND audit_date BETWEEN %s AND %s",
+                    (user_id, start_date, end_date)
+                )
+            else:
+                cur.execute(
+                    "SELECT COUNT(*) FROM t_p80499285_psot_realization_pro.pab_records WHERE user_id = %s",
+                    (user_id,)
+                )
             audits_conducted = cur.fetchone()[0] or 0
             
             # Получаем плановые показатели из таблицы pab_schedule_files
@@ -346,11 +362,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             # Получаем organization_id текущего пользователя
-            cur.execute(f"""
-                SELECT organization_id 
-                FROM t_p80499285_psot_realization_pro.users 
-                WHERE id = {user_id}
-            """)
+            cur.execute(
+                "SELECT organization_id FROM t_p80499285_psot_realization_pro.users WHERE id = %s",
+                (user_id,)
+            )
             
             row = cur.fetchone()
             
@@ -370,13 +385,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             organization_id = row[0]
             
             # Получаем всех пользователей из той же организации
-            cur.execute(f"""
-                SELECT id, fio, display_name, position, subdivision, company, email
-                FROM t_p80499285_psot_realization_pro.users
-                WHERE organization_id = {organization_id}
-                AND role NOT IN ('admin', 'superadmin', 'miniadmin')
-                ORDER BY fio
-            """)
+            cur.execute(
+                "SELECT id, fio, display_name, position, subdivision, company, email FROM t_p80499285_psot_realization_pro.users WHERE organization_id = %s AND role NOT IN ('admin', 'superadmin', 'miniadmin') ORDER BY fio",
+                (organization_id,)
+            )
             
             users = []
             for user_row in cur.fetchall():
@@ -417,11 +429,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             # Получаем ФИО пользователя
-            cur.execute(f"""
-                SELECT fio
-                FROM t_p80499285_psot_realization_pro.users
-                WHERE id = {user_id}
-            """)
+            cur.execute(
+                "SELECT fio FROM t_p80499285_psot_realization_pro.users WHERE id = %s",
+                (user_id,)
+            )
             
             user_row = cur.fetchone()
             if not user_row or not user_row[0]:
@@ -440,15 +451,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             user_fio = user_row[0]
             
             # Получаем наблюдения из ПАБ, где пользователь — проверяющий (inspector_fio)
-            cur.execute(f"""
-                SELECT obs.id, obs.pab_record_id, obs.observation_number, obs.description, obs.category, 
-                       obs.conditions_actions, obs.hazard_factors, obs.measures, obs.responsible_person, 
-                       obs.deadline, obs.status, obs.photo_url, obs.created_at
-                FROM t_p80499285_psot_realization_pro.pab_observations obs
-                JOIN t_p80499285_psot_realization_pro.pab_records pr ON obs.pab_record_id = pr.id
-                WHERE LOWER(pr.inspector_fio) = LOWER('{user_fio.replace("'", "''")}')
-                ORDER BY obs.created_at DESC
-            """)
+            cur.execute(
+                "SELECT obs.id, obs.pab_record_id, obs.observation_number, obs.description, obs.category, obs.conditions_actions, obs.hazard_factors, obs.measures, obs.responsible_person, obs.deadline, obs.status, obs.photo_url, obs.created_at FROM t_p80499285_psot_realization_pro.pab_observations obs JOIN t_p80499285_psot_realization_pro.pab_records pr ON obs.pab_record_id = pr.id WHERE LOWER(pr.inspector_fio) = LOWER(%s) ORDER BY obs.created_at DESC",
+                (user_fio,)
+            )
             
             observations = []
             for obs_row in cur.fetchall():
@@ -496,14 +502,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             # Получаем предписания выписанные на пользователя
-            cur.execute(f"""
-                SELECT id, prescription_id, violation_text, assigned_user_id, 
-                       assigned_user_fio, status, deadline, completed_at, 
-                       confirmed_by_issuer, created_at, updated_at
-                FROM t_p80499285_psot_realization_pro.production_prescription_violations
-                WHERE assigned_user_id = {user_id}
-                ORDER BY created_at DESC
-            """)
+            cur.execute(
+                "SELECT id, prescription_id, violation_text, assigned_user_id, assigned_user_fio, status, deadline, completed_at, confirmed_by_issuer, created_at, updated_at FROM t_p80499285_psot_realization_pro.production_prescription_violations WHERE assigned_user_id = %s ORDER BY created_at DESC",
+                (user_id,)
+            )
             
             prescriptions = []
             for presc_row in cur.fetchall():
@@ -549,15 +551,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             # Получаем нарушения ПК выписанные на пользователя как ответственного
-            cur.execute(f"""
-                SELECT v.id, v.report_id, v.item_number, v.description, v.measures,
-                       v.responsible_user_id, v.deadline, v.status, v.created_at,
-                       r.doc_number, r.doc_date, r.issuer_name
-                FROM t_p80499285_psot_realization_pro.production_control_violations v
-                LEFT JOIN t_p80499285_psot_realization_pro.production_control_reports r ON v.report_id = r.id
-                WHERE v.responsible_user_id = {user_id}
-                ORDER BY v.created_at DESC
-            """)
+            cur.execute(
+                "SELECT v.id, v.report_id, v.item_number, v.description, v.measures, v.responsible_user_id, v.deadline, v.status, v.created_at, r.doc_number, r.doc_date, r.issuer_name FROM t_p80499285_psot_realization_pro.production_control_violations v LEFT JOIN t_p80499285_psot_realization_pro.production_control_reports r ON v.report_id = r.id WHERE v.responsible_user_id = %s ORDER BY v.created_at DESC",
+                (user_id,)
+            )
             
             violations = []
             for v_row in cur.fetchall():
@@ -604,11 +601,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             # Получаем organization_id текущего пользователя
-            cur.execute(f"""
-                SELECT organization_id 
-                FROM t_p80499285_psot_realization_pro.users 
-                WHERE id = {user_id}
-            """)
+            cur.execute(
+                "SELECT organization_id FROM t_p80499285_psot_realization_pro.users WHERE id = %s",
+                (user_id,)
+            )
             
             row = cur.fetchone()
             
@@ -628,15 +624,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             organization_id = row[0]
             
             # Получаем онлайн пользователей из той же организации (последняя активность < 5 минут)
-            cur.execute(f"""
-                SELECT u.id, u.fio, u.display_name, u.position, u.subdivision, u.company, u.email, u.last_activity
-                FROM t_p80499285_psot_realization_pro.users u
-                WHERE u.organization_id = {organization_id}
-                AND u.role NOT IN ('admin', 'superadmin', 'miniadmin')
-                AND u.last_activity IS NOT NULL
-                AND u.last_activity > NOW() - INTERVAL '5 minutes'
-                ORDER BY u.last_activity DESC
-            """)
+            cur.execute(
+                "SELECT u.id, u.fio, u.display_name, u.position, u.subdivision, u.company, u.email, u.last_activity FROM t_p80499285_psot_realization_pro.users u WHERE u.organization_id = %s AND u.role NOT IN ('admin', 'superadmin', 'miniadmin') AND u.last_activity IS NOT NULL AND u.last_activity > NOW() - INTERVAL '5 minutes' ORDER BY u.last_activity DESC",
+                (organization_id,)
+            )
             
             users = []
             for user_row in cur.fetchall():
@@ -675,8 +666,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         if action == 'update_role':
             new_role = body_data.get('role')
-            new_role_escaped = new_role.replace("'", "''")
-            cur.execute(f"UPDATE t_p80499285_psot_realization_pro.users SET role = '{new_role_escaped}' WHERE id = {user_id}")
+            cur.execute(
+                "UPDATE t_p80499285_psot_realization_pro.users SET role = %s WHERE id = %s",
+                (new_role, user_id)
+            )
             conn.commit()
             
         elif action == 'update_profile':
@@ -685,46 +678,30 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             subdivision = body_data.get('subdivision')
             position = body_data.get('position')
             
-            fio_escaped = fio.replace("'", "''") if fio else ''
-            company_escaped = company.replace("'", "''") if company else ''
-            subdivision_escaped = subdivision.replace("'", "''") if subdivision else ''
-            position_escaped = position.replace("'", "''") if position else ''
-            
-            fio_sql = f"'{fio_escaped}'" if fio else 'NULL'
-            company_sql = f"'{company_escaped}'" if company else 'NULL'
-            subdivision_sql = f"'{subdivision_escaped}'" if subdivision else 'NULL'
-            position_sql = f"'{position_escaped}'" if position else 'NULL'
-            
             # Получаем organization_id для новой компании
             organization_id = None
             if company:
-                cur.execute(f"""
-                    SELECT id FROM t_p80499285_psot_realization_pro.organizations 
-                    WHERE LOWER(name) = LOWER('{company_escaped}')
-                """)
+                cur.execute(
+                    "SELECT id FROM t_p80499285_psot_realization_pro.organizations WHERE LOWER(name) = LOWER(%s)",
+                    (company,)
+                )
                 org_row = cur.fetchone()
                 organization_id = org_row[0] if org_row else None
             
             # Обновляем пользователя включая organization_id
-            org_sql = str(organization_id) if organization_id is not None else 'NULL'
-            cur.execute(f"""
-                UPDATE t_p80499285_psot_realization_pro.users 
-                SET fio = {fio_sql}, 
-                    company = {company_sql}, 
-                    subdivision = {subdivision_sql}, 
-                    position = {position_sql},
-                    organization_id = {org_sql}
-                WHERE id = {user_id}
-            """)
+            cur.execute(
+                "UPDATE t_p80499285_psot_realization_pro.users SET fio = %s, company = %s, subdivision = %s, position = %s, organization_id = %s WHERE id = %s",
+                (fio or None, company or None, subdivision or None, position or None, organization_id, user_id)
+            )
             conn.commit()
             
         elif action == 'change_email':
-            import hashlib
-            
             new_email = body_data.get('newEmail')
-            new_email_escaped = new_email.replace("'", "''")
             
-            cur.execute(f"SELECT id FROM t_p80499285_psot_realization_pro.users WHERE email = '{new_email_escaped}' AND id != {user_id}")
+            cur.execute(
+                "SELECT id FROM t_p80499285_psot_realization_pro.users WHERE email = %s AND id != %s",
+                (new_email, user_id)
+            )
             if cur.fetchone():
                 cur.close()
                 conn.close()
@@ -738,16 +715,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'success': False, 'error': 'Email already exists'})
                 }
             
-            cur.execute(f"UPDATE t_p80499285_psot_realization_pro.users SET email = '{new_email_escaped}' WHERE id = {user_id}")
+            cur.execute(
+                "UPDATE t_p80499285_psot_realization_pro.users SET email = %s WHERE id = %s",
+                (new_email, user_id)
+            )
             conn.commit()
             
         elif action == 'change_password':
-            import hashlib
-            
             new_password = body_data.get('newPassword')
-            new_hash = hashlib.sha256(new_password.encode()).hexdigest()
+            new_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
             
-            cur.execute(f"UPDATE t_p80499285_psot_realization_pro.users SET password_hash = '{new_hash}' WHERE id = {user_id}")
+            cur.execute(
+                "UPDATE t_p80499285_psot_realization_pro.users SET password_hash = %s WHERE id = %s",
+                (new_hash, user_id)
+            )
             conn.commit()
         
         cur.close()
@@ -765,7 +746,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     if method == 'POST':
         import psycopg2
-        import hashlib
         import secrets
         import string
         
@@ -793,8 +773,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             conn = psycopg2.connect(os.environ['DATABASE_URL'])
             cur = conn.cursor()
             
-            email_escaped = email.replace("'", "''")
-            cur.execute(f"SELECT id FROM t_p80499285_psot_realization_pro.users WHERE email = '{email_escaped}'")
+            cur.execute(
+                "SELECT id FROM t_p80499285_psot_realization_pro.users WHERE email = %s",
+                (email,)
+            )
             if cur.fetchone():
                 cur.close()
                 conn.close()
@@ -809,29 +791,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
-            password_hash = hashlib.sha256(temp_password.encode()).hexdigest()
+            password_hash = bcrypt.hashpw(temp_password.encode(), bcrypt.gensalt()).decode()
             
-            fio_escaped = fio.replace("'", "''") if fio else ''
-            subdivision_escaped = subdivision.replace("'", "''") if subdivision else ''
-            position_escaped = position.replace("'", "''") if position else ''
-            
-            cur.execute(f"SELECT name FROM t_p80499285_psot_realization_pro.organizations WHERE id = {company_id}")
+            cur.execute(
+                "SELECT name FROM t_p80499285_psot_realization_pro.organizations WHERE id = %s",
+                (company_id,)
+            )
             company_row = cur.fetchone()
             company_name = company_row[0] if company_row else ''
-            company_name_escaped = company_name.replace("'", "''")
             
-            cur.execute(f"""
-                INSERT INTO t_p80499285_psot_realization_pro.users 
-                (email, password_hash, fio, company, subdivision, position, role, organization_id) 
-                VALUES ('{email_escaped}', '{password_hash}', '{fio_escaped}', '{company_name_escaped}', '{subdivision_escaped}', '{position_escaped}', 'user', {company_id}) 
-                RETURNING id
-            """)
+            cur.execute(
+                "INSERT INTO t_p80499285_psot_realization_pro.users (email, password_hash, fio, company, subdivision, position, role, organization_id) VALUES (%s, %s, %s, %s, %s, %s, 'user', %s) RETURNING id",
+                (email, password_hash, fio or '', company_name, subdivision or '', position or '', company_id)
+            )
             
             user_id = cur.fetchone()[0]
             
-            cur.execute(f"INSERT INTO t_p80499285_psot_realization_pro.user_stats (user_id, registered_count) VALUES ({user_id}, 1)")
+            cur.execute(
+                "INSERT INTO t_p80499285_psot_realization_pro.user_stats (user_id, registered_count) VALUES (%s, 1)",
+                (user_id,)
+            )
             
-            cur.execute(f"SELECT registration_code FROM t_p80499285_psot_realization_pro.organizations WHERE id = {company_id}")
+            cur.execute(
+                "SELECT registration_code FROM t_p80499285_psot_realization_pro.organizations WHERE id = %s",
+                (company_id,)
+            )
             org_code_row = cur.fetchone()
             org_code = org_code_row[0] if org_code_row else ''
             
@@ -874,13 +858,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             position = body_data.get('position')
             role = body_data.get('role', 'user')
             
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
             
             conn = psycopg2.connect(os.environ['DATABASE_URL'])
             cur = conn.cursor()
             
-            email_escaped = email.replace("'", "''")
-            cur.execute(f"SELECT id FROM t_p80499285_psot_realization_pro.users WHERE email = '{email_escaped}'")
+            cur.execute(
+                "SELECT id FROM t_p80499285_psot_realization_pro.users WHERE email = %s",
+                (email,)
+            )
             if cur.fetchone():
                 cur.close()
                 conn.close()
@@ -894,26 +880,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'success': False, 'error': 'Email already exists'})
                 }
             
-            fio_escaped = fio.replace("'", "''") if fio else ''
-            company_escaped = company.replace("'", "''") if company else ''
-            subdivision_escaped = subdivision.replace("'", "''") if subdivision else ''
-            position_escaped = position.replace("'", "''") if position else ''
-            role_escaped = role.replace("'", "''")
-            
-            fio_sql = f"'{fio_escaped}'" if fio else 'NULL'
-            company_sql = f"'{company_escaped}'" if company else 'NULL'
-            subdivision_sql = f"'{subdivision_escaped}'" if subdivision else 'NULL'
-            position_sql = f"'{position_escaped}'" if position else 'NULL'
-            
-            cur.execute(f"""
-                INSERT INTO t_p80499285_psot_realization_pro.users (email, password_hash, fio, company, subdivision, position, role) 
-                VALUES ('{email_escaped}', '{password_hash}', {fio_sql}, {company_sql}, {subdivision_sql}, {position_sql}, '{role_escaped}') 
-                RETURNING id
-            """)
+            cur.execute(
+                "INSERT INTO t_p80499285_psot_realization_pro.users (email, password_hash, fio, company, subdivision, position, role) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                (email, password_hash, fio or None, company or None, subdivision or None, position or None, role)
+            )
             
             user_id = cur.fetchone()[0]
             
-            cur.execute(f"INSERT INTO t_p80499285_psot_realization_pro.user_stats (user_id) VALUES ({user_id})")
+            cur.execute(
+                "INSERT INTO t_p80499285_psot_realization_pro.user_stats (user_id) VALUES (%s)",
+                (user_id,)
+            )
             
             conn.commit()
             cur.close()
@@ -938,11 +915,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         cur = conn.cursor()
         
-        cur.execute(f"DELETE FROM t_p80499285_psot_realization_pro.user_stats WHERE user_id = {user_id}")
-        cur.execute(f"DELETE FROM t_p80499285_psot_realization_pro.prescriptions WHERE user_id = {user_id}")
-        cur.execute(f"DELETE FROM t_p80499285_psot_realization_pro.audits WHERE user_id = {user_id}")
-        cur.execute(f"DELETE FROM t_p80499285_psot_realization_pro.violations WHERE user_id = {user_id}")
-        cur.execute(f"DELETE FROM t_p80499285_psot_realization_pro.users WHERE id = {user_id}")
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.user_stats WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.prescriptions WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.audits WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.violations WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.users WHERE id = %s", (user_id,))
         
         conn.commit()
         cur.close()

@@ -1,5 +1,6 @@
 import json
 import os
+import bcrypt  # security: bcrypt for password hashing
 from typing import Dict, Any
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -99,7 +100,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     if method == 'PUT':
         import psycopg2
-        import hashlib
+        import bcrypt
 
         SCHEMA = 't_p80499285_psot_realization_pro'
         CORS = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
@@ -125,31 +126,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         cur = conn.cursor()
 
-        fio_e = fio.replace("'", "''")
-        email_e = email.replace("'", "''")
-        sub_e = subdivision.replace("'", "''")
-        pos_e = position.replace("'", "''")
-        role_e = role.replace("'", "''") if role in ('user', 'admin', 'miniadmin') else 'user'
+        role_safe = role if role in ('user', 'admin', 'miniadmin') else 'user'
 
         # Проверяем уникальность email (не занят другим пользователем)
-        cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE LOWER(email) = LOWER('{email_e}') AND id != {user_id}")
+        cur.execute(
+            "SELECT id FROM " + SCHEMA + ".users WHERE LOWER(email) = LOWER(%s) AND id != %s",
+            (email, user_id)
+        )
         if cur.fetchone():
             cur.close(); conn.close()
             return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
                     'body': json.dumps({'success': False, 'error': 'Этот email уже занят другим пользователем'})}
 
         # Обновляем данные пользователя
-        cur.execute(f"""
-            UPDATE {SCHEMA}.users
-            SET fio = '{fio_e}', email = '{email_e}',
-                subdivision = '{sub_e}', position = '{pos_e}', role = '{role_e}'
-            WHERE id = {user_id}
-        """)
+        cur.execute(
+            "UPDATE " + SCHEMA + ".users SET fio = %s, email = %s, subdivision = %s, position = %s, role = %s WHERE id = %s",
+            (fio, email, subdivision, position, role_safe, user_id)
+        )
 
         # Если указан новый пароль — меняем хеш
         if new_password and len(new_password) >= 6:
-            ph = hashlib.sha256(new_password.encode()).hexdigest()
-            cur.execute(f"UPDATE {SCHEMA}.users SET password_hash = '{ph}' WHERE id = {user_id}")
+            ph = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+            cur.execute(
+                "UPDATE " + SCHEMA + ".users SET password_hash = %s WHERE id = %s",
+                (ph, user_id)
+            )
 
         conn.commit()
         cur.close()

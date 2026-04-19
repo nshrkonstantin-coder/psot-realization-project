@@ -50,12 +50,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             org_code = None
         
         if org_code:
-            safe_code = org_code.replace("'", "''")
-            cur.execute(f'''
-                SELECT o.id, o.name, o.registration_code, o.logo_url
-                FROM t_p80499285_psot_realization_pro.organizations o
-                WHERE o.registration_code = '{safe_code}' AND o.is_active = true
-            ''')
+            cur.execute(
+                "SELECT o.id, o.name, o.registration_code, o.logo_url FROM t_p80499285_psot_realization_pro.organizations o WHERE o.registration_code = %s AND o.is_active = true",
+                (org_code,)
+            )
             row = cur.fetchone()
             
             if row:
@@ -236,21 +234,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 trial_end_date = datetime.now() + timedelta(days=trial_days)
                 subscription_type = plan_name
         
-        safe_name = name.replace("'", "''")
-        safe_registration_code = registration_code.replace("'", "''")
-        safe_trial_end_date = f"'{trial_end_date.isoformat()}'" if trial_end_date else 'NULL'
-        safe_subscription_type = subscription_type.replace("'", "''")
-        if logo_url:
-            escaped_logo = logo_url.replace("'", "''")
-            safe_logo_url = f"'{escaped_logo}'"
-        else:
-            safe_logo_url = 'NULL'
-        safe_tariff_plan_id = str(int(tariff_plan_id)) if tariff_plan_id else 'NULL'
-        cur.execute(f'''
-            INSERT INTO t_p80499285_psot_realization_pro.organizations (name, registration_code, trial_end_date, subscription_type, logo_url, tariff_plan_id)
-            VALUES ('{safe_name}', '{safe_registration_code}', {safe_trial_end_date}, '{safe_subscription_type}', {safe_logo_url}, {safe_tariff_plan_id})
-            RETURNING id
-        ''')
+        safe_tariff_plan_id = int(tariff_plan_id) if tariff_plan_id else None
+        cur.execute(
+            "INSERT INTO t_p80499285_psot_realization_pro.organizations (name, registration_code, trial_end_date, subscription_type, logo_url, tariff_plan_id) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+            (name, registration_code, trial_end_date, subscription_type, logo_url or None, safe_tariff_plan_id)
+        )
         
         org_id = cur.fetchone()[0]
         
