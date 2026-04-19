@@ -14,7 +14,6 @@ import { uploadToEPKFolder } from '@/utils/uploadToEPKFolder';
 import ProductionControlForm from '@/components/production-control/ProductionControlForm';
 import ViolationsTable from '@/components/production-control/ViolationsTable';
 import SignatureSection from '@/components/production-control/SignatureSection';
-import { apiFetch } from '@/lib/api';
 
 interface ViolationItem {
   item_number: number;
