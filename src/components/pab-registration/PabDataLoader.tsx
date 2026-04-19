@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { apiFetch } from '@/lib/api';
 
 interface Dictionaries {
   categories: Array<{ id: number; name: string }>;
@@ -49,7 +50,7 @@ export function PabDataLoader({
     console.log('[PabDataLoader] userId:', userId, 'organizationId:', organizationId);
     
     try {
-      const dictResponse = await fetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960');
+      const dictResponse = await apiFetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960');
       const dictData = await dictResponse.json();
       onDictionariesLoaded(dictData);
     } catch (error) {
@@ -57,7 +58,7 @@ export function PabDataLoader({
     }
 
     try {
-      const numberResponse = await fetch('https://functions.poehali.dev/c04242d9-b386-407e-bb84-10d219a16e97');
+      const numberResponse = await apiFetch('https://functions.poehali.dev/c04242d9-b386-407e-bb84-10d219a16e97');
       const numberData = await numberResponse.json();
       onDocNumberLoaded(numberData.doc_number);
     } catch (error) {
@@ -68,7 +69,7 @@ export function PabDataLoader({
     if (userId) {
       try {
         console.log('[PabDataLoader] Fetching user data...');
-        const userResponse = await fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`);
+        const userResponse = await apiFetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`);
         const userData = await userResponse.json();
         console.log('[PabDataLoader] User data received:', userData);
         if (userData.success && userData.user) {
@@ -93,7 +94,7 @@ export function PabDataLoader({
 
     if (organizationId) {
       try {
-        const usersResponse = await fetch(`https://functions.poehali.dev/bceeaee7-5cfa-418c-9c0d-0a61668ab1a4?organization_id=${organizationId}`);
+        const usersResponse = await apiFetch(`https://functions.poehali.dev/bceeaee7-5cfa-418c-9c0d-0a61668ab1a4?organization_id=${organizationId}`);
         const usersData = await usersResponse.json();
         console.log('[PAB] Loaded organization users:', usersData);
         if (Array.isArray(usersData)) {

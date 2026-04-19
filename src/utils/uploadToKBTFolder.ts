@@ -1,3 +1,5 @@
+import { apiFetch } from '@/lib/api';
+
 /**
  * Uploads a file to the "КБТ" folder in storage
  * Creates the folder if it doesn't exist
@@ -5,7 +7,7 @@
 export async function uploadToKBTFolder(file: File, userId: string): Promise<string> {
   try {
     // 1. Get all folders for user
-    const getFoldersResponse = await fetch(
+    const getFoldersResponse = await apiFetch(
       `https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798?user_id=${userId}`
     );
     const foldersData = await getFoldersResponse.json();
@@ -20,11 +22,10 @@ export async function uploadToKBTFolder(file: File, userId: string): Promise<str
       kbtFolderId = kbtFolder.id;
     } else {
       // 3. Create "КБТ" folder if it doesn't exist
-      const createFolderResponse = await fetch(
+      const createFolderResponse = await apiFetch(
         'https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798',
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'create',
             user_id: userId,
@@ -45,7 +46,7 @@ export async function uploadToKBTFolder(file: File, userId: string): Promise<str
     formData.append('file', file);
     formData.append('folder_id', String(kbtFolderId));
 
-    const uploadResponse = await fetch(
+    const uploadResponse = await apiFetch(
       'https://functions.poehali.dev/cbbbbc82-61fa-4061-88d0-900cb586aea6',
       {
         method: 'POST',

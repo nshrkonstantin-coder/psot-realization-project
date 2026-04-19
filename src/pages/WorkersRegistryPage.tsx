@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import PageLockBadge from '@/components/ui/PageLockBadge';
 import { isPageLocked, fetchPageLocks } from '@/hooks/usePageLock';
+import { apiFetch } from '@/lib/api';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import QRCode from 'qrcode';
@@ -294,9 +295,8 @@ const WorkersRegistryPage = () => {
         Object.entries(edits).forEach(([k, v]) => {
           if (!['ФИО', 'Подразделение', 'Должность'].includes(k)) extra_data[k] = v;
         });
-        await fetch(WORKERS_API, {
+        await apiFetch(WORKERS_API, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update_worker', id, fio, subdivision, position_name, extra_data })
         });
       }));
@@ -324,7 +324,7 @@ const WorkersRegistryPage = () => {
     const p = new URLSearchParams(window.location.search);
     const token = p.get('qr');
     if (token) {
-      fetch(`${WORKERS_API}?action=qr&token=${token}`)
+      apiFetch(`${WORKERS_API}?action=qr&token=${token}`)
         .then(r => r.json())
         .then(d => { if (d.success) openWorker(d.worker.id); });
     }
@@ -334,8 +334,8 @@ const WorkersRegistryPage = () => {
     setLoading(true);
     try {
       const [wRes, cRes] = await Promise.all([
-        fetch(`${WORKERS_API}?action=list&organization_id=${orgId}&user_id=${userId}`),
-        fetch(`${WORKERS_API}?action=columns&organization_id=${orgId}`)
+        apiFetch(`${WORKERS_API}?action=list&organization_id=${orgId}&user_id=${userId}`),
+        apiFetch(`${WORKERS_API}?action=columns&organization_id=${orgId}`)
       ]);
       const wData = await wRes.json();
       const cData = await cRes.json();
@@ -383,7 +383,7 @@ const WorkersRegistryPage = () => {
   // ── Открыть карточку работника ────────────────────────────────────────────
   const openWorker = async (id: number) => {
     try {
-      const res = await fetch(`${WORKERS_API}?action=worker&id=${id}`);
+      const res = await apiFetch(`${WORKERS_API}?action=worker&id=${id}`);
       const data = await res.json();
       if (data.success) {
         setSelectedWorker(data.worker);
@@ -397,9 +397,8 @@ const WorkersRegistryPage = () => {
     if (!selectedWorker) return;
     setSavingWorker(true);
     try {
-      const res = await fetch(WORKERS_API, {
+      const res = await apiFetch(WORKERS_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'update_worker', id: selectedWorker.id,
           fio: editData.fio || selectedWorker.fio,
@@ -569,9 +568,8 @@ const WorkersRegistryPage = () => {
         headers: s.headers
       }));
 
-      const res = await fetch(WORKERS_API, {
+      const res = await apiFetch(WORKERS_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'analyze_excel', sheets: sheetsList, organization_id: orgId })
       });
       const data = await res.json();
@@ -603,9 +601,8 @@ const WorkersRegistryPage = () => {
           skippedSheets.push(sheetName);
           continue;
         }
-        const res = await fetch(WORKERS_API, {
+        const res = await apiFetch(WORKERS_API, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'import_sheet',
             sheet_name: sheetName,
@@ -642,9 +639,8 @@ const WorkersRegistryPage = () => {
     setAddingWorker(true);
     const targetSheet = addFormSheet || activeSheet || 'Работники';
     try {
-      const res = await fetch(WORKERS_API, {
+      const res = await apiFetch(WORKERS_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'add_worker', organization_id: orgId, user_id: userId,
           sheet_name: targetSheet,
@@ -888,7 +884,7 @@ const WorkersRegistryPage = () => {
           const match = code.data.match(/[?&]qr=([^&]+)/);
           if (match) {
             stopQrScanner();
-            fetch(`${WORKERS_API}?action=qr&token=${match[1]}`)
+            apiFetch(`${WORKERS_API}?action=qr&token=${match[1]}`)
               .then(r => r.json())
               .then(d => { if (d.success) openWorker(d.worker.id); else toast.error('Работник не найден'); });
           }
@@ -909,9 +905,8 @@ const WorkersRegistryPage = () => {
   // ── Удаление работника ───────────────────────────────────────────────────
   const deleteWorker = async (id: number) => {
     try {
-      const res = await fetch(WORKERS_API, {
+      const res = await apiFetch(WORKERS_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete_row', id, organization_id: orgId, user_id: userId }),
       });
       const data = await res.json();
@@ -942,9 +937,8 @@ const WorkersRegistryPage = () => {
     ));
     // Сохраняем на бэкенд
     try {
-      await fetch(WORKERS_API, {
+      await apiFetch(WORKERS_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'reorder',
           organization_id: orgId,

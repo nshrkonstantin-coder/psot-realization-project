@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import NotificationStats from '@/components/notifications/NotificationStats';
 import NotificationFilters from '@/components/notifications/NotificationFilters';
 import NotificationList from '@/components/notifications/NotificationList';
+import { apiFetch } from '@/lib/api';
 
 interface Notification {
   id: number;
@@ -72,7 +73,7 @@ const SystemNotificationsPage = () => {
         url += `&is_read=${filterRead}`;
       }
 
-      const response = await fetch(url);
+      const response = await apiFetch(url);
       if (!response.ok) throw new Error('Ошибка загрузки уведомлений');
 
       const data = await response.json();
@@ -153,9 +154,8 @@ const SystemNotificationsPage = () => {
     }
 
     try {
-      const response = await fetch('https://functions.poehali.dev/93aa0398-4cd1-4a05-956b-50984ea3e98e', {
+      const response = await apiFetch('https://functions.poehali.dev/93aa0398-4cd1-4a05-956b-50984ea3e98e', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'mark_read',
           ids: selectedIds
@@ -180,9 +180,8 @@ const SystemNotificationsPage = () => {
     }
 
     try {
-      const response = await fetch('https://functions.poehali.dev/93aa0398-4cd1-4a05-956b-50984ea3e98e', {
+      const response = await apiFetch('https://functions.poehali.dev/93aa0398-4cd1-4a05-956b-50984ea3e98e', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedIds })
       });
 
@@ -210,9 +209,8 @@ const SystemNotificationsPage = () => {
     }
 
     try {
-      await fetch('https://functions.poehali.dev/93aa0398-4cd1-4a05-956b-50984ea3e98e', {
+      await apiFetch('https://functions.poehali.dev/93aa0398-4cd1-4a05-956b-50984ea3e98e', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'create',
           type: 'success',
@@ -235,9 +233,8 @@ const SystemNotificationsPage = () => {
         })
       });
 
-      await fetch('https://functions.poehali.dev/93aa0398-4cd1-4a05-956b-50984ea3e98e', {
+      await apiFetch('https://functions.poehali.dev/93aa0398-4cd1-4a05-956b-50984ea3e98e', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'mark_read',
           ids: [selectedNotification.id]

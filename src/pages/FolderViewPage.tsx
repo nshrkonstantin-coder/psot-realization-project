@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 interface StorageFile {
   id: number;
@@ -44,7 +45,7 @@ const FolderViewPage = () => {
   const loadFiles = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`https://functions.poehali.dev/638aafd1-510b-4b00-beee-28346540e190?folder_id=${folderId}`);
+      const response = await apiFetch(`https://functions.poehali.dev/638aafd1-510b-4b00-beee-28346540e190?folder_id=${folderId}`);
       
       if (!response.ok) throw new Error('Ошибка загрузки файлов');
       
@@ -112,9 +113,8 @@ const FolderViewPage = () => {
           const organizationId = localStorage.getItem('organizationId');
           if (organizationId) {
             try {
-              await fetch('https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4f6ca', {
+              await apiFetch('https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4f6ca', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   org_id: organizationId,
                   action_type: 'file_upload',
@@ -171,9 +171,8 @@ const FolderViewPage = () => {
     if (!selectedFile) return;
 
     try {
-      const response = await fetch('https://functions.poehali.dev/638aafd1-510b-4b00-beee-28346540e190', {
+      const response = await apiFetch('https://functions.poehali.dev/638aafd1-510b-4b00-beee-28346540e190', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'delete',
           file_id: selectedFile.id

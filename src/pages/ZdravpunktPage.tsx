@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { apiFetch } from '@/lib/api';
 
 const API = 'https://functions.poehali.dev/9dcd6f1a-ad53-4c5e-af05-0fd74e20e8b4';
 
@@ -184,7 +185,7 @@ const ZdravpunktPage = () => {
       if (dateTo) p.set('date_to', dateTo);
       if (filterSubdivision) p.set('subdivision', filterSubdivision);
       if (filterCompany) p.set('company', filterCompany);
-      const res = await fetch(`${API}?${p.toString()}`);
+      const res = await apiFetch(`${API}?${p.toString()}`);
       const data = await res.json();
       if (data.success) setUniqueModal(prev => prev ? { ...prev, workers: data.workers, loading: false } : null);
     } catch { toast.error('Ошибка загрузки'); setUniqueModal(null); }
@@ -476,7 +477,7 @@ const ZdravpunktPage = () => {
       if (effectiveOrgId) p.set('organization_id', effectiveOrgId);
       if (type !== 'all_esmo') p.set('exam_result', type);
       if (extraParams) Object.entries(extraParams).forEach(([k, v]) => v && p.set(k, v));
-      const res = await fetch(`${API}?${p.toString()}`);
+      const res = await apiFetch(`${API}?${p.toString()}`);
       const data = await res.json();
       if (data.success) {
         setQuickReport({ type, title, records: data.records, loading: false });
@@ -641,9 +642,7 @@ const ZdravpunktPage = () => {
     loadAll();
     // Если superadmin без организации — подгружаем список организаций для выбора в блоке подрядчиков
     if (!orgId) {
-      fetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?action=list', {
-        headers: { 'X-User-Id': localStorage.getItem('userId') || '' }
-      })
+      apiFetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?action=list')
         .then(r => r.json())
         .then(d => { if (d.success) setOrgList((d.organizations || []).map((o: { id: number; name: string }) => ({ id: o.id, name: o.name }))); })
         .catch(() => {});
@@ -656,8 +655,8 @@ const ZdravpunktPage = () => {
     localStorage.setItem('zdravpunkt_contractor_org_id', selectedContractorOrgId);
     setContractorLoading(true);
     Promise.all([
-      fetch(`${API}?action=contractor_records&organization_id=${selectedContractorOrgId}`).then(r => r.json()),
-      fetch(`${API}?action=prolongation_list&organization_id=${selectedContractorOrgId}`).then(r => r.json()),
+      apiFetch(`${API}?action=contractor_records&organization_id=${selectedContractorOrgId}`).then(r => r.json()),
+      apiFetch(`${API}?action=prolongation_list&organization_id=${selectedContractorOrgId}`).then(r => r.json()),
     ]).then(([crData, plData]) => {
       if (crData.success) setContractorRecords(crData.records || []);
       if (plData.success) setProlongations(plData.prolongations || []);
@@ -672,17 +671,16 @@ const ZdravpunktPage = () => {
     try {
       // Сначала запускаем автозаполнение пролонгации за сегодня (если есть orgId)
       if (effectiveOrgForLoad) {
-        fetch(API, {
+        apiFetch(API, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'fill_prolongation_today', organization_id: effectiveOrgForLoad })
         }).then(r => r.json()).then(d => {
           if (d.success && d.inserted > 0) {
             // Если появились новые записи — перезагружаем contractor_records и stats
             Promise.all([
-              fetch(`${API}?action=contractor_records&organization_id=${effectiveOrgForLoad}`).then(r => r.json()),
-              fetch(`${API}?action=stats&organization_id=${effectiveOrgForLoad}`).then(r => r.json()),
-              fetch(`${API}?action=exam_type_stats&organization_id=${effectiveOrgForLoad}`).then(r => r.json()),
+              apiFetch(`${API}?action=contractor_records&organization_id=${effectiveOrgForLoad}`).then(r => r.json()),
+              apiFetch(`${API}?action=stats&organization_id=${effectiveOrgForLoad}`).then(r => r.json()),
+              apiFetch(`${API}?action=exam_type_stats&organization_id=${effectiveOrgForLoad}`).then(r => r.json()),
             ]).then(([cr, st, et]) => {
               if (cr.success) setContractorRecords(cr.records || []);
               if (st.success) setStats(st);
@@ -693,12 +691,12 @@ const ZdravpunktPage = () => {
       }
 
       const [fRes, sRes, flRes, etRes, crRes, wsRes] = await Promise.all([
-        fetch(`${API}?action=files&organization_id=${orgId}`),
-        fetch(`${API}?action=stats&organization_id=${effectiveOrgForLoad}`),
-        fetch(`${API}?action=filters&organization_id=${effectiveOrgForLoad}`),
-        fetch(`${API}?action=exam_type_stats&organization_id=${effectiveOrgForLoad}`),
-        fetch(`${API}?action=contractor_records&organization_id=${effectiveOrgForLoad}`),
-        fetch(`${API}?action=workers_sub_stats&organization_id=${effectiveOrgForLoad}`)
+        apiFetch(`${API}?action=files&organization_id=${orgId}`),
+        apiFetch(`${API}?action=stats&organization_id=${effectiveOrgForLoad}`),
+        apiFetch(`${API}?action=filters&organization_id=${effectiveOrgForLoad}`),
+        apiFetch(`${API}?action=exam_type_stats&organization_id=${effectiveOrgForLoad}`),
+        apiFetch(`${API}?action=contractor_records&organization_id=${effectiveOrgForLoad}`),
+        apiFetch(`${API}?action=workers_sub_stats&organization_id=${effectiveOrgForLoad}`)
       ]);
       const fData = await fRes.json();
       const sData = await sRes.json();
@@ -728,9 +726,8 @@ const ZdravpunktPage = () => {
     setContractorSaving(true);
     try {
       const payload = { action: 'save_contractor_records', organization_id: effectiveOrgId, records };
-      const res = await fetch(API, {
+      const res = await apiFetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       const data = await res.json();
@@ -738,8 +735,8 @@ const ZdravpunktPage = () => {
         toast.success('Сохранено');
         // Перезагружаем записи подрядчиков и фильтры (чтобы новые компании появились в выпадашке отчёта)
         const [crRes, flRes] = await Promise.all([
-          fetch(`${API}?action=contractor_records&organization_id=${effectiveOrgId}`),
-          fetch(`${API}?action=filters&organization_id=${effectiveOrgId}`)
+          apiFetch(`${API}?action=contractor_records&organization_id=${effectiveOrgId}`),
+          apiFetch(`${API}?action=filters&organization_id=${effectiveOrgId}`)
         ]);
         const crData = await crRes.json();
         const flData = await flRes.json();
@@ -758,9 +755,8 @@ const ZdravpunktPage = () => {
   const deleteContractorRecord = async (id: number) => {
     const effectiveOrgId = selectedContractorOrgId || orgId;
     try {
-      const res = await fetch(API, {
+      const res = await apiFetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete_contractor_record', id, organization_id: effectiveOrgId })
       });
       const data = await res.json();
@@ -768,7 +764,7 @@ const ZdravpunktPage = () => {
         setContractorRecords(prev => prev.filter(r => r.id !== id));
         toast.success('Удалено');
         // Обновляем фильтры — убираем компанию из выпадашки если записей больше нет
-        const flRes = await fetch(`${API}?action=filters&organization_id=${currentOrgId}`);
+        const flRes = await apiFetch(`${API}?action=filters&organization_id=${currentOrgId}`);
         const flData = await flRes.json();
         if (flData.success) {
           setSubdivisions(flData.subdivisions || []);
@@ -783,7 +779,7 @@ const ZdravpunktPage = () => {
     setExamTypeModalLoading(true);
     setExamTypeModal({ type: examType, label, records: [], total: 0 });
     try {
-      const res = await fetch(`${API}?action=exam_type_list&exam_type=${examType}&limit=2000&organization_id=${orgId}`);
+      const res = await apiFetch(`${API}?action=exam_type_list&exam_type=${examType}&limit=2000&organization_id=${orgId}`);
       const data = await res.json();
       if (data.success) {
         setExamTypeModal({ type: examType, label, records: data.records || [], total: data.total || 0 });
@@ -930,9 +926,8 @@ const ZdravpunktPage = () => {
       }
 
       // Сохраняем запись о файле в БД (rows_count уточним после парсинга для esmo)
-      const saveRes = await fetch(API, {
+      const saveRes = await apiFetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'save_file',
           file_type: fileType,
@@ -1094,9 +1089,8 @@ const ZdravpunktPage = () => {
         for (let i = 0; i < records.length; i += BATCH) {
           const batch = records.slice(i, i + BATCH);
           const isLastBatch = i + BATCH >= records.length;
-          const res = await fetch(API, {
+          const res = await apiFetch(API, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               action: 'import_esmo',
               file_id: fileId,
@@ -1149,9 +1143,8 @@ const ZdravpunktPage = () => {
         shift_type: (row.shift_type === '-' && globalShift && globalShift !== '-') ? globalShift : row.shift_type,
       }));
 
-      const saveRes = await fetch(API, {
+      const saveRes = await apiFetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'save_file',
           file_type: 'workers',
@@ -1167,16 +1160,15 @@ const ZdravpunktPage = () => {
       if (!saveData.success) throw new Error(saveData.error);
       const fileId = saveData.file_id;
 
-      const importRes = await fetch(API, {
+      const importRes = await apiFetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'import_workers', file_id: fileId, workers: finalRows, organization_id: orgId })
       });
       const importData = await importRes.json();
 
       // Обновляем статистику по подразделениям
       const effectiveOrgForStats = localStorage.getItem('zdravpunkt_contractor_org_id') || orgId;
-      fetch(`${API}?action=workers_sub_stats&organization_id=${effectiveOrgForStats}`)
+      apiFetch(`${API}?action=workers_sub_stats&organization_id=${effectiveOrgForStats}`)
         .then(r => r.json()).then(d => { if (d.success) setWorkerSubStats(d.stats || []); }).catch(() => {});
 
       if (workerPreview.rows.length > 0) {
@@ -1205,9 +1197,8 @@ const ZdravpunktPage = () => {
 
   const confirmDeleteFile = async () => {
     if (!deleteConfirm) return;
-    const res = await fetch(API, {
+    const res = await apiFetch(API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'delete_file', file_id: deleteConfirm.fileId, user_id: userId })
     });
     const data = await res.json();
@@ -1251,7 +1242,7 @@ const ZdravpunktPage = () => {
       if (filterResults.length > 0) p.set('exam_result', filterResults.join(','));
       if (filterExamTypes.length > 0) p.set('exam_type', filterExamTypes.join(','));
 
-      const res = await fetch(`${API}?${p.toString()}`);
+      const res = await apiFetch(`${API}?${p.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.success) {
@@ -1310,9 +1301,8 @@ const ZdravpunktPage = () => {
     setClearing(true);
     setShowClearConfirm(false);
     try {
-      const res = await fetch(API, {
+      const res = await apiFetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'clear_all', user_id: userId, user_role: userRole })
       });
       const data = await res.json();
@@ -1347,7 +1337,7 @@ const ZdravpunktPage = () => {
       const p = new URLSearchParams({ action: 'worker_history', fio });
       if (dateFrom) p.set('date_from', dateFrom);
       if (dateTo) p.set('date_to', dateTo);
-      const res = await fetch(`${API}?${p.toString()}`);
+      const res = await apiFetch(`${API}?${p.toString()}`);
       const data = await res.json();
       if (data.success) {
         setWorkerModal({ fio, records: data.records, total: data.total, admitted: data.admitted, not_admitted: data.not_admitted, evaded: data.evaded });

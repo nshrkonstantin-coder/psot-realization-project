@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import BlockUserDialog from '@/components/BlockUserDialog';
+import { apiFetch } from '@/lib/api';
 
 interface User {
   id: number;
@@ -68,8 +69,8 @@ const OrganizationUsersPage = () => {
   const loadData = async () => {
     try {
       const [usersRes, orgRes] = await Promise.all([
-        fetch(`${ORG_USERS_URL}?organization_id=${id}`),
-        fetch(`${ORG_URL}?id=${id}`)
+        apiFetch(`${ORG_USERS_URL}?organization_id=${id}`),
+        apiFetch(`${ORG_URL}?id=${id}`)
       ]);
       setUsers(await usersRes.json());
       setOrganization(await orgRes.json());
@@ -98,9 +99,8 @@ const OrganizationUsersPage = () => {
     }
     setSaving(true);
     try {
-      const res = await fetch(ORG_USERS_URL, {
+      const res = await apiFetch(ORG_USERS_URL, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: editUser.id,
           fio: editForm.fio,

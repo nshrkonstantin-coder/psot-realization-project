@@ -8,6 +8,7 @@ import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import func2url from '../../backend/func2url.json';
+import { apiFetch } from '@/lib/api';
 
 interface PositionData {
   id: number;
@@ -49,13 +50,8 @@ const ChartsPage = () => {
 
   const loadScheduleFromDB = async () => {
     try {
-      const userId = localStorage.getItem('userId');
-      const response = await fetch(func2url['pab-schedule'], {
+      const response = await apiFetch(func2url['pab-schedule'], {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': userId || ''
-        }
       });
 
       if (response.ok) {
@@ -202,15 +198,9 @@ const ChartsPage = () => {
     if (selectedFiles.length === 0) return;
     
     try {
-      const userId = localStorage.getItem('userId');
-      
       for (const fileId of selectedFiles) {
-        await fetch(`${func2url['pab-schedule']}?file_id=${fileId}`, {
+        await apiFetch(`${func2url['pab-schedule']}?file_id=${fileId}`, {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-User-Id': userId || ''
-          }
         });
       }
       
@@ -263,15 +253,10 @@ const ChartsPage = () => {
 
   const handleSaveFile = async () => {
     try {
-      const userId = localStorage.getItem('userId');
       const fileName = uploadedFiles[0]?.name || 'График ПАБ';
       
-      const response = await fetch(func2url['pab-schedule'], {
+      const response = await apiFetch(func2url['pab-schedule'], {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': userId || ''
-        },
         body: JSON.stringify({
           fileName: fileName,
           fileData: {

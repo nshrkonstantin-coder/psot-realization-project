@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 interface PointsRule {
   id: number;
@@ -54,8 +55,8 @@ const PointsRulesPage = () => {
   const loadData = async () => {
     try {
       const [rulesRes, orgRes] = await Promise.all([
-        fetch(`https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4f6ca?org_id=${id}`),
-        fetch(`https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?id=${id}`)
+        apiFetch(`https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4f6ca?org_id=${id}`),
+        apiFetch(`https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?id=${id}`)
       ]);
 
       if (!rulesRes.ok || !orgRes.ok) throw new Error('Failed to load');
@@ -75,9 +76,8 @@ const PointsRulesPage = () => {
 
   const toggleRule = async (ruleId: number, currentState: boolean) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4f6ca', {
+      const response = await apiFetch('https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4f6ca', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           org_id: id,
           rule_id: ruleId,
@@ -111,9 +111,8 @@ const PointsRulesPage = () => {
       const rule = rules.find(r => r.id === ruleId);
       if (!rule) return;
 
-      const response = await fetch('https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4f6ca', {
+      const response = await apiFetch('https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4f6ca', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           org_id: id,
           rule_id: ruleId,

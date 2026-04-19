@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Icon from '@/components/ui/icon';
+import { apiFetch } from '@/lib/api';
 
 interface OrganizationLogoProps {
   size?: number;
@@ -25,11 +26,8 @@ const OrganizationLogo = ({ size = 48, showCompanyName = true, className = '' }:
           return;
         }
 
-        const response = await fetch(
-          `https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?id=${organizationId}`,
-          {
-            headers: { 'X-User-Id': localStorage.getItem('userId') || '' }
-          }
+        const response = await apiFetch(
+          `https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?id=${organizationId}`
         );
 
         if (response.ok) {

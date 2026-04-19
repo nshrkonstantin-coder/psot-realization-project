@@ -9,6 +9,7 @@ import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import UserProfileCard from '@/components/UserProfileCard';
 import { useImpersonationState } from '@/hooks/useImpersonationState';
 import { useTheme } from '@/contexts/ThemeContext';
+import { apiFetch } from '@/lib/api';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -40,7 +41,7 @@ const Dashboard = () => {
     setUserRole(localStorage.getItem('userRole') || '');
 
     // Всегда загружаем актуальные данные из API, чтобы ФИО отражало последнее изменение профиля
-    fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
+    apiFetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
       .then(r => r.json())
       .then(data => {
         if (data.success && data.user?.fio) {
@@ -74,11 +75,8 @@ const Dashboard = () => {
       const timeOfDay = getTimeOfDay();
       const greetingText = `Дорогой коллега! Вас приветствует Автоматизированная система управления безопасностью труда А, Су, <[100]>Бэ Тэ<[100]>, хорошего Вам ${timeOfDay}, приятной работы в нашей системе.`;
       
-      const response = await fetch('https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53', {
+      const response = await apiFetch('https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           text: greetingText,
           voice: 'alena'

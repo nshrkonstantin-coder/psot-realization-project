@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import Icon from "@/components/ui/icon";
+import { apiFetch } from "@/lib/api";
 
 const EXPORT_URL = "https://functions.poehali.dev/eeed067c-4b0d-4318-80ef-e6af2f6a5a33";
 
@@ -25,7 +26,7 @@ export default function ExportCodePage() {
   const [clearStatus, setClearStatus] = useState<"idle" | "loading" | "done">("idle");
 
   const loadStats = () => {
-    fetch(EXPORT_URL)
+    apiFetch(EXPORT_URL)
       .then((r) => r.json())
       .then((d) => setStats({ frontend_count: d.frontend_count ?? 0, backend_count: d.backend_count ?? 0, total: d.total ?? 0 }))
       .catch(() => {});
@@ -34,9 +35,8 @@ export default function ExportCodePage() {
   const handleClear = async () => {
     if (!confirm("Очистить все загруженные файлы из базы? Потом нужно будет загрузить папки заново.")) return;
     setClearStatus("loading");
-    await fetch(EXPORT_URL, {
+    await apiFetch(EXPORT_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "clear" }),
     });
     setClearStatus("done");
@@ -81,9 +81,8 @@ export default function ExportCodePage() {
     let saved = 0;
     for (let i = 0; i < files.length; i += BATCH) {
       const batch = files.slice(i, i + BATCH);
-      const res = await fetch(EXPORT_URL, {
+      const res = await apiFetch(EXPORT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "save_files", files: batch }),
       });
       const data = await res.json();
@@ -106,9 +105,8 @@ export default function ExportCodePage() {
     setGenProgress(20);
     setGenMsg("");
     try {
-      const res = await fetch(EXPORT_URL, {
+      const res = await apiFetch(EXPORT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "generate" }),
       });
       setGenProgress(90);

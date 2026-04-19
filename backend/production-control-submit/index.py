@@ -9,35 +9,25 @@ from typing import Dict, Any
 
 def send_notification(cur, user_id: int, title: str, message: str, notification_type: str = 'info'):
     '''Отправка уведомления пользователю и администраторам в локальный чат'''
-    # Получаем данные пользователя
-    cur.execute(f"""
-        SELECT fio, position, organization_id 
-        FROM t_p80499285_psot_realization_pro.users 
-        WHERE id = {user_id}
-    """)
+    cur.execute(
+        "SELECT fio, position, organization_id FROM t_p80499285_psot_realization_pro.users WHERE id = %s",
+        (user_id,)
+    )
     user_data = cur.fetchone()
     
     if not user_data:
         return
     
     user_fio, user_position, org_id = user_data
-    user_fio_esc = str(user_fio).replace("'", "''") if user_fio else ''
-    user_position_esc = str(user_position).replace("'", "''") if user_position else ''
-    title_esc = str(title).replace("'", "''")
-    message_esc = str(message).replace("'", "''")
-    
-    # Используем стандартное название организации
     org_name = 'АО "ГРК "Западная"'
     
-    # Отправляем системное уведомление администраторам
-    cur.execute(f"""
-        INSERT INTO t_p80499285_psot_realization_pro.system_notifications
-        (notification_type, severity, title, message, user_id, user_fio, user_position,
-         organization_id, organization_name, is_read, created_at)
-        VALUES ('{notification_type}', 'info', '{title_esc}', '{message_esc}', 
-                {user_id}, '{user_fio_esc}', '{user_position_esc}',
-                {org_id if org_id else 'NULL'}, '{org_name}', false, NOW())
-    """)
+    cur.execute(
+        "INSERT INTO t_p80499285_psot_realization_pro.system_notifications "
+        "(notification_type, severity, title, message, user_id, user_fio, user_position, "
+        "organization_id, organization_name, is_read, created_at) "
+        "VALUES (%s, 'info', %s, %s, %s, %s, %s, %s, %s, false, NOW())",
+        (notification_type, title, message, user_id, user_fio or '', user_position or '', org_id, org_name)
+    )
     
     print(f'[Notification] Sent to user {user_id} and admins')
 
@@ -97,129 +87,122 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cur = conn.cursor()
         
         try:
-            # Escape strings
-            doc_number_esc = str(doc_number).replace("'", "''")
-            recipient_name_esc = str(recipient_name).replace("'", "''") if recipient_name else ''
-            department_esc = str(department).replace("'", "''")
-            witness_esc = str(witness).replace("'", "''")
-            issuer_name_esc = str(issuer_name).replace("'", "''")
-            issuer_position_esc = str(issuer_position).replace("'", "''") if issuer_position else ''
-            word_file_url_esc = str(word_file_url).replace("'", "''")
-            
-            recipient_user_id_sql = str(recipient_user_id) if recipient_user_id else 'NULL'
-            
             # Insert main report
-            cur.execute(f"""
-                INSERT INTO t_p80499285_psot_realization_pro.production_control_reports 
-                (doc_number, doc_date, recipient_user_id, recipient_name, department, witness, 
-                 issuer_name, issuer_position, issue_date, user_id, organization_id, word_file_url)
-                VALUES ('{doc_number_esc}', '{doc_date}', {recipient_user_id_sql}, '{recipient_name_esc}', 
-                        '{department_esc}', '{witness_esc}', '{issuer_name_esc}', '{issuer_position_esc}', 
-                        '{issue_date}', {user_id}, {organization_id}, '{word_file_url_esc}')
-                RETURNING id
-            """)
+            cur.execute(
+                "INSERT INTO t_p80499285_psot_realization_pro.production_control_reports "
+                "(doc_number, doc_date, recipient_user_id, recipient_name, department, witness, "
+                "issuer_name, issuer_position, issue_date, user_id, organization_id, word_file_url) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                (doc_number, doc_date, recipient_user_id or None, recipient_name or '', department,
+                 witness or '', issuer_name, issuer_position or '', issue_date,
+                 int(user_id), int(organization_id), word_file_url or '')
+            )
             report_id = cur.fetchone()[0]
             
             # Insert violations
             for violation in violations:
                 item_number = violation.get('item_number')
-                description = str(violation.get('description', '')).replace("'", "''")
-                measures = str(violation.get('measures', '')).replace("'", "''")
                 photos = violation.get('photos', [])
                 deadline = violation.get('deadline', '')
                 responsible_user_id = violation.get('responsible_user_id')
                 
-                responsible_sql = str(responsible_user_id) if responsible_user_id else 'NULL'
-                deadline_sql = f"'{deadline}'" if deadline else 'NULL'
-                
-                cur.execute(f"""
-                    INSERT INTO t_p80499285_psot_realization_pro.production_control_violations
-                    (report_id, item_number, description, measures, deadline, responsible_user_id)
-                    VALUES ({report_id}, {item_number}, '{description}', '{measures}', {deadline_sql}, {responsible_sql})
-                    RETURNING id
-                """)
+                cur.execute(
+                    "INSERT INTO t_p80499285_psot_realization_pro.production_control_violations "
+                    "(report_id, item_number, description, measures, deadline, responsible_user_id) "
+                    "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                    (report_id, item_number, violation.get('description', ''),
+                     violation.get('measures', ''), deadline or None,
+                     int(responsible_user_id) if responsible_user_id else None)
+                )
                 violation_id = cur.fetchone()[0]
                 
                 # Insert photos
                 for photo in photos:
-                    photo_url = str(photo.get('data', '')).replace("'", "''")
+                    photo_url = photo.get('data', '')
                     if photo_url:
-                        cur.execute(f"""
-                            INSERT INTO t_p80499285_psot_realization_pro.production_control_photos
+                        cur.execute(
+                            "INSERT INTO t_p80499285_psot_realization_pro.production_control_photos "
+                            "(violation_id, photo_url) VALUES (%s, %s)",
                             (violation_id, photo_url)
-                            VALUES ({violation_id}, '{photo_url}')
-                        """)
+                        )
             
             # Insert signatures
             for sig in signatures:
                 sig_user_id = sig.get('userId')
-                user_name = str(sig.get('userName', '')).replace("'", "''")
                 sig_date = sig.get('date')
-                sig_user_id_sql = str(sig_user_id) if sig_user_id else 'NULL'
                 
-                if user_name and sig_date:
-                    cur.execute(f"""
-                        INSERT INTO t_p80499285_psot_realization_pro.production_control_signatures
-                        (report_id, user_id, user_name, signature_date)
-                        VALUES ({report_id}, {sig_user_id_sql}, '{user_name}', '{sig_date}')
-                    """)
+                if sig.get('userName') and sig_date:
+                    cur.execute(
+                        "INSERT INTO t_p80499285_psot_realization_pro.production_control_signatures "
+                        "(report_id, user_id, user_name, signature_date) VALUES (%s, %s, %s, %s)",
+                        (report_id, int(sig_user_id) if sig_user_id else None, sig.get('userName', ''), sig_date)
+                    )
             
             # Создаем записи в реестре предписаний для отслеживания выполнения
             if recipient_user_id:
                 # Создаем главное предписание
-                cur.execute(f"""
-                    INSERT INTO t_p80499285_psot_realization_pro.production_prescriptions
-                    (issuer_fio, issuer_position, issuer_department, issuer_organization, 
-                     assigned_user_id, assigned_user_fio)
-                    VALUES ('{issuer_name_esc}', '{issuer_position_esc}', '{department_esc}', 
-                            'Производственный контроль', {recipient_user_id}, '{recipient_name_esc}')
-                    RETURNING id
-                """)
+                cur.execute(
+                    "INSERT INTO t_p80499285_psot_realization_pro.production_prescriptions "
+                    "(issuer_fio, issuer_position, issuer_department, issuer_organization, "
+                    "assigned_user_id, assigned_user_fio) "
+                    "VALUES (%s, %s, %s, 'Производственный контроль', %s, %s) RETURNING id",
+                    (issuer_name, issuer_position or '', department, int(recipient_user_id), recipient_name or '')
+                )
                 prescription_id = cur.fetchone()[0]
                 
                 # Создаем записи о нарушениях в реестре
                 for violation in violations:
-                    description = str(violation.get('description', '')).replace("'", "''")
-                    measures = str(violation.get('measures', '')).replace("'", "''")
+                    viol_description = violation.get('description', '')
+                    viol_measures = violation.get('measures', '')
                     deadline = violation.get('deadline', '')
                     responsible_user_id_viol = violation.get('responsible_user_id')
                     
-                    if description or measures:
-                        violation_text = description
-                        if measures:
-                            violation_text += f"\n\nМеры: {measures}"
-                        
-                        # Используем срок выполнения из формы
-                        deadline_sql = f"DATE('{deadline}')" if deadline else f"DATE('{issue_date}') + INTERVAL '30 days'"
+                    if viol_description or viol_measures:
+                        violation_text = viol_description
+                        if viol_measures:
+                            violation_text += f"\n\nМеры: {viol_measures}"
                         
                         # Используем ответственного из нарушения, если указан, иначе получателя
                         final_user_id = responsible_user_id_viol if responsible_user_id_viol else recipient_user_id
                         
                         # Получаем ФИО ответственного
                         if responsible_user_id_viol:
-                            cur.execute(f"SELECT fio FROM t_p80499285_psot_realization_pro.users WHERE id = {final_user_id}")
+                            cur.execute(
+                                "SELECT fio FROM t_p80499285_psot_realization_pro.users WHERE id = %s",
+                                (final_user_id,)
+                            )
                             result = cur.fetchone()
-                            responsible_fio = result[0].replace("'", "''") if result else recipient_name_esc
+                            responsible_fio = result[0] if result else (recipient_name or '')
                         else:
-                            responsible_fio = recipient_name_esc
+                            responsible_fio = recipient_name or ''
                         
-                        cur.execute(f"""
-                            INSERT INTO t_p80499285_psot_realization_pro.production_prescription_violations
-                            (prescription_id, violation_text, assigned_user_id, assigned_user_fio, 
-                             deadline, status)
-                            VALUES ({prescription_id}, '{violation_text}', {final_user_id}, 
-                                    '{responsible_fio}', {deadline_sql}, 'in_work')
-                            RETURNING id
-                        """)
+                        # Используем срок выполнения из формы
+                        if deadline:
+                            cur.execute(
+                                "INSERT INTO t_p80499285_psot_realization_pro.production_prescription_violations "
+                                "(prescription_id, violation_text, assigned_user_id, assigned_user_fio, "
+                                "deadline, status) "
+                                "VALUES (%s, %s, %s, %s, DATE(%s), 'in_work') RETURNING id",
+                                (prescription_id, violation_text, int(final_user_id), responsible_fio, deadline)
+                            )
+                        else:
+                            cur.execute(
+                                "INSERT INTO t_p80499285_psot_realization_pro.production_prescription_violations "
+                                "(prescription_id, violation_text, assigned_user_id, assigned_user_fio, "
+                                "deadline, status) "
+                                "VALUES (%s, %s, %s, %s, DATE(%s) + INTERVAL '30 days', 'in_work') RETURNING id",
+                                (prescription_id, violation_text, int(final_user_id), responsible_fio, issue_date)
+                            )
                         violation_id = cur.fetchone()[0]
                         
                         # Отправляем уведомление в Telegram
                         print(f'[DEBUG] Checking Telegram for user_id={final_user_id}')
-                        cur.execute(f"""
-                            SELECT u.telegram_chat_id, u.telegram_username
-                            FROM t_p80499285_psot_realization_pro.users u
-                            WHERE u.id = {final_user_id} AND u.telegram_chat_id IS NOT NULL
-                        """)
+                        cur.execute(
+                            "SELECT u.telegram_chat_id, u.telegram_username "
+                            "FROM t_p80499285_psot_realization_pro.users u "
+                            "WHERE u.id = %s AND u.telegram_chat_id IS NOT NULL",
+                            (final_user_id,)
+                        )
                         user_tg = cur.fetchone()
                         print(f'[DEBUG] Telegram query result: {user_tg}')
                         
@@ -231,10 +214,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 Дата: {issue_date}
 
 Нарушение:
-{description}
+{viol_description}
 
 Меры:
-{measures}
+{viol_measures}
 
 Срок выполнения: {deadline if deadline else 'не указан'}
 Ответственный: {responsible_fio}"""
@@ -255,10 +238,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 📅 Дата: {issue_date}
 
 ⚠️ Нарушение:
-{description}
+{viol_description}
 
 💡 Меры:
-{measures}
+{viol_measures}
 
 ⏰ Срок: {deadline if deadline else 'не указан'}
 👤 Ответственный: {responsible_fio}"""
@@ -310,7 +293,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Получаем email пользователя
             user_email = None
             if user_id:
-                cur.execute(f"SELECT email FROM t_p80499285_psot_realization_pro.users WHERE id = {user_id}")
+                cur.execute(
+                    "SELECT email FROM t_p80499285_psot_realization_pro.users WHERE id = %s",
+                    (int(user_id),)
+                )
                 user_row = cur.fetchone()
                 if user_row and user_row[0]:
                     user_email = user_row[0]
@@ -413,7 +399,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         responsible_violations[responsible_id].append(violation)
                 
                 for resp_user_id, resp_violations in responsible_violations.items():
-                    cur.execute(f"SELECT email, fio FROM t_p80499285_psot_realization_pro.users WHERE id = {resp_user_id}")
+                    cur.execute(
+                        "SELECT email, fio FROM t_p80499285_psot_realization_pro.users WHERE id = %s",
+                        (int(resp_user_id),)
+                    )
                     resp_user_row = cur.fetchone()
                     
                     if resp_user_row and resp_user_row[0]:

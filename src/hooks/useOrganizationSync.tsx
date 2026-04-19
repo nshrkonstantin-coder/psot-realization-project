@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { apiFetch } from '@/lib/api';
 
 /**
  * Хук для автоматической синхронизации данных пользователя при загрузке приложения
@@ -14,13 +15,8 @@ export const useOrganizationSync = () => {
       // Если пользователь залогинен, но нет organizationId или email
       if (userId && (!existingOrgId || !existingEmail || existingEmail === 'Не указан')) {
         try {
-          const response = await fetch(
-            `https://functions.poehali.dev/14fc7c96-08ce-46ad-81b8-3d2bb9f63638?userId=${userId}`,
-            {
-              headers: {
-                'X-User-Id': userId
-              }
-            }
+          const response = await apiFetch(
+            `https://functions.poehali.dev/14fc7c96-08ce-46ad-81b8-3d2bb9f63638?userId=${userId}`
           );
           
           if (response.ok) {

@@ -6,6 +6,7 @@ import Icon from '@/components/ui/icon';
 import { TechnicalSupport } from '@/components/TechnicalSupport';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { useImpersonationState } from '@/hooks/useImpersonationState';
+import { apiFetch } from '@/lib/api';
 
 const SuperAdmin = () => {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ const SuperAdmin = () => {
 
     // Показываем ФИО из localStorage сразу, затем подтягиваем актуальное из API
     setUserFio(localStorage.getItem('userFio') || '');
-    fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
+    apiFetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
       .then(r => r.json())
       .then(data => {
         if (data.success && data.user?.fio) {

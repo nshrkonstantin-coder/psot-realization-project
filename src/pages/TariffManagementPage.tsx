@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 import FUNC_URLS from '../../backend/func2url.json';
+import { apiFetch } from '@/lib/api';
 
 interface Module {
   id: number;
@@ -79,8 +80,8 @@ export default function TariffManagementPage() {
     setLoadingTariffs(true);
     try {
       const [tariffsRes, modulesRes] = await Promise.all([
-        fetch(FUNC_URLS.tariffs),
-        fetch(FUNC_URLS.modules)
+        apiFetch(FUNC_URLS.tariffs),
+        apiFetch(FUNC_URLS.modules)
       ]);
       setTariffs(await tariffsRes.json());
       setAllModules(await modulesRes.json());
@@ -94,7 +95,7 @@ export default function TariffManagementPage() {
   // ── Тарифы ──────────────────────────────────────────────
   const loadTariffDetails = async (tariffId: number) => {
     try {
-      const res = await fetch(`${FUNC_URLS.tariffs}?id=${tariffId}`);
+      const res = await apiFetch(`${FUNC_URLS.tariffs}?id=${tariffId}`);
       const data = await res.json();
       setSelectedTariff(data);
       setIsCreatingTariff(false);
@@ -112,9 +113,8 @@ export default function TariffManagementPage() {
     try {
       const method = isCreatingTariff ? 'POST' : 'PUT';
       const body = isCreatingTariff ? tariffForm : { id: selectedTariff?.id, ...tariffForm };
-      const res = await fetch(FUNC_URLS.tariffs, {
+      const res = await apiFetch(FUNC_URLS.tariffs, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
       if (res.ok) {
@@ -141,9 +141,8 @@ export default function TariffManagementPage() {
     try {
       const method = isCreatingModule ? 'POST' : 'PUT';
       const body = isCreatingModule ? moduleForm : { id: selectedModule?.id, ...moduleForm };
-      const res = await fetch(FUNC_URLS.modules, {
+      const res = await apiFetch(FUNC_URLS.modules, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
       if (res.ok) {
@@ -159,7 +158,7 @@ export default function TariffManagementPage() {
     if (!confirm('Удалить этот модуль? Он будет убран из всех тарифов.')) return;
     setDeletingModuleId(moduleId);
     try {
-      await fetch(`${FUNC_URLS.modules}?id=${moduleId}`, { method: 'DELETE' });
+      await apiFetch(`${FUNC_URLS.modules}?id=${moduleId}`, { method: 'DELETE' });
       await loadData();
       if (selectedModule?.id === moduleId) setSelectedModule(null);
     } catch (e) { console.error(e); } finally { setDeletingModuleId(null); }

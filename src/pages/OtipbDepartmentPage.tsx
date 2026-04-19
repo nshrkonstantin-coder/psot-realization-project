@@ -12,6 +12,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import OtipbAnalyticsBlock from '@/components/otipb/OtipbAnalyticsBlock';
 import ExcelOrdersImport from '@/components/otipb/ExcelOrdersImport';
+import { apiFetch } from '@/lib/api';
 
 const GREETING_KEY = 'otipb_greeting_enabled';
 const OT_ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
@@ -117,7 +118,7 @@ const OtipbDepartmentPage = () => {
     try {
       const params = new URLSearchParams();
       if (orgId) params.set('organization_id', orgId);
-      const res = await fetch(`${OT_ORDERS_URL}?${params.toString()}`);
+      const res = await apiFetch(`${OT_ORDERS_URL}?${params.toString()}`);
       const data = await res.json();
 
       if (data.success) {
@@ -181,9 +182,8 @@ const OtipbDepartmentPage = () => {
     greetingAlertRef.current = alertDiv;
 
     try {
-      const response = await fetch('https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53', {
+      const response = await apiFetch('https://functions.poehali.dev/6b198c7d-ed06-44c5-8e63-8647c67ebf53', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: greetingText, voice: 'alena' })
       });
       const data = await response.json();
@@ -501,9 +501,8 @@ const OtipbDepartmentPage = () => {
       const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><title>Чек-лист передачи вахты</title>
         <style>body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:20px}</style>
         </head><body>${checklistBody}</body></html>`;
-      const res = await fetch(SEND_EMAIL_URL, {
+      const res = await apiFetch(SEND_EMAIL_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: checklistRecipientEmail,
           subject: `Чек-лист передачи вахты — Отдел ОТиПБ — ${new Date().toLocaleDateString('ru-RU')}`,
@@ -533,9 +532,8 @@ const OtipbDepartmentPage = () => {
       const checklistHtml = buildChecklistHtml(checklistRecipientFio, spec?.position);
       const encoded = btoa(unescape(encodeURIComponent(checklistHtml)));
       const msgText = `📋 Чек-лист передачи вахты (Отдел ОТиПБ) от ${userFio || userName}\nНевыполненных поручений по отделу: ${pendingAllOrders.length}\nДата: ${new Date().toLocaleDateString('ru-RU')}\n[CHECKLIST_DATA:${encoded}]`;
-      const res = await fetch(OT_ORDERS_URL, {
+      const res = await apiFetch(OT_ORDERS_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'send_checklist_internal',
           sender_id: senderId,

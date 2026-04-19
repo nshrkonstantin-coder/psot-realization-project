@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import QRCode from 'qrcode';
+import { apiFetch } from '@/lib/api';
 
 export interface Organization {
   id: number;
@@ -70,11 +71,7 @@ export function useCreateUser() {
   const loadOrganizations = async () => {
     try {
       const userId = localStorage.getItem('userId');
-      const response = await fetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?action=list', {
-        headers: {
-          'X-User-Id': userId || ''
-        }
-      });
+      const response = await apiFetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?action=list');
       const data = await response.json();
 
       if (data.success && data.organizations) {
@@ -666,9 +663,8 @@ export function useCreateUser() {
   const sendCredentialsByEmail = async (userEmail: string, userPassword: string) => {
     setSendingEmail(true);
     try {
-      const response = await fetch('https://functions.poehali.dev/b00816fd-60cd-4a53-9b44-802868bfbb11', {
+      const response = await apiFetch('https://functions.poehali.dev/b00816fd-60cd-4a53-9b44-802868bfbb11', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           users: [
             {
@@ -712,9 +708,8 @@ export function useCreateUser() {
     setLoading(true);
 
     try {
-      const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
+      const response = await apiFetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'create_user',
           email,

@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 
 const PROFILE_API = 'https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f';
 
@@ -26,9 +27,8 @@ const ProfileTelegramTab = ({ profile, onReload }: ProfileTelegramTabProps) => {
     const userId = localStorage.getItem('userId');
     if (!userId) return;
     try {
-      await fetch(PROFILE_API, {
+      await apiFetch(PROFILE_API, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'unlink_telegram', userId }),
       });
       toast({ title: 'Telegram отключён' });
@@ -43,9 +43,8 @@ const ProfileTelegramTab = ({ profile, onReload }: ProfileTelegramTabProps) => {
     if (!userId) return;
     setLoadingTelegram(true);
     try {
-      const response = await fetch(PROFILE_API, {
+      const response = await apiFetch(PROFILE_API, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'generate_telegram_code', userId }),
       });
       const data = await response.json();

@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 const OT_ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
 
@@ -57,7 +58,7 @@ const ExcelOrdersImport = ({ specialists: specialistsProp, orgId, userId, userFi
         const url = orgId
           ? `${OT_ORDERS_URL}?action=manual_specialists&organization_id=${orgId}`
           : `${OT_ORDERS_URL}?action=manual_specialists`;
-        const res = await fetch(url);
+        const res = await apiFetch(url);
         const data = await res.json();
         if (data.success && data.specialists?.length > 0) {
           // Ручной список
@@ -67,7 +68,7 @@ const ExcelOrdersImport = ({ specialists: specialistsProp, orgId, userId, userFi
           const url2 = orgId
             ? `${OT_ORDERS_URL}?organization_id=${orgId}`
             : `${OT_ORDERS_URL}`;
-          const res2 = await fetch(url2);
+          const res2 = await apiFetch(url2);
           const data2 = await res2.json();
           if (data2.success && data2.specialists?.length > 0) {
             setLocalSpecialists(data2.specialists);
@@ -231,9 +232,8 @@ const ExcelOrdersImport = ({ specialists: specialistsProp, orgId, userId, userFi
       const issuedDate = row._issuedDate || globalIssuedDate || new Date().toISOString().slice(0, 10);
       const deadline = row._deadline || globalDeadline;
       try {
-        const res = await fetch(OT_ORDERS_URL, {
+        const res = await apiFetch(OT_ORDERS_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title: row.title,
             notes: row.notes || '',

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 interface EmailResult {
   email: string;
@@ -40,11 +41,8 @@ export const useEmailSender = () => {
     setSending(true);
     
     try {
-      const response = await fetch('https://functions.poehali.dev/ca9e0986-48d7-46a1-b0be-7a98ddf4c429', {
+      const response = await apiFetch('https://functions.poehali.dev/ca9e0986-48d7-46a1-b0be-7a98ddf4c429', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           recipients,
           subject,

@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import FUNC_URLS from '../../backend/func2url.json';
+import { apiFetch } from '@/lib/api';
 
 interface BlockUserDialogProps {
   user: {
@@ -30,9 +31,8 @@ export default function BlockUserDialog({ user, isOpen, onClose, onSuccess }: Bl
     try {
       const adminId = parseInt(localStorage.getItem('userId') || '0');
       
-      const res = await fetch(FUNC_URLS['block-management'], {
+      const res = await apiFetch(FUNC_URLS['block-management'], {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           entity_type: 'user',
           entity_id: user.id,

@@ -1,3 +1,5 @@
+import { apiFetch } from '@/lib/api';
+
 const API = 'https://functions.poehali.dev/85a795aa-16f4-4214-8690-191bbd6e73d2';
 const CACHE_KEY = 'page_locks_cache';
 
@@ -18,7 +20,7 @@ memCache = loadCache();
 // Загрузить блокировки из БД (вызывается при старте приложения)
 export async function fetchPageLocks(): Promise<void> {
   try {
-    const res = await fetch(`${API}?action=page_locks`);
+    const res = await apiFetch(`${API}?action=page_locks`);
     const data = await res.json();
     if (data.success && data.locks) {
       saveCache(data.locks);
@@ -58,9 +60,8 @@ export async function togglePageLock(pageKey: string): Promise<void> {
 
   // Сохраняем в БД
   try {
-    const res = await fetch(API, {
+    const res = await apiFetch(API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'set_page_lock', page_key: pageKey, is_locked: newVal, user_id: userId })
     });
     const data = await res.json();

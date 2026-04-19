@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 interface Organization {
   id: number;
@@ -68,7 +69,7 @@ const AssignMiniAdmin = () => {
 
   const loadOrganizations = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b');
+      const response = await apiFetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b');
       if (response.ok) {
         const data = await response.json();
         setOrganizations(data);
@@ -82,7 +83,7 @@ const AssignMiniAdmin = () => {
   const loadUsers = async (orgId: number) => {
     try {
       setLoading(true);
-      const response = await fetch(`https://functions.poehali.dev/7f32d60e-dee5-4b28-901a-10984045d99e?organization_id=${orgId}`);
+      const response = await apiFetch(`https://functions.poehali.dev/7f32d60e-dee5-4b28-901a-10984045d99e?organization_id=${orgId}`);
       if (response.ok) {
         const data = await response.json();
         setUsers(data.users || []);
@@ -111,7 +112,7 @@ const AssignMiniAdmin = () => {
 
   const loadUserPermissions = async (userId: number) => {
     try {
-      const response = await fetch(`https://functions.poehali.dev/3bdac2b0-aad0-492f-bee6-465d1a0f71fb?user_id=${userId}`);
+      const response = await apiFetch(`https://functions.poehali.dev/3bdac2b0-aad0-492f-bee6-465d1a0f71fb?user_id=${userId}`);
       if (response.ok) {
         const data = await response.json();
         if (data.permissions) {
@@ -150,9 +151,8 @@ const AssignMiniAdmin = () => {
 
     setLoading(true);
     try {
-      const response = await fetch('https://functions.poehali.dev/3bdac2b0-aad0-492f-bee6-465d1a0f71fb', {
+      const response = await apiFetch('https://functions.poehali.dev/3bdac2b0-aad0-492f-bee6-465d1a0f71fb', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: selectedUserId,
           organization_id: selectedOrgId,

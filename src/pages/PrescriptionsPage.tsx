@@ -7,6 +7,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import PrescriptionStats from '@/components/prescriptions/PrescriptionStats';
 import ViolationList from '@/components/prescriptions/ViolationList';
+import { apiFetch } from '@/lib/api';
 
 interface Violation {
   id: number;
@@ -76,13 +77,7 @@ const PrescriptionsPage = () => {
         url += `?status=${statusFilter}`;
       }
 
-      const response = await fetch(url, {
-        headers: {
-          'X-User-Id': localStorage.getItem('userId') || '',
-          'X-User-Role': localStorage.getItem('userRole') || 'user',
-          'X-User-Fio': encodeURIComponent(localStorage.getItem('userFio') || '')
-        }
-      });
+      const response = await apiFetch(url);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -103,7 +98,7 @@ const PrescriptionsPage = () => {
 
   const loadUsers = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf');
+      const response = await apiFetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf');
       if (!response.ok) throw new Error('Ошибка загрузки пользователей');
       const data = await response.json();
       setUsers(data.users || []);
@@ -118,9 +113,8 @@ const PrescriptionsPage = () => {
 
   const handleMarkCompleted = async (violationId: number) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/00b936d6-c4d0-4492-97b6-f42ae7c3a29b', {
+      const response = await apiFetch('https://functions.poehali.dev/00b936d6-c4d0-4492-97b6-f42ae7c3a29b', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: violationId,
           status: 'completed'
@@ -139,9 +133,8 @@ const PrescriptionsPage = () => {
 
   const handleConfirm = async (violationId: number) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/00b936d6-c4d0-4492-97b6-f42ae7c3a29b', {
+      const response = await apiFetch('https://functions.poehali.dev/00b936d6-c4d0-4492-97b6-f42ae7c3a29b', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'confirm_completion',
           violation_id: violationId
@@ -174,9 +167,8 @@ const PrescriptionsPage = () => {
     if (!user) return;
 
     try {
-      const response = await fetch('https://functions.poehali.dev/00b936d6-c4d0-4492-97b6-f42ae7c3a29b', {
+      const response = await apiFetch('https://functions.poehali.dev/00b936d6-c4d0-4492-97b6-f42ae7c3a29b', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'redirect_violation',
           violation_id: selectedViolationId,

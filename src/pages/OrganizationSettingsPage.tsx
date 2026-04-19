@@ -8,6 +8,7 @@ import { OrganizationInfoSection } from '@/components/OrganizationInfoSection';
 import { PointsManagementSection } from '@/components/PointsManagementSection';
 import { ModulesSection } from '@/components/ModulesSection';
 import { PagesSection } from '@/components/PagesSection';
+import { apiFetch } from '@/lib/api';
 
 interface Organization {
   id: number;
@@ -74,10 +75,10 @@ const OrganizationSettingsPage = () => {
   const loadData = async () => {
     try {
       const [orgRes, modulesRes, pagesRes, pointsRes] = await Promise.all([
-        fetch(`https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?id=${id}`),
-        fetch(`https://functions.poehali.dev/a4f6bfe1-8f77-48b2-b6dd-70ac0a1c023a?type=modules&organization_id=${id}`),
-        fetch(`https://functions.poehali.dev/a4f6bfe1-8f77-48b2-b6dd-70ac0a1c023a?type=pages&organization_id=${id}`),
-        fetch(`https://functions.poehali.dev/1e66556d-e508-403d-aced-20637779242a?org_id=${id}`)
+        apiFetch(`https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?id=${id}`),
+        apiFetch(`https://functions.poehali.dev/a4f6bfe1-8f77-48b2-b6dd-70ac0a1c023a?type=modules&organization_id=${id}`),
+        apiFetch(`https://functions.poehali.dev/a4f6bfe1-8f77-48b2-b6dd-70ac0a1c023a?type=pages&organization_id=${id}`),
+        apiFetch(`https://functions.poehali.dev/1e66556d-e508-403d-aced-20637779242a?org_id=${id}`)
       ]);
 
       const orgData = await orgRes.json();
@@ -118,18 +119,16 @@ const OrganizationSettingsPage = () => {
       const enabledPages = pages.filter(p => p.enabled).map(p => p.id);
 
       await Promise.all([
-        fetch('https://functions.poehali.dev/a4f6bfe1-8f77-48b2-b6dd-70ac0a1c023a', {
+        apiFetch('https://functions.poehali.dev/a4f6bfe1-8f77-48b2-b6dd-70ac0a1c023a', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             organization_id: id,
             type: 'modules',
             items: enabledModules
           })
         }),
-        fetch('https://functions.poehali.dev/a4f6bfe1-8f77-48b2-b6dd-70ac0a1c023a', {
+        apiFetch('https://functions.poehali.dev/a4f6bfe1-8f77-48b2-b6dd-70ac0a1c023a', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             organization_id: id,
             type: 'pages',

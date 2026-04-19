@@ -7,6 +7,7 @@ import { TechnicalSupport } from '@/components/TechnicalSupport';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { useImpersonationState } from '@/hooks/useImpersonationState';
+import { apiFetch } from '@/lib/api';
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ const Admin = () => {
     }
     
     setUserFio(localStorage.getItem('userFio') || '');
-    fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
+    apiFetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
       .then(r => r.json())
       .then(data => {
         if (data.success && data.user?.fio) {

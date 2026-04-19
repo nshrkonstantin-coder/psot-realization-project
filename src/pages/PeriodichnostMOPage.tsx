@@ -6,6 +6,7 @@ import Icon from '@/components/ui/icon';
 import PageLockBadge from '@/components/ui/PageLockBadge';
 import { fetchPageLocks } from '@/hooks/usePageLock';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 import * as XLSX from 'xlsx';
 
 const API = 'https://functions.poehali.dev/85a795aa-16f4-4214-8690-191bbd6e73d2';
@@ -51,7 +52,7 @@ const PeriodichnostMOPage = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res  = await fetch(`${API}?action=list&sheet=${encodeURIComponent(SHEET)}`);
+      const res  = await apiFetch(`${API}?action=list&sheet=${encodeURIComponent(SHEET)}`);
       const data = await res.json();
       if (data.success) {
         setRows((data.workers || []).map((w: { id: number; fio: string; extra_data?: Record<string, string> }) => ({
@@ -68,8 +69,8 @@ const PeriodichnostMOPage = () => {
     if (reorderTimer.current) clearTimeout(reorderTimer.current);
     reorderTimer.current = setTimeout(() => {
       const orders = newRows.map((r, i) => ({ id: r.id, sort_order: i + 1 }));
-      fetch(API, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      apiFetch(API, {
+        method: 'POST',
         body: JSON.stringify({ action: 'reorder', orders })
       }).catch(() => toast.error('Ошибка сохранения порядка'));
     }, 600);
@@ -130,8 +131,8 @@ const PeriodichnostMOPage = () => {
   const saveEdit = async (id: number) => {
     setSaving(true);
     try {
-      const res  = await fetch(API, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const res  = await apiFetch(API, {
+        method: 'POST',
         body: JSON.stringify({
           action: 'update_row', id,
           fio: editShort,
@@ -152,8 +153,8 @@ const PeriodichnostMOPage = () => {
   const deleteRow = async (id: number) => {
     if (!confirm('Удалить строку безвозвратно?')) return;
     try {
-      const res  = await fetch(API, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const res  = await apiFetch(API, {
+        method: 'POST',
         body: JSON.stringify({ action: 'delete_row', id })
       });
       const data = await res.json();
@@ -166,8 +167,8 @@ const PeriodichnostMOPage = () => {
     if (!newShort.trim()) { toast.error('Введите наименование'); return; }
     setSaving(true);
     try {
-      const res  = await fetch(API, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const res  = await apiFetch(API, {
+        method: 'POST',
         body: JSON.stringify({
           action: 'add_row', sheet_name: SHEET,
           fio: newShort.trim(),

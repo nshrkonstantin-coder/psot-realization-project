@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
+import { apiFetch } from '@/lib/api';
 
 export default function DemoPage() {
   const navigate = useNavigate();
@@ -10,11 +11,10 @@ export default function DemoPage() {
   useEffect(() => {
     const loginAsDemo = async () => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           'https://functions.poehali.dev/eb523ac0-0903-4780-8f5d-7e0546c1eda5',
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               action: 'login',
               email: 'demo@demo.ru',

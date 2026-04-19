@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 
 const PROFILE_API = 'https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f';
 
@@ -26,9 +27,8 @@ const ProfileSecurityTab = () => {
     const userId = localStorage.getItem('userId');
     if (!userId) return;
     try {
-      const response = await fetch(PROFILE_API, {
+      const response = await apiFetch(PROFILE_API, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'change_password', userId, currentPassword, newPassword }),
       });
       const data = await response.json();

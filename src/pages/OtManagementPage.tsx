@@ -11,6 +11,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import OtipbAnalyticsBlock from '@/components/otipb/OtipbAnalyticsBlock';
 import ExcelOrdersImport from '@/components/otipb/ExcelOrdersImport';
+import { apiFetch } from '@/lib/api';
 
 const SEND_EMAIL_URL = 'https://functions.poehali.dev/2dab48c9-57c0-4f55-90e7-d93b326a6891';
 

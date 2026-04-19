@@ -7,6 +7,7 @@ import ProfileHeader from '@/components/profile/ProfileHeader';
 import ProfileInfoTab from '@/components/profile/ProfileInfoTab';
 import ProfileTelegramTab from '@/components/profile/ProfileTelegramTab';
 import ProfileSecurityTab from '@/components/profile/ProfileSecurityTab';
+import { apiFetch } from '@/lib/api';
 
 const PROFILE_API = 'https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f';
 
@@ -66,7 +67,7 @@ const Profile = () => {
 
   const loadProfile = async (userId: string) => {
     try {
-      const response = await fetch(`${PROFILE_API}?userId=${userId}`);
+      const response = await apiFetch(`${PROFILE_API}?userId=${userId}`);
       const data = await response.json();
       if (data.success) {
         setProfile(data.user);
@@ -86,9 +87,8 @@ const Profile = () => {
     const userId = localStorage.getItem('userId');
     if (!userId) return;
     try {
-      const response = await fetch(PROFILE_API, {
+      const response = await apiFetch(PROFILE_API, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update_profile', userId, fio, company, subdivision, position }),
       });
       const data = await response.json();

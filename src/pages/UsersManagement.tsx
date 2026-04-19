@@ -9,6 +9,7 @@ import { UsersTableHeader } from '@/components/users/UsersTableHeader';
 import { UserTableRow } from '@/components/users/UserTableRow';
 import { UserEditDialogs } from '@/components/users/UserEditDialogs';
 import { PasswordManagementTab } from '@/components/users/PasswordManagementTab';
+import { apiFetch } from '@/lib/api';
 
 interface User {
   id: number;
@@ -68,11 +69,7 @@ const UsersManagement = () => {
   const loadUsers = async () => {
     try {
       const role = localStorage.getItem('userRole');
-      const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=list', {
-        headers: {
-          'X-User-Role': role || ''
-        }
-      });
+      const response = await apiFetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=list');
       const data = await response.json();
       if (data.success) {
         setUsers(data.users);
@@ -86,7 +83,7 @@ const UsersManagement = () => {
 
   const loadStats = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=stats');
+      const response = await apiFetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=stats');
       const data = await response.json();
       if (data.success) {
         setStats(data.stats);
@@ -98,9 +95,8 @@ const UsersManagement = () => {
 
   const handleUpdateRole = async (userId: number, newRole: string) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
+      const response = await apiFetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update_role', userId, role: newRole }),
       });
 
@@ -121,9 +117,8 @@ const UsersManagement = () => {
     const oldCompany = users.find(u => u.id === editUser.id)?.company;
 
     try {
-      const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
+      const response = await apiFetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'update_profile',
           userId: editUser.id,
@@ -157,9 +152,8 @@ const UsersManagement = () => {
     if (!confirm('Вы уверены, что хотите удалить этого пользователя?')) return;
 
     try {
-      const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
+      const response = await apiFetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       });
 
@@ -205,9 +199,8 @@ const UsersManagement = () => {
 
     try {
       if (editCredentials.newEmail && editCredentials.newEmail !== editCredentials.email) {
-        const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
+        const response = await apiFetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'change_email',
             userId: editCredentials.id,
@@ -223,9 +216,8 @@ const UsersManagement = () => {
       }
 
       if (editCredentials.newPassword) {
-        const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
+        const response = await apiFetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'change_password',
             userId: editCredentials.id,

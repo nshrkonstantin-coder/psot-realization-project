@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 interface SubscriptionPlan {
   id: number;
@@ -51,7 +52,7 @@ const SubscriptionPlansPage = () => {
 
   const loadPlans = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/74e617c7-d1e0-48d6-a5a6-0d25d554958e');
+      const response = await apiFetch('https://functions.poehali.dev/74e617c7-d1e0-48d6-a5a6-0d25d554958e');
       if (!response.ok) throw new Error('Failed to load');
       const data = await response.json();
       setPlans(data);
@@ -68,9 +69,8 @@ const SubscriptionPlansPage = () => {
     if (!name) return;
 
     try {
-      const response = await fetch('https://functions.poehali.dev/74e617c7-d1e0-48d6-a5a6-0d25d554958e', {
+      const response = await apiFetch('https://functions.poehali.dev/74e617c7-d1e0-48d6-a5a6-0d25d554958e', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, description: '' })
       });
 

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { generatePcPDF } from '@/utils/pcPdfExport';
+import { apiFetch } from '@/lib/api';
 
 interface Violation {
   id: number;
@@ -56,7 +57,7 @@ export default function PcViewPage() {
 
   const loadPc = async (pcId: string) => {
     try {
-      const response = await fetch(`https://functions.poehali.dev/d40301df-9088-4a9a-87ef-17c01ac5aad6?id=${pcId}`);
+      const response = await apiFetch(`https://functions.poehali.dev/d40301df-9088-4a9a-87ef-17c01ac5aad6?id=${pcId}`);
       const data = await response.json();
       setPc(data.pc);
     } catch (error) {
@@ -69,9 +70,8 @@ export default function PcViewPage() {
 
   const updateViolationStatus = async (violationId: number, newStatus: string) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/8f65bf78-c12a-4ffc-9c9e-fd8f4fc4c6a7', {
+      const response = await apiFetch('https://functions.poehali.dev/8f65bf78-c12a-4ffc-9c9e-fd8f4fc4c6a7', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ violation_id: violationId, status: newStatus })
       });
       
@@ -93,9 +93,8 @@ export default function PcViewPage() {
     }
 
     try {
-      const response = await fetch('https://functions.poehali.dev/d4845ec4-7998-43f8-8eb7-9833d64cd9ec', {
+      const response = await apiFetch('https://functions.poehali.dev/d4845ec4-7998-43f8-8eb7-9833d64cd9ec', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ violation_id: violationId })
       });
       
@@ -131,7 +130,7 @@ export default function PcViewPage() {
     
     setIsExporting(true);
     try {
-      const response = await fetch(`https://functions.poehali.dev/b9254750-728b-41ea-88fe-33ac7f924adc?ids=${pc.id}`);
+      const response = await apiFetch(`https://functions.poehali.dev/b9254750-728b-41ea-88fe-33ac7f924adc?ids=${pc.id}`);
       
       if (response.ok) {
         const blob = await response.blob();
@@ -164,9 +163,8 @@ export default function PcViewPage() {
     }
 
     try {
-      const response = await fetch('https://functions.poehali.dev/pc-delete-placeholder', {
+      const response = await apiFetch('https://functions.poehali.dev/pc-delete-placeholder', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pc_ids: [pc.id] })
       });
       

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 import {
   Dialog,
   DialogContent,
@@ -69,7 +70,7 @@ export default function PabUserRegistryPage() {
       const userId = localStorage.getItem('userId');
       const userFio = localStorage.getItem('userFio') || 'Пользователь';
       
-      const response = await fetch(`https://functions.poehali.dev/4c14a615-c04d-48ce-89ab-139999fefa5c?user_id=${userId}&detailed=true`);
+      const response = await apiFetch(`https://functions.poehali.dev/4c14a615-c04d-48ce-89ab-139999fefa5c?user_id=${userId}&detailed=true`);
       
       if (!response.ok) {
         throw new Error('Ошибка загрузки данных');
@@ -101,7 +102,7 @@ export default function PabUserRegistryPage() {
 
   const handleDocClick = async (docNumber: string, openImmediately = true) => {
     try {
-      const response = await fetch(`https://functions.poehali.dev/7839a471-e953-4453-9358-b035f047f6e9?doc_number=${docNumber}`);
+      const response = await apiFetch(`https://functions.poehali.dev/7839a471-e953-4453-9358-b035f047f6e9?doc_number=${docNumber}`);
       const data = await response.json();
       
       if (data.exists && data.file_url) {
@@ -152,11 +153,8 @@ export default function PabUserRegistryPage() {
         reader.readAsDataURL(selectedFile);
       });
 
-      const response = await fetch('https://functions.poehali.dev/f4b1dbb0-b077-4805-9da3-9b1661dc86da', {
+      const response = await apiFetch('https://functions.poehali.dev/f4b1dbb0-b077-4805-9da3-9b1661dc86da', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           doc_number: selectedDocNumber,
           file: fileBase64,
@@ -197,11 +195,8 @@ export default function PabUserRegistryPage() {
 
   const handleDeleteDocument = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/c64d4831-6849-4d98-b3af-f2453a7e8dc0', {
+      const response = await apiFetch('https://functions.poehali.dev/c64d4831-6849-4d98-b3af-f2453a7e8dc0', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           doc_number: selectedDocNumber,
         }),

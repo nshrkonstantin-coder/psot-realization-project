@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 interface TariffPlan {
   id: number;
@@ -63,7 +64,7 @@ const CreateOrganizationPage = () => {
 
   const loadTariffs = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/78e6bfda-487d-4a51-a368-1870e67aba1a');
+      const response = await apiFetch('https://functions.poehali.dev/78e6bfda-487d-4a51-a368-1870e67aba1a');
       if (!response.ok) throw new Error('Failed to load');
       const data = await response.json();
       setTariffs(data.filter((t: TariffPlan) => t.is_active));
@@ -75,7 +76,7 @@ const CreateOrganizationPage = () => {
 
   const loadLogoTemplates = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/d5352f1d-bdec-44b8-b0b5-34901c6a3245');
+      const response = await apiFetch('https://functions.poehali.dev/d5352f1d-bdec-44b8-b0b5-34901c6a3245');
       if (!response.ok) throw new Error('Failed to load');
       const data = await response.json();
       setLogoTemplates(data);
@@ -177,9 +178,8 @@ const CreateOrganizationPage = () => {
     try {
       const logoUrl = customLogo || (selectedLogo ? logoTemplates.find(t => t.logo_url === selectedLogo)?.logo_url : null);
 
-      const response = await fetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b', {
+      const response = await apiFetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
           tariff_plan_id: selectedPlan,

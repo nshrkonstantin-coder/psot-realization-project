@@ -9,6 +9,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { generatePabPDF } from '@/utils/pabPdfExport';
 import OrganizationLogo from '@/components/OrganizationLogo';
+import { apiFetch } from '@/lib/api';
 
 interface PabRecord {
   id: number;
@@ -48,11 +49,7 @@ export default function PabListPage() {
     try {
       const userFio = localStorage.getItem('userFio') || '';
       
-      const response = await fetch('https://functions.poehali.dev/bb1de74c-2e60-4e49-838e-7c640186dc5c', {
-        headers: {
-          'X-User-Fio': userFio
-        }
-      });
+      const response = await apiFetch('https://functions.poehali.dev/bb1de74c-2e60-4e49-838e-7c640186dc5c');
       
       const data = await response.json();
       setRecords(data.records || []);
@@ -66,9 +63,8 @@ export default function PabListPage() {
 
   const updateStatus = async (id: number, newStatus: string) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/a4284e02-284d-408c-9cee-d71a36d6fa09', {
+      const response = await apiFetch('https://functions.poehali.dev/a4284e02-284d-408c-9cee-d71a36d6fa09', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status: newStatus })
       });
       
@@ -92,7 +88,7 @@ export default function PabListPage() {
 
     setIsExporting(true);
     try {
-      const response = await fetch(`https://functions.poehali.dev/88fb8fbf-2935-49ae-8371-424562046173?ids=${selectedIds.join(',')}`);
+      const response = await apiFetch(`https://functions.poehali.dev/88fb8fbf-2935-49ae-8371-424562046173?ids=${selectedIds.join(',')}`);
       const data = await response.json();
       
       if (data.pabs && data.pabs.length > 0) {
@@ -117,7 +113,7 @@ export default function PabListPage() {
 
     setIsExporting(true);
     try {
-      const response = await fetch(`https://functions.poehali.dev/0db319fd-4f2e-44a7-b74f-cdb9a7c69f61?ids=${selectedIds.join(',')}`);
+      const response = await apiFetch(`https://functions.poehali.dev/0db319fd-4f2e-44a7-b74f-cdb9a7c69f61?ids=${selectedIds.join(',')}`);
       
       if (response.ok) {
         const blob = await response.blob();
@@ -156,9 +152,8 @@ export default function PabListPage() {
     }
 
     try {
-      const response = await fetch('https://functions.poehali.dev/b7991444-b3cb-4160-8fed-6d25fe399a0c', {
+      const response = await apiFetch('https://functions.poehali.dev/b7991444-b3cb-4160-8fed-6d25fe399a0c', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pab_ids: selectedIds })
       });
       

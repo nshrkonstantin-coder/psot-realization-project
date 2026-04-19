@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { generatePabPDF } from '@/utils/pabPdfExport';
+import { apiFetch } from '@/lib/api';
 
 interface Observation {
   id: number;
@@ -52,7 +53,7 @@ export default function PabViewPage() {
 
   const loadPab = async (pabId: string) => {
     try {
-      const response = await fetch(`https://functions.poehali.dev/ec299a8d-481e-470f-8487-4a1ca230b284?id=${pabId}`);
+      const response = await apiFetch(`https://functions.poehali.dev/ec299a8d-481e-470f-8487-4a1ca230b284?id=${pabId}`);
       const data = await response.json();
       setPab(data.pab);
     } catch (error) {
@@ -65,9 +66,8 @@ export default function PabViewPage() {
 
   const updateObservationStatus = async (observationId: number, newStatus: string) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/9829c5e0-a504-482d-bcc5-733cf62bd9e6', {
+      const response = await apiFetch('https://functions.poehali.dev/9829c5e0-a504-482d-bcc5-733cf62bd9e6', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ observation_id: observationId, status: newStatus })
       });
       
@@ -89,9 +89,8 @@ export default function PabViewPage() {
     }
 
     try {
-      const response = await fetch('https://functions.poehali.dev/6ec43ead-41fa-4995-8c3b-3fa1e0822a3b', {
+      const response = await apiFetch('https://functions.poehali.dev/6ec43ead-41fa-4995-8c3b-3fa1e0822a3b', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ observation_id: observationId })
       });
       
@@ -127,7 +126,7 @@ export default function PabViewPage() {
     
     setIsExporting(true);
     try {
-      const response = await fetch(`https://functions.poehali.dev/0db319fd-4f2e-44a7-b74f-cdb9a7c69f61?ids=${pab.id}`);
+      const response = await apiFetch(`https://functions.poehali.dev/0db319fd-4f2e-44a7-b74f-cdb9a7c69f61?ids=${pab.id}`);
       
       if (response.ok) {
         const blob = await response.blob();

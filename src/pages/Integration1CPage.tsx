@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
 import funcUrls from '../../backend/func2url.json';
+import { apiFetch } from '@/lib/api';
 
 interface SyncLog {
   id: number;
@@ -77,9 +78,8 @@ export default function Integration1CPage() {
 
     setTestLoading(true);
     try {
-      const response = await fetch(funcUrls['sync-1c-api'], {
+      const response = await apiFetch(funcUrls['sync-1c-api'], {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiUrl,
           apiLogin,
@@ -130,9 +130,8 @@ export default function Integration1CPage() {
         description: 'Данные сотрудников загружаются из 1С...',
       });
 
-      const response = await fetch(funcUrls['sync-1c-api'], {
+      const response = await apiFetch(funcUrls['sync-1c-api'], {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiUrl,
           apiLogin,
@@ -188,9 +187,8 @@ export default function Integration1CPage() {
       reader.onload = async (e) => {
         const fileContent = e.target?.result as string;
 
-        const response = await fetch(funcUrls['sync-1c-file'], {
+        const response = await apiFetch(funcUrls['sync-1c-file'], {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             fileContent,
             fileName: selectedFile.name,

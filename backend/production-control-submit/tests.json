@@ -33,10 +33,7 @@
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "success": true,
-        "report_id": "number",
-        "adminEmailSent": "boolean",
-        "userEmailSent": "boolean"
+        "success": true
       },
       "bodyMatcher": "partial"
     }

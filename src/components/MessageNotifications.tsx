@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { apiFetch } from '@/lib/api';
 
 const MessageNotifications = () => {
   const navigate = useNavigate();
@@ -87,7 +88,7 @@ const MessageNotifications = () => {
   const checkUnreadMessages = async () => {
     try {
       const userId = localStorage.getItem('userId');
-      const response = await fetch(`https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389?userId=${userId}`);
+      const response = await apiFetch(`https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389?userId=${userId}`);
       const data = await response.json();
       
       if (data.success) {

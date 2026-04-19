@@ -10,6 +10,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import UserProfileCard from '@/components/UserProfileCard';
+import { apiFetch } from '@/lib/api';
 
 const OT_ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
 const SEND_EMAIL_URL = 'https://functions.poehali.dev/2dab48c9-57c0-4f55-90e7-d93b326a6891';
@@ -135,7 +136,7 @@ const OtipbWorkspaceDashboardPage = () => {
       const params = new URLSearchParams();
       if (orgId) params.set('organization_id', orgId);
       if (currentUserId) params.set('user_id', currentUserId);
-      const res = await fetch(`${OT_ORDERS_URL}?${params.toString()}`);
+      const res = await apiFetch(`${OT_ORDERS_URL}?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setOrders(data.orders);
@@ -166,9 +167,8 @@ const OtipbWorkspaceDashboardPage = () => {
     }
     setSaving(true);
     try {
-      const res = await fetch(OT_ORDERS_URL, {
+      const res = await apiFetch(OT_ORDERS_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
           organization_id: orgId ? Number(orgId) : null,
@@ -200,9 +200,8 @@ const OtipbWorkspaceDashboardPage = () => {
       let binary = '';
       bytes.forEach(b => { binary += String.fromCharCode(b); });
       const base64 = btoa(binary);
-      const res = await fetch(OT_ORDERS_URL, {
+      const res = await apiFetch(OT_ORDERS_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'upload_document',
           order_id: orderId,
@@ -247,9 +246,8 @@ const OtipbWorkspaceDashboardPage = () => {
       setPendingFiles(prev => { const n = { ...prev }; delete n[order.id]; return n; });
     }
     try {
-      const res = await fetch(OT_ORDERS_URL, {
+      const res = await apiFetch(OT_ORDERS_URL, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: order.id,
           status,
@@ -276,9 +274,8 @@ const OtipbWorkspaceDashboardPage = () => {
     }
     try {
       const spec = specialists.find(s => s.id === Number(transferUserId));
-      const res = await fetch(OT_ORDERS_URL, {
+      const res = await apiFetch(OT_ORDERS_URL, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: transferTarget.id,
           assigned_to_user_id: Number(transferUserId),
@@ -302,7 +299,7 @@ const OtipbWorkspaceDashboardPage = () => {
   const handleDelete = async (id: number) => {
     if (!confirm('Удалить поручение?')) return;
     try {
-      const res = await fetch(`${OT_ORDERS_URL}?id=${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`${OT_ORDERS_URL}?id=${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         toast.success('Поручение удалено');
@@ -709,9 +706,8 @@ const OtipbWorkspaceDashboardPage = () => {
         </div>
         ${checklistBody}
       </body></html>`;
-      const res = await fetch(OT_ORDERS_URL, {
+      const res = await apiFetch(OT_ORDERS_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'send_checklist_email',
           to_email: checklistRecipientEmail.trim(),
@@ -749,9 +745,8 @@ const OtipbWorkspaceDashboardPage = () => {
       const encoded = btoa(unescape(encodeURIComponent(checklistHtml)));
 
       const msgText = `📋 Чек-лист передачи вахты от ${userFio || userName}\nНевыполненных поручений: ${pendingOrders.length}\nДата: ${new Date().toLocaleDateString('ru-RU')}\n[CHECKLIST_DATA:${encoded}]`;
-      const res = await fetch(OT_ORDERS_URL, {
+      const res = await apiFetch(OT_ORDERS_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'send_checklist_internal',
           sender_id: senderId,

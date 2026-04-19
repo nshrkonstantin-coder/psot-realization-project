@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import FUNC_URLS from '../../backend/func2url.json';
+import { apiFetch } from '@/lib/api';
 
 interface Module {
   id: number;
@@ -37,8 +38,8 @@ export default function OrganizationModulesPage() {
   const loadData = async () => {
     try {
       const [orgRes, modulesRes] = await Promise.all([
-        fetch(`${FUNC_URLS.organizations}?id=${id}`),
-        fetch(`${FUNC_URLS['organization-modules']}?organization_id=${id}`)
+        apiFetch(`${FUNC_URLS.organizations}?id=${id}`),
+        apiFetch(`${FUNC_URLS['organization-modules']}?organization_id=${id}`)
       ]);
 
       const orgData = await orgRes.json();
@@ -56,9 +57,8 @@ export default function OrganizationModulesPage() {
 
   const toggleModule = async (moduleId: number, currentStatus: boolean) => {
     try {
-      const res = await fetch(FUNC_URLS['organization-modules'], {
+      const res = await apiFetch(FUNC_URLS['organization-modules'], {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           organization_id: parseInt(id!),
           module_id: moduleId,
@@ -85,9 +85,8 @@ export default function OrganizationModulesPage() {
     try {
       const enabledModuleIds = modules.filter(m => m.is_enabled).map(m => m.id);
 
-      const res = await fetch(FUNC_URLS['organization-modules'], {
+      const res = await apiFetch(FUNC_URLS['organization-modules'], {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           organization_id: parseInt(id!),
           module_ids: enabledModuleIds

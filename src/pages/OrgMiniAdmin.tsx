@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { TechnicalSupport } from '@/components/TechnicalSupport';
 import OrganizationLogo from '@/components/OrganizationLogo';
+import { apiFetch } from '@/lib/api';
 
 interface Permission {
   module: string;
@@ -36,7 +37,7 @@ const OrgMiniAdmin = () => {
     
     setUserFio(localStorage.getItem('userFio') || '');
     setUserCompany(localStorage.getItem('userCompany') || '');
-    fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
+    apiFetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
       .then(r => r.json())
       .then(data => {
         if (data.success && data.user?.fio) {
@@ -52,7 +53,7 @@ const OrgMiniAdmin = () => {
   const loadPermissions = async () => {
     try {
       const userId = localStorage.getItem('userId');
-      const response = await fetch(`https://functions.poehali.dev/3bdac2b0-aad0-492f-bee6-465d1a0f71fb?user_id=${userId}`);
+      const response = await apiFetch(`https://functions.poehali.dev/3bdac2b0-aad0-492f-bee6-465d1a0f71fb?user_id=${userId}`);
       
       if (response.ok) {
         const data = await response.json();

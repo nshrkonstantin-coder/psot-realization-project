@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { generatePabHtml } from '@/utils/generatePabHtml';
+import { apiFetch } from '@/lib/api';
 
 export interface Observation {
   id: number;
@@ -175,7 +176,7 @@ export const useMetricsData = () => {
 
   const loadChart = async (currentOrgId: string) => {
     try {
-      const response = await fetch(`${CHART_URL}?org_id=${currentOrgId}`, { method: 'GET' });
+      const response = await apiFetch(`${CHART_URL}?org_id=${currentOrgId}`);
       const data = await response.json();
       setChartUrl(data.exists && data.url ? data.url : null);
     } catch (error) {
@@ -203,9 +204,8 @@ export const useMetricsData = () => {
           return;
         }
 
-        const response = await fetch(CHART_URL, {
+        const response = await apiFetch(CHART_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ file: base64, org_id: orgId }),
         });
 
@@ -231,9 +231,8 @@ export const useMetricsData = () => {
     if (!window.confirm('Вы уверены, что хотите удалить график? Он исчезнет у всех пользователей организации.')) return;
 
     try {
-      const response = await fetch(CHART_URL, {
+      const response = await apiFetch(CHART_URL, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ org_id: orgId }),
       });
       const data = await response.json();

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 import {
   Table,
   TableBody,
@@ -43,7 +44,7 @@ export default function AdminPabRegistryPage() {
     try {
       setLoading(true);
       
-      const response = await fetch('https://functions.poehali.dev/4c14a615-c04d-48ce-89ab-139999fefa5c');
+      const response = await apiFetch('https://functions.poehali.dev/4c14a615-c04d-48ce-89ab-139999fefa5c');
       
       if (!response.ok) {
         throw new Error('Ошибка загрузки данных');

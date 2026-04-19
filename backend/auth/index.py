@@ -305,11 +305,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 (email,)
             )
             auth_row = cur.fetchone()
-            # Verify password with bcrypt in Python
-            if auth_row and bcrypt.checkpw(password.encode(), auth_row[13].encode()):
-                result = auth_row
-            else:
-                result = None
+            # Verify password: поддержка и bcrypt и старого SHA-256 (миграция на лету)
+            result = None
+            if auth_row:
+                stored_hash = auth_row[13]
+                try:
+                    if stored_hash.startswith('$2b$') or stored_hash.startswith('$2a$'):
+                        # bcrypt хеш
+                        if bcrypt.checkpw(password.encode(), stored_hash.encode()):
+                            result = auth_row
+                    else:
+                        # Старый SHA-256 хеш — проверяем и обновляем на bcrypt
+                        import hashlib
+                        sha_hash = hashlib.sha256(password.encode()).hexdigest()
+                        if sha_hash == stored_hash:
+                            result = auth_row
+                            # Обновляем хеш на bcrypt прямо сейчас
+                            new_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+                            cur.execute(
+                                "UPDATE " + SCHEMA + ".users SET password_hash = %s WHERE id = %s",
+                                (new_hash, auth_row[0])
+                            )
+                            print(f"[AUTH] Upgraded password hash from SHA-256 to bcrypt for user_id={auth_row[0]}")
+                except Exception as e:
+                    print(f"[AUTH] Password check error: {e}")
+                    result = None
 
             ip_or_none = ip if ip else None
 

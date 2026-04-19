@@ -10,6 +10,7 @@ import ConferenceCallView from '@/components/video-conference/ConferenceCallView
 import DeviceCheckDialog from '@/components/video-conference/DeviceCheckDialog';
 import CreateConferenceDialog from '@/components/video-conference/CreateConferenceDialog';
 import ConferenceCard from '@/components/video-conference/ConferenceCard';
+import { apiFetch } from '@/lib/api';
 
 const VideoConferencePage = () => {
   const navigate = useNavigate();
@@ -84,9 +85,7 @@ const VideoConferencePage = () => {
 
   const loadCompanies = async () => {
     try {
-      const response = await fetch(`${ORGANIZATIONS_URL}?action=list`, {
-        headers: { 'X-User-Id': localStorage.getItem('userId')! }
-      });
+      const response = await apiFetch(`${ORGANIZATIONS_URL}?action=list`);
       const data = await response.json();
       const companiesList = Array.isArray(data) ? data : data.organizations || [];
       setCompanies(companiesList);
@@ -101,9 +100,7 @@ const VideoConferencePage = () => {
 
   const loadUsers = async () => {
     try {
-      const response = await fetch(`${MESSAGING_URL}?action=list_all_users`, {
-        headers: { 'X-User-Id': localStorage.getItem('userId')! }
-      });
+      const response = await apiFetch(`${MESSAGING_URL}?action=list_all_users`);
       const data = await response.json();
       if (data.users) {
         const sortedUsers = [...data.users].sort((a, b) => {
@@ -120,9 +117,7 @@ const VideoConferencePage = () => {
 
   const loadConferences = async () => {
     try {
-      const response = await fetch(`${VIDEO_CONFERENCES_URL}?action=list`, {
-        headers: { 'X-User-Id': localStorage.getItem('userId')! }
-      });
+      const response = await apiFetch(`${VIDEO_CONFERENCES_URL}?action=list`);
       const data = await response.json();
       const allConferences = data.conferences || [];
       const active = allConferences.filter((c: Conference) => c.status === 'active');
@@ -142,9 +137,8 @@ const VideoConferencePage = () => {
     const exists = favoriteRooms.find(c => c.id === confId);
     const isFavorite = !exists;
     try {
-      await fetch(`${VIDEO_CONFERENCES_URL}?action=favorite`, {
+      await apiFetch(`${VIDEO_CONFERENCES_URL}?action=favorite`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
         body: JSON.stringify({ conference_id: confId, is_favorite: isFavorite })
       });
       if (isFavorite) {
@@ -167,18 +161,15 @@ const VideoConferencePage = () => {
 
   const joinConferenceByRoom = async (roomId: string, currentUserId: number) => {
     try {
-      const response = await fetch(`${VIDEO_CONFERENCES_URL}?action=get&id=${roomId}`, {
-        headers: { 'X-User-Id': String(currentUserId) }
-      });
+      const response = await apiFetch(`${VIDEO_CONFERENCES_URL}?action=get&id=${roomId}`);
       if (!response.ok) {
         toast({ title: 'Конференция не найдена', description: 'Возможно, она уже завершена или была удалена', variant: 'destructive' });
         return;
       }
       const conf = await response.json();
       console.log('Конференция загружена:', conf);
-      await fetch(`${VIDEO_CONFERENCES_URL}?action=join`, {
+      await apiFetch(`${VIDEO_CONFERENCES_URL}?action=join`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': String(currentUserId) },
         body: JSON.stringify({ conference_id: roomId })
       });
       setCurrentConference(conf);
@@ -367,9 +358,8 @@ const VideoConferencePage = () => {
     };
     try {
       console.log('Создание конференции:', newConference);
-      const response = await fetch(`${VIDEO_CONFERENCES_URL}?action=create`, {
+      const response = await apiFetch(`${VIDEO_CONFERENCES_URL}?action=create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
         body: JSON.stringify(newConference)
       });
       console.log('Ответ сервера:', response.status);
@@ -399,9 +389,8 @@ const VideoConferencePage = () => {
     const messageText = `📞 ${userFio} приглашает вас на видеоконференцию "${conferenceName}". Присоединяйтесь: ${inviteLink}`;
 
     selectedUserIds.forEach(participantId => {
-      fetch(`${MESSAGING_URL}`, {
+      apiFetch(`${MESSAGING_URL}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
         body: JSON.stringify({ action: 'send_message', recipient_id: participantId, message: messageText })
       })
         .then(r => r.json())
@@ -437,9 +426,8 @@ const VideoConferencePage = () => {
           </div>
         </div>`;
 
-      fetch(SEND_EMAIL_URL, {
+      apiFetch(SEND_EMAIL_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipients: recipientEmails,
           subject: `📞 Приглашение на видеоконференцию "${conferenceName}"`,
@@ -518,9 +506,8 @@ const VideoConferencePage = () => {
     if (qualityMonitorRef.current) { clearInterval(qualityMonitorRef.current); qualityMonitorRef.current = null; }
     if (currentConference && currentConference.creator_id === userId) {
       try {
-        await fetch(`${VIDEO_CONFERENCES_URL}?action=end`, {
+        await apiFetch(`${VIDEO_CONFERENCES_URL}?action=end`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
           body: JSON.stringify({ id: currentConference.id, duration: 0 })
         });
       } catch (error) {

@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 export const TechnicalSupport = () => {
   const [open, setOpen] = useState(false);
@@ -36,9 +37,8 @@ export const TechnicalSupport = () => {
         const base64Data = event.target?.result as string;
         const base64Content = base64Data.split(',')[1];
 
-        const response = await fetch('https://functions.poehali.dev/e519c776-33cc-4cea-bdaa-1d10b684b777', {
+        const response = await apiFetch('https://functions.poehali.dev/e519c776-33cc-4cea-bdaa-1d10b684b777', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'upload_file',
             fileName: file.name,
@@ -97,9 +97,8 @@ export const TechnicalSupport = () => {
       const userEmail = localStorage.getItem('userEmail') || 'Не указан';
       const userId = localStorage.getItem('userId') || 'Не указан';
 
-      const response = await fetch('https://functions.poehali.dev/e519c776-33cc-4cea-bdaa-1d10b684b777', {
+      const response = await apiFetch('https://functions.poehali.dev/e519c776-33cc-4cea-bdaa-1d10b684b777', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'send_request',
           requestType,

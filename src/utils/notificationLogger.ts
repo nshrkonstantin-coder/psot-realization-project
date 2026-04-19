@@ -1,3 +1,5 @@
+import { apiFetch } from '@/lib/api';
+
 /**
  * Утилита для автоматической отправки системных уведомлений
  * Используется для логирования ошибок и важных событий
@@ -33,7 +35,7 @@ export const sendNotification = async (data: NotificationData): Promise<void> =>
     
     if (userId) {
       try {
-        const userResponse = await fetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?user_id=${userId}`);
+        const userResponse = await apiFetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?user_id=${userId}`);
         if (userResponse.ok) {
           const userData = await userResponse.json();
           userPosition = userData.position || '';
@@ -45,7 +47,7 @@ export const sendNotification = async (data: NotificationData): Promise<void> =>
     
     if (organizationId) {
       try {
-        const orgResponse = await fetch(`https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?id=${organizationId}`);
+        const orgResponse = await apiFetch(`https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?id=${organizationId}`);
         if (orgResponse.ok) {
           const orgData = await orgResponse.json();
           organizationName = orgData.name || '';
@@ -55,9 +57,8 @@ export const sendNotification = async (data: NotificationData): Promise<void> =>
       }
     }
 
-    await fetch(NOTIFICATIONS_URL, {
+    await apiFetch(NOTIFICATIONS_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'create',
         type: data.type,

@@ -1,3 +1,5 @@
+import { apiFetch } from '@/lib/api';
+
 interface UploadDocumentParams {
   userId: string;
   department: string;
@@ -11,7 +13,7 @@ export async function uploadDocumentToStorage({
   documentType,
   file
 }: UploadDocumentParams): Promise<string> {
-  const getFoldersResponse = await fetch(
+  const getFoldersResponse = await apiFetch(
     `https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798?user_id=${userId}`
   );
   const foldersData = await getFoldersResponse.json();
@@ -24,11 +26,10 @@ export async function uploadDocumentToStorage({
   if (departmentFolder) {
     departmentFolderId = departmentFolder.id;
   } else {
-    const createDeptResponse = await fetch(
+    const createDeptResponse = await apiFetch(
       'https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'create',
           user_id: userId,
@@ -44,7 +45,7 @@ export async function uploadDocumentToStorage({
     }
   }
 
-  const refreshFoldersResponse = await fetch(
+  const refreshFoldersResponse = await apiFetch(
     `https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798?user_id=${userId}`
   );
   const refreshedFoldersData = await refreshFoldersResponse.json();
@@ -58,11 +59,10 @@ export async function uploadDocumentToStorage({
   if (documentTypeFolder) {
     documentTypeFolderId = documentTypeFolder.id;
   } else {
-    const createDocTypeResponse = await fetch(
+    const createDocTypeResponse = await apiFetch(
       'https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'create',
           user_id: userId,
@@ -83,7 +83,7 @@ export async function uploadDocumentToStorage({
   formData.append('file', file);
   formData.append('folder_id', String(documentTypeFolderId));
 
-  const uploadResponse = await fetch(
+  const uploadResponse = await apiFetch(
     'https://functions.poehali.dev/cbbbbc82-61fa-4061-88d0-900cb586aea6',
     {
       method: 'POST',

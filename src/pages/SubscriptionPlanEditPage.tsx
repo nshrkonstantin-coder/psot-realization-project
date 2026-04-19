@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface PlanComponent {
@@ -78,8 +79,8 @@ const SubscriptionPlanEditPage = () => {
   const loadData = async () => {
     try {
       const [planRes, componentsRes] = await Promise.all([
-        fetch(`https://functions.poehali.dev/74e617c7-d1e0-48d6-a5a6-0d25d554958e?id=${id}`),
-        fetch('https://functions.poehali.dev/48cabc8b-baa9-4c41-9f08-c1b32cf7ad84')
+        apiFetch(`https://functions.poehali.dev/74e617c7-d1e0-48d6-a5a6-0d25d554958e?id=${id}`),
+        apiFetch('https://functions.poehali.dev/48cabc8b-baa9-4c41-9f08-c1b32cf7ad84')
       ]);
 
       if (!planRes.ok || !componentsRes.ok) throw new Error('Failed to load');
@@ -103,9 +104,8 @@ const SubscriptionPlanEditPage = () => {
 
     setSaving(true);
     try {
-      const response = await fetch('https://functions.poehali.dev/74e617c7-d1e0-48d6-a5a6-0d25d554958e', {
+      const response = await apiFetch('https://functions.poehali.dev/74e617c7-d1e0-48d6-a5a6-0d25d554958e', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: plan.id,
           name: plan.name,

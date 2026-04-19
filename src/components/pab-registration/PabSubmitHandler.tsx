@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import { generatePabHtml } from '@/utils/generatePabHtml';
 import { uploadDocumentToStorage } from '@/utils/documentUpload';
+import { apiFetch } from '@/lib/api';
 
 interface Observation {
   observation_number: number;

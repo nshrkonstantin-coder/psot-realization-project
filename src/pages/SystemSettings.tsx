@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ImportInstructions } from '@/components/import/ImportInstructions';
 import * as XLSX from 'xlsx';
+import { apiFetch } from '@/lib/api';
 
 interface Company {
   id: number;
@@ -60,7 +61,7 @@ const SystemSettings = () => {
 
   const loadCompanies = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=list_companies');
+      const response = await apiFetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=list_companies');
       const data = await response.json();
       if (data.success) {
         setCompanies(data.companies);
@@ -146,9 +147,8 @@ const SystemSettings = () => {
         
         console.log(`Импорт пользователя ${i + 1}/${updatedUsers.length}:`, requestBody);
         
-        const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
+        const response = await apiFetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
         });
 

@@ -6,6 +6,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import LightThemeWrapper from '@/components/LightThemeWrapper';
+import { apiFetch } from '@/lib/api';
 import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, ImageRun } from 'docx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -13,6 +14,7 @@ import { uploadToEPKFolder } from '@/utils/uploadToEPKFolder';
 import ProductionControlForm from '@/components/production-control/ProductionControlForm';
 import ViolationsTable from '@/components/production-control/ViolationsTable';
 import SignatureSection from '@/components/production-control/SignatureSection';
+import { apiFetch } from '@/lib/api';
 
 interface ViolationItem {
   item_number: number;
@@ -93,7 +95,7 @@ export default function ProductionControlPage() {
     }
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `https://functions.poehali.dev/19d2aac9-fad8-4354-a87d-0d21abbbdc67?organization_id=${organizationId}`
       );
       
@@ -121,7 +123,7 @@ export default function ProductionControlPage() {
     }
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `https://functions.poehali.dev/bceeaee7-5cfa-418c-9c0d-0a61668ab1a4?organization_id=${organizationId}`
       );
       
@@ -167,9 +169,8 @@ export default function ProductionControlPage() {
       }
       
       toast.info('Сохранение в базу данных...');
-      const response = await fetch('https://functions.poehali.dev/2babe7b8-1f0b-464f-8aae-3e623cf3a795', {
+      const response = await apiFetch('https://functions.poehali.dev/2babe7b8-1f0b-464f-8aae-3e623cf3a795', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           doc_number: docNumber,
           doc_date: currentDate,
@@ -210,9 +211,8 @@ export default function ProductionControlPage() {
           }
         };
         
-        fetch('https://functions.poehali.dev/4a977fe4-5b7e-477d-b142-d85522845415', {
+        apiFetch('https://functions.poehali.dev/4a977fe4-5b7e-477d-b142-d85522845415', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(notificationData)
         }).then(res => res.json()).then(notifResult => {
           if (notifResult.success) {

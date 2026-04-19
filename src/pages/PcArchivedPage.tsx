@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 interface ArchivedRecord {
   id: number;
@@ -36,7 +37,7 @@ export default function PcArchivedPage() {
   const loadArchivedRecords = async () => {
     setLoading(true);
     try {
-      const response = await fetch('https://functions.poehali.dev/758b1b55-dab9-4e6c-821a-9654c4478aba');
+      const response = await apiFetch('https://functions.poehali.dev/758b1b55-dab9-4e6c-821a-9654c4478aba');
       if (!response.ok) {
         throw new Error('Ошибка загрузки архива');
       }
@@ -57,9 +58,8 @@ export default function PcArchivedPage() {
     }
 
     try {
-      const response = await fetch('https://functions.poehali.dev/8dd8d682-7f79-4156-b808-7815d40e333c', {
+      const response = await apiFetch('https://functions.poehali.dev/8dd8d682-7f79-4156-b808-7815d40e333c', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pc_ids: ids })
       });
 

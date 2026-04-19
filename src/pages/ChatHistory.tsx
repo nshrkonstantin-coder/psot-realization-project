@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
 import OrganizationLogo from '@/components/OrganizationLogo';
+import { apiFetch } from '@/lib/api';
 import {
   Dialog,
   DialogContent,
@@ -78,7 +79,7 @@ const ChatHistory = () => {
   const loadChats = async () => {
     try {
       const userId = localStorage.getItem('userId');
-      const response = await fetch(`https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389?userId=${userId}`);
+      const response = await apiFetch(`https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389?userId=${userId}`);
       const data = await response.json();
       
       if (data.success) {
@@ -96,7 +97,7 @@ const ChatHistory = () => {
   const loadOrganizationUsers = async () => {
     try {
       const userId = localStorage.getItem('userId');
-      const response = await fetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=registered_users&userId=${userId}`);
+      const response = await apiFetch(`https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=registered_users&userId=${userId}`);
       const data = await response.json();
       
       if (data.success) {
@@ -137,7 +138,7 @@ const ChatHistory = () => {
   const loadMessages = async (chat: Chat, silent = false) => {
     try {
       const userId = localStorage.getItem('userId');
-      const response = await fetch(`https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389?userId=${userId}&receiverId=${chat.userId}`);
+      const response = await apiFetch(`https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389?userId=${userId}&receiverId=${chat.userId}`);
       const data = await response.json();
       
       if (data.success) {
@@ -175,11 +176,8 @@ const ChatHistory = () => {
 
     try {
       const userId = localStorage.getItem('userId');
-      const response = await fetch('https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389', {
+      const response = await apiFetch('https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           senderId: userId,
           receiverId: selectedChat.userId,

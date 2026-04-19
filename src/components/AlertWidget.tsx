@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { apiFetch } from '@/lib/api';
 
 const OT_ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
 
@@ -58,7 +59,7 @@ const AlertWidget = () => {
     if (orgId) params.set('organization_id', orgId);
     // Все сотрудники с ОТиПБ в должности и admins видят все поручения отдела
 
-    fetch(`${OT_ORDERS_URL}?${params.toString()}`)
+    apiFetch(`${OT_ORDERS_URL}?${params.toString()}`)
       .then(r => r.json())
       .then(data => {
         if (!data.success) return;

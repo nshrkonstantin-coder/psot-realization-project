@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { logError } from '@/utils/notificationLogger';
+import { apiFetch } from '@/lib/api';
 
 interface Folder {
   id: number;
@@ -37,7 +38,7 @@ const StoragePage = () => {
     try {
       setLoading(true);
       const userId = localStorage.getItem('userId');
-      const response = await fetch(`https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798?user_id=${userId}`);
+      const response = await apiFetch(`https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798?user_id=${userId}`);
       
       if (!response.ok) throw new Error('Ошибка загрузки папок');
       
@@ -61,9 +62,8 @@ const StoragePage = () => {
     try {
       const userId = localStorage.getItem('userId');
       console.log('Creating folder:', { userId, folder_name: newFolderName.trim() });
-      const response = await fetch('https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798', {
+      const response = await apiFetch('https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'create',
           user_id: userId,
@@ -81,9 +81,8 @@ const StoragePage = () => {
       const organizationId = localStorage.getItem('organizationId');
       if (organizationId) {
         try {
-          await fetch('https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4f6ca', {
+          await apiFetch('https://functions.poehali.dev/c250cb0e-130b-4d0b-8980-cc13bad4f6ca', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               org_id: organizationId,
               action_type: 'folder_create',
@@ -109,9 +108,8 @@ const StoragePage = () => {
     if (!selectedFolder) return;
 
     try {
-      const response = await fetch('https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798', {
+      const response = await apiFetch('https://functions.poehali.dev/89ba96e1-c10f-490a-ad91-54a977d9f798', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'delete',
           folder_id: selectedFolder.id

@@ -16,35 +16,25 @@ import boto3
 
 def send_notification(cur, user_id: int, title: str, message: str, notification_type: str = 'info'):
     '''Отправка уведомления пользователю и администраторам в локальный чат'''
-    # Получаем данные пользователя
-    cur.execute(f"""
-        SELECT fio, position, organization_id 
-        FROM t_p80499285_psot_realization_pro.users 
-        WHERE id = {user_id}
-    """)
+    cur.execute(
+        "SELECT fio, position, organization_id FROM t_p80499285_psot_realization_pro.users WHERE id = %s",
+        (user_id,)
+    )
     user_data = cur.fetchone()
     
     if not user_data:
         return
     
     user_fio, user_position, org_id = user_data
-    user_fio_esc = str(user_fio).replace("'", "''") if user_fio else ''
-    user_position_esc = str(user_position).replace("'", "''") if user_position else ''
-    title_esc = str(title).replace("'", "''")
-    message_esc = str(message).replace("'", "''")
-    
-    # Используем стандартное название организации
     org_name = 'АО "ГРК "Западная"'
     
-    # Отправляем системное уведомление администраторам
-    cur.execute(f"""
-        INSERT INTO t_p80499285_psot_realization_pro.system_notifications
-        (notification_type, severity, title, message, user_id, user_fio, user_position,
-         organization_id, organization_name, is_read, created_at)
-        VALUES ('{notification_type}', 'info', '{title_esc}', '{message_esc}', 
-                {user_id}, '{user_fio_esc}', '{user_position_esc}',
-                {org_id if org_id else 'NULL'}, '{org_name}', false, NOW())
-    """)
+    cur.execute(
+        "INSERT INTO t_p80499285_psot_realization_pro.system_notifications "
+        "(notification_type, severity, title, message, user_id, user_fio, user_position, "
+        "organization_id, organization_name, is_read, created_at) "
+        "VALUES (%s, 'info', %s, %s, %s, %s, %s, %s, %s, false, NOW())",
+        (notification_type, title, message, user_id, user_fio or '', user_position or '', org_id, org_name)
+    )
     
     print(f'[Notification] Sent to user {user_id} and admins')
 

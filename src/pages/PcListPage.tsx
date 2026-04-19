@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { generatePcPDF } from '@/utils/pcPdfExport';
+import { apiFetch } from '@/lib/api';
 
 interface PcRecord {
   id: number;
@@ -43,11 +44,7 @@ export default function PcListPage() {
     try {
       const userFio = localStorage.getItem('userFio') || '';
       
-      const response = await fetch('https://functions.poehali.dev/633655fc-0da1-442f-9294-a2ab3ccce0da', {
-        headers: {
-          'X-User-Fio': userFio
-        }
-      });
+      const response = await apiFetch('https://functions.poehali.dev/633655fc-0da1-442f-9294-a2ab3ccce0da');
       
       const data = await response.json();
       setRecords(data.records || []);
@@ -61,9 +58,8 @@ export default function PcListPage() {
 
   const updateStatus = async (id: number, newStatus: string) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/pc-update-status-placeholder', {
+      const response = await apiFetch('https://functions.poehali.dev/pc-update-status-placeholder', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status: newStatus })
       });
       
@@ -87,7 +83,7 @@ export default function PcListPage() {
 
     setIsExporting(true);
     try {
-      const response = await fetch(`https://functions.poehali.dev/d3d95054-5481-4d49-bd1e-30ec16602354?ids=${selectedIds.join(',')}`);
+      const response = await apiFetch(`https://functions.poehali.dev/d3d95054-5481-4d49-bd1e-30ec16602354?ids=${selectedIds.join(',')}`);
       const data = await response.json();
       
       if (data.records && data.records.length > 0) {
@@ -112,7 +108,7 @@ export default function PcListPage() {
 
     setIsExporting(true);
     try {
-      const response = await fetch(`https://functions.poehali.dev/b9254750-728b-41ea-88fe-33ac7f924adc?ids=${selectedIds.join(',')}`);
+      const response = await apiFetch(`https://functions.poehali.dev/b9254750-728b-41ea-88fe-33ac7f924adc?ids=${selectedIds.join(',')}`);
       
       if (response.ok) {
         const blob = await response.blob();
@@ -152,9 +148,8 @@ export default function PcListPage() {
 
     try {
       const organizationId = localStorage.getItem('organizationId');
-      const response = await fetch('https://functions.poehali.dev/49007de7-4bc2-4b98-875a-faa2756abd6e', {
+      const response = await apiFetch('https://functions.poehali.dev/49007de7-4bc2-4b98-875a-faa2756abd6e', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           pc_ids: selectedIds,
           organization_id: organizationId ? parseInt(organizationId) : undefined

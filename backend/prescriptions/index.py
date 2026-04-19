@@ -79,30 +79,40 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 def get_prescriptions(conn, user_id: str, user_role: str, event: Dict) -> Dict:
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     params = event.get('queryStringParameters') or {}
-    schema = 't_p80499285_psot_realization_pro'
     
     is_admin = user_role in ['admin', 'superadmin', 'miniadmin']
     print(f'[DEBUG] get_prescriptions: user_id={user_id}, user_role={user_role}, is_admin={is_admin}')
     
+    if not is_admin and not user_id:
+        cursor.close()
+        return {
+            'statusCode': 401,
+            'headers': {'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'},
+            'body': json.dumps({'error': 'Unauthorized'}),
+            'isBase64Encoded': False
+        }
+    
     # Статистика
-    stats_query = f'''
+    stats_query = '''
         SELECT 
             COUNT(DISTINCT pv.prescription_id) as total_prescriptions,
             COUNT(pv.id) as total_violations,
             SUM(CASE WHEN pv.status = 'completed' AND pv.confirmed_by_issuer = TRUE THEN 1 ELSE 0 END) as completed,
             SUM(CASE WHEN pv.status = 'in_work' THEN 1 ELSE 0 END) as in_work,
             SUM(CASE WHEN pv.status = 'overdue' OR (pv.deadline < CURRENT_DATE AND pv.status != 'completed') THEN 1 ELSE 0 END) as overdue
-        FROM {schema}.production_prescription_violations pv
+        FROM t_p80499285_psot_realization_pro.production_prescription_violations pv
     '''
     
+    stats_params = []
     if not is_admin:
-        stats_query += f" WHERE pv.assigned_user_id = {user_id}"
+        stats_query += " WHERE pv.assigned_user_id = %s"
+        stats_params.append(int(user_id))
     
-    cursor.execute(stats_query)
+    cursor.execute(stats_query, stats_params)
     stats = dict(cursor.fetchone())
     
     # Список нарушений
-    violations_query = f'''
+    violations_query = '''
         SELECT 
             pv.*,
             p.issuer_fio,
@@ -113,30 +123,35 @@ def get_prescriptions(conn, user_id: str, user_role: str, event: Dict) -> Dict:
                 WHEN pv.deadline < CURRENT_DATE AND pv.status != 'completed' THEN 'overdue'
                 ELSE pv.status
             END as actual_status
-        FROM {schema}.production_prescription_violations pv
-        JOIN {schema}.production_prescriptions p ON pv.prescription_id = p.id
+        FROM t_p80499285_psot_realization_pro.production_prescription_violations pv
+        JOIN t_p80499285_psot_realization_pro.production_prescriptions p ON pv.prescription_id = p.id
     '''
     
     where_clauses = []
+    query_params = []
+    
     if not is_admin:
-        where_clauses.append(f"pv.assigned_user_id = {user_id}")
+        where_clauses.append("pv.assigned_user_id = %s")
+        query_params.append(int(user_id))
     
     if params.get('status'):
         status = params['status']
         if status == 'overdue':
             where_clauses.append("(pv.deadline < CURRENT_DATE AND pv.status != 'completed')")
         else:
-            where_clauses.append(f"pv.status = '{status}'")
+            where_clauses.append("pv.status = %s")
+            query_params.append(status)
     
     if params.get('prescription_id'):
-        where_clauses.append(f"pv.prescription_id = {params['prescription_id']}")
+        where_clauses.append("pv.prescription_id = %s")
+        query_params.append(int(params['prescription_id']))
     
     if where_clauses:
         violations_query += ' WHERE ' + ' AND '.join(where_clauses)
     
     violations_query += ' ORDER BY pv.deadline ASC, pv.id DESC'
     
-    cursor.execute(violations_query)
+    cursor.execute(violations_query, query_params)
     violations = [dict(row) for row in cursor.fetchall()]
     
     # Преобразуем даты в строки
@@ -196,30 +211,30 @@ def create_prescription(conn, body: Dict) -> Dict:
 
 def create_violation(conn, body: Dict) -> Dict:
     cursor = conn.cursor()
-    schema = 't_p80499285_psot_realization_pro'
     
-    cursor.execute(f'''
-        INSERT INTO {schema}.production_prescription_violations 
-        (prescription_id, violation_text, assigned_user_id, assigned_user_fio, deadline)
-        VALUES (%s, %s, %s, %s, %s)
-        RETURNING id
-    ''', (
-        body['prescription_id'],
-        body['violation_text'],
-        body['assigned_user_id'],
-        body['assigned_user_fio'],
-        body['deadline']
-    ))
+    cursor.execute(
+        "INSERT INTO t_p80499285_psot_realization_pro.production_prescription_violations "
+        "(prescription_id, violation_text, assigned_user_id, assigned_user_fio, deadline) "
+        "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+        (
+            body['prescription_id'],
+            body['violation_text'],
+            body['assigned_user_id'],
+            body['assigned_user_fio'],
+            body['deadline']
+        )
+    )
     
     violation_id = cursor.fetchone()[0]
     conn.commit()
     
-    cursor.execute(f'''
-        SELECT u.telegram_chat_id, p.prescription_number, p.created_at
-        FROM {schema}.users u
-        JOIN {schema}.production_prescriptions p ON p.id = %s
-        WHERE u.id = %s AND u.telegram_chat_id IS NOT NULL
-    ''', (body['prescription_id'], body['assigned_user_id']))
+    cursor.execute(
+        "SELECT u.telegram_chat_id, p.prescription_number, p.created_at "
+        "FROM t_p80499285_psot_realization_pro.users u "
+        "JOIN t_p80499285_psot_realization_pro.production_prescriptions p ON p.id = %s "
+        "WHERE u.id = %s AND u.telegram_chat_id IS NOT NULL",
+        (body['prescription_id'], body['assigned_user_id'])
+    )
     
     user_tg = cursor.fetchone()
     
@@ -264,20 +279,21 @@ def create_violation(conn, body: Dict) -> Dict:
 
 def update_violation_status(conn, body: Dict) -> Dict:
     cursor = conn.cursor()
-    schema = 't_p80499285_psot_realization_pro'
     
     if body.get('status') == 'completed':
-        cursor.execute(f'''
-            UPDATE {schema}.production_prescription_violations 
-            SET status = %s, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-            WHERE id = %s
-        ''', (body['status'], body['id']))
+        cursor.execute(
+            "UPDATE t_p80499285_psot_realization_pro.production_prescription_violations "
+            "SET status = %s, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = %s",
+            (body['status'], body['id'])
+        )
     else:
-        cursor.execute(f'''
-            UPDATE {schema}.production_prescription_violations 
-            SET status = %s, updated_at = CURRENT_TIMESTAMP
-            WHERE id = %s
-        ''', (body['status'], body['id']))
+        cursor.execute(
+            "UPDATE t_p80499285_psot_realization_pro.production_prescription_violations "
+            "SET status = %s, updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = %s",
+            (body['status'], body['id'])
+        )
     
     conn.commit()
     cursor.close()
@@ -292,13 +308,13 @@ def update_violation_status(conn, body: Dict) -> Dict:
 
 def redirect_violation(conn, body: Dict, redirected_by: str) -> Dict:
     cursor = conn.cursor()
-    schema = 't_p80499285_psot_realization_pro'
     
-    cursor.execute(f'''
-        UPDATE {schema}.production_prescription_violations 
-        SET assigned_user_id = %s, assigned_user_fio = %s, updated_at = CURRENT_TIMESTAMP
-        WHERE id = %s
-    ''', (body['new_user_id'], body['new_user_fio'], body['violation_id']))
+    cursor.execute(
+        "UPDATE t_p80499285_psot_realization_pro.production_prescription_violations "
+        "SET assigned_user_id = %s, assigned_user_fio = %s, updated_at = CURRENT_TIMESTAMP "
+        "WHERE id = %s",
+        (body['new_user_id'], body['new_user_fio'], body['violation_id'])
+    )
     
     conn.commit()
     cursor.close()
@@ -313,13 +329,13 @@ def redirect_violation(conn, body: Dict, redirected_by: str) -> Dict:
 
 def confirm_completion(conn, body: Dict, confirmer_id: str) -> Dict:
     cursor = conn.cursor()
-    schema = 't_p80499285_psot_realization_pro'
     
-    cursor.execute(f'''
-        UPDATE {schema}.production_prescription_violations 
-        SET confirmed_by_issuer = TRUE, updated_at = CURRENT_TIMESTAMP
-        WHERE id = %s
-    ''', (body['violation_id'],))
+    cursor.execute(
+        "UPDATE t_p80499285_psot_realization_pro.production_prescription_violations "
+        "SET confirmed_by_issuer = TRUE, updated_at = CURRENT_TIMESTAMP "
+        "WHERE id = %s",
+        (body['violation_id'],)
+    )
     
     conn.commit()
     cursor.close()

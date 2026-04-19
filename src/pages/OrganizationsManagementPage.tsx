@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import BlockOrganizationDialog from '@/components/BlockOrganizationDialog';
+import { apiFetch } from '@/lib/api';
 
 interface Organization {
   id: number;
@@ -51,11 +52,7 @@ const OrganizationsManagementPage = () => {
 
   const loadOrganizations = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b', {
-        headers: {
-          'X-User-Id': localStorage.getItem('userId') || ''
-        }
-      });
+      const response = await apiFetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b');
       if (!response.ok) throw new Error('Failed to load');
       const data = await response.json();
       setOrganizations(data);

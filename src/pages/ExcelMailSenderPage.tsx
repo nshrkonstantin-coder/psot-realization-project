@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
 import * as XLSX from 'xlsx';
 import func2url from '../../backend/func2url.json';
+import { apiFetch } from '@/lib/api';
 
 interface RowData { [key: string]: string; }
 type SendStatus = 'idle' | 'sending' | 'sent' | 'error';
@@ -85,9 +86,8 @@ export default function ExcelMailSenderPage() {
   const loadDatasets = useCallback(async () => {
     setLoadingDatasets(true);
     try {
-      const res = await fetch(BACKEND_URL, {
+      const res = await apiFetch(BACKEND_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'load_datasets',
           user_id: userId ? parseInt(userId) : null,
@@ -107,9 +107,8 @@ export default function ExcelMailSenderPage() {
     if (!h.length || !r.length) return dsId;
     setSavingDataset(true);
     try {
-      const res = await fetch(BACKEND_URL, {
+      const res = await apiFetch(BACKEND_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'save_dataset',
           dataset_id: dsId,
@@ -137,9 +136,8 @@ export default function ExcelMailSenderPage() {
   // Загрузить конкретный датасет
   const loadDataset = async (id: number) => {
     try {
-      const res = await fetch(BACKEND_URL, {
+      const res = await apiFetch(BACKEND_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'load_dataset', dataset_id: id }),
       });
       const data = await res.json();
@@ -168,9 +166,8 @@ export default function ExcelMailSenderPage() {
   const deleteDataset = async (id: number) => {
     setDeletingDatasetId(id);
     try {
-      const res = await fetch(BACKEND_URL, {
+      const res = await apiFetch(BACKEND_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete_dataset', dataset_id: id }),
       });
       const data = await res.json();
@@ -210,9 +207,8 @@ export default function ExcelMailSenderPage() {
       .filter(x => x.trackId && states[x.i].trackStatus !== 'opened');
     if (!toCheck.length) return;
     try {
-      const res = await fetch(BACKEND_URL, {
+      const res = await apiFetch(BACKEND_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'status', track_ids: toCheck.map(x => x.trackId) }),
       });
       const data = await res.json();
@@ -364,8 +360,8 @@ export default function ExcelMailSenderPage() {
       updateRowState(idx, { sendProgress: progress });
     }, 400);
     try {
-      const res = await fetch(BACKEND_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const res = await apiFetch(BACKEND_URL, {
+        method: 'POST',
         body: JSON.stringify({ action: 'send', headers, row: rows[idx], sender_name: senderName, subject, user_id: userId ? parseInt(userId) : null }),
       });
       const data = await res.json();

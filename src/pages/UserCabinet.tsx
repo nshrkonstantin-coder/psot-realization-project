@@ -15,6 +15,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { generateObservationPDF } from '@/utils/observationPdfExport';
 import { generatePrescriptionPDF } from '@/utils/prescriptionPdfExport';
+import { apiFetch } from '@/lib/api';
 
 interface UserStats {
   user_id: number;
@@ -125,7 +126,7 @@ const UserCabinet = () => {
         url += `&startDate=${startDate}&endDate=${endDate}`;
       }
       
-      const response = await fetch(url);
+      const response = await apiFetch(url);
       const data = await response.json();
       
       if (data.success) {

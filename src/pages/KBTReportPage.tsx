@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, BorderStyle } from 'docx';
+import { apiFetch } from '@/lib/api';
 
 interface KBTFormData {
   department: string;
@@ -186,9 +187,8 @@ export default function KBTReportPage() {
       
       // Отправляем данные в базу без Word файла
       toast.info('Сохранение в базу данных...');
-      const response = await fetch('https://functions.poehali.dev/7abe1e4c-3790-4bcd-9d37-4967f7dfb8ca', {
+      const response = await apiFetch('https://functions.poehali.dev/7abe1e4c-3790-4bcd-9d37-4967f7dfb8ca', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
           user_id: parseInt(userId!),
@@ -210,9 +210,8 @@ export default function KBTReportPage() {
           form_data: formData
         };
         
-        fetch('https://functions.poehali.dev/4a977fe4-5b7e-477d-b142-d85522845415', {
+        apiFetch('https://functions.poehali.dev/4a977fe4-5b7e-477d-b142-d85522845415', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(notificationData)
         }).then(res => res.json()).then(notifResult => {
           if (notifResult.success) {

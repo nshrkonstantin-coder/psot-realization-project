@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 interface DictionaryItem {
   id: number;
@@ -58,7 +59,7 @@ export default function PabDictionariesPage() {
 
   const loadDictionaries = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960');
+      const response = await apiFetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960');
       if (!response.ok) throw new Error('Ошибка загрузки');
       const data = await response.json();
       setDictionaries(data);
@@ -92,9 +93,8 @@ export default function PabDictionariesPage() {
 
     try {
       if (editingItem) {
-        const response = await fetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960', {
+        const response = await apiFetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: dialogType,
             id: editingItem.id,
@@ -106,9 +106,8 @@ export default function PabDictionariesPage() {
 
         toast.success('Элемент обновлён');
       } else {
-        const response = await fetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960', {
+        const response = await apiFetch('https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: dialogType,
             name: newItemName
@@ -136,7 +135,7 @@ export default function PabDictionariesPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960?type=${type}&id=${id}`, {
+      const response = await apiFetch(`https://functions.poehali.dev/8a3ae143-7ece-49b7-9863-4341c4bef960?type=${type}&id=${id}`, {
         method: 'DELETE'
       });
 

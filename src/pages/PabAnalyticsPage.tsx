@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 interface AnalyticsData {
   stats: {
@@ -46,7 +47,7 @@ export default function PabAnalyticsPage() {
 
     setLoading(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `https://functions.poehali.dev/362265e1-75e5-4e05-a1a6-bc5a50866f07?organization_id=${organizationId}&period=${period}`
       );
       const result = await response.json();

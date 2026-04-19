@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Icon from '@/components/ui/icon';
+import { apiFetch } from '@/lib/api';
 
 interface UserProfileCardProps {
   variant?: 'dark' | 'light';
@@ -37,7 +38,7 @@ const UserProfileCard = ({ variant = 'dark', className = '' }: UserProfileCardPr
     const userId = localStorage.getItem('userId');
     if (!userId) return;
 
-    fetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
+    apiFetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
       .then(r => r.json())
       .then(data => {
         if (data.success && data.user?.fio) {

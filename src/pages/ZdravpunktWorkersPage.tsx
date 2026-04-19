@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 import * as XLSX from 'xlsx';
 
 const API = 'https://functions.poehali.dev/9dcd6f1a-ad53-4c5e-af05-0fd74e20e8b4';
@@ -98,7 +99,7 @@ const ZdravpunktWorkersPage = () => {
     setLoading(true);
     setDrill(null);
     try {
-      const res = await fetch(buildUrl(df, dt, fio));
+      const res = await apiFetch(buildUrl(df, dt, fio));
       const data = await res.json();
       if (data.success) {
         setStats(data.stats || []);
@@ -146,7 +147,7 @@ const ZdravpunktWorkersPage = () => {
       if (dateFrom) url += `&date_from=${dateFrom}`;
       if (dateTo) url += `&date_to=${dateTo}`;
       if (fioFilter) url += `&fio=${encodeURIComponent(fioFilter)}`;
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       const data = await res.json();
       if (data.success) setDrillWorkers(data.workers || []);
     } catch {
@@ -167,7 +168,7 @@ const ZdravpunktWorkersPage = () => {
       let url = `${API}?action=worker_history&fio=${encodeURIComponent(fio)}&organization_id=${effectiveOrgId}`;
       if (dateFrom) url += `&date_from=${dateFrom}`;
       if (dateTo) url += `&date_to=${dateTo}`;
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       const data = await res.json();
       if (data.success) {
         setHistoryModal({ fio, records: data.records || [], total: data.total || 0,

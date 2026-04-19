@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { apiFetch } from '@/lib/api';
 
 const HashCalculator = () => {
   const [password, setPassword] = useState('Qwerdsx123!');
@@ -8,9 +9,8 @@ const HashCalculator = () => {
 
   const calculateHash = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/c077a61b-25a3-46e9-b0aa-0f7b55512d2e', {
+      const response = await apiFetch('https://functions.poehali.dev/c077a61b-25a3-46e9-b0aa-0f7b55512d2e', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
       });
       const data = await response.json();

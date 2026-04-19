@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import OrganizationLogo from '@/components/OrganizationLogo';
+import { apiFetch } from '@/lib/api';
 import { ChatsList } from '@/components/admin-messages/ChatsList';
 import { MessagesView } from '@/components/admin-messages/MessagesView';
 import { MassMessaging } from '@/components/admin-messages/MassMessaging';
@@ -87,9 +88,7 @@ const AdminMessagesPage = () => {
   
   const checkNewMessages = async (currentUserId: number) => {
     try {
-      const response = await fetch(`${MESSAGING_URL}?action=list_chats`, {
-        headers: { 'X-User-Id': String(currentUserId) }
-      });
+      const response = await apiFetch(`${MESSAGING_URL}?action=list_chats`);
       const data = await response.json();
       const newChats = data.chats || [];
       
@@ -148,9 +147,7 @@ const AdminMessagesPage = () => {
 
   const loadUserInfo = async (id: number) => {
     try {
-      const response = await fetch(`${MESSAGING_URL}?action=list_all_users`, {
-        headers: { 'X-User-Id': String(id) }
-      });
+      const response = await apiFetch(`${MESSAGING_URL}?action=list_all_users`);
       const data = await response.json();
       if (data.users) {
         const currentUser = data.users.find((u: User) => u.id === id);
@@ -167,9 +164,7 @@ const AdminMessagesPage = () => {
 
   const loadCompanies = async (userOrgId?: number, userRole?: string) => {
     try {
-      const response = await fetch(`${ORGANIZATIONS_URL}?action=list`, {
-        headers: { 'X-User-Id': localStorage.getItem('userId')! }
-      });
+      const response = await apiFetch(`${ORGANIZATIONS_URL}?action=list`);
       const data = await response.json();
       let allCompanies: Company[] = [];
       
@@ -190,9 +185,7 @@ const AdminMessagesPage = () => {
 
   const loadUsers = async () => {
     try {
-      const response = await fetch(`${MESSAGING_URL}?action=list_all_users`, {
-        headers: { 'X-User-Id': localStorage.getItem('userId')! }
-      });
+      const response = await apiFetch(`${MESSAGING_URL}?action=list_all_users`);
       const data = await response.json();
       console.log('Users API response:', data, 'Status:', response.status);
       if (!response.ok || data.error) {
@@ -214,9 +207,7 @@ const AdminMessagesPage = () => {
 
   const loadChats = async () => {
     try {
-      const response = await fetch(`${MESSAGING_URL}?action=list_chats`, {
-        headers: { 'X-User-Id': localStorage.getItem('userId')! }
-      });
+      const response = await apiFetch(`${MESSAGING_URL}?action=list_chats`);
       const data = await response.json();
       setChats(data.chats || []);
     } catch (error) {
@@ -226,18 +217,12 @@ const AdminMessagesPage = () => {
 
   const loadMessages = async (chatId: number) => {
     try {
-      const response = await fetch(`${MESSAGING_URL}?action=get_messages&chat_id=${chatId}`, {
-        headers: { 'X-User-Id': localStorage.getItem('userId')! }
-      });
+      const response = await apiFetch(`${MESSAGING_URL}?action=get_messages&chat_id=${chatId}`);
       const data = await response.json();
       setMessages(data.messages || []);
       
-      await fetch(`${MESSAGING_URL}`, {
+      await apiFetch(`${MESSAGING_URL}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': localStorage.getItem('userId')!
-        },
         body: JSON.stringify({ action: 'mark_as_read', chat_id: chatId })
       });
       
@@ -257,12 +242,8 @@ const AdminMessagesPage = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(MESSAGING_URL, {
+      const response = await apiFetch(MESSAGING_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': localStorage.getItem('userId')!
-        },
         body: JSON.stringify({
           action: 'send_message',
           chat_id: selectedChat,
@@ -286,12 +267,8 @@ const AdminMessagesPage = () => {
   const handleCreateChat = async (name: string, userIds: number[]) => {
     setLoading(true);
     try {
-      const response = await fetch(MESSAGING_URL, {
+      const response = await apiFetch(MESSAGING_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': localStorage.getItem('userId')!
-        },
         body: JSON.stringify({
           action: 'create_chat',
           chat_name: name,
@@ -314,12 +291,8 @@ const AdminMessagesPage = () => {
   const handleSendMassMessage = async (userIds: number[], message: string, deliveryType: 'email' | 'internal') => {
     setLoading(true);
     try {
-      const response = await fetch(MESSAGING_URL, {
+      const response = await apiFetch(MESSAGING_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': localStorage.getItem('userId')!
-        },
         body: JSON.stringify({
           action: 'send_mass_message',
           user_ids: userIds,
@@ -345,9 +318,8 @@ const AdminMessagesPage = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(SEND_EMAIL_URL, {
+      const response = await apiFetch(SEND_EMAIL_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to_email: selectedUser.email,
           subject: subject,

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 interface LogoTemplate {
   id: number;
@@ -58,7 +59,7 @@ const LogoLibraryPage = () => {
   const loadTemplates = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://functions.poehali.dev/d5352f1d-bdec-44b8-b0b5-34901c6a3245');
+      const response = await apiFetch('https://functions.poehali.dev/d5352f1d-bdec-44b8-b0b5-34901c6a3245');
       if (!response.ok) throw new Error('Failed to load');
       const data = await response.json();
       setTemplates(data);
@@ -116,9 +117,8 @@ const LogoLibraryPage = () => {
     setSaving(true);
 
     try {
-      const response = await fetch('https://functions.poehali.dev/d5352f1d-bdec-44b8-b0b5-34901c6a3245', {
+      const response = await apiFetch('https://functions.poehali.dev/d5352f1d-bdec-44b8-b0b5-34901c6a3245', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newTemplate.name,
           category: newTemplate.category,
@@ -146,9 +146,8 @@ const LogoLibraryPage = () => {
     if (!confirm('Удалить этот шаблон?')) return;
 
     try {
-      const response = await fetch('https://functions.poehali.dev/d5352f1d-bdec-44b8-b0b5-34901c6a3245', {
+      const response = await apiFetch('https://functions.poehali.dev/d5352f1d-bdec-44b8-b0b5-34901c6a3245', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
       });
 

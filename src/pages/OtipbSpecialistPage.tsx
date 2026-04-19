@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 const OT_ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
 
@@ -77,7 +78,7 @@ const OtipbSpecialistPage = () => {
       if (orgId) p.set('organization_id', orgId);
       if (specUserId) p.set('specialist_user_id', specUserId);
       else if (fio) p.set('fio', fio);
-      const res = await fetch(`${OT_ORDERS_URL}?${p.toString()}`);
+      const res = await apiFetch(`${OT_ORDERS_URL}?${p.toString()}`);
       const data = await res.json();
       if (data.success) setOrders(data.orders || []);
       else toast.error('Ошибка загрузки');
@@ -98,7 +99,7 @@ const OtipbSpecialistPage = () => {
     try {
       const p = new URLSearchParams({ id: String(id) });
       if (orgId) p.set('organization_id', orgId);
-      const res = await fetch(`${OT_ORDERS_URL}?${p.toString()}`, { method: 'DELETE' });
+      const res = await apiFetch(`${OT_ORDERS_URL}?${p.toString()}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         setOrders(prev => prev.filter(o => o.id !== id));
@@ -118,7 +119,7 @@ const OtipbSpecialistPage = () => {
       if (orgId) p.set('organization_id', orgId);
       if (specUserId) p.set('specialist_user_id', specUserId);
       else if (fio) p.set('fio', fio);
-      const res = await fetch(`${OT_ORDERS_URL}?${p.toString()}`, { method: 'DELETE' });
+      const res = await apiFetch(`${OT_ORDERS_URL}?${p.toString()}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         setOrders([]);

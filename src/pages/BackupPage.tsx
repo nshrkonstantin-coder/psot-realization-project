@@ -5,6 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 
 interface BackupConfig {
   autoBackup: boolean;
@@ -39,12 +40,7 @@ export default function BackupPage() {
 
   const loadBackupConfig = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/0db6a684-73f7-4cf9-a021-84707a3a53bf', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await apiFetch('https://functions.poehali.dev/0db6a684-73f7-4cf9-a021-84707a3a53bf');
       
       if (response.ok) {
         const data = await response.json();
@@ -65,11 +61,8 @@ export default function BackupPage() {
     try {
       const clientTimestamp = Date.now();
       
-      const response = await fetch('https://functions.poehali.dev/0db6a684-73f7-4cf9-a021-84707a3a53bf', {
+      const response = await apiFetch('https://functions.poehali.dev/0db6a684-73f7-4cf9-a021-84707a3a53bf', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ timestamp: clientTimestamp })
       });
       
@@ -97,11 +90,8 @@ export default function BackupPage() {
   const handleSaveConfig = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('https://functions.poehali.dev/0db6a684-73f7-4cf9-a021-84707a3a53bf', {
+      const response = await apiFetch('https://functions.poehali.dev/0db6a684-73f7-4cf9-a021-84707a3a53bf', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           autoBackup: config.autoBackup,
           dayOfWeek: config.dayOfWeek,
@@ -166,11 +156,8 @@ export default function BackupPage() {
     }
 
     try {
-      const response = await fetch('https://functions.poehali.dev/0db6a684-73f7-4cf9-a021-84707a3a53bf', {
+      const response = await apiFetch('https://functions.poehali.dev/0db6a684-73f7-4cf9-a021-84707a3a53bf', {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ backupId })
       });
 

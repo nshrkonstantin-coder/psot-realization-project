@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 interface TableInfo {
   table_name: string;
@@ -62,9 +63,8 @@ export default function DatabasePage() {
     setLoading(true);
     try {
       // Получаем список всех таблиц с количеством строк
-      const response = await fetch('https://functions.poehali.dev/0d86335d-9fae-4e7c-9a8c-d3432936edae', {
+      const response = await apiFetch('https://functions.poehali.dev/0d86335d-9fae-4e7c-9a8c-d3432936edae', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'list_tables'
         })
@@ -93,9 +93,8 @@ export default function DatabasePage() {
     
     try {
       // Получаем структуру таблицы
-      const columnsResponse = await fetch('https://functions.poehali.dev/0d86335d-9fae-4e7c-9a8c-d3432936edae', {
+      const columnsResponse = await apiFetch('https://functions.poehali.dev/0d86335d-9fae-4e7c-9a8c-d3432936edae', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'table_structure',
           table_name: tableName
@@ -111,9 +110,8 @@ export default function DatabasePage() {
       }
 
       // Получаем данные таблицы
-      const dataResponse = await fetch('https://functions.poehali.dev/0d86335d-9fae-4e7c-9a8c-d3432936edae', {
+      const dataResponse = await apiFetch('https://functions.poehali.dev/0d86335d-9fae-4e7c-9a8c-d3432936edae', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'table_data',
           table_name: tableName,

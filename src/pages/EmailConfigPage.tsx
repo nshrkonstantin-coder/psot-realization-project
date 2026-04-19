@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { apiFetch } from '@/lib/api';
 
 interface EmailConfig {
   success: boolean;
@@ -56,7 +57,7 @@ export default function EmailConfigPage() {
         ? 'https://functions.poehali.dev/af46c7f8-4efa-482e-8ed7-2fe62bfbed54?fetch_emails=true&limit=20'
         : 'https://functions.poehali.dev/af46c7f8-4efa-482e-8ed7-2fe62bfbed54';
       
-      const response = await fetch(url);
+      const response = await apiFetch(url);
       const data = await response.json();
       
       if (data.success) {
@@ -82,9 +83,8 @@ export default function EmailConfigPage() {
   const testImapConnection = async () => {
     try {
       setTestingImap(true);
-      const response = await fetch('https://functions.poehali.dev/af46c7f8-4efa-482e-8ed7-2fe62bfbed54', {
+      const response = await apiFetch('https://functions.poehali.dev/af46c7f8-4efa-482e-8ed7-2fe62bfbed54', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'test_imap' })
       });
       

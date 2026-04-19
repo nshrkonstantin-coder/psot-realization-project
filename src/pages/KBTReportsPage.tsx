@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 interface KBTReport {
   id: number;
@@ -36,10 +37,7 @@ const KBTReportsPage = () => {
     try {
       const orgId = localStorage.getItem('organizationId');
       const userId = localStorage.getItem('userId');
-      const response = await fetch(`https://functions.poehali.dev/7abe1e4c-3790-4bcd-9d37-4967f7dfb8ca?organization_id=${orgId}&user_id=${userId}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await apiFetch(`https://functions.poehali.dev/7abe1e4c-3790-4bcd-9d37-4967f7dfb8ca?organization_id=${orgId}&user_id=${userId}`);
 
       const data = await response.json();
       if (data.success && Array.isArray(data.reports)) {
