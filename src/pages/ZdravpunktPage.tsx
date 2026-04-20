@@ -691,7 +691,7 @@ const ZdravpunktPage = () => {
       }
 
       const [fRes, sRes, flRes, etRes, crRes, wsRes] = await Promise.all([
-        apiFetch(`${API}?action=files&organization_id=${orgId}`),
+        apiFetch(`${API}?action=files&organization_id=${effectiveOrgForLoad}`),
         apiFetch(`${API}?action=stats&organization_id=${effectiveOrgForLoad}`),
         apiFetch(`${API}?action=filters&organization_id=${effectiveOrgForLoad}`),
         apiFetch(`${API}?action=exam_type_stats&organization_id=${effectiveOrgForLoad}`),
