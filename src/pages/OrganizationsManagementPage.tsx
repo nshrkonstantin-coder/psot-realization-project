@@ -52,15 +52,12 @@ const OrganizationsManagementPage = () => {
 
   const loadOrganizations = async () => {
     try {
-      const response = await apiFetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?action=list');
-      console.error('[ORGS] status=', response.status, 'ok=', response.ok);
+      const response = await fetch('https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b?action=list');
       const data = await response.json();
-      console.error('[ORGS] data=', JSON.stringify(data));
       const list = Array.isArray(data) ? data : (data.organizations || []);
       setOrganizations(list);
     } catch (error) {
       toast.error('Не удалось загрузить список предприятий');
-      console.error('[ORGS] error=', error);
     } finally {
       setLoading(false);
     }
