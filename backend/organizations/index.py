@@ -37,18 +37,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     if method == 'GET':
         params = event.get('queryStringParameters', {}) or {}
+        # Fallback: парсим query string вручную если queryStringParameters пустой
+        if not params:
+            raw_qs = event.get('rawQueryString') or event.get('queryString') or ''
+            if raw_qs:
+                from urllib.parse import parse_qs
+                parsed = parse_qs(raw_qs)
+                params = {k: v[0] for k, v in parsed.items()}
         action = params.get('action')
-        print(f"[ORGS] action={action}")
+        print(f"[ORGS] action={action} params={params} raw_qs={event.get('rawQueryString')}")
         org_id = params.get('id')
         org_code = params.get('code')
         
         # Получаем ID пользователя из заголовка для фильтрации по роли
         user_id = event.get('headers', {}).get('x-user-id') or event.get('headers', {}).get('X-User-Id')
         
-        # Если запрашивается список (action=list), игнорируем id и code
-        if action == 'list':
+        # Если action=list или параметры не заданы — возвращаем все организации
+        if action == 'list' or (not org_id and not org_code):
             org_id = None
             org_code = None
+            action = 'list'
         
         if org_code:
             cur.execute(
