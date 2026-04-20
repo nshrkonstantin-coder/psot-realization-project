@@ -1,4 +1,4 @@
-const CACHE_NAME = 'asubt-v6';
+const CACHE_NAME = 'asubt-v7';
 
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing...');

@@ -168,6 +168,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         organizations = []
         
         for row in rows:
+            logo = row[7]
+            # Если logo это base64 — не включаем в список (только флаг наличия)
+            if logo and logo.startswith('data:'):
+                logo = None
             organizations.append({
                 'id': row[0],
                 'name': row[1],
@@ -176,7 +180,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'trial_end_date': row[4].isoformat() if row[4] else None,
                 'subscription_type': row[5],
                 'is_active': row[6],
-                'logo_url': row[7],
+                'logo_url': logo,
                 'user_count': row[8],
                 'module_count': row[9],
                 'page_count': row[10]
