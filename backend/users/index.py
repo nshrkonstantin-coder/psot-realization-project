@@ -12,7 +12,7 @@ CORS = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
 def _verify_session(event: dict) -> dict | None:
     """Проверяет сессионный токен. Возвращает {'user_id', 'role'} или None если невалиден."""
     headers = event.get('headers') or {}
-    auth = headers.get('X-Authorization', '') or headers.get('Authorization', '')
+    auth = headers.get('X-Auth-Token', '') or headers.get('X-Authorization', '') or headers.get('Authorization', '')
     token = auth.replace('Bearer ', '').strip()
     if not token:
         return None

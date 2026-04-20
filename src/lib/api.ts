@@ -15,7 +15,7 @@ export function getAuthHeaders(): Record<string, string> {
   };
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers['X-Auth-Token'] = `Bearer ${token}`;
   }
   if (userId) {
     headers['X-User-Id'] = userId;
