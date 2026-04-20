@@ -212,7 +212,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Статистика ПАБ аудитов (проведенные пользователем через inspector_fio)
             if use_date_filter:
                 cur.execute(
-                    "SELECT COUNT(DISTINCT pr.id) as total, COUNT(DISTINCT CASE WHEN pr.status = 'completed' THEN pr.id END) as completed, COUNT(DISTINCT CASE WHEN pr.status IN ('in_work', 'new') THEN pr.id END) as in_progress, COUNT(DISTINCT CASE WHEN pr.status = 'overdue' THEN pr.id END) as overdue FROM t_p80499285_psot_realization_pro.pab_records pr JOIN t_p80499285_psot_realization_pro.users u ON LOWER(pr.inspector_fio) = LOWER(u.fio) WHERE u.id = %s AND pr.audit_date BETWEEN %s AND %s",
+                    "SELECT COUNT(DISTINCT pr.id) as total, COUNT(DISTINCT CASE WHEN pr.status = 'completed' THEN pr.id END) as completed, COUNT(DISTINCT CASE WHEN pr.status IN ('in_work', 'new') THEN pr.id END) as in_progress, COUNT(DISTINCT CASE WHEN pr.status = 'overdue' THEN pr.id END) as overdue FROM t_p80499285_psot_realization_pro.pab_records pr JOIN t_p80499285_psot_realization_pro.users u ON LOWER(pr.inspector_fio) = LOWER(u.fio) WHERE u.id = %s AND pr.doc_date BETWEEN %s AND %s",
                     (user_id, start_date, end_date)
                 )
             else:
@@ -264,7 +264,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Количество проведенных аудитов (ПАБ которые пользователь создал)
             if use_date_filter:
                 cur.execute(
-                    "SELECT COUNT(*) FROM t_p80499285_psot_realization_pro.pab_records WHERE user_id = %s AND audit_date BETWEEN %s AND %s",
+                    "SELECT COUNT(*) FROM t_p80499285_psot_realization_pro.pab_records WHERE user_id = %s AND doc_date BETWEEN %s AND %s",
                     (user_id, start_date, end_date)
                 )
             else:
