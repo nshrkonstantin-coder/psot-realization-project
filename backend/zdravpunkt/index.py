@@ -28,6 +28,7 @@ def handler(event: dict, context) -> dict:
         action = params.get('action', '')
         org_id_raw = params.get('organization_id', '')
         org_id = int(org_id_raw) if org_id_raw and org_id_raw.isdigit() else None
+        print(f"[ZP] method={method} action={action} org_id={org_id}")
 
         # ── GET: список загруженных файлов ────────────────────────────────────
         if method == 'GET' and action == 'files':
