@@ -30,6 +30,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         params = event.get('queryStringParameters') or {}
         user_id = params.get('userId')
         
+        print(f"[PROFILE GET] userId={user_id!r}, params={params}")
+        
         if not user_id:
             return {
                 'statusCode': 400,
@@ -56,6 +58,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         """, (user_id,))
         
         result = cur.fetchone()
+        
+        print(f"[PROFILE GET] DB result for userId={user_id!r}: {'found' if result else 'NOT FOUND'}")
         
         if not result:
             cur.close()

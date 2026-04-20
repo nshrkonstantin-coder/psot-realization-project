@@ -67,16 +67,22 @@ const Profile = () => {
 
   const loadProfile = async (userId: string) => {
     try {
+      console.log('[Profile] Loading profile for userId:', userId);
       const response = await apiFetch(`${PROFILE_API}?userId=${userId}`);
       const data = await response.json();
+      console.log('[Profile] API response:', data);
       if (data.success) {
         setProfile(data.user);
         setFio(data.user.fio);
         setCompany(data.user.company);
         setSubdivision(data.user.subdivision);
         setPosition(data.user.position);
+      } else {
+        console.error('[Profile] API error:', data.error);
+        toast({ title: 'Ошибка загрузки профиля', description: data.error, variant: 'destructive' });
       }
-    } catch {
+    } catch (err) {
+      console.error('[Profile] Fetch error:', err);
       toast({ title: 'Ошибка загрузки профиля', variant: 'destructive' });
     } finally {
       setLoading(false);

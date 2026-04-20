@@ -120,6 +120,7 @@ const UserCabinet = () => {
   const loadUserStats = async () => {
     try {
       const userId = localStorage.getItem('userId');
+      console.log('[UserCabinet] Loading stats for userId:', userId);
       let url = `https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=user_cabinet&userId=${userId}`;
       
       if (startDate && endDate) {
@@ -128,13 +129,16 @@ const UserCabinet = () => {
       
       const response = await apiFetch(url);
       const data = await response.json();
+      console.log('[UserCabinet] API response:', data);
       
       if (data.success) {
         setStats(data.stats);
       } else {
-        toast({ title: 'Ошибка загрузки данных', variant: 'destructive' });
+        console.error('[UserCabinet] API error:', data.error);
+        toast({ title: 'Ошибка загрузки данных', description: data.error, variant: 'destructive' });
       }
     } catch (error) {
+      console.error('[UserCabinet] Fetch error:', error);
       toast({ title: 'Ошибка сервера', variant: 'destructive' });
     } finally {
       setLoading(false);

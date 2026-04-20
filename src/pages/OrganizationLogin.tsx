@@ -109,6 +109,9 @@ const OrganizationLogin = () => {
         localStorage.setItem('organizationId', organization!.id.toString());
         localStorage.setItem('organizationName', organization!.name);
         localStorage.setItem('userCompany', organization!.name);
+        if (data.sessionToken) {
+          localStorage.setItem('sessionToken', data.sessionToken);
+        }
         
         toast({ title: 'Вход выполнен!' });
         
