@@ -32,13 +32,20 @@ export function getAuthHeaders(): Record<string, string> {
 
 export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const authHeaders = getAuthHeaders();
-  return fetch(url, {
+  const response = await fetch(url, {
     ...options,
     headers: {
       ...authHeaders,
       ...(options.headers || {}),
     },
   });
+
+  if (response.status === 401) {
+    clearSession();
+    window.location.href = '/';
+  }
+
+  return response;
 }
 
 export function clearSession(): void {

@@ -7,22 +7,22 @@
       "expectedStatus": 200
     },
     {
-      "name": "Test get users list",
+      "name": "Test unauthorized access rejected",
       "method": "GET",
       "path": "/?action=list",
-      "expectedStatus": 200,
+      "expectedStatus": 401,
       "expectedBody": {
-        "success": true
+        "success": false
       },
       "bodyMatcher": "partial"
     },
     {
-      "name": "Test get stats",
+      "name": "Test unauthorized stats rejected",
       "method": "GET",
       "path": "/?action=stats",
-      "expectedStatus": 200,
+      "expectedStatus": 401,
       "expectedBody": {
-        "success": true
+        "success": false
       },
       "bodyMatcher": "partial"
     }

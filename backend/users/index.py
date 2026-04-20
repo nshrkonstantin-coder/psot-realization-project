@@ -1,8 +1,40 @@
 import json
 import os
 import re
-import bcrypt  # security: bcrypt for password hashing
+import bcrypt
+import psycopg2
 from typing import Dict, Any
+
+SCHEMA = 't_p80499285_psot_realization_pro'
+CORS = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+
+
+def _verify_session(event: dict) -> dict | None:
+    """Проверяет сессионный токен. Возвращает {'user_id', 'role'} или None если невалиден."""
+    headers = event.get('headers') or {}
+    auth = headers.get('X-Authorization', '') or headers.get('Authorization', '')
+    token = auth.replace('Bearer ', '').strip()
+    if not token:
+        return None
+    conn = psycopg2.connect(os.environ['DATABASE_URL'])
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT s.user_id, u.role FROM {SCHEMA}.sessions s JOIN {SCHEMA}.users u ON s.user_id = u.id WHERE s.token = %s AND s.expires_at > NOW()",
+        (token,)
+    )
+    row = cur.fetchone()
+    if row:
+        cur.execute(f"UPDATE {SCHEMA}.sessions SET last_seen = NOW() WHERE token = %s", (token,))
+        conn.commit()
+    cur.close()
+    conn.close()
+    return {'user_id': row[0], 'role': row[1]} if row else None
+
+
+def _unauth():
+    return {'statusCode': 401, 'headers': CORS, 'isBase64Encoded': False,
+            'body': json.dumps({'success': False, 'error': 'Unauthorized'})}
+
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
@@ -26,8 +58,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     if method == 'GET':
-        import psycopg2
-        
+        session = _verify_session(event)
+        if not session:
+            return _unauth()
+
         params = event.get('queryStringParameters') or {}
         action = params.get('action', 'list')
         
@@ -35,8 +69,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cur = conn.cursor()
         
         if action == 'list':
-            headers = event.get('headers', {})
-            user_role = headers.get('X-User-Role', '')
+            user_role = session['role']
             
             cur.execute("""
                 SELECT u.id, u.email, u.fio, u.display_name, u.company, u.subdivision, u.position, u.role, u.created_at,
@@ -623,9 +656,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             organization_id = row[0]
             
-            # Получаем онлайн пользователей из той же организации (последняя активность < 5 минут)
+            # Получаем онлайн пользователей из той же организации (активные сессии < 5 минут)
             cur.execute(
-                "SELECT u.id, u.fio, u.display_name, u.position, u.subdivision, u.company, u.email, u.last_activity FROM t_p80499285_psot_realization_pro.users u WHERE u.organization_id = %s AND u.role NOT IN ('admin', 'superadmin', 'miniadmin') AND u.last_activity IS NOT NULL AND u.last_activity > NOW() - INTERVAL '5 minutes' ORDER BY u.last_activity DESC",
+                "SELECT DISTINCT u.id, u.fio, u.display_name, u.position, u.subdivision, u.company, u.email, s.last_seen FROM t_p80499285_psot_realization_pro.users u JOIN t_p80499285_psot_realization_pro.sessions s ON s.user_id = u.id WHERE u.organization_id = %s AND u.role NOT IN ('admin', 'superadmin', 'miniadmin') AND s.expires_at > NOW() AND s.last_seen > NOW() - INTERVAL '5 minutes' ORDER BY s.last_seen DESC",
                 (organization_id,)
             )
             
@@ -655,8 +688,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
     
     if method == 'PUT':
-        import psycopg2
-        
+        session = _verify_session(event)
+        if not session:
+            return _unauth()
+
         body_data = json.loads(event.get('body', '{}'))
         user_id = body_data.get('userId')
         action = body_data.get('action')
@@ -745,7 +780,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     if method == 'POST':
-        import psycopg2
+        session = _verify_session(event)
+        if not session:
+            return _unauth()
+
         import secrets
         import string
         

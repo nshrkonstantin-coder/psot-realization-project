@@ -7,12 +7,12 @@
       "expectedStatus": 200
     },
     {
-      "name": "Test get profile",
+      "name": "Test unauthorized access rejected",
       "method": "GET",
       "path": "/?userId=1",
-      "expectedStatus": 200,
+      "expectedStatus": 401,
       "expectedBody": {
-        "success": true
+        "success": false
       },
       "bodyMatcher": "partial"
     }
