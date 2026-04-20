@@ -128,17 +128,18 @@ const UserCabinet = () => {
       }
       
       const response = await apiFetch(url);
+      if (response.status === 401) {
+        navigate('/');
+        return;
+      }
       const data = await response.json();
-      console.log('[UserCabinet] API response:', data);
       
       if (data.success) {
         setStats(data.stats);
       } else {
-        console.error('[UserCabinet] API error:', data.error);
         toast({ title: 'Ошибка загрузки данных', description: data.error, variant: 'destructive' });
       }
     } catch (error) {
-      console.error('[UserCabinet] Fetch error:', error);
       toast({ title: 'Ошибка сервера', variant: 'destructive' });
     } finally {
       setLoading(false);

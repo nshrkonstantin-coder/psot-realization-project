@@ -42,8 +42,15 @@ const Dashboard = () => {
 
     // Всегда загружаем актуальные данные из API, чтобы ФИО отражало последнее изменение профиля
     apiFetch(`https://functions.poehali.dev/1428a44a-2d14-4e76-86e5-7e660fdfba3f?userId=${userId}`)
-      .then(r => r.json())
+      .then(r => {
+        if (r.status === 401) {
+          setUserFio(localStorage.getItem('userFio') || '');
+          return null;
+        }
+        return r.json();
+      })
       .then(data => {
+        if (!data) return;
         if (data.success && data.user?.fio) {
           setUserFio(data.user.fio);
           localStorage.setItem('userFio', data.user.fio);
