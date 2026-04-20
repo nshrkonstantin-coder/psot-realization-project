@@ -38,6 +38,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if method == 'GET':
         params = event.get('queryStringParameters', {}) or {}
         action = params.get('action')
+        print(f"[ORGS] action={action}")
         org_id = params.get('id')
         org_code = params.get('code')
         
