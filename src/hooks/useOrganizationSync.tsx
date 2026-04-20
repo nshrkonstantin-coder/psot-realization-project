@@ -12,6 +12,10 @@ export const useOrganizationSync = () => {
       const existingOrgId = localStorage.getItem('organizationId');
       const existingEmail = localStorage.getItem('userEmail');
       
+      const userRole = localStorage.getItem('userRole');
+      // superadmin не имеет organizationId по дизайну — не трогаем
+      if (userRole === 'superadmin') return;
+
       // Если пользователь залогинен, но нет organizationId или email
       if (userId && (!existingOrgId || !existingEmail || existingEmail === 'Не указан')) {
         try {
