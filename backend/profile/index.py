@@ -11,7 +11,9 @@ CORS = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
 def _verify_session(event: dict) -> dict | None:
     """Проверяет сессионный токен. Возвращает {'user_id', 'role'} или None."""
     headers = event.get('headers') or {}
-    auth = headers.get('X-Auth-Token', '') or headers.get('X-Authorization', '') or headers.get('Authorization', '')
+    auth = (headers.get('X-Auth-Token') or headers.get('x-auth-token') or
+            headers.get('X-Authorization') or headers.get('x-authorization') or
+            headers.get('Authorization') or headers.get('authorization') or '')
     token = auth.replace('Bearer ', '').strip()
     if not token:
         return None
@@ -45,7 +47,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Authorization',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Authorization, X-Auth-Token, X-User-Id',
                 'Access-Control-Max-Age': '86400'
             },
             'body': ''
