@@ -120,7 +120,8 @@ const UserCabinet = () => {
   const loadUserStats = async () => {
     try {
       const userId = localStorage.getItem('userId');
-      console.log('[UserCabinet] Loading stats for userId:', userId);
+      const token = localStorage.getItem('sessionToken');
+      console.log('[UserCabinet] userId:', userId, 'token:', token ? token.slice(0, 20) + '...' : 'NULL');
       let url = `https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=user_cabinet&userId=${userId}`;
       
       if (startDate && endDate) {

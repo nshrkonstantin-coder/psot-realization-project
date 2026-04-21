@@ -42,20 +42,6 @@ export default function Login() {
       console.log('Response data:', data);
 
       if (data.success) {
-        // Если пользователь принадлежит организации и вошёл НЕ через её страницу
-        // НО главные администраторы (admin, superadmin) всегда остаются на основной странице
-        if (data.registrationCode && !isRegister && data.role !== 'admin' && data.role !== 'superadmin') {
-          toast({ 
-            title: 'Неверная страница входа', 
-            description: 'Перенаправляем на страницу вашего предприятия...',
-            duration: 3000
-          });
-          setTimeout(() => {
-            navigate(`/org/${data.registrationCode}`);
-          }, 1500);
-          return;
-        }
-        
         localStorage.setItem('userId', data.userId);
         localStorage.setItem('userFio', data.fio || fio);
         localStorage.setItem('userRole', data.role || 'user');
@@ -66,7 +52,7 @@ export default function Login() {
           localStorage.setItem('sessionToken', data.sessionToken);
         }
         if (data.organizationId) {
-          localStorage.setItem('organizationId', data.organizationId);
+          localStorage.setItem('organizationId', String(data.organizationId));
         }
         if (data.company) {
           localStorage.setItem('userCompany', data.company);
