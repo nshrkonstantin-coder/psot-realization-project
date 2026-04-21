@@ -27,9 +27,11 @@ const ProfileTelegramTab = ({ profile, onReload }: ProfileTelegramTabProps) => {
     const userId = localStorage.getItem('userId');
     if (!userId) return;
     try {
-      await apiFetch(PROFILE_API, {
+      const token = localStorage.getItem('sessionToken');
+      await fetch(PROFILE_API, {
         method: 'PUT',
-        body: JSON.stringify({ action: 'unlink_telegram', userId }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unlink_telegram', userId, token }),
       });
       toast({ title: 'Telegram отключён' });
       onReload(userId);
@@ -43,9 +45,11 @@ const ProfileTelegramTab = ({ profile, onReload }: ProfileTelegramTabProps) => {
     if (!userId) return;
     setLoadingTelegram(true);
     try {
-      const response = await apiFetch(PROFILE_API, {
+      const token = localStorage.getItem('sessionToken');
+      const response = await fetch(PROFILE_API, {
         method: 'PUT',
-        body: JSON.stringify({ action: 'generate_telegram_code', userId }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate_telegram_code', userId, token }),
       });
       const data = await response.json();
       if (data.success && data.linkCode) setTelegramCode(data.linkCode);

@@ -67,8 +67,9 @@ const Profile = () => {
 
   const loadProfile = async (userId: string) => {
     try {
+      const token = localStorage.getItem('sessionToken');
       console.log('[Profile] Loading profile for userId:', userId);
-      const response = await apiFetch(`${PROFILE_API}?userId=${userId}`);
+      const response = await fetch(`${PROFILE_API}?userId=${userId}&token=${token}`);
       const data = await response.json();
       console.log('[Profile] API response:', data);
       if (data.success) {
@@ -93,9 +94,11 @@ const Profile = () => {
     const userId = localStorage.getItem('userId');
     if (!userId) return;
     try {
-      const response = await apiFetch(PROFILE_API, {
+      const token = localStorage.getItem('sessionToken');
+      const response = await fetch(PROFILE_API, {
         method: 'PUT',
-        body: JSON.stringify({ action: 'update_profile', userId, fio, company, subdivision, position }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_profile', userId, fio, company, subdivision, position, token }),
       });
       const data = await response.json();
       if (data.success) {

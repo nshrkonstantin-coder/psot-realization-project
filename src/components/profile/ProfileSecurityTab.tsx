@@ -27,9 +27,11 @@ const ProfileSecurityTab = () => {
     const userId = localStorage.getItem('userId');
     if (!userId) return;
     try {
-      const response = await apiFetch(PROFILE_API, {
+      const token = localStorage.getItem('sessionToken');
+      const response = await fetch(PROFILE_API, {
         method: 'PUT',
-        body: JSON.stringify({ action: 'change_password', userId, currentPassword, newPassword }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'change_password', userId, currentPassword, newPassword, token }),
       });
       const data = await response.json();
       if (data.success) {

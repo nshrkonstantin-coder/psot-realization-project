@@ -9,12 +9,23 @@ CORS = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
 
 
 def _verify_session(event: dict) -> dict | None:
-    """Проверяет сессионный токен. Возвращает {'user_id', 'role'} или None."""
+    """Проверяет сессионный токен из заголовков, query или body."""
     headers = event.get('headers') or {}
     auth = (headers.get('X-Auth-Token') or headers.get('x-auth-token') or
             headers.get('X-Authorization') or headers.get('x-authorization') or
             headers.get('Authorization') or headers.get('authorization') or '')
     token = auth.replace('Bearer ', '').strip()
+    if not token:
+        params = event.get('queryStringParameters') or {}
+        token = (params.get('token') or '').strip()
+    if not token:
+        try:
+            body = event.get('body') or ''
+            if body:
+                body_data = json.loads(body)
+                token = (body_data.get('token') or '').strip()
+        except Exception:
+            pass
     if not token:
         return None
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
