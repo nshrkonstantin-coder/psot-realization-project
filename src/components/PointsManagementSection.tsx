@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
-import { apiFetch } from '@/lib/api';
 
 interface PointsManagementSectionProps {
   organizationId: string;
@@ -27,12 +26,10 @@ export const PointsManagementSection = ({
   const togglePoints = async () => {
     try {
       const newState = !pointsEnabled;
-      const response = await apiFetch('https://functions.poehali.dev/1e66556d-e508-403d-aced-20637779242a', {
+      const response = await fetch('https://functions.poehali.dev/1e66556d-e508-403d-aced-20637779242a', {
         method: 'PUT',
-        body: JSON.stringify({
-          org_id: organizationId,
-          is_enabled: newState
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ org_id: organizationId, is_enabled: newState })
       });
 
       if (response.ok) {
@@ -52,8 +49,9 @@ export const PointsManagementSection = ({
     if (!amount || isNaN(Number(amount))) return;
 
     try {
-      const response = await apiFetch('https://functions.poehali.dev/1e66556d-e508-403d-aced-20637779242a', {
+      const response = await fetch('https://functions.poehali.dev/1e66556d-e508-403d-aced-20637779242a', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           org_id: organizationId,
           points_amount: parseFloat(amount),
@@ -77,7 +75,7 @@ export const PointsManagementSection = ({
 
   const loadPointsHistory = async () => {
     try {
-      const response = await apiFetch(`https://functions.poehali.dev/1e66556d-e508-403d-aced-20637779242a?org_id=${organizationId}&history=true`);
+      const response = await fetch(`https://functions.poehali.dev/1e66556d-e508-403d-aced-20637779242a?org_id=${organizationId}&history=true`);
       if (response.ok) {
         const data = await response.json();
         setPointsHistory(data);
