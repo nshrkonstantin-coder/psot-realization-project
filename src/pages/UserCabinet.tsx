@@ -129,6 +129,7 @@ const UserCabinet = () => {
       
       const response = await apiFetch(url);
       if (response.status === 401) {
+        localStorage.clear();
         navigate('/');
         return;
       }
@@ -438,8 +439,13 @@ const UserCabinet = () => {
   if (!stats) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <Card className="bg-slate-800/50 border-red-600/30 p-8">
-          <p className="text-red-500 text-lg">Данные не найдены</p>
+        <Card className="bg-slate-800/50 border-yellow-600/30 p-8 text-center">
+          <Icon name="RefreshCw" size={40} className="text-yellow-500 mx-auto mb-4" />
+          <p className="text-white text-lg mb-2">Сессия устарела</p>
+          <p className="text-slate-400 text-sm mb-6">Пожалуйста, войдите снова</p>
+          <Button onClick={() => { localStorage.clear(); navigate('/'); }} className="bg-yellow-600 hover:bg-yellow-700 text-white">
+            Войти снова
+          </Button>
         </Card>
       </div>
     );

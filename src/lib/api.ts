@@ -30,7 +30,7 @@ export function getAuthHeaders(): Record<string, string> {
   return headers;
 }
 
-export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+export async function apiFetch(url: string, options: RequestInit = {}, autoRedirect = false): Promise<Response> {
   const authHeaders = getAuthHeaders();
   const response = await fetch(url, {
     ...options,
@@ -40,7 +40,7 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
     },
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 && autoRedirect) {
     clearSession();
     window.location.href = '/';
   }

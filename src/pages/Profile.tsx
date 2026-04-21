@@ -120,7 +120,14 @@ const Profile = () => {
   if (!profile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <p className="text-white text-xl">Профиль не найден</p>
+        <div className="bg-slate-800/50 border border-yellow-600/30 rounded-xl p-8 text-center">
+          <Icon name="RefreshCw" size={40} className="text-yellow-500 mx-auto mb-4" />
+          <p className="text-white text-lg mb-2">Сессия устарела</p>
+          <p className="text-slate-400 text-sm mb-6">Пожалуйста, войдите снова</p>
+          <button onClick={() => { localStorage.clear(); navigate('/'); }} className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors">
+            Войти снова
+          </button>
+        </div>
       </div>
     );
   }
