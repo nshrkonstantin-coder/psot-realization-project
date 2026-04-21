@@ -24,7 +24,7 @@ export function getAuthHeaders(): Record<string, string> {
     headers['X-User-Role'] = role;
   }
   if (fio) {
-    headers['X-User-Fio'] = fio;
+    headers['X-User-Fio'] = encodeURIComponent(fio);
   }
 
   return headers;
