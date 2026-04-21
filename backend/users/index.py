@@ -959,8 +959,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
     
     if method == 'DELETE':
-        import psycopg2
-        
         body_data = json.loads(event.get('body', '{}'))
         user_id = body_data.get('userId')
         
