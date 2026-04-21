@@ -40,6 +40,11 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
     },
   });
 
+  if (response.status === 401) {
+    clearSession();
+    window.location.href = '/';
+  }
+
   return response;
 }
 
