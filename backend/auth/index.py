@@ -238,7 +238,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             MAX_ATTEMPTS = 5
             BLOCK_MINUTES = 15
             IP_BLOCK_THRESHOLD = 20
-            SESSION_HOURS = 8
+            SESSION_HOURS = 720
 
             email = body_data.get('email', '').strip()
             password = body_data.get('password', '').strip()
