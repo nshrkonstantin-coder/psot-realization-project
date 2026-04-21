@@ -123,13 +123,13 @@ const UserCabinet = () => {
       const userId = localStorage.getItem('userId');
       const token = localStorage.getItem('sessionToken');
       console.log('[UserCabinet] userId:', userId, 'token:', token ? token.slice(0, 20) + '...' : 'NULL');
-      let url = `https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=user_cabinet&userId=${userId}`;
+      let url = `https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf?action=user_cabinet&userId=${userId}&token=${token}`;
       
       if (startDate && endDate) {
         url += `&startDate=${startDate}&endDate=${endDate}`;
       }
       
-      const response = await apiFetch(url);
+      const response = await fetch(url);
       console.log('[UserCabinet] response status:', response.status);
       if (response.status === 401) {
         localStorage.clear();

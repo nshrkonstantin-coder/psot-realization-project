@@ -708,8 +708,10 @@ export function useCreateUser() {
     setLoading(true);
 
     try {
-      const response = await apiFetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
+      const token = localStorage.getItem('sessionToken');
+      const response = await fetch('https://functions.poehali.dev/9d7b143e-21c6-4e84-95b5-302b35a8eedf', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'create_user',
           email,
@@ -719,6 +721,7 @@ export function useCreateUser() {
           subdivision,
           position,
           role,
+          token,
         }),
       });
 
