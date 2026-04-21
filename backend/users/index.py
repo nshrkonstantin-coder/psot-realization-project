@@ -12,10 +12,13 @@ CORS = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
 def _verify_session(event: dict) -> dict | None:
     """Проверяет сессионный токен. Возвращает {'user_id', 'role'} или None если невалиден."""
     headers = event.get('headers') or {}
+    print(f"[DEBUG] headers keys: {list(headers.keys())}")
     auth = (headers.get('X-Auth-Token') or headers.get('x-auth-token') or
             headers.get('X-Authorization') or headers.get('x-authorization') or
             headers.get('Authorization') or headers.get('authorization') or '')
+    print(f"[DEBUG] auth value len={len(auth)}, starts={auth[:30]!r}")
     token = auth.replace('Bearer ', '').strip()
+    print(f"[DEBUG] token len={len(token)}")
     if not token:
         return None
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
