@@ -4,15 +4,10 @@ import App from './App'
 import './index.css'
 
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', async () => {
-        const registrations = await navigator.serviceWorker.getRegistrations();
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
         for (const reg of registrations) {
-            await reg.unregister();
+            reg.unregister();
         }
-        navigator.serviceWorker.register('/sw.js').then(
-            () => { console.log('ServiceWorker registration successful'); },
-            (err) => { console.log('ServiceWorker registration failed: ', err); }
-        );
     });
 }
 
