@@ -63,6 +63,7 @@ const UserCabinet = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [showRegisteredUsers, setShowRegisteredUsers] = useState(false);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
@@ -129,19 +130,31 @@ const UserCabinet = () => {
       }
       
       const response = await apiFetch(url);
+      console.log('[UserCabinet] response status:', response.status);
       if (response.status === 401) {
         localStorage.clear();
         navigate('/');
         return;
       }
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('[UserCabinet] server error:', response.status, errText.slice(0, 300));
+        setServerError(`Ошибка ${response.status}: ${errText.slice(0, 100)}`);
+        return;
+      }
       const data = await response.json();
+      console.log('[UserCabinet] data.success:', data.success, 'error:', data.error);
       
       if (data.success) {
         setStats(data.stats);
+        setServerError(null);
       } else {
+        setServerError(data.error || 'Неизвестная ошибка');
         toast({ title: 'Ошибка загрузки данных', description: data.error, variant: 'destructive' });
       }
     } catch (error) {
+      console.error('[UserCabinet] catch error:', error);
+      setServerError(String(error));
       toast({ title: 'Ошибка сервера', variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -440,10 +453,13 @@ const UserCabinet = () => {
   if (!stats) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <Card className="bg-slate-800/50 border-yellow-600/30 p-8 text-center">
+        <Card className="bg-slate-800/50 border-yellow-600/30 p-8 text-center max-w-sm w-full">
           <Icon name="RefreshCw" size={40} className="text-yellow-500 mx-auto mb-4" />
           <p className="text-white text-lg mb-2">Сессия устарела</p>
-          <p className="text-slate-400 text-sm mb-6">Пожалуйста, войдите снова</p>
+          <p className="text-slate-400 text-sm mb-4">Пожалуйста, войдите снова</p>
+          {serverError && (
+            <p className="text-red-400 text-xs mb-4 break-all">{serverError}</p>
+          )}
           <Button onClick={() => { localStorage.clear(); navigate('/'); }} className="bg-yellow-600 hover:bg-yellow-700 text-white">
             Войти снова
           </Button>
