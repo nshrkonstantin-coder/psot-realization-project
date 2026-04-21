@@ -11,6 +11,7 @@
   "chat-messages": "https://functions.poehali.dev/7ce14ae9-b117-45ff-a64a-52a3f9881389",
   "modules": "https://functions.poehali.dev/f0017dad-45ab-4a18-a80f-50544a6a298f",
   "tariffs": "https://functions.poehali.dev/78e6bfda-487d-4a51-a368-1870e67aba1a",
+  "organization-modules": "https://functions.poehali.dev/ed581da1-7f08-4cc4-bfed-44137839b869",
   "org-users": "https://functions.poehali.dev/bceeaee7-5cfa-418c-9c0d-0a61668ab1a4",
   "organizations": "https://functions.poehali.dev/5fa1bf89-3c17-4533-889a-7273e1ef1e3b",
   "pab-submit": "https://functions.poehali.dev/5054985e-ff94-4512-8302-c02f01b09d66",

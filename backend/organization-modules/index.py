@@ -4,12 +4,7 @@ import psycopg2
 from typing import Dict, Any
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    '''
-    API управления модулями организации
-    GET - получить модули организации
-    POST - включить/выключить модуль для организации
-    PUT - массовое обновление модулей организации
-    '''
+    """API управления модулями организации."""
     method: str = event.get('httpMethod', 'GET')
     
     if method == 'OPTIONS':
