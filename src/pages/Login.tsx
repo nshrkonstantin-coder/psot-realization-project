@@ -11,9 +11,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fio, setFio] = useState('');
-  const [company, setCompany] = useState('');
-  const [subdivision, setSubdivision] = useState('');
-  const [position, setPosition] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -27,7 +25,7 @@ export default function Login() {
 
     const action = isRegister ? 'register' : 'login';
     const body = isRegister
-      ? { action, email, password, fio, company, subdivision, position, deviceFingerprint }
+      ? { action, email, password, fio, invite_code: inviteCode, deviceFingerprint }
       : { action, email, password, deviceFingerprint };
 
     try {
@@ -151,42 +149,23 @@ export default function Login() {
                 {isRegister && (
                   <>
                     <div>
+                      <Label htmlFor="inviteCode" className="text-gray-300">Код приглашения</Label>
+                      <Input
+                        id="inviteCode"
+                        value={inviteCode}
+                        onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                        placeholder="XXXXXXXX"
+                        className="bg-slate-700/50 border-yellow-600/30 text-white placeholder:text-gray-500 mt-1"
+                        required
+                      />
+                    </div>
+                    <div>
                       <Label htmlFor="fio" className="text-gray-300">ФИО</Label>
                       <Input
                         id="fio"
                         value={fio}
                         onChange={(e) => setFio(e.target.value)}
-                        className="bg-slate-700/50 border-yellow-600/30 text-white"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="company" className="text-gray-300">Компания</Label>
-                      <Input
-                        id="company"
-                        value={company}
-                        onChange={(e) => setCompany(e.target.value)}
-                        className="bg-slate-700/50 border-yellow-600/30 text-white"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="subdivision" className="text-gray-300">Подразделение</Label>
-                      <Input
-                        id="subdivision"
-                        value={subdivision}
-                        onChange={(e) => setSubdivision(e.target.value)}
-                        className="bg-slate-700/50 border-yellow-600/30 text-white"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="position" className="text-gray-300">Должность</Label>
-                      <Input
-                        id="position"
-                        value={position}
-                        onChange={(e) => setPosition(e.target.value)}
-                        className="bg-slate-700/50 border-yellow-600/30 text-white"
+                        className="bg-slate-700/50 border-yellow-600/30 text-white mt-1"
                         required
                       />
                     </div>
