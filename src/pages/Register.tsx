@@ -193,19 +193,11 @@ const Register = () => {
                 <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-600 mb-2">
                   Регистрация
                 </h1>
-                
-                {organizationName && (
-                  <div className="mt-4 mb-2 px-4 py-3 bg-gradient-to-r from-yellow-600/20 to-orange-600/20 rounded-lg border border-yellow-600/30">
-                    <p className="text-xl font-bold text-white">{organizationName}</p>
-                  </div>
-                )}
-                
-                <p className="text-yellow-500/80 text-sm mt-2">
-                  {organizationName ? 'Создайте аккаунт для доступа в систему' : 'Введите код приглашения'}
-                </p>
+                <p className="text-yellow-500/80 text-sm">Создайте аккаунт для доступа в систему</p>
               </div>
 
               <form onSubmit={handleRegister} className="space-y-4">
+                {/* Код приглашения */}
                 <div>
                   <Label htmlFor="code" className="text-gray-300">Код приглашения</Label>
                   <Input
@@ -215,23 +207,31 @@ const Register = () => {
                     value={code}
                     onChange={(e) => handleCodeChange(e.target.value)}
                     disabled={loading}
-                    className="bg-slate-700/50 border-yellow-600/30 text-white placeholder:text-gray-500"
+                    className="bg-slate-700/50 border-yellow-600/30 text-white placeholder:text-gray-500 mt-1"
                     required
                   />
                   {verifyingCode && (
-                    <p className="text-sm text-yellow-500 mt-1 flex items-center gap-2">
+                    <p className="text-sm text-yellow-500 mt-2 flex items-center gap-2">
                       <Icon name="Loader2" size={14} className="animate-spin" />
                       Проверка кода...
                     </p>
                   )}
+                  {organizationName && !verifyingCode && (
+                    <div className="mt-2 px-3 py-2 bg-green-600/10 border border-green-600/30 rounded-lg flex items-center gap-2">
+                      {organizationLogo && <img src={organizationLogo} alt="" className="w-6 h-6 object-contain rounded" />}
+                      <Icon name="CheckCircle" size={16} className="text-green-400 shrink-0" />
+                      <span className="text-sm text-green-400 font-medium">{organizationName}</span>
+                    </div>
+                  )}
                   {code.length >= 6 && !verifyingCode && !organizationName && (
-                    <p className="text-sm text-red-400 mt-1 flex items-center gap-1">
+                    <p className="text-sm text-red-400 mt-2 flex items-center gap-1">
                       <Icon name="XCircle" size={14} />
                       Неверный код приглашения
                     </p>
                   )}
                 </div>
 
+                {/* ФИО */}
                 <div>
                   <Label htmlFor="fullName" className="text-gray-300">ФИО</Label>
                   <Input
