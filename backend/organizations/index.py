@@ -169,8 +169,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         for row in rows:
             logo = row[7]
-            # Если logo это base64 — не включаем в список (только флаг наличия)
-            if logo and logo.startswith('data:'):
+            # В списке всех организаций base64 не передаём (слишком тяжело)
+            # При запросе конкретной организации — передаём полностью
+            if logo and logo.startswith('data:') and not org_id:
                 logo = None
             organizations.append({
                 'id': row[0],
@@ -330,7 +331,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         if updates:
             params.append(org_id)
-            query = f"UPDATE organizations SET {', '.join(updates)} WHERE id = %s"
+            query = f"UPDATE t_p80499285_psot_realization_pro.organizations SET {', '.join(updates)} WHERE id = %s"
             cur.execute(query, params)
             conn.commit()
         

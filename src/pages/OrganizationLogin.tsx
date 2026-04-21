@@ -179,7 +179,11 @@ const OrganizationLogin = () => {
               {/* Logo/Header */}
               <div className="text-center mb-8">
                 <div className="inline-flex items-center justify-center mb-4">
-                  <img src="/favicon.svg" alt="АСУБТ" className="w-32 h-32 transform hover:scale-110 transition-transform" />
+                  {organization.logo_url ? (
+                    <img src={organization.logo_url} alt={organization.name} className="w-32 h-32 object-contain transform hover:scale-110 transition-transform" />
+                  ) : (
+                    <img src="/favicon.svg" alt="АСУБТ" className="w-32 h-32 transform hover:scale-110 transition-transform" />
+                  )}
                 </div>
                 
                 {/* Название предприятия */}
