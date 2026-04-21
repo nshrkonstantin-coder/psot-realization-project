@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import Icon from '@/components/ui/icon';
 
 const Register = () => {
   const [searchParams] = useSearchParams();
+  const { code: routeCode } = useParams<{ code: string }>();
   const navigate = useNavigate();
   
   const [code, setCode] = useState('');
@@ -21,12 +22,12 @@ const Register = () => {
   const [verifyingCode, setVerifyingCode] = useState(false);
 
   useEffect(() => {
-    const urlCode = searchParams.get('code');
+    const urlCode = routeCode || searchParams.get('code');
     if (urlCode) {
       setCode(urlCode);
       verifyCode(urlCode);
     }
-  }, [searchParams]);
+  }, [routeCode, searchParams]);
 
   const verifyCode = async (codeValue: string) => {
     if (!codeValue || codeValue.length < 6) return;
