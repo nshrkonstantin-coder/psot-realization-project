@@ -782,17 +782,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         cur.close()
         conn.close()
-        
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            'isBase64Encoded': False,
-            'body': json.dumps({'success': True})
-        }
-    
+
+        return {'statusCode': 200, 'headers': CORS, 'isBase64Encoded': False,
+                'body': json.dumps({'success': True})}
+
     if method == 'POST':
         session = _verify_session(event)
         if not session:
@@ -959,28 +952,65 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
     
     if method == 'DELETE':
+        session = _verify_session(event)
+        if not session:
+            return _unauth()
+        if session['role'] not in ('admin', 'superadmin'):
+            return {'statusCode': 403, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'Forbidden'})}
+
         body_data = json.loads(event.get('body', '{}'))
         user_id = body_data.get('userId')
-        
+
+        if not user_id:
+            return {'statusCode': 400, 'headers': CORS, 'isBase64Encoded': False,
+                    'body': json.dumps({'success': False, 'error': 'userId required'})}
+
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         cur = conn.cursor()
-        
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.user_stats WHERE user_id = %s", (user_id,))
+
+        # Удаляем все связанные данные перед удалением пользователя
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.sessions WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.login_log WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.login_attempts WHERE email IN (SELECT email FROM t_p80499285_psot_realization_pro.users WHERE id = %s)", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.known_devices WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.twofa_codes WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.system_notifications WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.user_activity WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.points_history WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.miniadmin_audit_log WHERE admin_id = %s OR target_user_id = %s", (user_id, user_id))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.miniadmin_permissions WHERE user_id = %s", (user_id,))
+        # ПАБ наблюдения
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.pab_observations WHERE created_by = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.pab_records WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.user_pab_registry WHERE user_id = %s", (user_id,))
+        # КБТ
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.kbt_reports WHERE user_id = %s", (user_id,))
+        # Предписания, нарушения
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.prescription_violations WHERE prescription_id IN (SELECT id FROM t_p80499285_psot_realization_pro.prescriptions WHERE user_id = %s)", (user_id,))
         cur.execute("DELETE FROM t_p80499285_psot_realization_pro.prescriptions WHERE user_id = %s", (user_id,))
         cur.execute("DELETE FROM t_p80499285_psot_realization_pro.audits WHERE user_id = %s", (user_id,))
         cur.execute("DELETE FROM t_p80499285_psot_realization_pro.violations WHERE user_id = %s", (user_id,))
+        # Производственный контроль
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.production_control_violations WHERE responsible_user_id = %s", (user_id,))
+        # Чат
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.chat_participants WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.messages WHERE sender_id = %s", (user_id,))
+        # Хранилище
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.storage_files WHERE user_id = %s", (user_id,))
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.storage_folders WHERE user_id = %s", (user_id,))
+        # Статистика
+        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.user_stats WHERE user_id = %s", (user_id,))
+        # Сам пользователь
         cur.execute("DELETE FROM t_p80499285_psot_realization_pro.users WHERE id = %s", (user_id,))
-        
+
         conn.commit()
         cur.close()
         conn.close()
-        
+
         return {
             'statusCode': 200,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
+            'headers': CORS,
             'isBase64Encoded': False,
             'body': json.dumps({'success': True})
         }

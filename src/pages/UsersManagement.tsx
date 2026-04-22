@@ -138,24 +138,25 @@ const UsersManagement = () => {
       const data = await response.json();
       if (data.success) {
         toast({ title: 'Профиль обновлён' });
+        setEditUser(null);
         await loadUsers();
-        
-        // Если компания изменилась, перемещаем пользователя в новую компанию
+
         if (oldCompany !== editUser.company) {
           setSearchQuery(editUser.company);
           setHighlightedUserId(editUser.id);
           setTimeout(() => setHighlightedUserId(null), 3000);
         }
-        
-        setEditUser(null);
+      } else {
+        toast({ title: 'Ошибка', description: data.error || 'Не удалось обновить профиль', variant: 'destructive' });
       }
     } catch (error) {
+      console.error('Update profile error:', error);
       toast({ title: 'Ошибка обновления профиля', variant: 'destructive' });
     }
   };
 
   const handleDeleteUser = async (userId: number) => {
-    if (!confirm('Вы уверены, что хотите удалить этого пользователя?')) return;
+    if (!confirm('Вы уверены? Пользователь и все его данные будут удалены без возможности восстановления.')) return;
 
     try {
       const token = localStorage.getItem('sessionToken');
@@ -167,11 +168,14 @@ const UsersManagement = () => {
 
       const data = await response.json();
       if (data.success) {
-        toast({ title: 'Пользователь удалён' });
-        loadUsers();
-        loadStats();
+        toast({ title: 'Пользователь удалён', description: 'Все данные пользователя удалены из системы' });
+        await loadUsers();
+        await loadStats();
+      } else {
+        toast({ title: 'Ошибка удаления', description: data.error || 'Не удалось удалить пользователя', variant: 'destructive' });
       }
     } catch (error) {
+      console.error('Delete user error:', error);
       toast({ title: 'Ошибка удаления', variant: 'destructive' });
     }
   };
