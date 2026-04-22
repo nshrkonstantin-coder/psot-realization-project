@@ -46,7 +46,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             conn = psycopg2.connect(os.environ['DATABASE_URL'])
             cur = conn.cursor()
             
-            cur.execute("SELECT id, name FROM t_p80499285_psot_realization_pro.organizations WHERE registration_code = %s", (code,))
+            cur.execute("SELECT id, name, logo_url FROM t_p80499285_psot_realization_pro.organizations WHERE registration_code = %s", (code,))
             org_result = cur.fetchone()
             
             cur.close()
@@ -63,7 +63,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({
                         'success': True,
                         'organizationId': org_result[0],
-                        'organizationName': org_result[1]
+                        'organizationName': org_result[1],
+                        'organizationLogo': org_result[2]
                     })
                 }
             else:
