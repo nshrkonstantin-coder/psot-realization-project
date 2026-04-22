@@ -969,40 +969,48 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         cur = conn.cursor()
 
-        # Удаляем все связанные данные перед удалением пользователя
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.sessions WHERE user_id = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.login_log WHERE user_id = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.login_attempts WHERE email IN (SELECT email FROM t_p80499285_psot_realization_pro.users WHERE id = %s)", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.known_devices WHERE user_id = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.twofa_codes WHERE user_id = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.system_notifications WHERE user_id = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.user_activity WHERE user_id = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.points_history WHERE user_id = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.miniadmin_audit_log WHERE admin_id = %s OR target_user_id = %s", (user_id, user_id))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.miniadmin_permissions WHERE user_id = %s", (user_id,))
-        # ПАБ наблюдения
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.pab_observations WHERE created_by = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.pab_records WHERE user_id = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.user_pab_registry WHERE user_id = %s", (user_id,))
+        S = 't_p80499285_psot_realization_pro'
+
+        # Сессии и авторизация
+        cur.execute(f"DELETE FROM {S}.sessions WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.login_log WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.login_attempts WHERE email IN (SELECT email FROM {S}.users WHERE id = %s)", (user_id,))
+        cur.execute(f"DELETE FROM {S}.known_devices WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.twofa_codes WHERE user_id = %s", (user_id,))
+        # Уведомления и активность
+        cur.execute(f"DELETE FROM {S}.system_notifications WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.user_activity WHERE user_id = %s", (user_id,))
+        # Права и специалисты
+        cur.execute(f"DELETE FROM {S}.miniadmin_permissions WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.otipb_specialists WHERE user_id = %s", (user_id,))
+        # ПАБ
+        cur.execute(f"DELETE FROM {S}.user_pab_registry WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.pab_records WHERE user_id = %s", (user_id,))
         # КБТ
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.kbt_reports WHERE user_id = %s", (user_id,))
-        # Предписания, нарушения
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.prescription_violations WHERE prescription_id IN (SELECT id FROM t_p80499285_psot_realization_pro.prescriptions WHERE user_id = %s)", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.prescriptions WHERE user_id = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.audits WHERE user_id = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.violations WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.kbt_reports WHERE user_id = %s", (user_id,))
+        # Предписания и нарушения
+        cur.execute(f"DELETE FROM {S}.prescription_violations WHERE prescription_id IN (SELECT id FROM {S}.prescriptions WHERE user_id = %s)", (user_id,))
+        cur.execute(f"DELETE FROM {S}.prescriptions WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.audits WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.violations WHERE user_id = %s", (user_id,))
         # Производственный контроль
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.production_control_violations WHERE responsible_user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.production_control_signatures WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.production_control_violations WHERE responsible_user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.production_control_reports WHERE user_id = %s", (user_id,))
         # Чат
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.chat_participants WHERE user_id = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.messages WHERE sender_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.chat_participants WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.messages WHERE sender_id = %s", (user_id,))
         # Хранилище
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.storage_files WHERE user_id = %s", (user_id,))
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.storage_folders WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.storage_files WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.storage_folders WHERE user_id = %s", (user_id,))
+        # Видеоконференции
+        cur.execute(f"DELETE FROM {S}.video_conference_participants WHERE user_id = %s", (user_id,))
+        # Excel-датасеты
+        cur.execute(f"DELETE FROM {S}.excel_mail_datasets WHERE user_id = %s", (user_id,))
         # Статистика
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.user_stats WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.user_stats WHERE user_id = %s", (user_id,))
         # Сам пользователь
-        cur.execute("DELETE FROM t_p80499285_psot_realization_pro.users WHERE id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.users WHERE id = %s", (user_id,))
 
         conn.commit()
         cur.close()
