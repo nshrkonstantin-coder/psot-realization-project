@@ -130,10 +130,17 @@ export default function Login() {
         toast({ title: isRegister ? 'Регистрация успешна!' : 'Вход выполнен!' });
 
         const role = data.role || 'user';
-        if (role === 'superadmin') navigate('/superadmin');
-        else if (role === 'admin') navigate('/admin');
-        else if (role === 'miniadmin') navigate('/miniadmin');
-        else navigate('/dashboard');
+        if (role === 'superadmin') {
+          navigate('/superadmin');
+        } else if (data.registrationCode && !isRegister) {
+          navigate(`/org/${data.registrationCode}`);
+        } else if (role === 'admin') {
+          navigate('/admin');
+        } else if (role === 'miniadmin') {
+          navigate('/miniadmin');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         toast({ title: 'Ошибка', description: data.error || 'Неверные учётные данные', variant: 'destructive' });
       }
