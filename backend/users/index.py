@@ -971,45 +971,39 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         S = 't_p80499285_psot_realization_pro'
 
-        # Сессии и авторизация
+        # Сессии и авторизация (нет FK, но нужно удалить до users)
         cur.execute(f"DELETE FROM {S}.sessions WHERE user_id = %s", (user_id,))
-        cur.execute(f"DELETE FROM {S}.login_log WHERE user_id = %s", (user_id,))
         cur.execute(f"DELETE FROM {S}.login_attempts WHERE email IN (SELECT email FROM {S}.users WHERE id = %s)", (user_id,))
+        # FK на users.id — удаляем строго по результату запроса к БД
+        cur.execute(f"DELETE FROM {S}.login_log WHERE user_id = %s", (user_id,))
         cur.execute(f"DELETE FROM {S}.known_devices WHERE user_id = %s", (user_id,))
         cur.execute(f"DELETE FROM {S}.twofa_codes WHERE user_id = %s", (user_id,))
-        # Уведомления и активность
         cur.execute(f"DELETE FROM {S}.system_notifications WHERE user_id = %s", (user_id,))
         cur.execute(f"DELETE FROM {S}.user_activity WHERE user_id = %s", (user_id,))
-        # Права и специалисты
-        cur.execute(f"DELETE FROM {S}.miniadmin_permissions WHERE user_id = %s", (user_id,))
         cur.execute(f"DELETE FROM {S}.otipb_specialists WHERE user_id = %s", (user_id,))
-        # ПАБ
         cur.execute(f"DELETE FROM {S}.user_pab_registry WHERE user_id = %s", (user_id,))
-        cur.execute(f"DELETE FROM {S}.pab_records WHERE user_id = %s", (user_id,))
-        # КБТ
         cur.execute(f"DELETE FROM {S}.kbt_reports WHERE user_id = %s", (user_id,))
-        # Предписания и нарушения
-        cur.execute(f"DELETE FROM {S}.prescription_violations WHERE prescription_id IN (SELECT id FROM {S}.prescriptions WHERE user_id = %s)", (user_id,))
-        cur.execute(f"DELETE FROM {S}.prescriptions WHERE user_id = %s", (user_id,))
         cur.execute(f"DELETE FROM {S}.audits WHERE user_id = %s", (user_id,))
         cur.execute(f"DELETE FROM {S}.violations WHERE user_id = %s", (user_id,))
-        # Производственный контроль
+        cur.execute(f"DELETE FROM {S}.prescription_violations WHERE prescription_id IN (SELECT id FROM {S}.prescriptions WHERE user_id = %s)", (user_id,))
+        cur.execute(f"DELETE FROM {S}.prescriptions WHERE user_id = %s", (user_id,))
         cur.execute(f"DELETE FROM {S}.production_control_signatures WHERE user_id = %s", (user_id,))
-        cur.execute(f"DELETE FROM {S}.production_control_violations WHERE responsible_user_id = %s", (user_id,))
+        cur.execute(f"UPDATE {S}.production_control_reports SET recipient_user_id = NULL WHERE recipient_user_id = %s", (user_id,))
         cur.execute(f"DELETE FROM {S}.production_control_reports WHERE user_id = %s", (user_id,))
-        # Чат
+        cur.execute(f"UPDATE {S}.ot_order_documents SET uploaded_by_user_id = NULL WHERE uploaded_by_user_id = %s", (user_id,))
+        cur.execute(f"UPDATE {S}.ot_orders SET assigned_to_user_id = NULL WHERE assigned_to_user_id = %s", (user_id,))
+        cur.execute(f"UPDATE {S}.ot_orders SET created_by_user_id = NULL WHERE created_by_user_id = %s", (user_id,))
+        # Без FK — просто удаляем
+        cur.execute(f"DELETE FROM {S}.miniadmin_permissions WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.pab_records WHERE user_id = %s", (user_id,))
+        cur.execute(f"DELETE FROM {S}.production_control_violations WHERE responsible_user_id = %s", (user_id,))
         cur.execute(f"DELETE FROM {S}.chat_participants WHERE user_id = %s", (user_id,))
         cur.execute(f"DELETE FROM {S}.messages WHERE sender_id = %s", (user_id,))
-        # Хранилище
-        cur.execute(f"DELETE FROM {S}.storage_files WHERE user_id = %s", (user_id,))
         cur.execute(f"DELETE FROM {S}.storage_folders WHERE user_id = %s", (user_id,))
-        # Видеоконференции
         cur.execute(f"DELETE FROM {S}.video_conference_participants WHERE user_id = %s", (user_id,))
-        # Excel-датасеты
         cur.execute(f"DELETE FROM {S}.excel_mail_datasets WHERE user_id = %s", (user_id,))
-        # Статистика
+        # Статистика и сам пользователь
         cur.execute(f"DELETE FROM {S}.user_stats WHERE user_id = %s", (user_id,))
-        # Сам пользователь
         cur.execute(f"DELETE FROM {S}.users WHERE id = %s", (user_id,))
 
         conn.commit()
