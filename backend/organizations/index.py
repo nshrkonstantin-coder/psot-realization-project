@@ -107,7 +107,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                        o.subscription_type, o.is_active, o.logo_url,
                        COUNT(DISTINCT u.id) as user_count,
                        COUNT(DISTINCT om.module_id) as module_count,
-                       COUNT(DISTINCT op.page_id) as page_count
+                       COUNT(DISTINCT op.page_id) as page_count,
+                       o.external_db_url, o.external_db_schema
                 FROM t_p80499285_psot_realization_pro.organizations o
                 LEFT JOIN t_p80499285_psot_realization_pro.users u ON o.id = u.organization_id
                 LEFT JOIN t_p80499285_psot_realization_pro.organization_modules om ON o.id = om.organization_id
@@ -173,7 +174,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # При запросе конкретной организации — передаём полностью
             if logo and logo.startswith('data:') and not org_id:
                 logo = None
-            organizations.append({
+            org_data = {
                 'id': row[0],
                 'name': row[1],
                 'registration_code': row[2],
@@ -185,7 +186,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'user_count': row[8],
                 'module_count': row[9],
                 'page_count': row[10]
-            })
+            }
+            # external_db_url и external_db_schema — только при запросе конкретной орг. (не в списке)
+            if org_id and len(row) > 11:
+                org_data['external_db_url'] = row[11]
+                org_data['external_db_schema'] = row[12]
+            organizations.append(org_data)
         
         cur.close()
         conn.close()
@@ -328,6 +334,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if 'logo_url' in body:
             updates.append('logo_url = %s')
             params.append(body['logo_url'])
+
+        if 'external_db_url' in body:
+            updates.append('external_db_url = %s')
+            params.append(body['external_db_url'] or None)
+
+        if 'external_db_schema' in body:
+            updates.append('external_db_schema = %s')
+            params.append(body['external_db_schema'] or None)
         
         if updates:
             params.append(org_id)

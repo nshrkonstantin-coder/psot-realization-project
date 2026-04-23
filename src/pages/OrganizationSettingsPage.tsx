@@ -8,6 +8,7 @@ import { OrganizationInfoSection } from '@/components/OrganizationInfoSection';
 import { PointsManagementSection } from '@/components/PointsManagementSection';
 import { ModulesSection } from '@/components/ModulesSection';
 import { PagesSection } from '@/components/PagesSection';
+import { ExternalDatabaseSection } from '@/components/ExternalDatabaseSection';
 import { apiFetch } from '@/lib/api';
 
 interface Organization {
@@ -19,6 +20,8 @@ interface Organization {
   logo_url: string | null;
   points_balance?: number;
   points_enabled?: boolean;
+  external_db_url?: string | null;
+  external_db_schema?: string | null;
 }
 
 interface Module {
@@ -218,6 +221,16 @@ const OrganizationSettingsPage = () => {
         <PagesSection 
           pages={pages} 
           onTogglePage={togglePage}
+        />
+
+        <ExternalDatabaseSection
+          organizationId={id!}
+          orgName={organization.name}
+          externalDbUrl={organization.external_db_url ?? null}
+          externalDbSchema={organization.external_db_schema ?? null}
+          onSaved={(url, schema) =>
+            setOrganization(prev => prev ? { ...prev, external_db_url: url, external_db_schema: schema } : null)
+          }
         />
 
         <Card className="bg-slate-800/50 border-purple-600/30 p-6">
