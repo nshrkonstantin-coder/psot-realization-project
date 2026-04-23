@@ -248,12 +248,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             ext = file_name.rsplit('.', 1)[-1].lower() if '.' in file_name else 'bin'
             key = f"ot-orders/{order_id}/{uuid.uuid4().hex}.{ext}"
             content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+            from botocore.client import Config as BotoConfig
+            ya_endpoint = 'https://storage.yandexcloud.net'
+            ya_bucket = os.environ.get('YA_S3_BUCKET_NAME', 'psot-files')
             s3 = boto3.client('s3',
-                endpoint_url='https://bucket.poehali.dev',
-                aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-                aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])
-            s3.put_object(Bucket='files', Key=key, Body=file_bytes, ContentType=content_type)
-            cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+                endpoint_url=ya_endpoint,
+                aws_access_key_id=os.environ['YA_S3_ACCESS_KEY_ID'],
+                aws_secret_access_key=os.environ['YA_S3_SECRET_ACCESS_KEY'],
+                config=BotoConfig(signature_version='s3v4'),
+                region_name='ru-central1')
+            s3.put_object(Bucket=ya_bucket, Key=key, Body=file_bytes, ContentType=content_type)
+            cdn_url = f'{ya_endpoint}/{ya_bucket}/{key}'
             uploader_val = str(int(uploaded_by)) if uploaded_by else 'NULL'
             safe_name = file_name.replace("'", "''")
             cur.execute(f"""

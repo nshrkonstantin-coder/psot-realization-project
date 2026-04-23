@@ -60,22 +60,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 file_ext = os.path.splitext(file_name)[1]
                 unique_name = f"support/{uuid.uuid4()}{file_ext}"
                 
-                # Загружаем в S3
+                # Загружаем в Яндекс Object Storage
+                from botocore.client import Config
+                ya_endpoint = 'https://storage.yandexcloud.net'
+                bucket = os.environ.get('YA_S3_BUCKET_NAME', 'psot-files')
                 s3 = boto3.client('s3',
-                    endpoint_url='https://bucket.poehali.dev',
-                    aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-                    aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+                    endpoint_url=ya_endpoint,
+                    aws_access_key_id=os.environ['YA_S3_ACCESS_KEY_ID'],
+                    aws_secret_access_key=os.environ['YA_S3_SECRET_ACCESS_KEY'],
+                    config=Config(signature_version='s3v4'),
+                    region_name='ru-central1'
                 )
-                
+
                 s3.put_object(
-                    Bucket='files',
+                    Bucket=bucket,
                     Key=unique_name,
                     Body=file_bytes,
                     ContentType=file_type
                 )
-                
-                # Генерируем CDN URL
-                cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{unique_name}"
+
+                cdn_url = f'{ya_endpoint}/{bucket}/{unique_name}'
                 
                 print(f'File uploaded: {file_name} -> {cdn_url}')
                 

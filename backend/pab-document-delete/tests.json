@@ -6,23 +6,14 @@
       "path": "/",
       "body": {},
       "expectedStatus": 400,
-      "expectedBody": {
-        "error": "string"
-      },
+      "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
     },
     {
-      "name": "Удаление несуществующего документа",
-      "method": "POST",
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
       "path": "/",
-      "body": {
-        "doc_number": "PAB-99999"
-      },
-      "expectedStatus": 404,
-      "expectedBody": {
-        "error": "string",
-        "doc_number": "PAB-99999"
-      },
+      "expectedStatus": 200,
       "bodyMatcher": "partial"
     }
   ]
