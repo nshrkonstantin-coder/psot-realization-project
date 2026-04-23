@@ -56,9 +56,26 @@ def parse_multipart(body: bytes, boundary: str) -> Dict[str, Any]:
     
     return result
 
+def get_ya_s3_client():
+    """Создаёт клиент Яндекс Object Storage"""
+    access_key = os.environ.get('YA_S3_ACCESS_KEY_ID')
+    secret_key = os.environ.get('YA_S3_SECRET_ACCESS_KEY')
+    if not access_key or not secret_key:
+        return None, None
+    client = boto3.client(
+        's3',
+        endpoint_url='https://storage.yandexcloud.net',
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        config=Config(signature_version='s3v4'),
+        region_name='ru-central1'
+    )
+    bucket = os.environ.get('YA_S3_BUCKET_NAME', 'psot-files')
+    return client, bucket
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Загрузка файлов в Cloudflare R2
+    Загрузка файлов в Яндекс Object Storage
     POST: Загрузить файл в папку (multipart/form-data)
     '''
     method: str = event.get('httpMethod', 'POST')
@@ -85,13 +102,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     try:
-        # Проверяем наличие ключей R2
-        r2_access_key = os.environ.get('R2_ACCESS_KEY_ID')
-        r2_secret_key = os.environ.get('R2_SECRET_ACCESS_KEY')
-        r2_bucket = os.environ.get('R2_BUCKET_NAME')
-        r2_account_id = os.environ.get('R2_ACCOUNT_ID')
-        
-        use_r2 = all([r2_access_key, r2_secret_key, r2_bucket, r2_account_id])
+        s3_client, s3_bucket = get_ya_s3_client()
+        use_s3 = s3_client is not None
         
         headers = event.get('headers', {})
         content_type = headers.get('content-type') or headers.get('Content-Type', '')
@@ -165,13 +177,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         file_size = len(file_data)
         file_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
         
-        # Подключаемся к БД
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         cur = conn.cursor()
         
         try:
-            # Проверяем существование папки
-            cur.execute('SELECT id FROM storage_folders WHERE id = %s', (folder_id,))
+            S = os.environ.get('MAIN_DB_SCHEMA', 't_p80499285_psot_realization_pro')
+            cur.execute(f'SELECT id FROM {S}.storage_folders WHERE id = %s', (folder_id,))
             if not cur.fetchone():
                 return {
                     'statusCode': 404,
@@ -182,27 +193,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             file_url = None
             
-            # Загружаем в R2, если настроен
-            if use_r2:
+            if use_s3:
                 try:
-                    # Создаём S3 клиент для R2
-                    s3_client = boto3.client(
-                        's3',
-                        endpoint_url=f'https://{r2_account_id}.r2.cloudflarestorage.com',
-                        aws_access_key_id=r2_access_key,
-                        aws_secret_access_key=r2_secret_key,
-                        config=Config(signature_version='s3v4'),
-                        region_name='auto'
-                    )
-                    
-                    # Генерируем уникальное имя файла
                     file_id = str(uuid.uuid4())
                     file_extension = os.path.splitext(file_name)[1]
-                    object_key = f'{folder_id}/{file_id}{file_extension}'
+                    object_key = f'storage/{folder_id}/{file_id}{file_extension}'
                     
-                    # Загружаем файл в R2
                     s3_client.put_object(
-                        Bucket=r2_bucket,
+                        Bucket=s3_bucket,
                         Key=object_key,
                         Body=file_data,
                         ContentType=file_type,
@@ -212,64 +210,55 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         }
                     )
                     
-                    # Публичный URL файла
-                    file_url = f'https://{r2_bucket}.{r2_account_id}.r2.cloudflarestorage.com/{object_key}'
-                    
-                    print(f'File uploaded to R2: {file_url}')
+                    file_url = f'https://storage.yandexcloud.net/{s3_bucket}/{object_key}'
+                    print(f'File uploaded to Yandex S3: {file_url}')
                     
                 except Exception as e:
-                    print(f'R2 upload failed, falling back to database: {str(e)}')
-                    use_r2 = False
+                    print(f'Yandex S3 upload failed, falling back to database: {str(e)}')
+                    use_s3 = False
             
-            # Fallback: сохраняем в БД если R2 не настроен или упал
-            if not use_r2 or not file_url:
-                # Проверка размера для БД (100 МБ максимум)
-                max_db_size = 100 * 1024 * 1024
-                if file_size > max_db_size:
-                    return {
-                        'statusCode': 413,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({
-                            'error': f'Файл слишком большой для БД ({file_size / (1024*1024):.2f} МБ). Настройте R2 для файлов больше 100 МБ'
-                        }),
-                        'isBase64Encoded': False
-                    }
-                
+            if not use_s3:
                 import base64
-                file_url = f'data:{file_type};base64,{base64.b64encode(file_data).decode("utf-8")}'
+                file_b64 = base64.b64encode(file_data).decode('utf-8')
+                file_url = f'data:{file_type};base64,{file_b64}'
+                print('File saved to database (fallback)')
             
-            # Сохраняем запись в БД
-            cur.execute('''
-                INSERT INTO storage_files (folder_id, file_name, file_url, file_size, file_type) 
-                VALUES (%s, %s, %s, %s, %s) 
-                RETURNING id
-            ''', (folder_id, file_name, file_url, file_size, file_type))
+            file_uuid = str(uuid.uuid4())
+            cur.execute(
+                f'''INSERT INTO {S}.storage_files 
+                    (id, folder_id, file_name, file_url, file_size, file_type, uploaded_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                    RETURNING id''',
+                (file_uuid, folder_id, file_name, file_url, file_size, file_type)
+            )
             
-            file_id = cur.fetchone()[0]
+            result = cur.fetchone()
             conn.commit()
-            
-            storage_type = 'R2' if use_r2 and not file_url.startswith('data:') else 'Database'
             
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({
-                    'file_id': file_id,
-                    'file_url': file_url,
-                    'storage_type': storage_type,
-                    'message': f'Файл загружен в {storage_type}'
+                    'success': True,
+                    'file': {
+                        'id': result[0],
+                        'folder_id': folder_id,
+                        'file_name': file_name,
+                        'file_url': file_url,
+                        'file_size': file_size,
+                        'file_type': file_type,
+                        'storage': 'yandex_s3' if (file_url and file_url.startswith('https://')) else 'database'
+                    }
                 }),
                 'isBase64Encoded': False
             }
-        
+            
         finally:
             cur.close()
             conn.close()
-    
+            
     except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"Error occurred: {error_trace}")
+        print(f'Upload error: {str(e)}')
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
