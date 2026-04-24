@@ -101,6 +101,9 @@ import ZdravpunktWorkersPage from "./pages/ZdravpunktWorkersPage";
 import NotFound from "./pages/NotFound";
 import UnderDevelopment from "./pages/UnderDevelopment";
 import ExportCodePage from "./pages/ExportCodePage";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import CookieBanner from "./components/CookieBanner";
 
 const LoadingScreen = () => (
   <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
@@ -251,10 +254,13 @@ const App = () => {
           <Route path="/zdravpunkt" element={<ZdravpunktPage />} />
           <Route path="/zdravpunkt/workers" element={<ZdravpunktWorkersPage />} />
           <Route path="/export-code" element={<ExportCodePage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<UnderDevelopment />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
         </Suspense>
+        <CookieBanner />
       </BrowserRouter>
       </DemoProvider>
     </TooltipProvider>

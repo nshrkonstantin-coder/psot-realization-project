@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
 
@@ -23,6 +24,7 @@ export default function Login() {
   const [subdivision, setSubdivision] = useState('');
   const [position, setPosition] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  const [pdConsent, setPdConsent] = useState(false);
   const [codeStatus, setCodeStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [orgInfo, setOrgInfo] = useState<OrgInfo | null>(null);
   const navigate = useNavigate();
@@ -83,6 +85,11 @@ export default function Login() {
       navigator.userAgent, navigator.language, screen.width, screen.height,
       Intl.DateTimeFormat().resolvedOptions().timeZone
     ].join('|')).slice(0, 64);
+
+    if (isRegister && !pdConsent) {
+      toast({ title: 'Необходимо согласие', description: 'Пожалуйста, дайте согласие на обработку персональных данных', variant: 'destructive' });
+      return;
+    }
 
     const action = isRegister ? 'register' : 'login';
     const body = isRegister
@@ -301,9 +308,31 @@ export default function Login() {
                   />
                 </div>
 
+                {isRegister && (
+                  <div className="flex items-start gap-3 pt-1">
+                    <Checkbox
+                      id="pdConsent"
+                      checked={pdConsent}
+                      onCheckedChange={(v) => setPdConsent(!!v)}
+                      className="mt-0.5 border-yellow-600/50 data-[state=checked]:bg-yellow-600 data-[state=checked]:border-yellow-600"
+                    />
+                    <label htmlFor="pdConsent" className="text-xs text-gray-400 leading-relaxed cursor-pointer">
+                      Я даю согласие на обработку персональных данных в соответствии с{' '}
+                      <Link to="/privacy-policy" target="_blank" className="text-yellow-400 hover:text-yellow-300 underline">
+                        Политикой конфиденциальности
+                      </Link>{' '}
+                      и принимаю условия{' '}
+                      <Link to="/terms" target="_blank" className="text-yellow-400 hover:text-yellow-300 underline">
+                        Пользовательского соглашения
+                      </Link>
+                    </label>
+                  </div>
+                )}
+
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-yellow-600 to-orange-700 hover:from-yellow-500 hover:to-orange-600 text-white font-bold py-3 text-lg shadow-lg transform hover:scale-105 transition-all"
+                  disabled={isRegister && !pdConsent}
+                  className="w-full bg-gradient-to-r from-yellow-600 to-orange-700 hover:from-yellow-500 hover:to-orange-600 text-white font-bold py-3 text-lg shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   <Icon name={isRegister ? 'UserPlus' : 'LogIn'} size={20} className="mr-2" />
                   {isRegister ? 'Регистрация' : 'Войти'}
