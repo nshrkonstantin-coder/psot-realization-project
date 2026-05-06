@@ -49,8 +49,9 @@ const AlertWidget = () => {
     const pos = (localStorage.getItem('userPosition') || '').toLowerCase();
     const isAdmin = role === 'superadmin' || role === 'admin';
     const isOtipbByPosition = pos.includes('отипб') || pos.includes('от и пб');
+    const isOtipbByDept = dept.includes('отипб') || dept.includes('от и пб') || dept.includes('охрана труда');
 
-    if (!userId || (!isAdmin && !isOtipbByPosition)) {
+    if (!userId || (!isAdmin && !isOtipbByPosition && !isOtipbByDept)) {
       setLoaded(true);
       return;
     }
