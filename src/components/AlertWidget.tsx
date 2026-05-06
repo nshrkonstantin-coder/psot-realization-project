@@ -30,6 +30,7 @@ const AlertWidget = () => {
   const [open, setOpen] = useState(false);
   const [overdueItems, setOverdueItems] = useState<OverdueItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [isAllowed, setIsAllowed] = useState(false);
 
   const hidePaths = ['/', '/register'];
   const shouldHide =
@@ -52,9 +53,11 @@ const AlertWidget = () => {
     const isOtipbByDept = dept.includes('отипб') || dept.includes('от и пб') || dept.includes('охрана труда');
 
     if (!userId || (!isAdmin && !isOtipbByPosition && !isOtipbByDept)) {
+      setIsAllowed(false);
       setLoaded(true);
       return;
     }
+    setIsAllowed(true);
 
     const params = new URLSearchParams();
     if (orgId) params.set('organization_id', orgId);
@@ -115,7 +118,7 @@ const AlertWidget = () => {
     };
   }, [location.pathname]);
 
-  if (shouldHide || !loaded) return null;
+  if (shouldHide || !loaded || !isAllowed) return null;
 
   const hasOverdue = overdueItems.length > 0;
 
