@@ -21,6 +21,7 @@ import GlobalThemeToggle from "@/components/GlobalThemeToggle";
 import AlertWidget from "@/components/AlertWidget";
 import DemoProvider from "@/contexts/DemoContext";
 import DemoPage from "./pages/DemoPage";
+import ProductPresentation from "./pages/ProductPresentation";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -117,7 +118,7 @@ const LoadingScreen = () => (
  */
 const ConditionalGlobalControls = () => {
   const location = useLocation();
-  const hideOnPaths = ['/', '/register', '/org/'];
+  const hideOnPaths = ['/', '/register', '/org/', '/presentation'];
   
   // Проверяем, нужно ли скрывать контролы
   const shouldHide = hideOnPaths.some(path => {
@@ -177,6 +178,7 @@ const App = () => {
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/demo" element={<DemoPage />} />
+          <Route path="/presentation" element={<ProductPresentation />} />
           <Route path="/register" element={<Register />} />
           <Route path="/register/:code" element={<Register />} />
           <Route path="/org/:orgCode" element={<OrganizationLogin />} />

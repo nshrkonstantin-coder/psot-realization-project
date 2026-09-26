@@ -180,12 +180,20 @@ export default function Login() {
             <div className="absolute inset-0 bg-gradient-to-br from-yellow-900 to-orange-900 rounded-2xl transform translate-y-2 blur-xl opacity-50" />
 
             <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 shadow-2xl border-2 border-yellow-600/30">
-              <div className="text-center mb-8">
+              <div className="text-center mb-6">
                 <div className="inline-flex items-center justify-center mb-4">
                   <img src="https://cdn.poehali.dev/files/a8450d96-c4de-4091-8a4e-f993560bc89e.png" alt="АСУБТ" className="w-40 h-40 object-contain transform hover:scale-110 transition-transform" />
                 </div>
                 <p className="text-orange-400 text-sm font-semibold">Автоматизированная система управления безопасностью труда</p>
               </div>
+
+              <Link
+                to="/presentation"
+                className="flex items-center justify-center gap-2 w-full mb-6 bg-yellow-600/10 hover:bg-yellow-600/20 border border-yellow-600/40 text-yellow-400 hover:text-yellow-300 font-medium py-2.5 px-4 rounded-xl transition-all"
+              >
+                <Icon name="Sparkles" size={18} />
+                Ознакомление с продуктом
+              </Link>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 {isRegister && (
