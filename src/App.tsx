@@ -1,9 +1,9 @@
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import OfflineNotification from "@/components/OfflineNotification";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 import MessageNotifications from "@/components/MessageNotifications";
@@ -151,6 +151,32 @@ const queryClient = new QueryClient({
   },
 });
 
+const EntryRedirect = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const done = useRef(false);
+
+  useEffect(() => {
+    if (done.current) return;
+    done.current = true;
+
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code') || params.get('invite');
+
+    if (location.pathname === '/' && code) {
+      navigate(`/login?code=${encodeURIComponent(code)}`, { replace: true });
+      return;
+    }
+
+    const isEntryPage = location.pathname === '/login' || location.pathname === '/register';
+    if (isEntryPage && !code) {
+      navigate('/', { replace: true });
+    }
+  }, []);
+
+  return null;
+};
+
 const AppInner = () => {
   useOrganizationSync();
   useSessionGuard();
@@ -171,6 +197,7 @@ const App = () => {
             <DemoProvider>
             <BrowserRouter>
               <AppInner />
+              <EntryRedirect />
               <ConditionalGlobalControls />
               <AlertWidget />
               <MessageNotifications />
