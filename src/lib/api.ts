@@ -32,7 +32,7 @@ export async function apiFetch(url: string, options: RequestInit = {}, autoRedir
 
   if (response.status === 401 && autoRedirect) {
     clearSession();
-    window.location.href = '/';
+    window.location.href = '/login';
   }
 
   return response;

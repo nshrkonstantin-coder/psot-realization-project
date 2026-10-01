@@ -155,7 +155,7 @@ export const useMetricsData = () => {
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
 

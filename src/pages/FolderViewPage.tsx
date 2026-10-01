@@ -36,7 +36,7 @@ const FolderViewPage = () => {
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     loadFiles();

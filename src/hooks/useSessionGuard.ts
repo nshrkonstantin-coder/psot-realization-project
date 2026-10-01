@@ -23,7 +23,7 @@ export function useSessionGuard() {
     }
     localStorage.clear();
     sessionStorage.clear();
-    navigate('/');
+    navigate('/login');
   }, [navigate]);
 
   const resetTimer = useCallback(() => {

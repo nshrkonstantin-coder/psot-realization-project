@@ -95,7 +95,7 @@ const UserCabinet = () => {
     const userId = localStorage.getItem('userId');
     const role = localStorage.getItem('userRole') || 'user';
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     setUserRole(role);
@@ -133,7 +133,7 @@ const UserCabinet = () => {
       console.log('[UserCabinet] response status:', response.status);
       if (response.status === 401) {
         localStorage.clear();
-        navigate('/');
+        navigate('/login');
         return;
       }
       if (!response.ok) {
@@ -381,7 +381,7 @@ const UserCabinet = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   const getFilteredPabList = () => {
@@ -460,7 +460,7 @@ const UserCabinet = () => {
           {serverError && (
             <p className="text-red-400 text-xs mb-4 break-all">{serverError}</p>
           )}
-          <Button onClick={() => { localStorage.clear(); navigate('/'); }} className="bg-yellow-600 hover:bg-yellow-700 text-white">
+          <Button onClick={() => { localStorage.clear(); navigate('/login'); }} className="bg-yellow-600 hover:bg-yellow-700 text-white">
             Войти снова
           </Button>
         </Card>

@@ -130,7 +130,7 @@ export default function KBTReportPage() {
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     

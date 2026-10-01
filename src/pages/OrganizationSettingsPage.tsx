@@ -57,7 +57,7 @@ const OrganizationSettingsPage = () => {
     const userId = localStorage.getItem('userId');
     
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     
@@ -67,7 +67,7 @@ const OrganizationSettingsPage = () => {
       } else if (role === 'user') {
         navigate('/dashboard');
       } else {
-        navigate('/');
+        navigate('/login');
       }
       return;
     }
@@ -145,7 +145,7 @@ const OrganizationSettingsPage = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   const handleLogoChange = (logoUrl: string | null) => {

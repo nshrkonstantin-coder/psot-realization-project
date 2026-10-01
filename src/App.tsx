@@ -118,7 +118,7 @@ const LoadingScreen = () => (
  */
 const ConditionalGlobalControls = () => {
   const location = useLocation();
-  const hideOnPaths = ['/', '/register', '/org/', '/presentation'];
+  const hideOnPaths = ['/', '/login', '/register', '/org/', '/presentation'];
   
   // Проверяем, нужно ли скрывать контролы
   const shouldHide = hideOnPaths.some(path => {
@@ -176,7 +176,8 @@ const App = () => {
               <MessageNotifications />
         <Suspense fallback={<LoadingScreen />}>
         <Routes>
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<ProductPresentation />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/demo" element={<DemoPage />} />
           <Route path="/presentation" element={<ProductPresentation />} />
           <Route path="/register" element={<Register />} />

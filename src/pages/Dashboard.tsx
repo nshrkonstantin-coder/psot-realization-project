@@ -33,7 +33,7 @@ const Dashboard = () => {
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
 
@@ -112,7 +112,7 @@ const Dashboard = () => {
   const handleLogout = () => {
     localStorage.clear();
     sessionStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   const navigationButtons = [

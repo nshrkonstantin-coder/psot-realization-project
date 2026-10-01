@@ -39,7 +39,7 @@ const SystemSettings = () => {
     const userId = localStorage.getItem('userId');
     
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     
@@ -50,7 +50,7 @@ const SystemSettings = () => {
       } else if (role === 'user') {
         navigate('/dashboard');
       } else {
-        navigate('/');
+        navigate('/login');
       }
       return;
     }

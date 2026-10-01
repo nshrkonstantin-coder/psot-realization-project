@@ -39,7 +39,7 @@ const ChartsPage = () => {
     const userId = localStorage.getItem('userId');
     const role = localStorage.getItem('userRole');
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     setUserRole(role || '');

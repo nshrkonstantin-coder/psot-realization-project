@@ -34,7 +34,7 @@ const PointsRulesPage = () => {
     const userId = localStorage.getItem('userId');
     
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     
@@ -44,7 +44,7 @@ const PointsRulesPage = () => {
       } else if (role === 'user') {
         navigate('/dashboard');
       } else {
-        navigate('/');
+        navigate('/login');
       }
       return;
     }
@@ -138,7 +138,7 @@ const PointsRulesPage = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   const groupedRules = rules.reduce((acc, rule) => {

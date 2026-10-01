@@ -69,7 +69,7 @@ export default function ProductionControlPage() {
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     

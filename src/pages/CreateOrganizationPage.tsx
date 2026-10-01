@@ -43,7 +43,7 @@ const CreateOrganizationPage = () => {
     const userId = localStorage.getItem('userId');
     
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     
@@ -53,7 +53,7 @@ const CreateOrganizationPage = () => {
       } else if (role === 'user') {
         navigate('/dashboard');
       } else {
-        navigate('/');
+        navigate('/login');
       }
       return;
     }
@@ -202,7 +202,7 @@ const CreateOrganizationPage = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   return (

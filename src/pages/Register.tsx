@@ -197,7 +197,7 @@ const Register = () => {
               </div>
 
               <Link
-                to="/presentation"
+                to="/"
                 className="flex items-center justify-center gap-2 w-full mb-6 bg-yellow-600/10 hover:bg-yellow-600/20 border border-yellow-600/40 text-yellow-400 hover:text-yellow-300 font-medium py-2.5 px-4 rounded-xl transition-all"
               >
                 <Icon name="Sparkles" size={18} />

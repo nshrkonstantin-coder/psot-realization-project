@@ -74,7 +74,7 @@ const KBTReportViewPage = () => {
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     loadReport();

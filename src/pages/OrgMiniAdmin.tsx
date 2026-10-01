@@ -26,7 +26,7 @@ const OrgMiniAdmin = () => {
     const role = localStorage.getItem('userRole');
     
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     
@@ -68,7 +68,7 @@ const OrgMiniAdmin = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   const hasPermission = (module: string) => {

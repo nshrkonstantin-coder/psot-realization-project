@@ -11,7 +11,7 @@ const AdditionalPage = () => {
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     const role = localStorage.getItem('userRole');

@@ -52,7 +52,7 @@ export default function DatabasePage() {
     const userId = localStorage.getItem('userId');
     
     if (!userId || role !== 'superadmin') {
-      navigate('/');
+      navigate('/login');
       return;
     }
 

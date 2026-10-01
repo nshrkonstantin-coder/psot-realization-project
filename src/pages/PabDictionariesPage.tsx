@@ -41,7 +41,7 @@ export default function PabDictionariesPage() {
     const userId = localStorage.getItem('userId');
     
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     
@@ -49,7 +49,7 @@ export default function PabDictionariesPage() {
       if (role === 'user') {
         navigate('/dashboard');
       } else {
-        navigate('/');
+        navigate('/login');
       }
       return;
     }

@@ -313,7 +313,7 @@ const WorkersRegistryPage = () => {
   const pendingCount = Object.keys(pendingEdits).filter(id => Object.keys(pendingEdits[Number(id)]).length > 0).length;
 
   useEffect(() => {
-    if (!userId) { navigate('/'); return; }
+    if (!userId) { navigate('/login'); return; }
     if (!isOtipb) { navigate('/dashboard'); return; }
     // Сначала загружаем блокировки, потом данные — чтобы badge сразу показал правильный статус
     fetchPageLocks().then(() => loadData());

@@ -129,7 +129,7 @@ const OtManagementPage = () => {
   useEffect(() => {
     const role = localStorage.getItem('userRole');
     const userId = localStorage.getItem('userId');
-    if (!userId) { navigate('/'); return; }
+    if (!userId) { navigate('/login'); return; }
     if (role !== 'superadmin') {
       navigate(role === 'admin' ? '/admin' : role === 'user' ? '/dashboard' : '/');
       return;
@@ -670,7 +670,7 @@ const OtManagementPage = () => {
           <Button variant="ghost" onClick={() => navigate('/superadmin')} className="text-purple-400">
             <Icon name="ArrowLeft" size={20} className="mr-2" />Назад
           </Button>
-          <Button onClick={() => { localStorage.clear(); navigate('/'); }} variant="outline"
+          <Button onClick={() => { localStorage.clear(); navigate('/login'); }} variant="outline"
             className="border-purple-600/50 text-purple-400 hover:bg-purple-600/10">
             <Icon name="LogOut" size={20} className="mr-2" />Выход
           </Button>

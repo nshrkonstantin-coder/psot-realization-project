@@ -32,7 +32,7 @@ const OrganizationsManagementPage = () => {
     const userId = localStorage.getItem('userId');
     
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     
@@ -42,7 +42,7 @@ const OrganizationsManagementPage = () => {
       } else if (role === 'user') {
         navigate('/dashboard');
       } else {
-        navigate('/');
+        navigate('/login');
       }
       return;
     }
@@ -65,7 +65,7 @@ const OrganizationsManagementPage = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   const copyToClipboard = (text: string) => {

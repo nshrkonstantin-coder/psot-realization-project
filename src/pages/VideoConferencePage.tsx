@@ -69,7 +69,7 @@ const VideoConferencePage = () => {
     const fio = localStorage.getItem('userFio');
     const role = localStorage.getItem('userRole');
 
-    if (!id) { navigate('/'); return; }
+    if (!id) { navigate('/login'); return; }
 
     setUserId(Number(id));
     setUserFio(fio || '');

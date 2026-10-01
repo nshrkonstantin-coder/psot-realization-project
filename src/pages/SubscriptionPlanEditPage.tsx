@@ -58,7 +58,7 @@ const SubscriptionPlanEditPage = () => {
     const userId = localStorage.getItem('userId');
     
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     
@@ -68,7 +68,7 @@ const SubscriptionPlanEditPage = () => {
       } else if (role === 'user') {
         navigate('/dashboard');
       } else {
-        navigate('/');
+        navigate('/login');
       }
       return;
     }
@@ -187,7 +187,7 @@ const SubscriptionPlanEditPage = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   if (loading) {

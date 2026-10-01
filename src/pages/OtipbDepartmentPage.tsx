@@ -99,7 +99,7 @@ const OtipbDepartmentPage = () => {
     const storedUserName = localStorage.getItem('userFio') || localStorage.getItem('userName') || 'Коллега';
     setUserName(storedUserName);
 
-    if (!uid) { navigate('/'); return; }
+    if (!uid) { navigate('/login'); return; }
 
     const department = localStorage.getItem('userDepartment');
     const dept = (department || '').toLowerCase();

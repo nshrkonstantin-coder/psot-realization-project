@@ -68,7 +68,7 @@ const AdminMessagesPage = () => {
     const id = localStorage.getItem('userId');
 
     if (!id) {
-      navigate('/');
+      navigate('/login');
       return;
     }
 

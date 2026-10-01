@@ -38,7 +38,7 @@ const LogoLibraryPage = () => {
     const userId = localStorage.getItem('userId');
     
     if (!userId) {
-      navigate('/');
+      navigate('/login');
       return;
     }
     
@@ -48,7 +48,7 @@ const LogoLibraryPage = () => {
       } else if (role === 'user') {
         navigate('/dashboard');
       } else {
-        navigate('/');
+        navigate('/login');
       }
       return;
     }
@@ -163,7 +163,7 @@ const LogoLibraryPage = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   const groupedTemplates = templates.reduce((acc, template) => {
