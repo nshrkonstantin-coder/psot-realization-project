@@ -24,8 +24,12 @@ const benefits = [
 
 const screens = [
   { src: '/screens/dashboard.jpg', title: 'Главный экран системы', text: 'Реальный скриншот: быстрый доступ ко всем модулям — ПАБ, производственный контроль, показатели, поручения и предписания' },
+  { src: 'https://cdn.poehali.dev/projects/6a204355-7d07-4fa8-8be9-b352073201f1/bucket/e87d6001-303c-4ac8-9fd2-bbb4cb93df25.png', title: 'Регистрация ПАБ', text: 'Форма регистрации наблюдения: категория, опасные факторы, мероприятия, срок и ответственный' },
+  { src: 'https://cdn.poehali.dev/projects/6a204355-7d07-4fa8-8be9-b352073201f1/bucket/54002b76-ae65-4cbf-b1b6-fbf024e479b5.png', title: 'Список производственного контроля', text: 'Реестр проверок с поиском, печатью и выгрузкой в Word, сроками устранения и статусами' },
+  { src: 'https://cdn.poehali.dev/projects/6a204355-7d07-4fa8-8be9-b352073201f1/bucket/f92e0a7f-03e9-4ae9-acda-8fc5f4de1ad6.png', title: 'Реестр предписаний', text: 'Сводка по предписаниям и нарушениям: выполнено, в работе, просрочено' },
+  { src: 'https://cdn.poehali.dev/projects/6a204355-7d07-4fa8-8be9-b352073201f1/bucket/35606793-bc39-4111-acd7-9ebe453d7594.png', title: 'Мои показатели', text: 'Личные показатели за выбранный период: аудиты, выявленные нарушения, устранено, в работе, просрочено' },
   { src: 'https://cdn.poehali.dev/projects/6a204355-7d07-4fa8-8be9-b352073201f1/files/95f2b890-6d12-4ff6-a8f9-987fd867c2c0.jpg', title: 'Аналитика', text: 'Графики и диаграммы по нарушениям и подразделениям' },
-  { src: 'https://cdn.poehali.dev/projects/6a204355-7d07-4fa8-8be9-b352073201f1/files/7076ead7-3447-410d-b2f3-4df724e3d289.jpg', title: 'Реестры и аудиты', text: 'Таблицы с фильтрами, статусами и историей проверок' },
+  { src: 'https://cdn.poehali.dev/projects/6a204355-7d07-4fa8-8be9-b352073201f1/files/7076ead7-3447-410d-b2f3-4df724e3d289.jpg', title: 'Список ПАБ', text: 'Таблицы с фильтрами, статусами и историей проверок' },
   { src: 'https://cdn.poehali.dev/projects/6a204355-7d07-4fa8-8be9-b352073201f1/files/6255d480-6b74-468a-8790-e5de441302e5.jpg', title: 'Здравпункт', text: 'Карточки работников и график медосмотров' },
 ];
 
@@ -111,7 +115,7 @@ export default function ProductPresentation() {
           <p className="text-gray-400 text-center mb-10 max-w-2xl mx-auto">
             Современный интерфейс с наглядной аналитикой, удобными таблицами и понятной навигацией
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             {screens.map((s) => (
               <div key={s.title} className="group bg-slate-900 rounded-2xl overflow-hidden border-2 border-yellow-600/30 shadow-2xl">
                 <div className="overflow-hidden">
