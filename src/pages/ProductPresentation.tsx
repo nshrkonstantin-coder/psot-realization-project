@@ -23,7 +23,7 @@ const benefits = [
 ];
 
 const screens = [
-  { src: 'https://cdn.poehali.dev/projects/6a204355-7d07-4fa8-8be9-b352073201f1/files/cb315433-a463-4960-b388-0735d096e842.jpg', title: 'Рабочая панель', text: 'Ключевые показатели и быстрый доступ ко всем модулям' },
+  { src: '/screens/dashboard.jpg', title: 'Главный экран системы', text: 'Реальный скриншот: быстрый доступ ко всем модулям — ПАБ, производственный контроль, показатели, поручения и предписания' },
   { src: 'https://cdn.poehali.dev/projects/6a204355-7d07-4fa8-8be9-b352073201f1/files/95f2b890-6d12-4ff6-a8f9-987fd867c2c0.jpg', title: 'Аналитика', text: 'Графики и диаграммы по нарушениям и подразделениям' },
   { src: 'https://cdn.poehali.dev/projects/6a204355-7d07-4fa8-8be9-b352073201f1/files/7076ead7-3447-410d-b2f3-4df724e3d289.jpg', title: 'Реестры и аудиты', text: 'Таблицы с фильтрами, статусами и историей проверок' },
   { src: 'https://cdn.poehali.dev/projects/6a204355-7d07-4fa8-8be9-b352073201f1/files/6255d480-6b74-468a-8790-e5de441302e5.jpg', title: 'Здравпункт', text: 'Карточки работников и график медосмотров' },
