@@ -29,6 +29,7 @@ export default function DemoPage() {
         if (data.success) {
           localStorage.setItem('userId', String(data.userId));
           localStorage.setItem('userFio', data.fio || 'Демо Пользователь');
+          if (data.sessionToken) localStorage.setItem('sessionToken', data.sessionToken);
           localStorage.setItem('userRole', 'demo');
           localStorage.setItem('userEmail', 'demo@demo.ru');
           localStorage.setItem('userCompany', data.company || DEMO_COMPANY);

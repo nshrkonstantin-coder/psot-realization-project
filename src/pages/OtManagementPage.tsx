@@ -131,7 +131,7 @@ const OtManagementPage = () => {
     const userId = localStorage.getItem('userId');
     if (!userId) { navigate('/login'); return; }
     if (role !== 'superadmin') {
-      navigate(role === 'admin' ? '/admin' : role === 'user' ? '/dashboard' : '/');
+      navigate(role === 'admin' ? '/admin' : role === 'user' || role === 'demo' ? '/dashboard' : '/');
       return;
     }
     loadData();

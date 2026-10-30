@@ -314,7 +314,7 @@ const WorkersRegistryPage = () => {
 
   useEffect(() => {
     if (!userId) { navigate('/login'); return; }
-    if (!isOtipb) { navigate('/dashboard'); return; }
+    if (!isOtipb && userRole !== 'demo') { navigate('/dashboard'); return; }
     // Сначала загружаем блокировки, потом данные — чтобы badge сразу показал правильный статус
     fetchPageLocks().then(() => loadData());
   }, []);

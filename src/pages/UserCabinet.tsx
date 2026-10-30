@@ -132,6 +132,7 @@ const UserCabinet = () => {
       const response = await fetch(url);
       console.log('[UserCabinet] response status:', response.status);
       if (response.status === 401) {
+        if (localStorage.getItem('userRole') === 'demo') return;
         localStorage.clear();
         navigate('/login');
         return;

@@ -31,7 +31,7 @@ const Admin = () => {
       } else if (role === 'user') {
         navigate('/dashboard');
       } else {
-        navigate('/login');
+        navigate(role === 'demo' ? '/dashboard' : '/login');
       }
       return;
     }
