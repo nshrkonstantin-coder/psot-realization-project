@@ -507,7 +507,7 @@ const UserCabinet = () => {
               className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
             >
               <Icon name="ArrowLeft" size={20} className="mr-2" />
-              На главную
+              Назад
             </Button>
             <Button
               onClick={handleLogout}

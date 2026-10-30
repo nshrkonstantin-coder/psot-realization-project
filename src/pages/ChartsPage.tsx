@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -23,6 +24,7 @@ interface SheetData {
 
 const ChartsPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
   const [userRole, setUserRole] = useState<string>('');
@@ -321,7 +323,7 @@ const ChartsPage = () => {
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={() => navigate('/additional')}
+                onClick={() => goBack('/additional')}
                 className="rounded-full px-8"
               >
                 Назад

@@ -86,12 +86,12 @@ export default function AdminPabRegistryPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <Button
-              variant="ghost"
-              size="icon"
+              variant="outline"
               onClick={() => goBack('/dashboard')}
-              className="hover:bg-white/50"
+              className="border-blue-600/50 text-blue-700 dark:text-blue-300 bg-white/70 dark:bg-slate-800/60 hover:bg-white"
             >
-              <Icon name="ArrowLeft" size={20} />
+              <Icon name="ArrowLeft" size={20} className="mr-2" />
+              Назад
             </Button>
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Реестр всех пользователей ПАБ</h1>

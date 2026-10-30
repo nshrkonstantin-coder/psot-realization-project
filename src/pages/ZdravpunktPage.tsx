@@ -1574,8 +1574,9 @@ const ZdravpunktPage = () => {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={() => goBack('/superadmin')}
-              className="text-slate-400 hover:text-white transition-colors">
-              <Icon name="ArrowLeft" size={20} />
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium transition-colors">
+              <Icon name="ArrowLeft" size={18} />
+              Назад
             </button>
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg">
               <Icon name="HeartPulse" size={22} className="text-white" />

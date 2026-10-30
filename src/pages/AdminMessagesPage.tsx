@@ -344,7 +344,8 @@ const AdminMessagesPage = () => {
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
             <Button onClick={() => navigate(-1)} variant="outline" className="border-blue-600/50">
-              <Icon name="ArrowLeft" size={20} />
+              <Icon name="ArrowLeft" size={20} className="mr-2" />
+              Назад
             </Button>
             <OrganizationLogo size={48} showCompanyName={false} />
             <div>

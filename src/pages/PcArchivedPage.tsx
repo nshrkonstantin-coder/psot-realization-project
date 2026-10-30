@@ -96,8 +96,9 @@ export default function PcArchivedPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => goBack('/pc-registry')}>
-              <Icon name="ArrowLeft" size={20} />
+            <Button variant="outline" onClick={() => goBack('/pc-registry')}>
+              <Icon name="ArrowLeft" size={20} className="mr-2" />
+              Назад
             </Button>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Архив записей</h1>
           </div>

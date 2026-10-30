@@ -254,8 +254,9 @@ const ZdravpunktWorkersPage = () => {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <button onClick={() => goBack('/zdravpunkt')}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition">
-                <Icon name="ArrowLeft" size={18} />
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium transition">
+                <Icon name="ArrowLeft" size={16} />
+                Назад
               </button>
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
                 <Icon name="Users" size={19} className="text-white" />

@@ -14,7 +14,8 @@ const CreateUser = () => {
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-4 mb-8">
           <Button variant="outline" onClick={() => navigate(-1)} className="border-purple-600/50">
-            <Icon name="ArrowLeft" size={20} />
+            <Icon name="ArrowLeft" size={20} className="mr-2" />
+            Назад
           </Button>
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-purple-600 to-pink-700 p-3 rounded-xl shadow-lg">

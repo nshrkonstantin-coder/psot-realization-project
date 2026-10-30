@@ -108,9 +108,9 @@ export default function PcRegistryPage() {
             <Button
               onClick={() => navigate(-1)}
               variant="outline"
-              size="icon"
             >
-              <Icon name="ArrowLeft" size={20} />
+              <Icon name="ArrowLeft" size={20} className="mr-2" />
+              Назад
             </Button>
             <div>
               <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-3">

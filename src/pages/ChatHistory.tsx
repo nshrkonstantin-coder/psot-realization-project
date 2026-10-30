@@ -373,7 +373,7 @@ const ChatHistory = () => {
               className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
             >
               <Icon name="ArrowLeft" size={20} className="mr-2" />
-              В кабинет
+              Назад
             </Button>
           </div>
         </div>

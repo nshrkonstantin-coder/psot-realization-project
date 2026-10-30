@@ -25,7 +25,8 @@ const ProfileHeader = ({ profile, onBack }: ProfileHeaderProps) => (
     <div className="flex justify-between items-center mb-8">
       <div className="flex items-center gap-4">
         <Button variant="outline" onClick={onBack} className="border-yellow-600/50">
-          <Icon name="ArrowLeft" size={20} />
+          <Icon name="ArrowLeft" size={20} className="mr-2" />
+          Назад
         </Button>
         <div className="flex items-center gap-3">
           <div className="bg-gradient-to-br from-yellow-600 to-orange-700 p-3 rounded-xl shadow-lg">
