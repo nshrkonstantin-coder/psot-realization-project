@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { getCompanyShortName } from '@/lib/companyName';
 
 interface Chat {
   chatId: number;
@@ -539,7 +540,7 @@ const ChatHistory = () => {
               Создать новый чат
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Выберите участника из АО "ГРК "Западная"
+              Выберите участника из {getCompanyShortName()}
             </DialogDescription>
           </DialogHeader>
 

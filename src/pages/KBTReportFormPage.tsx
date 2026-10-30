@@ -9,6 +9,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, BorderStyle } from 'docx';
 import { apiFetch } from '@/lib/api';
+import { getCompanyFullName, getCompanyShortName } from '@/lib/companyName';
 
 interface KBTFormData {
   department: string;
@@ -135,7 +136,7 @@ export default function KBTReportFormPage() {
     }
     
     const userFio = localStorage.getItem('userFio') || '';
-    const userCompany = localStorage.getItem('userCompany') || 'АО "ГРК "Западная"';
+    const userCompany = localStorage.getItem('userCompany') || getCompanyShortName();
     const userDepartment = localStorage.getItem('userDepartment') || '';
     const role = localStorage.getItem('userRole') || 'user';
     
@@ -257,7 +258,7 @@ export default function KBTReportFormPage() {
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-xl shadow-lg">
               <Icon name="FileText" size={32} className="text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-white">АО «ГРК «Западная» Рудник «Бадран» Форма отчета на КБТ</h1>
+            <h1 className="text-3xl font-bold text-white">{getCompanyFullName()} Форма отчета на КБТ</h1>
           </div>
         </div>
 

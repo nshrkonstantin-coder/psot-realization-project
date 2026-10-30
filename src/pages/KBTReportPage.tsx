@@ -9,6 +9,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, BorderStyle } from 'docx';
 import { apiFetch } from '@/lib/api';
+import { getCompanyFullName, getCompanyShortName } from '@/lib/companyName';
 
 interface KBTFormData {
   department: string;
@@ -135,7 +136,7 @@ export default function KBTReportPage() {
     }
     
     const userFio = localStorage.getItem('userFio') || '';
-    const userCompany = localStorage.getItem('userCompany') || 'АО "ГРК "Западная"';
+    const userCompany = localStorage.getItem('userCompany') || getCompanyShortName();
     const userDepartment = localStorage.getItem('userDepartment') || '';
     const role = localStorage.getItem('userRole') || 'user';
     
@@ -257,7 +258,7 @@ export default function KBTReportPage() {
             properties: {},
             children: [
               new Paragraph({
-                text: 'АО «ГРК «Западная» Рудник «Бадран»',
+                text: getCompanyFullName(),
                 alignment: AlignmentType.CENTER,
                 spacing: { after: 200 },
                 style: 'Heading1'
@@ -336,7 +337,7 @@ export default function KBTReportPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 print:bg-white">
       <Card className="max-w-5xl mx-auto p-8 print:shadow-none">
         <div className="header text-center mb-6 border-b-2 border-slate-300 pb-4 print:border-black">
-          <h1 className="text-3xl font-bold text-slate-900">АО «ГРК «Западная» Рудник «Бадран»</h1>
+          <h1 className="text-3xl font-bold text-slate-900">{getCompanyFullName()}</h1>
           <h2 className="text-2xl font-semibold text-slate-700 mt-2">Форма отчета на КБТ</h2>
         </div>
 

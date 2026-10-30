@@ -102,6 +102,7 @@ import ZdravpunktPage from "./pages/ZdravpunktPage";
 import ZdravpunktWorkersPage from "./pages/ZdravpunktWorkersPage";
 import NotFound from "./pages/NotFound";
 import ComingSoonPage from "./pages/ComingSoonPage";
+import OrdersJournalPage from "./pages/OrdersJournalPage";
 import UnderDevelopment from "./pages/UnderDevelopment";
 import ExportCodePage from "./pages/ExportCodePage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -289,7 +290,7 @@ const App = () => {
           <Route path="/export-code" element={<ExportCodePage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
-          <Route path="/orders" element={<ComingSoonPage />} />
+          <Route path="/orders" element={<OrdersJournalPage />} />
           <Route path="/violations-stats" element={<ComingSoonPage />} />
           <Route path="/otpb" element={<ComingSoonPage />} />
           <Route path="/reports" element={<ComingSoonPage />} />

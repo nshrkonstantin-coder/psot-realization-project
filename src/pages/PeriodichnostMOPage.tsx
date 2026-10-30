@@ -8,13 +8,14 @@ import { fetchPageLocks } from '@/hooks/usePageLock';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import * as XLSX from 'xlsx';
+import { isDemoUser } from '@/lib/companyName';
 
 const API = 'https://functions.poehali.dev/85a795aa-16f4-4214-8690-191bbd6e73d2';
 const SHEET = 'Периодичность МО';
 const COL_SHORT = 'Наименование (краткое)';
 const COL_FULL  = 'Полное наименование';
 const TITLE_KEY = 'mo_table_title';
-const DEFAULT_TITLE = 'Наименование профессий, должность проходящих МО 1раз в 2 года рудник «Бадран»';
+const getDefaultTitle = () => 'Наименование профессий, должность проходящих МО 1раз в 2 года' + (isDemoUser() ? '' : ' рудник «Бадран»');
 
 interface Row { id: number; short: string; full: string; }
 
@@ -24,7 +25,7 @@ const PeriodichnostMOPage = () => {
   const [loading, setLoading] = useState(true);
 
   // Заголовок
-  const [title, setTitle]               = useState(() => localStorage.getItem(TITLE_KEY) || DEFAULT_TITLE);
+  const [title, setTitle]               = useState(() => localStorage.getItem(TITLE_KEY) || getDefaultTitle());
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft]     = useState('');
 
@@ -117,7 +118,7 @@ const PeriodichnostMOPage = () => {
   // ── Заголовок ─────────────────────────────────────────────────────────────
   const startEditTitle = () => { setTitleDraft(title); setEditingTitle(true); };
   const saveTitle = () => {
-    const t = titleDraft.trim() || DEFAULT_TITLE;
+    const t = titleDraft.trim() || getDefaultTitle();
     setTitle(t);
     localStorage.setItem(TITLE_KEY, t);
     setEditingTitle(false);

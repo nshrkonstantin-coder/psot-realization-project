@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { generateObservationPDF } from '@/utils/observationPdfExport';
 import { generatePrescriptionPDF } from '@/utils/prescriptionPdfExport';
 import { apiFetch } from '@/lib/api';
+import { getCompanyShortName } from '@/lib/companyName';
 
 interface UserStats {
   user_id: number;
@@ -921,7 +922,7 @@ const UserCabinet = () => {
           <DialogHeader>
             <DialogTitle className="text-2xl text-yellow-500">Зарегистрированные пользователи</DialogTitle>
             <DialogDescription className="text-slate-400">
-              Список пользователей предприятия АО "ГРК "Западная"
+              Список пользователей предприятия {getCompanyShortName()}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 mt-4">
@@ -957,7 +958,7 @@ const UserCabinet = () => {
               Онлайн пользователи
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Пользователи онлайн из АО "ГРК "Западная"
+              Пользователи онлайн из {getCompanyShortName()}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 mt-4">

@@ -1,6 +1,7 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getMineName } from '@/lib/companyName';
 
 interface ProductionControlFormProps {
   currentDate: string;
@@ -46,7 +47,7 @@ export default function ProductionControlForm({
             onChange={(e) => setCurrentDate(e.target.value)}
             className="w-40 print:border-none print:bg-transparent"
           />
-          <span className="font-semibold text-slate-700">Рудник «Бадран»</span>
+          <span className="font-semibold text-slate-700">{getMineName()}</span>
         </div>
       </div>
 

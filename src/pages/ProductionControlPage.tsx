@@ -14,6 +14,7 @@ import { uploadToEPKFolder } from '@/utils/uploadToEPKFolder';
 import ProductionControlForm from '@/components/production-control/ProductionControlForm';
 import ViolationsTable from '@/components/production-control/ViolationsTable';
 import SignatureSection from '@/components/production-control/SignatureSection';
+import { getMineName } from '@/lib/companyName';
 
 interface ViolationItem {
   item_number: number;
@@ -332,7 +333,7 @@ export default function ProductionControlPage() {
               new Paragraph({ text: 'Акционерное Общество «Горно-рудная компания «Западная»', alignment: AlignmentType.CENTER, bold: true, spacing: { after: 100 } }),
               new Paragraph({ text: '678730, Республика Саха (Якутия), Оймяконский район, п. г. т. Усть-Нера, проезд Северный, д.12.', alignment: AlignmentType.CENTER, spacing: { after: 100 } }),
               new Paragraph({ text: 'тел. 8 (395) 225-52-88, доб.*1502', alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
-              new Paragraph({ text: `${currentDate}                    Рудник «Бадран»`, spacing: { after: 300 } }),
+              new Paragraph({ text: `${currentDate}                    ${getMineName()}`, spacing: { after: 300 } }),
               new Paragraph({ text: `ПРЕДПИСАНИЕ (АКТ) №${docNumber}`, alignment: AlignmentType.CENTER, bold: true, spacing: { after: 200 } }),
               new Paragraph({ text: 'Проверки по производственному контролю за состоянием ОТ и ПБ', alignment: AlignmentType.CENTER, spacing: { after: 300 } }),
               new Paragraph({ text: `Кому: ${recipientText}`, spacing: { after: 100 } }),
@@ -439,7 +440,7 @@ export default function ProductionControlPage() {
               new Paragraph({ text: 'Акционерное Общество «Горно-рудная компания «Западная»', alignment: AlignmentType.CENTER, bold: true, spacing: { after: 100 } }),
               new Paragraph({ text: '678730, Республика Саха (Якутия), Оймяконский район, п. г. т. Усть-Нера, проезд Северный, д.12.', alignment: AlignmentType.CENTER, spacing: { after: 100 } }),
               new Paragraph({ text: 'тел. 8 (395) 225-52-88, доб.*1502', alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
-              new Paragraph({ text: `${currentDate}                    Рудник «Бадран»`, spacing: { after: 300 } }),
+              new Paragraph({ text: `${currentDate}                    ${getMineName()}`, spacing: { after: 300 } }),
               new Paragraph({ text: `ПРЕДПИСАНИЕ (АКТ) №${docNumber}`, alignment: AlignmentType.CENTER, bold: true, spacing: { after: 200 } }),
               new Paragraph({ text: 'Проверки по производственному контролю за состоянием ОТ и ПБ', alignment: AlignmentType.CENTER, spacing: { after: 300 } }),
               new Paragraph({ text: `Кому: ${recipientText}`, spacing: { after: 100 } }),
