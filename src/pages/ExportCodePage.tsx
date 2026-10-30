@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import Icon from "@/components/ui/icon";
 import { apiFetch } from "@/lib/api";
+import PageBackButton from '@/components/PageBackButton';
 
 const EXPORT_URL = "https://functions.poehali.dev/eeed067c-4b0d-4318-80ef-e6af2f6a5a33";
 
@@ -173,6 +174,7 @@ export default function ExportCodePage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="w-full max-w-xl space-y-4">
+        <PageBackButton fallback="/superadmin" className="" />
 
         {/* Статистика */}
         <Card>

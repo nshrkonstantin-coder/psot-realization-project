@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,7 @@ interface RegistryRecord {
 
 export default function AdminPabRegistryPage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const { toast } = useToast();
   const [records, setRecords] = useState<RegistryRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,7 +88,7 @@ export default function AdminPabRegistryPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => goBack('/dashboard')}
               className="hover:bg-white/50"
             >
               <Icon name="ArrowLeft" size={20} />

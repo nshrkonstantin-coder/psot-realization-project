@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, BorderStyle } from 'docx';
 import { apiFetch } from '@/lib/api';
 import { getCompanyFullName, getCompanyShortName } from '@/lib/companyName';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface KBTFormData {
   department: string;
@@ -69,6 +70,7 @@ interface KBTFormData {
 
 export default function KBTReportFormPage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [loading, setLoading] = useState(false);
   const [userRole, setUserRole] = useState<string>('');
   
@@ -247,7 +249,7 @@ export default function KBTReportFormPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-4 mb-8">
           <Button
-            onClick={() => navigate('/kbt')}
+            onClick={() => goBack('/kbt')}
             variant="outline"
             className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
           >

@@ -13,6 +13,7 @@ import html2canvas from 'html2canvas';
 import OtipbAnalyticsBlock from '@/components/otipb/OtipbAnalyticsBlock';
 import ExcelOrdersImport from '@/components/otipb/ExcelOrdersImport';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const GREETING_KEY = 'otipb_greeting_enabled';
 const OT_ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
@@ -58,6 +59,7 @@ interface Specialist {
 
 const OtipbDepartmentPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [userName, setUserName] = useState<string>('');
   const [greetingEnabled, setGreetingEnabled] = useState<boolean>(true);
@@ -562,7 +564,7 @@ const OtipbDepartmentPage = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
-            <Button onClick={() => navigate('/additional')} variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10">
+            <Button onClick={() => goBack('/additional')} variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10">
               <Icon name="ArrowLeft" size={20} className="mr-2" />Назад
             </Button>
             <div className="flex items-center gap-4">
@@ -595,7 +597,7 @@ const OtipbDepartmentPage = () => {
         {/* Шапка */}
         <div className="flex items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
-            <Button onClick={() => navigate('/additional')} variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10">
+            <Button onClick={() => goBack('/additional')} variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10">
               <Icon name="ArrowLeft" size={20} className="mr-2" />Назад
             </Button>
             <div className="flex items-center gap-4">

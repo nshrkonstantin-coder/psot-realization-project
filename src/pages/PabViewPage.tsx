@@ -7,6 +7,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { generatePabPDF } from '@/utils/pabPdfExport';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Observation {
   id: number;
@@ -39,6 +40,7 @@ interface PabDetail {
 export default function PabViewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [loading, setLoading] = useState(true);
   const [pab, setPab] = useState<PabDetail | null>(null);
   const [userRole, setUserRole] = useState('');
@@ -243,7 +245,7 @@ export default function PabViewPage() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <Button
-            onClick={() => navigate('/pab-list')}
+            onClick={() => goBack('/pab-list')}
             variant="outline"
             className="flex items-center gap-2"
           >

@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { generatePabPDF } from '@/utils/pabPdfExport';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface PabRecord {
   id: number;
@@ -33,6 +34,7 @@ interface PabRecord {
 
 export default function PabListPage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<PabRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -248,7 +250,7 @@ export default function PabListPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <Button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => goBack('/dashboard')}
             variant="outline"
             className="flex items-center gap-2"
           >

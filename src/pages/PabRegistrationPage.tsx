@@ -9,6 +9,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import LightThemeWrapper from '@/components/LightThemeWrapper';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface ObservationData {
   description: string;
@@ -36,6 +37,7 @@ interface OrgUser {
 
 export default function PabRegistrationPage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [loading, setLoading] = useState(false);
   
   const [pabNumber, setPabNumber] = useState('');
@@ -247,7 +249,7 @@ export default function PabRegistrationPage() {
     <div className="min-h-screen py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="mb-6">
-          <Button variant="ghost" onClick={() => navigate('/pab-list')} className="mb-4">
+          <Button variant="ghost" onClick={() => goBack('/pab-list')} className="mb-4">
             <Icon name="ArrowLeft" className="mr-2 h-4 w-4" />
             Назад к списку ПАБ
           </Button>

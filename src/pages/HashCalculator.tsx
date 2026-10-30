@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api';
+import PageBackButton from '@/components/PageBackButton';
 
 const HashCalculator = () => {
   const [password, setPassword] = useState('Qwerdsx123!');
@@ -24,6 +25,7 @@ const HashCalculator = () => {
 
   return (
     <div className="p-8">
+      <PageBackButton fallback="/superadmin" className="mb-4" />
       <h1 className="text-2xl mb-4">Password Hash Calculator</h1>
       <div className="space-y-4 max-w-md">
         <Input

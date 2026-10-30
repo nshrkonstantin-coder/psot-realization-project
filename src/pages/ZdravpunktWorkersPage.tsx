@@ -4,6 +4,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import * as XLSX from 'xlsx';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const API = 'https://functions.poehali.dev/9dcd6f1a-ad53-4c5e-af05-0fd74e20e8b4';
 
@@ -66,6 +67,7 @@ interface HistoryModal {
 
 const ZdravpunktWorkersPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const orgId = localStorage.getItem('organizationId') || '';
   const effectiveOrgId = localStorage.getItem('zdravpunkt_contractor_org_id') || orgId;
 
@@ -251,7 +253,7 @@ const ZdravpunktWorkersPage = () => {
         <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <button onClick={() => navigate('/zdravpunkt')}
+              <button onClick={() => goBack('/zdravpunkt')}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition">
                 <Icon name="ArrowLeft" size={18} />
               </button>

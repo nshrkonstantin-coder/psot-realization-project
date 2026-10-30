@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +51,7 @@ interface AuditDetail {
 
 export default function PabUserRegistryPage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const { toast } = useToast();
   const [audits, setAudits] = useState<AuditDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,7 +234,7 @@ export default function PabUserRegistryPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => goBack('/dashboard')}
               className="hover:bg-white/50"
             >
               <Icon name="ArrowLeft" size={20} />

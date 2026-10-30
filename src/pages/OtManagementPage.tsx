@@ -12,6 +12,7 @@ import html2canvas from 'html2canvas';
 import OtipbAnalyticsBlock from '@/components/otipb/OtipbAnalyticsBlock';
 import ExcelOrdersImport from '@/components/otipb/ExcelOrdersImport';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const SEND_EMAIL_URL = 'https://functions.poehali.dev/2dab48c9-57c0-4f55-90e7-d93b326a6891';
 
@@ -87,6 +88,7 @@ const emptySpecForm = { fio: '', position: '', email: '', phone: '' };
 
 const OtManagementPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [orders, setOrders] = useState<Order[]>([]);
   const [specialists, setSpecialists] = useState<Specialist[]>([]);
   const [loading, setLoading] = useState(true);
@@ -667,7 +669,7 @@ const OtManagementPage = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <Button variant="ghost" onClick={() => navigate('/superadmin')} className="text-purple-400">
+          <Button variant="ghost" onClick={() => goBack('/superadmin')} className="text-purple-400">
             <Icon name="ArrowLeft" size={20} className="mr-2" />Назад
           </Button>
           <Button onClick={() => { localStorage.clear(); navigate('/login'); }} variant="outline"

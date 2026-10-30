@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface TableInfo {
   table_name: string;
@@ -38,6 +39,7 @@ const TABLE_DESCRIPTIONS: Record<string, string> = {
 
 export default function DatabasePage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [loading, setLoading] = useState(false);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [schemaName, setSchemaName] = useState<string>('');
@@ -192,7 +194,7 @@ export default function DatabasePage() {
           <div className="flex items-center gap-4">
             <Button
               variant="outline"
-              onClick={() => navigate('/superadmin')}
+              onClick={() => goBack('/superadmin')}
               className="border-purple-600/50 text-purple-400"
             >
               <Icon name="ArrowLeft" size={20} className="mr-2" />

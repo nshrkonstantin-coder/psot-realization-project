@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const KBTProtocolsPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -19,7 +21,7 @@ const KBTProtocolsPage = () => {
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-4 mb-8">
           <Button
-            onClick={() => navigate('/kbt')}
+            onClick={() => goBack('/kbt')}
             variant="outline"
             className="border-green-500/50 text-green-400 hover:bg-green-500/10"
           >

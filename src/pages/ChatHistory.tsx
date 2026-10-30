@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { getCompanyShortName } from '@/lib/companyName';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Chat {
   chatId: number;
@@ -47,6 +48,7 @@ interface OrganizationUser {
 
 const ChatHistory = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -366,7 +368,7 @@ const ChatHistory = () => {
               Новый чат
             </Button>
             <Button
-              onClick={() => navigate('/user-cabinet')}
+              onClick={() => goBack('/user-cabinet')}
               variant="outline"
               className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
             >

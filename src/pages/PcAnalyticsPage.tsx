@@ -2,16 +2,18 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
+import { useGoBack } from '@/hooks/useGoBack';
 
 export default function PcAnalyticsPage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <Button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => goBack('/dashboard')}
             variant="outline"
             className="flex items-center gap-2"
           >

@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface ArchivedRecord {
   id: number;
@@ -21,6 +22,7 @@ interface ArchivedRecord {
 
 export default function PcArchivedPage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [records, setRecords] = useState<ArchivedRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -94,7 +96,7 @@ export default function PcArchivedPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/pc-registry')}>
+            <Button variant="ghost" onClick={() => goBack('/pc-registry')}>
               <Icon name="ArrowLeft" size={20} />
             </Button>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Архив записей</h1>

@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const OtipbInspectionsPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -50,7 +52,7 @@ const OtipbInspectionsPage = () => {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Button
-              onClick={() => navigate('/otipb-department')}
+              onClick={() => goBack('/otipb-department')}
               variant="outline"
               className="border-green-500/50 text-green-400 hover:bg-green-500/10"
             >

@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface StorageFile {
   id: number;
@@ -19,6 +20,7 @@ interface StorageFile {
 
 const FolderViewPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const { folderId } = useParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -265,7 +267,7 @@ const FolderViewPage = () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Button
-              onClick={() => navigate('/storage')}
+              onClick={() => goBack('/storage')}
               variant="outline"
               className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
             >

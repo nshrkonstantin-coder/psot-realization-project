@@ -5,6 +5,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import FUNC_URLS from '../../backend/func2url.json';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Module {
   id: number;
@@ -26,6 +27,7 @@ interface Organization {
 export default function OrganizationModulesPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,7 +141,7 @@ export default function OrganizationModulesPage() {
       <div className="max-w-5xl mx-auto">
         <div className="mb-8">
           <Button
-            onClick={() => navigate('/organizations-management')}
+            onClick={() => goBack('/organizations-management')}
             variant="ghost"
             className="text-purple-400 mb-4"
           >

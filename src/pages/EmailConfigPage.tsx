@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { apiFetch } from '@/lib/api';
+import PageBackButton from '@/components/PageBackButton';
 
 interface EmailConfig {
   success: boolean;
@@ -144,6 +145,7 @@ export default function EmailConfigPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-6xl space-y-6">
+      <PageBackButton fallback="/superadmin" className="" />
       {/* Заголовок */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold flex items-center gap-3">

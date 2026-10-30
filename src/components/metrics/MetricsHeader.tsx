@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface MetricsHeaderProps {
   userCompany: string;
@@ -8,11 +9,12 @@ interface MetricsHeaderProps {
 
 export const MetricsHeader = ({ userCompany }: MetricsHeaderProps) => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
 
   return (
     <div className="flex items-center gap-4 mb-8">
       <Button
-        onClick={() => navigate('/dashboard')}
+        onClick={() => goBack('/dashboard')}
         variant="outline"
         className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
       >

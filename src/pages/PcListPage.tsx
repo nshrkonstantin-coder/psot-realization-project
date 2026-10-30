@@ -9,6 +9,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { generatePcPDF } from '@/utils/pcPdfExport';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface PcRecord {
   id: number;
@@ -28,6 +29,7 @@ interface PcRecord {
 
 export default function PcListPage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<PcRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -283,7 +285,7 @@ export default function PcListPage() {
       <div className="max-w-[1600px] mx-auto">
         <div className="flex items-center justify-between mb-8">
           <Button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => goBack('/dashboard')}
             variant="outline"
             className="flex items-center gap-2"
           >

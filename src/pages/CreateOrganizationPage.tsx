@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface TariffPlan {
   id: number;
@@ -28,6 +29,7 @@ interface LogoTemplate {
 
 const CreateOrganizationPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [name, setName] = useState('');
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [tariffs, setTariffs] = useState<TariffPlan[]>([]);
@@ -209,7 +211,7 @@ const CreateOrganizationPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
       <div className="max-w-6xl mx-auto mb-8">
         <div className="flex justify-between items-center">
-          <Button variant="ghost" onClick={() => navigate('/organizations-management')} className="text-purple-400">
+          <Button variant="ghost" onClick={() => goBack('/organizations-management')} className="text-purple-400">
             <Icon name="ArrowLeft" size={20} className="mr-2" />
             Назад
           </Button>

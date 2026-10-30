@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const AdditionalPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,7 +92,7 @@ const AdditionalPage = () => {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-4 mb-8">
           <Button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => goBack('/dashboard')}
             variant="outline"
             className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
           >

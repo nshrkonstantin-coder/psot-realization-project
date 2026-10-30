@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ImportInstructions } from '@/components/import/ImportInstructions';
 import * as XLSX from 'xlsx';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Company {
   id: number;
@@ -27,6 +28,7 @@ interface ImportedUser {
 
 const SystemSettings = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const { toast } = useToast();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string>('');
@@ -247,7 +249,7 @@ const SystemSettings = () => {
             <h1 className="text-3xl font-bold text-white">Системные настройки</h1>
           </div>
           <Button
-            onClick={() => navigate('/superadmin')}
+            onClick={() => goBack('/superadmin')}
             variant="outline"
             className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
           >

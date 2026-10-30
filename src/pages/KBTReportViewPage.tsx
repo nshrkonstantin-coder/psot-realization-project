@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface KBTReport {
   id: number;
@@ -67,6 +68,7 @@ interface KBTReport {
 
 const KBTReportViewPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const { id } = useParams<{ id: string }>();
   const [report, setReport] = useState<KBTReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -141,7 +143,7 @@ const KBTReportViewPage = () => {
         <div className="flex items-center justify-between mb-8 print:hidden">
           <div className="flex items-center gap-4">
             <Button
-              onClick={() => navigate('/kbt-reports')}
+              onClick={() => goBack('/kbt-reports')}
               variant="outline"
               className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
             >

@@ -10,6 +10,7 @@ import NotificationStats from '@/components/notifications/NotificationStats';
 import NotificationFilters from '@/components/notifications/NotificationFilters';
 import NotificationList from '@/components/notifications/NotificationList';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Notification {
   id: number;
@@ -41,6 +42,7 @@ interface Stats {
 
 const SystemNotificationsPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, unread: 0, errors: 0, warnings: 0 });
   const [loading, setLoading] = useState(true);
@@ -274,7 +276,7 @@ const SystemNotificationsPage = () => {
             </div>
           </div>
           <Button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => goBack('/dashboard')}
             variant="outline"
             className="border-slate-700 text-white hover:bg-slate-800"
           >

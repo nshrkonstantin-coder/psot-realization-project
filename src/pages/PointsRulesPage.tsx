@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface PointsRule {
   id: number;
@@ -24,6 +25,7 @@ interface PointsRule {
 const PointsRulesPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [rules, setRules] = useState<PointsRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -169,7 +171,7 @@ const PointsRulesPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex justify-between items-center">
-          <Button variant="ghost" onClick={() => navigate(`/organization-settings/${id}`)} className="text-purple-400">
+          <Button variant="ghost" onClick={() => goBack(`/organization-settings/${id}`)} className="text-purple-400">
             <Icon name="ArrowLeft" size={20} className="mr-2" />
             Назад к настройкам
           </Button>

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import PrescriptionStats from '@/components/prescriptions/PrescriptionStats';
 import ViolationList from '@/components/prescriptions/ViolationList';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Violation {
   id: number;
@@ -42,6 +43,7 @@ interface User {
 
 const PrescriptionsPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [violations, setViolations] = useState<Violation[]>([]);
   const [stats, setStats] = useState<Stats>({
     total_prescriptions: 0,
@@ -257,7 +259,7 @@ const PrescriptionsPage = () => {
               Обновить
             </Button>
             <Button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => goBack('/dashboard')}
               className="bg-slate-700 text-white hover:bg-slate-600"
             >
               <Icon name="ArrowLeft" size={20} className="mr-2" />

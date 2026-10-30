@@ -17,6 +17,7 @@ import { generateObservationPDF } from '@/utils/observationPdfExport';
 import { generatePrescriptionPDF } from '@/utils/prescriptionPdfExport';
 import { apiFetch } from '@/lib/api';
 import { getCompanyShortName } from '@/lib/companyName';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface UserStats {
   user_id: number;
@@ -62,6 +63,7 @@ interface OrganizationUser {
 
 const UserCabinet = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -500,7 +502,7 @@ const UserCabinet = () => {
               )}
             </Button>
             <Button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => goBack('/dashboard')}
               variant="outline"
               className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
             >

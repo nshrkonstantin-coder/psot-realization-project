@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import { apiFetch } from '@/lib/api';
+import PageBackButton from '@/components/PageBackButton';
 
 interface BackupConfig {
   autoBackup: boolean;
@@ -196,6 +197,7 @@ export default function BackupPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
       <div className="max-w-5xl mx-auto space-y-6">
+        <PageBackButton fallback="/superadmin" className="" />
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center">
             <Icon name="Database" size={24} className="text-white" />

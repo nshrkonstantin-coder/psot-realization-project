@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const API = 'https://functions.poehali.dev/9dcd6f1a-ad53-4c5e-af05-0fd74e20e8b4';
 
@@ -107,6 +108,7 @@ interface ReportRecord {
 
 const ZdravpunktPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const userId = localStorage.getItem('userId') || '';
   const userRole = localStorage.getItem('userRole') || '';
   const orgId = localStorage.getItem('organizationId') || '';
@@ -1571,7 +1573,7 @@ const ZdravpunktPage = () => {
       <div className="bg-gradient-to-r from-teal-900/60 to-slate-900 border-b border-teal-700/40 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/superadmin')}
+            <button onClick={() => goBack('/superadmin')}
               className="text-slate-400 hover:text-white transition-colors">
               <Icon name="ArrowLeft" size={20} />
             </button>

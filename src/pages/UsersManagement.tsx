@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +31,7 @@ interface User {
 
 const UsersManagement = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState({ total_users: 0, users_count: 0, admins_count: 0, superadmins_count: 0 });
@@ -357,13 +359,7 @@ const UsersManagement = () => {
               Управление паролями
             </Button>
             <Button
-              onClick={() => {
-                if (isSuperAdmin) {
-                  navigate('/superadmin');
-                } else {
-                  navigate('/admin');
-                }
-              }}
+              onClick={() => goBack(isSuperAdmin ? '/superadmin' : '/admin')}
               variant="outline"
               className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
             >

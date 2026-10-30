@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Icon from '@/components/ui/icon';
 import { useEmailSender } from '@/hooks/useEmailSender';
 import EmailStatusDialog from '@/components/EmailStatusDialog';
+import PageBackButton from '@/components/PageBackButton';
 
 export default function EmailTestPage() {
   const [recipients, setRecipients] = useState('');
@@ -59,6 +60,7 @@ export default function EmailTestPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-6">
       <div className="max-w-4xl mx-auto">
+        <PageBackButton fallback="/superadmin" className="mb-4" />
         <Card className="border-2 border-blue-200 shadow-xl">
           <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
             <CardTitle className="flex items-center gap-3 text-2xl">

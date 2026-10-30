@@ -9,6 +9,7 @@ import Icon from '@/components/ui/icon';
 import * as XLSX from 'xlsx';
 import func2url from '../../backend/func2url.json';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface RowData { [key: string]: string; }
 type SendStatus = 'idle' | 'sending' | 'sent' | 'error';
@@ -37,6 +38,7 @@ const BACKEND_URL = (func2url as Record<string, string>)['excel-mail-sender'] ||
 
 export default function ExcelMailSenderPage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const appendFileRef = useRef<HTMLInputElement>(null);
@@ -454,7 +456,7 @@ export default function ExcelMailSenderPage() {
 
         {/* Header */}
         <div className="flex flex-wrap items-center gap-3 mb-6">
-          <Button variant="outline" onClick={() => navigate(backRoute)} className="border-blue-600/50 text-blue-600 dark:text-blue-400">
+          <Button variant="outline" onClick={() => goBack(backRoute)} className="border-blue-600/50 text-blue-600 dark:text-blue-400">
             <Icon name="ArrowLeft" size={18} className="mr-2" />Назад
           </Button>
           {step === 'table' && (

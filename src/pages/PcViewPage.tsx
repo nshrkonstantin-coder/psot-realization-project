@@ -7,6 +7,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { generatePcPDF } from '@/utils/pcPdfExport';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Violation {
   id: number;
@@ -43,6 +44,7 @@ interface PcDetail {
 export default function PcViewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [loading, setLoading] = useState(true);
   const [pc, setPc] = useState<PcDetail | null>(null);
   const [userRole, setUserRole] = useState('');
@@ -250,7 +252,7 @@ export default function PcViewPage() {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Button
-              onClick={() => navigate('/pc-list')}
+              onClick={() => goBack('/pc-list')}
               variant="outline"
               className="flex items-center gap-2"
             >

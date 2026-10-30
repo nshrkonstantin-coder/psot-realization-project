@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const OT_ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
 
@@ -41,6 +42,7 @@ type FilterType = 'all' | 'new' | 'completed' | 'overdue';
 
 const OtipbSpecialistPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [searchParams] = useSearchParams();
 
   const fio = searchParams.get('fio') || '';
@@ -165,7 +167,7 @@ const OtipbSpecialistPage = () => {
 
         {/* Шапка */}
         <div className="flex items-center gap-4 mb-6">
-          <Button onClick={() => navigate(backUrl)} variant="outline"
+          <Button onClick={() => goBack(backUrl)} variant="outline"
             className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10">
             <Icon name="ArrowLeft" size={18} className="mr-2" />Назад
           </Button>

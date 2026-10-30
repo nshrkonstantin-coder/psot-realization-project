@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, BorderStyle } from 'docx';
 import { apiFetch } from '@/lib/api';
 import { getCompanyFullName, getCompanyShortName } from '@/lib/companyName';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface KBTFormData {
   department: string;
@@ -69,6 +70,7 @@ interface KBTFormData {
 
 export default function KBTReportPage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [loading, setLoading] = useState(false);
   const [userRole, setUserRole] = useState<string>('');
   
@@ -932,7 +934,7 @@ export default function KBTReportPage() {
         </div>
 
         <div className="buttons mt-8 flex gap-3 justify-center print:hidden">
-          <Button variant="outline" onClick={() => navigate('/dashboard')} className="border-red-500 text-red-500 hover:bg-red-50">
+          <Button variant="outline" onClick={() => goBack('/dashboard')} className="border-red-500 text-red-500 hover:bg-red-50">
             <Icon name="ArrowLeft" size={20} className="mr-2" />
             Назад
           </Button>

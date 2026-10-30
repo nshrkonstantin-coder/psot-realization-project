@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface SubscriptionPlan {
   id: number;
@@ -24,6 +25,7 @@ interface SubscriptionPlan {
 
 const SubscriptionPlansPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -101,7 +103,7 @@ const SubscriptionPlansPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex justify-between items-center">
-          <Button variant="ghost" onClick={() => navigate('/superadmin')} className="text-purple-400">
+          <Button variant="ghost" onClick={() => goBack('/superadmin')} className="text-purple-400">
             <Icon name="ArrowLeft" size={20} className="mr-2" />
             Назад
           </Button>

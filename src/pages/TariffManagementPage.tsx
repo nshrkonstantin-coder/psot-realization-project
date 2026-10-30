@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 import FUNC_URLS from '../../backend/func2url.json';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Module {
   id: number;
@@ -54,6 +55,7 @@ const ICONS = [
 
 export default function TariffManagementPage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [activeTab, setActiveTab] = useState<'tariffs' | 'modules'>('tariffs');
 
   // Тарифы
@@ -199,7 +201,7 @@ export default function TariffManagementPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/superadmin')} className="text-purple-400">
+            <Button variant="ghost" onClick={() => goBack('/superadmin')} className="text-purple-400">
               <Icon name="ArrowLeft" size={20} className="mr-2" />
               Назад
             </Button>

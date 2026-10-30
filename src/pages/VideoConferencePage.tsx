@@ -11,9 +11,11 @@ import DeviceCheckDialog from '@/components/video-conference/DeviceCheckDialog';
 import CreateConferenceDialog from '@/components/video-conference/CreateConferenceDialog';
 import ConferenceCard from '@/components/video-conference/ConferenceCard';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const VideoConferencePage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const [userId, setUserId] = useState<number | null>(null);
@@ -564,7 +566,7 @@ const VideoConferencePage = () => {
         {/* Шапка */}
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/dashboard')} className="text-slate-400 hover:text-white">
+            <Button variant="ghost" onClick={() => goBack('/dashboard')} className="text-slate-400 hover:text-white">
               <Icon name="ArrowLeft" size={20} className="mr-2" />
               Назад
             </Button>

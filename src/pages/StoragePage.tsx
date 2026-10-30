@@ -8,6 +8,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { logError } from '@/utils/notificationLogger';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Folder {
   id: number;
@@ -17,6 +18,7 @@ interface Folder {
 
 const StoragePage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -142,7 +144,7 @@ const StoragePage = () => {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Button
-              onClick={() => navigate('/additional')}
+              onClick={() => goBack('/additional')}
               variant="outline"
               className="border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10"
             >

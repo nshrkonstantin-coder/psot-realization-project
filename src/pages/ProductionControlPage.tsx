@@ -15,6 +15,7 @@ import ProductionControlForm from '@/components/production-control/ProductionCon
 import ViolationsTable from '@/components/production-control/ViolationsTable';
 import SignatureSection from '@/components/production-control/SignatureSection';
 import { getMineName } from '@/lib/companyName';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface ViolationItem {
   item_number: number;
@@ -34,6 +35,7 @@ interface SignatureLine {
 export default function ProductionControlPage() {
   console.log('[ProductionControlPage] Component rendering');
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [loading, setLoading] = useState(false);
   const [orgUsers, setOrgUsers] = useState<Array<{ id: number; fio: string; position: string; subdivision: string }>>([]);
   
@@ -556,7 +558,7 @@ export default function ProductionControlPage() {
         />
 
         <div className="buttons flex gap-3 justify-center print:hidden">
-          <Button variant="outline" onClick={() => navigate('/dashboard')} className="border-red-500 text-red-500 hover:bg-red-50">
+          <Button variant="outline" onClick={() => goBack('/dashboard')} className="border-red-500 text-red-500 hover:bg-red-50">
             <Icon name="ArrowLeft" size={20} className="mr-2" />
             Назад
           </Button>

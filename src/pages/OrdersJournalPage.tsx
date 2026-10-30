@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const ORDERS_URL = 'https://functions.poehali.dev/64c3f34b-05da-451e-bd8e-fae26e931120';
 
@@ -63,6 +64,7 @@ const emptyForm = { title: '', responsible: '', deadline: '', notes: '' };
 
 const OrdersJournalPage = () => {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const isDemo = localStorage.getItem('userRole') === 'demo';
   const userFio = localStorage.getItem('userFio') || '';
   const userId = localStorage.getItem('userId');
@@ -212,7 +214,7 @@ const OrdersJournalPage = () => {
           <div className="flex items-center gap-4">
             <Button
               variant="outline"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => goBack('/dashboard')}
               className="border-yellow-600/50 text-yellow-500 bg-transparent hover:bg-yellow-600/10 hover:text-yellow-400"
             >
               <Icon name="ArrowLeft" size={18} className="mr-2" />

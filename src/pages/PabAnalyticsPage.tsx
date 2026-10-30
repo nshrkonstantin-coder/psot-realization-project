@@ -4,6 +4,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import PageBackButton from '@/components/PageBackButton';
 
 interface AnalyticsData {
   stats: {
@@ -113,6 +114,7 @@ export default function PabAnalyticsPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      <PageBackButton fallback="/dashboard" className="" />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Аналитика ПАБ</h1>

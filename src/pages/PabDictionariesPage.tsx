@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ type DictionaryType = 'category' | 'condition' | 'hazard';
 
 export default function PabDictionariesPage() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [loading, setLoading] = useState(false);
   const [dictionaries, setDictionaries] = useState<Dictionaries>({
     categories: [],
@@ -165,13 +167,7 @@ export default function PabDictionariesPage() {
         <div className="flex items-center justify-between mb-6">
           <Button variant="ghost" onClick={() => {
             const role = localStorage.getItem('userRole');
-            if (role === 'superadmin') {
-              navigate('/superadmin');
-            } else if (role === 'admin') {
-              navigate('/admin');
-            } else {
-              navigate('/dashboard');
-            }
+            goBack(role === 'superadmin' ? '/superadmin' : role === 'admin' ? '/admin' : '/dashboard');
           }}>
             <Icon name="ArrowLeft" className="mr-2" size={20} />
             Назад
