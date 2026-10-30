@@ -100,6 +100,7 @@ import PeriodichnostMOPage from "./pages/PeriodichnostMOPage";
 import ZdravpunktPage from "./pages/ZdravpunktPage";
 import ZdravpunktWorkersPage from "./pages/ZdravpunktWorkersPage";
 import NotFound from "./pages/NotFound";
+import ComingSoonPage from "./pages/ComingSoonPage";
 import UnderDevelopment from "./pages/UnderDevelopment";
 import ExportCodePage from "./pages/ExportCodePage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -286,6 +287,11 @@ const App = () => {
           <Route path="/export-code" element={<ExportCodePage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/orders" element={<ComingSoonPage />} />
+          <Route path="/violations-stats" element={<ComingSoonPage />} />
+          <Route path="/otpb" element={<ComingSoonPage />} />
+          <Route path="/reports" element={<ComingSoonPage />} />
+          <Route path="/asubt" element={<ComingSoonPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
