@@ -3,13 +3,13 @@ import Icon from '@/components/ui/icon';
 
 /**
  * Глобальный переключатель темы и приветствия - отображается на всех страницах
- * Фиксированная позиция в правом верхнем углу
+ * Верхняя полоса страницы справа: уезжает вместе с прокруткой и не перекрывает содержимое
  */
 const GlobalThemeToggle = () => {
   const { theme, toggleTheme, showGreeting, toggleGreeting } = useTheme();
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
+    <div className="absolute top-3 right-4 z-40 flex items-center gap-3 print:hidden">
       {/* Переключатель темы */}
       <button
         onClick={toggleTheme}

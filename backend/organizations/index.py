@@ -134,7 +134,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Фильтруем предприятия в зависимости от роли
             # user и minadmin видят только свое предприятие
             # admin и superadmin видят все
-            if user_role in ('user', 'minadmin') and user_org_id:
+            if user_role in ('user', 'minadmin', 'demo') and user_org_id:
                 safe_user_org_id = int(user_org_id)
                 cur.execute(f'''
                     SELECT o.id, o.name, o.registration_code, o.created_at, o.trial_end_date, 

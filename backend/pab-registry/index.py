@@ -108,6 +108,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            demo_org_id = None
+            token = (params.get('token') or '').strip()
+            if token:
+                cursor.execute(
+                    "SELECT u.role, u.organization_id FROM t_p80499285_psot_realization_pro.sessions s "
+                    "JOIN t_p80499285_psot_realization_pro.users u ON u.id = s.user_id "
+                    "WHERE s.token = %s AND s.expires_at > NOW()",
+                    (token,)
+                )
+                sess = cursor.fetchone()
+                if sess and sess[0] == 'demo' and sess[1]:
+                    demo_org_id = sess[1]
+
             # Общая информация по всем пользователям или одному
             query = """
                 SELECT 
@@ -127,6 +140,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 WHERE 1=1
             """
             
+            if demo_org_id:
+                query += " AND u.organization_id = " + str(int(demo_org_id))
+
             if user_id:
                 query += " AND u.id = %s"
                 query += """

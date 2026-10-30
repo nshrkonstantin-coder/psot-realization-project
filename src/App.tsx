@@ -103,6 +103,7 @@ import ZdravpunktWorkersPage from "./pages/ZdravpunktWorkersPage";
 import NotFound from "./pages/NotFound";
 import ComingSoonPage from "./pages/ComingSoonPage";
 import OrdersJournalPage from "./pages/OrdersJournalPage";
+import ViolationsStatsPage from "./pages/ViolationsStatsPage";
 import UnderDevelopment from "./pages/UnderDevelopment";
 import ExportCodePage from "./pages/ExportCodePage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -131,12 +132,18 @@ const ConditionalGlobalControls = () => {
     return location.pathname === path;
   });
   
+  useEffect(() => {
+    if (shouldHide) return;
+    document.body.classList.add('has-global-controls');
+    return () => document.body.classList.remove('has-global-controls');
+  }, [shouldHide]);
+
   if (shouldHide) return null;
   
   return (
     <>
       <GlobalThemeToggle />
-      <div className="fixed top-4 right-20 z-50">
+      <div className="absolute top-3 right-4 mr-[22rem] z-40 print:hidden">
         <OnlineStatusIndicator />
       </div>
     </>
@@ -291,7 +298,7 @@ const App = () => {
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/orders" element={<OrdersJournalPage />} />
-          <Route path="/violations-stats" element={<ComingSoonPage />} />
+          <Route path="/violations-stats" element={<ViolationsStatsPage />} />
           <Route path="/otpb" element={<ComingSoonPage />} />
           <Route path="/reports" element={<ComingSoonPage />} />
           <Route path="/asubt" element={<ComingSoonPage />} />

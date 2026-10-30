@@ -84,6 +84,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         if action == 'list':
             user_role = session['role']
+            org_filter = ''
+            if user_role == 'demo':
+                cur.execute(
+                    "SELECT organization_id FROM t_p80499285_psot_realization_pro.users WHERE id = %s",
+                    (session['user_id'],)
+                )
+                demo_row = cur.fetchone()
+                org_filter = 'WHERE u.organization_id = ' + str(int(demo_row[0])) if demo_row and demo_row[0] else 'WHERE 1=0'
             
             cur.execute("""
                 SELECT u.id, u.email, u.fio, u.display_name, u.company, u.subdivision, u.position, u.role, u.created_at,
@@ -92,6 +100,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                        COALESCE(s.offline_count, 0) as offline_count
                 FROM t_p80499285_psot_realization_pro.users u
                 LEFT JOIN t_p80499285_psot_realization_pro.user_stats s ON u.id = s.user_id
+                """ + org_filter + """
                 ORDER BY u.created_at DESC
             """)
             
@@ -160,9 +169,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
         
         elif action == 'list_companies':
+            comp_filter = ''
+            if session['role'] == 'demo':
+                comp_filter = 'WHERE id = (SELECT organization_id FROM t_p80499285_psot_realization_pro.users WHERE id = ' + str(int(session['user_id'])) + ')'
             cur.execute("""
                 SELECT id, name 
                 FROM t_p80499285_psot_realization_pro.organizations 
+                """ + comp_filter + """
                 ORDER BY name
             """)
             
