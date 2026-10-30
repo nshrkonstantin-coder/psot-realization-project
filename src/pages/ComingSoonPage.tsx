@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import RequestSectionDialog from '@/components/RequestSectionDialog';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 
@@ -53,6 +55,7 @@ const ComingSoonPage = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const section = SECTIONS[pathname] || DEFAULT_SECTION;
+  const [requestOpen, setRequestOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-6">
@@ -79,10 +82,20 @@ const ComingSoonPage = () => {
           </p>
         </div>
 
+        <Button
+          onClick={() => setRequestOpen(true)}
+          size="lg"
+          className="mb-4 w-full sm:w-auto bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-slate-900 font-bold"
+        >
+          <Icon name="Send" size={18} className="mr-2" />
+          Оставить заявку на разработку
+        </Button>
+
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button
             onClick={() => navigate('/dashboard')}
-            className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-semibold"
+            variant="outline"
+            className="border-yellow-600/50 text-yellow-500 bg-transparent hover:bg-yellow-600/10 hover:text-yellow-400"
           >
             <Icon name="LayoutDashboard" size={18} className="mr-2" />
             На главный экран
@@ -97,6 +110,7 @@ const ComingSoonPage = () => {
           </Button>
         </div>
       </div>
+      <RequestSectionDialog open={requestOpen} onOpenChange={setRequestOpen} sectionTitle={section.title} />
     </div>
   );
 };

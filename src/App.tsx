@@ -21,6 +21,7 @@ import GlobalThemeToggle from "@/components/GlobalThemeToggle";
 import AlertWidget from "@/components/AlertWidget";
 import DemoProvider from "@/contexts/DemoContext";
 import DemoPage from "./pages/DemoPage";
+import DemoTour from "@/components/DemoTour";
 import ProductPresentation from "./pages/ProductPresentation";
 
 import Login from "./pages/Login";
@@ -199,6 +200,7 @@ const App = () => {
             <BrowserRouter>
               <AppInner />
               <EntryRedirect />
+              <DemoTour />
               <ConditionalGlobalControls />
               <AlertWidget />
               <MessageNotifications />

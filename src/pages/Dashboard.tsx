@@ -174,6 +174,7 @@ const Dashboard = () => {
             return (
             <Card
               key={index}
+              data-tour={button.route}
               onClick={() => navigate(button.route)}
               className="group relative overflow-hidden cursor-pointer bg-white dark:bg-slate-800/50 border-yellow-600/30 hover:border-yellow-600 transition-all hover:scale-105 hover:shadow-2xl"
             >
